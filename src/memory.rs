@@ -12,7 +12,7 @@ const MAX_ADDR: u64 = u64::MAX - 1;
 type Page = Box<[u8; PAGE_SIZE]>;
 
 #[derive(Default)]
-pub struct Memory {
+pub(crate) struct Memory {
     pages: HashMap<u64, Page>,
 }
 
@@ -41,7 +41,7 @@ impl Memory {
     }
 
     /// Read a single byte. Defaults to 0 if page doesn't exist
-    fn read_u8(&self, addr: u64) -> u8 {
+    pub(crate) fn read(&self, addr: u64) -> u8 {
         if addr > MAX_ADDR {
             panic!("read out of range: 0x{:x}", addr);
         }
@@ -52,13 +52,13 @@ impl Memory {
 
     /// Write a single byte.
     /// Allocates if this is the first time we write to this page.
-    fn write_u8(&mut self, addr: u64, data: u8) {
+    pub(crate) fn mem_mut(&mut self, addr: u64) -> &mut u8 {
         if addr > MAX_ADDR {
             panic!("write out of range: 0x{:x}", addr);
         }
         let idx = Self::page_idx(addr);
         let offset = Self::page_offset(addr);
-        self.ensure_page(idx)[offset] = data;
+        &mut self.ensure_page(idx)[offset]
     }
 }
 
@@ -71,30 +71,30 @@ mod tests {
         let mut mem = Memory::default();
 
         // write
-        mem.write_u8(0x1000, 0xAB);
-        mem.write_u8(0x1001, 0xCD);
+        *mem.mem_mut(0x1000) = 0xAB;
+        *mem.mem_mut(0x1001) = 0xCD;
         assert_eq!(mem.pages.len(), 1);
 
         // read
-        assert_eq!(mem.read_u8(0x1000), 0xAB);
-        assert_eq!(mem.read_u8(0x1001), 0xCD);
+        assert_eq!(mem.read(0x1000), 0xAB);
+        assert_eq!(mem.read(0x1001), 0xCD);
 
         // read unmapped
-        assert_eq!(mem.read_u8(0x7F3A_9C02_B47D_E610), 0);
+        assert_eq!(mem.read(0x7F3A_9C02_B47D_E610), 0);
     }
 
     #[test]
     #[should_panic]
     fn test_read_out_of_range() {
         let mem = Memory::default();
-        mem.read_u8(u64::MAX);
+        mem.read(u64::MAX);
     }
 
     #[test]
     #[should_panic]
     fn test_write_out_of_range() {
         let mut mem = Memory::default();
-        mem.write_u8(u64::MAX, 0);
+        *mem.mem_mut(u64::MAX) = 0;
     }
 
     #[test]
@@ -105,13 +105,13 @@ mod tests {
         // (PAGE_SIZE - 4)..(PAGE_SIZE + 4)
         let start = PAGE_SIZE as u64 - 4;
         for i in 0..8 {
-            mem.write_u8(start + i, i as u8);
+            *mem.mem_mut(start + i) = i as u8;
         }
         assert_eq!(mem.pages.len(), 2);
 
         // verify
         for i in 0..8 {
-            assert_eq!(mem.read_u8(start + i), i as u8);
+            assert_eq!(mem.read(start + i), i as u8);
         }
     }
 }
