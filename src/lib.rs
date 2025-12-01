@@ -126,4 +126,21 @@ mod tests {
         *vm.reg_mut(0) = 20;
         assert_eq!(vm.reg(0), 0);
     }
+
+    #[test]
+    fn test_memory_writing_le() {
+        let mut vm = VM::init();
+
+        let num = 4_u64;
+        let num_bytes = num.to_le_bytes();
+
+        // write to memory
+        let addr = 0;
+        for i in 0..8 {
+            *vm.mem_mut(addr + i) = num_bytes[i];
+        }
+
+        // read from memory
+        assert_eq!(vm.mem(addr), num);
+    }
 }
