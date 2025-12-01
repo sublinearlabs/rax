@@ -1,14 +1,50 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
+#[derive(Default)]
+struct VM {
+    registers: [u64; 32],
+}
+
+impl VM {
+    /// Returns a VM with empty state
+    fn init() -> Self {
+        Self::default()
+    }
+
+    fn reg(&self, idx: usize) -> u64 {
+        if idx == 0 { 0 } else { self.registers[idx] }
+    }
+
+    fn set_reg(&mut self, idx: usize, val: u64) {
+        if idx != 0 {
+            self.registers[idx] = val;
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::VM;
 
     #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+    fn test_register_read_write() {
+        let mut vm = VM::init();
+
+        // read
+        assert_eq!(vm.reg(5), 0);
+        // write
+        vm.set_reg(5, 10);
+        assert_eq!(vm.reg(5), 10);
+        // write
+        vm.set_reg(5, 20);
+        assert_eq!(vm.reg(5), 20);
+    }
+
+    #[test]
+    fn test_register_0_always_0() {
+        let mut vm = VM::init();
+        // read register 0
+        assert_eq!(vm.reg(0), 0);
+        // write to register 0
+        vm.set_reg(0, 20);
+        assert_eq!(vm.reg(0), 0);
     }
 }
