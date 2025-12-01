@@ -21,7 +21,9 @@ impl VM {
 
     fn execute_instruction(&mut self, insn: Instruction) {
         match insn.opcode {
-            Opcode::Add => {}
+            Opcode::Add => {
+                self.set_reg(insn.rd, self.reg(insn.rs1) + self.reg(insn.rs2));
+            }
         }
     }
 }
