@@ -1,9 +1,12 @@
+use crate::memory::Memory;
+
 mod execute;
 mod memory;
 
 #[derive(Default)]
 struct VM {
     registers: [u64; 32],
+    memory: Memory,
     x0_sink: u64, // blackhole for writes to x0
 }
 
