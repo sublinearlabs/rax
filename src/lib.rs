@@ -32,15 +32,30 @@ struct Instruction {
 }
 
 impl Instruction {
-    /// Build a new instruction
-    fn new(opcode: Opcode, rd: usize, rs1: usize, rs2: usize, imm: u64) -> Self {
+    fn new(opcode: Opcode) -> Instruction {
         Self {
             opcode,
-            rd,
-            rs1,
-            rs2,
-            imm,
+            rd: 0,
+            rs1: 0,
+            rs2: 0,
+            imm: 0,
         }
+    }
+
+    fn rd(self, val: usize) -> Self {
+        Self { rd: val, ..self }
+    }
+
+    fn rs1(self, val: usize) -> Self {
+        Self { rs1: val, ..self }
+    }
+
+    fn rs2(self, val: usize) -> Self {
+        Self { rs2: val, ..self }
+    }
+
+    fn imm(self, val: u64) -> Self {
+        Self { imm: val, ..self }
     }
 }
 
