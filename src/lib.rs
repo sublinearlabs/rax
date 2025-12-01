@@ -1,5 +1,7 @@
+use crate::decode::Opcode;
 use crate::memory::Memory;
 
+mod decode;
 mod execute;
 mod memory;
 
@@ -83,20 +85,6 @@ impl Instruction {
     fn imm(self, val: u64) -> Self {
         Self { imm: val, ..self }
     }
-}
-
-// RISCV Opcodes
-enum Opcode {
-    Add,
-    Sub,
-    Xor,
-    Or,
-    And,
-    Sll,
-    Srl,
-    Sra,
-    Slt,
-    Sltu,
 }
 
 #[cfg(test)]
