@@ -24,6 +24,9 @@ impl VM {
             Opcode::Add => {
                 self.set_reg(insn.rd, self.reg(insn.rs1) + self.reg(insn.rs2));
             }
+
+            // TODO remove the earger check once all opcodes have been implemented
+            _ => {}
         }
     }
 }
@@ -51,6 +54,15 @@ impl Instruction {
 // RISCV Opcodes
 enum Opcode {
     Add,
+    Sub,
+    Xor,
+    Or,
+    And,
+    Sll,
+    Srl,
+    Sra,
+    Slt,
+    Sltu,
 }
 
 #[cfg(test)]
