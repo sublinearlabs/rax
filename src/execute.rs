@@ -23,7 +23,7 @@ mod test {
         vm.set_reg(3, 12);
         vm.set_reg(5, 32);
         // r8 = r3 + r5
-        vm.execute_instruction(Instruction::new(Opcode::Add, 8, 3, 5, 0));
+        vm.execute_instruction(Instruction::new(Opcode::Add).rs1(3).rs2(5).rd(8));
         assert_eq!(vm.reg(8), 12 + 32);
     }
 }
