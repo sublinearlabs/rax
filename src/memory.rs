@@ -50,8 +50,8 @@ impl Memory {
         self.pages.get(&idx).map(|p| p[offset]).unwrap_or(0)
     }
 
-    /// Write a single byte.
-    /// Allocates if this is the first time we write to this page.
+    /// Returns a mutable reference to a single byte at the given
+    /// memory addr
     pub(crate) fn mem_mut(&mut self, addr: u64) -> &mut u8 {
         if addr > MAX_ADDR {
             panic!("write out of range: 0x{:x}", addr);
