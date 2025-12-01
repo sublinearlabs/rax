@@ -128,7 +128,7 @@ mod tests {
     }
 
     #[test]
-    fn test_memory_writing_le() {
+    fn test_memory_loading_le() {
         let mut vm = VM::init();
 
         let num = 4_u64;
