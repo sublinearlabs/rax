@@ -5,6 +5,7 @@ use crate::memory::Memory;
 mod decode;
 mod execute;
 mod memory;
+mod util;
 
 #[derive(Default)]
 struct VM {
