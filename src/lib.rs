@@ -37,16 +37,18 @@ struct Instruction {
     rd: usize,
     rs1: usize,
     rs2: usize,
+    imm: u64,
 }
 
 impl Instruction {
     /// Build a new instruction
-    fn new(opcode: Opcode, rd: usize, rs1: usize, rs2: usize) -> Self {
+    fn new(opcode: Opcode, rd: usize, rs1: usize, rs2: usize, imm: u64) -> Self {
         Self {
             opcode,
             rd,
             rs1,
             rs2,
+            imm,
         }
     }
 }
@@ -101,7 +103,7 @@ mod tests {
         vm.set_reg(3, 12);
         vm.set_reg(5, 32);
         // r8 = r3 + r5
-        vm.execute_instruction(Instruction::new(Opcode::Add, 8, 3, 5));
+        vm.execute_instruction(Instruction::new(Opcode::Add, 8, 3, 5, 0));
         assert_eq!(vm.reg(8), 12 + 32);
     }
 }
