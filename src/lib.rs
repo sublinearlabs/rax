@@ -1,4 +1,5 @@
 mod execute;
+mod memory;
 
 #[derive(Default)]
 struct VM {
