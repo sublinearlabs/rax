@@ -11,6 +11,7 @@ const MAX_ADDR: u64 = u64::MAX - 1;
 
 type Page = Box<[u8; PAGE_SIZE]>;
 
+#[derive(Default)]
 pub struct Memory {
     pages: HashMap<u64, Page>,
 }
@@ -58,5 +59,59 @@ impl Memory {
         let idx = Self::page_idx(addr);
         let offset = Self::page_offset(addr);
         self.ensure_page(idx)[offset] = data;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_write_and_read_u8() {
+        let mut mem = Memory::default();
+
+        // write
+        mem.write_u8(0x1000, 0xAB);
+        mem.write_u8(0x1001, 0xCD);
+        assert_eq!(mem.pages.len(), 1);
+
+        // read
+        assert_eq!(mem.read_u8(0x1000), 0xAB);
+        assert_eq!(mem.read_u8(0x1001), 0xCD);
+
+        // read unmapped
+        assert_eq!(mem.read_u8(0x7F3A_9C02_B47D_E610), 0);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_read_out_of_range() {
+        let mem = Memory::default();
+        mem.read_u8(u64::MAX);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_write_out_of_range() {
+        let mut mem = Memory::default();
+        mem.write_u8(u64::MAX, 0);
+    }
+
+    #[test]
+    fn test_cross_page_write() {
+        let mut mem = Memory::default();
+
+        // force boundary cross
+        // (PAGE_SIZE - 4)..(PAGE_SIZE + 4)
+        let start = PAGE_SIZE as u64 - 4;
+        for i in 0..8 {
+            mem.write_u8(start + i, i as u8);
+        }
+        assert_eq!(mem.pages.len(), 2);
+
+        // verify
+        for i in 0..8 {
+            assert_eq!(mem.read_u8(start + i), i as u8);
+        }
     }
 }
