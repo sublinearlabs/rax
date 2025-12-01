@@ -3,6 +3,7 @@ mod execute;
 #[derive(Default)]
 struct VM {
     registers: [u64; 32],
+    x0_sink: u64, // blackhole for writes to x0
 }
 
 impl VM {
@@ -15,9 +16,11 @@ impl VM {
         if idx == 0 { 0 } else { self.registers[idx] }
     }
 
-    fn set_reg(&mut self, idx: usize, val: u64) {
-        if idx != 0 {
-            self.registers[idx] = val;
+    fn reg_mut(&mut self, idx: usize) -> &mut u64 {
+        if idx == 0 {
+            &mut self.x0_sink
+        } else {
+            &mut self.registers[idx]
         }
     }
 }
@@ -32,7 +35,7 @@ struct Instruction {
 }
 
 impl Instruction {
-    fn new(opcode: Opcode) -> Instruction {
+    fn new(opcode: Opcode) -> Self {
         Self {
             opcode,
             rd: 0,
@@ -84,10 +87,10 @@ mod tests {
         // read
         assert_eq!(vm.reg(5), 0);
         // write
-        vm.set_reg(5, 10);
+        *vm.reg_mut(5) = 10;
         assert_eq!(vm.reg(5), 10);
         // write
-        vm.set_reg(5, 20);
+        *vm.reg_mut(5) = 20;
         assert_eq!(vm.reg(5), 20);
     }
 
@@ -97,7 +100,7 @@ mod tests {
         // read register 0
         assert_eq!(vm.reg(0), 0);
         // write to register 0
-        vm.set_reg(0, 20);
+        *vm.reg_mut(0) = 20;
         assert_eq!(vm.reg(0), 0);
     }
 }
