@@ -1,8 +1,12 @@
+use crate::memory::Memory;
+
 mod execute;
+mod memory;
 
 #[derive(Default)]
 struct VM {
     registers: [u64; 32],
+    memory: Memory,
     x0_sink: u64, // blackhole for writes to x0
 }
 
@@ -12,16 +16,35 @@ impl VM {
         Self::default()
     }
 
+    /// Returns the current value at the idx register
     fn reg(&self, idx: usize) -> u64 {
         if idx == 0 { 0 } else { self.registers[idx] }
     }
 
+    /// Returns a mutable reference to the idx register
     fn reg_mut(&mut self, idx: usize) -> &mut u64 {
         if idx == 0 {
             &mut self.x0_sink
         } else {
             &mut self.registers[idx]
         }
+    }
+
+    /// Reads 64 bytes from memory at the given addr
+    /// assumes value at memory address is the LSB
+    fn mem(&self, addr: usize) -> u64 {
+        let mut result = 0_u64;
+        for i in 0..8 {
+            let byte = self.memory.read((addr + i) as u64);
+            result |= (byte as u64) << (i * 8);
+        }
+        result
+    }
+
+    /// Returns a mutable reference to a single byte at the given
+    /// memory addr
+    fn mem_mut(&mut self, addr: usize) -> &mut u8 {
+        self.memory.mem_mut(addr as u64)
     }
 }
 
@@ -102,5 +125,22 @@ mod tests {
         // write to register 0
         *vm.reg_mut(0) = 20;
         assert_eq!(vm.reg(0), 0);
+    }
+
+    #[test]
+    fn test_memory_loading_le() {
+        let mut vm = VM::init();
+
+        let num = 4_u64;
+        let num_bytes = num.to_le_bytes();
+
+        // write to memory
+        let addr = 0;
+        for i in 0..8 {
+            *vm.mem_mut(addr + i) = num_bytes[i];
+        }
+
+        // read from memory
+        assert_eq!(vm.mem(addr), num);
     }
 }
