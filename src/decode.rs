@@ -114,5 +114,11 @@ pub(crate) fn decode_insn(insn: u32) -> Instruction {
         _ => panic!("unsupported instruction type"),
     };
 
+    let rd = (insn >> 7) & mask(5);
+    let rs1 = (insn >> 15) & mask(5);
+    let rs2 = (insn >> 20) & mask(5);
+    let funct3 = (insn >> 12) & mask(3);
+    let funct7 = (insn >> 25) & mask(7);
+
     todo!()
 }
