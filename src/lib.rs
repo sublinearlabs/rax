@@ -1,3 +1,4 @@
+use crate::decode::Instruction;
 use crate::decode::Opcode;
 use crate::memory::Memory;
 
@@ -47,43 +48,6 @@ impl VM {
     /// memory addr
     fn mem_mut(&mut self, addr: usize) -> &mut u8 {
         self.memory.mem_mut(addr as u64)
-    }
-}
-
-// RISCV insturction
-struct Instruction {
-    opcode: Opcode,
-    rd: usize,
-    rs1: usize,
-    rs2: usize,
-    imm: u64,
-}
-
-impl Instruction {
-    fn new(opcode: Opcode) -> Self {
-        Self {
-            opcode,
-            rd: 0,
-            rs1: 0,
-            rs2: 0,
-            imm: 0,
-        }
-    }
-
-    fn rd(self, val: usize) -> Self {
-        Self { rd: val, ..self }
-    }
-
-    fn rs1(self, val: usize) -> Self {
-        Self { rs1: val, ..self }
-    }
-
-    fn rs2(self, val: usize) -> Self {
-        Self { rs2: val, ..self }
-    }
-
-    fn imm(self, val: u64) -> Self {
-        Self { imm: val, ..self }
     }
 }
 
