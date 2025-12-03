@@ -159,7 +159,12 @@ fn decode_i_insn(opcode_value: u32, funct3: u32, imm: u64) -> Opcode {
 }
 
 fn decode_s_insn(funct3: u32) -> Opcode {
-    todo!()
+    match funct3 {
+        0x0 => Opcode::Sb,
+        0x1 => Opcode::Sh,
+        0x2 => Opcode::Sw,
+        _ => panic!("unknown opcode"),
+    }
 }
 
 fn decode_b_insn(funct3: u32) -> Opcode {
