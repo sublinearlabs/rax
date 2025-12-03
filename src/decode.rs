@@ -163,7 +163,10 @@ fn decode_imm(insn: u32, insn_type: &InstructionType) -> u64 {
             sext(imm, 13)
         }
         InstructionType::U => {
-            todo!()
+            // inst[31:12] => imm[31:12]
+            imm = map_range(insn, imm, 31, 31, 20);
+            // highest imm bit = 31 (so len = 32)
+            sext(imm, 32)
         }
         InstructionType::J => {
             // inst[19:12] => imm[19:12]
