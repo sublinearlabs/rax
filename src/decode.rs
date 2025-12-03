@@ -133,7 +133,15 @@ pub(crate) fn decode_insn(insn: u32) -> Instruction {
 }
 
 fn decode_imm(insn: u32, insn_type: &InstructionType) -> u64 {
-    todo!()
+    let imm = 0;
+    match insn_type {
+        InstructionType::R | InstructionType::FENCE => imm,
+        InstructionType::I => todo!(),
+        InstructionType::S => todo!(),
+        InstructionType::B => todo!(),
+        InstructionType::U => todo!(),
+        InstructionType::J => todo!(),
+    }
 }
 
 fn decode_opcode(
