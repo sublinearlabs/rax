@@ -1,4 +1,4 @@
-use crate::util::mask;
+use crate::util::{mask, mask32};
 
 // RISCV Opcodes
 pub(crate) enum Opcode {
@@ -101,7 +101,7 @@ impl Instruction {
 }
 
 pub(crate) fn decode_insn(insn: u32) -> Instruction {
-    let opcode_value = insn & mask(7);
+    let opcode_value = insn & mask32(7);
 
     let insn_type = match opcode_value {
         0b0110011 => InstructionType::R,
@@ -114,11 +114,11 @@ pub(crate) fn decode_insn(insn: u32) -> Instruction {
         _ => panic!("unsupported instruction type"),
     };
 
-    let rd = (insn >> 7) & mask(5);
-    let rs1 = (insn >> 15) & mask(5);
-    let rs2 = (insn >> 20) & mask(5);
-    let funct3 = (insn >> 12) & mask(3);
-    let funct7 = (insn >> 25) & mask(7);
+    let rd = (insn >> 7) & mask32(5);
+    let rs1 = (insn >> 15) & mask32(5);
+    let rs2 = (insn >> 20) & mask32(5);
+    let funct3 = (insn >> 12) & mask32(3);
+    let funct7 = (insn >> 25) & mask32(7);
 
     todo!()
 }

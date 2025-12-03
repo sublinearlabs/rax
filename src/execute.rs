@@ -3,8 +3,53 @@ use crate::{Instruction, Opcode, VM};
 impl VM {
     pub(crate) fn execute_instruction(&mut self, insn: Instruction) {
         match insn.opcode {
+            // Register Opcodes
             Opcode::Add => {
                 *self.reg_mut(insn.rd) = self.reg(insn.rs1) + self.reg(insn.rs2);
+            }
+
+            Opcode::Sub => {
+                *self.reg_mut(insn.rd) = self.reg(insn.rs1) - self.reg(insn.rs2);
+            }
+
+            Opcode::Xor => {
+                *self.reg_mut(insn.rd) = self.reg(insn.rs1) ^ self.reg(insn.rs2);
+            }
+
+            Opcode::Or => {
+                *self.reg_mut(insn.rd) = self.reg(insn.rs1) | self.reg(insn.rs2);
+            }
+
+            Opcode::And => {
+                *self.reg_mut(insn.rd) = self.reg(insn.rs1) & self.reg(insn.rs2);
+            }
+
+            Opcode::Sll => {
+                *self.reg_mut(insn.rd) = self.reg(insn.rs1) << self.reg(insn.rs2);
+            }
+
+            Opcode::Srl => {
+                *self.reg_mut(insn.rd) = self.reg(insn.rs1) >> self.reg(insn.rs2);
+            }
+
+            Opcode::Sra => {
+                *self.reg_mut(insn.rd) = self.reg(insn.rs1) >> self.reg(insn.rs2);
+            }
+
+            Opcode::Slt => {
+                *self.reg_mut(insn.rd) = if self.reg(insn.rs1) < self.reg(insn.rs2) {
+                    1
+                } else {
+                    0
+                };
+            }
+
+            Opcode::Sltu => {
+                *self.reg_mut(insn.rd) = if self.reg(insn.rs1) < self.reg(insn.rs2) {
+                    1
+                } else {
+                    0
+                };
             }
 
             // TODO remove the earger check once all opcodes have been implemented
