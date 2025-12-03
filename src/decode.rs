@@ -139,5 +139,33 @@ fn decode_opcode(
     funct7: u32,
     imm: u64,
 ) -> Opcode {
+    match insn_type {
+        InstructionType::R => decode_r_insn(funct3, funct7),
+        InstructionType::I => decode_i_insn(opcode_value, funct3, imm),
+        InstructionType::S => decode_s_insn(funct3),
+        InstructionType::B => decode_b_insn(funct3),
+        InstructionType::U => decode_u_opcode(opcode_value),
+        InstructionType::J => Opcode::Jal,
+        InstructionType::FENCE => Opcode::Fence,
+    }
+}
+
+fn decode_r_insn(funct3: u32, funct7: u32) -> Opcode {
+    todo!()
+}
+
+fn decode_i_insn(opcode_value: u32, funct3: u32, imm: u64) -> Opcode {
+    todo!()
+}
+
+fn decode_s_insn(funct3: u32) -> Opcode {
+    todo!()
+}
+
+fn decode_b_insn(funct3: u32) -> Opcode {
+    todo!()
+}
+
+fn decode_u_opcode(opcode_value: u32) -> Opcode {
     todo!()
 }
