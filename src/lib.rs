@@ -89,6 +89,7 @@ impl Instruction {
 
 // RISCV Opcodes
 enum Opcode {
+    // Register opcodes
     Add,
     Sub,
     Xor,
@@ -99,6 +100,17 @@ enum Opcode {
     Sra,
     Slt,
     Sltu,
+
+    // Immediate opcodes
+    Addi,
+    Xori,
+    Ori,
+    Andi,
+    Slli,
+    Srli,
+    Srai,
+    Slti,
+    Sltiu
 }
 
 #[cfg(test)]
