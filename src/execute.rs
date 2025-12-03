@@ -1,4 +1,4 @@
-use crate::{Instruction, Opcode, VM};
+use crate::{Instruction, Opcode, VM, util::mask};
 
 impl VM {
     pub(crate) fn execute_instruction(&mut self, insn: Instruction) {
@@ -28,15 +28,11 @@ impl VM {
                 *self.reg_mut(insn.rd) = self.reg(insn.rs1) << self.reg(insn.rs2);
             }
 
-            Opcode::Srl => {
+            Opcode::Srl | Opcode::Sra => {
                 *self.reg_mut(insn.rd) = self.reg(insn.rs1) >> self.reg(insn.rs2);
             }
 
-            Opcode::Sra => {
-                *self.reg_mut(insn.rd) = self.reg(insn.rs1) >> self.reg(insn.rs2);
-            }
-
-            Opcode::Slt => {
+            Opcode::Slt | Opcode::Sltu => {
                 *self.reg_mut(insn.rd) = if self.reg(insn.rs1) < self.reg(insn.rs2) {
                     1
                 } else {
@@ -44,12 +40,49 @@ impl VM {
                 };
             }
 
-            Opcode::Sltu => {
-                *self.reg_mut(insn.rd) = if self.reg(insn.rs1) < self.reg(insn.rs2) {
-                    1
-                } else {
-                    0
-                };
+            // Immediate Opcodes
+            Opcode::Addi => {
+                *self.reg_mut(insn.rd) = self.reg(insn.rs1) + insn.imm;
+            }
+
+            Opcode::Xori => {
+                *self.reg_mut(insn.rd) = self.reg(insn.rs1) ^ insn.imm;
+            }
+
+            Opcode::Ori => {
+                *self.reg_mut(insn.rd) = self.reg(insn.rs1) | insn.imm;
+            }
+
+            Opcode::Andi => {
+                *self.reg_mut(insn.rd) = self.reg(insn.rs1) & insn.imm;
+            }
+
+            Opcode::Slli => {
+                *self.reg_mut(insn.rd) = self.reg(insn.rs1) << insn.imm;
+            }
+
+            Opcode::Srli | Opcode::Srai => {
+                *self.reg_mut(insn.rd) = self.reg(insn.rs1) >> insn.imm;
+            }
+
+            Opcode::Slti | Opcode::Sltiu => {
+                *self.reg_mut(insn.rd) = if self.reg(insn.rs1) < insn.imm { 1 } else { 0 };
+            }
+
+            // Load Opcodes
+            Opcode::Lb | Opcode::Lbu => {
+                let addr = self.reg(insn.rs1 + (insn.imm as usize)) as usize;
+                *self.reg_mut(insn.rd) = self.mem(addr) & mask(8);
+            }
+
+            Opcode::Lh | Opcode::Lhu => {
+                let addr = self.reg(insn.rs1 + (insn.imm as usize)) as usize;
+                *self.reg_mut(insn.rd) = self.mem(addr) & mask(32);
+            }
+
+            Opcode::Lw => {
+                let addr = self.reg(insn.rs1 + (insn.imm as usize)) as usize;
+                *self.reg_mut(insn.rd) = self.mem(addr);
             }
 
             // TODO remove the earger check once all opcodes have been implemented
