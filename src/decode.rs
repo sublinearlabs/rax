@@ -120,16 +120,20 @@ pub(crate) fn decode_insn(insn: u32) -> Instruction {
     let funct3 = (insn >> 12) & mask32(3);
     let funct7 = (insn >> 25) & mask32(7);
 
-    // TODO decode the immediate
-    let imm = 0;
+    let imm = decode_imm(insn, &insn_type);
+    let opcode = decode_opcode(opcode_value, insn_type, funct3, funct7, imm);
 
     Instruction {
-        opcode: decode_opcode(opcode_value, insn_type, funct3, funct7, imm),
+        opcode,
         rd: rd as usize,
         rs1: rs1 as usize,
         rs2: rs2 as usize,
         imm,
     }
+}
+
+fn decode_imm(insn: u32, insn_type: &InstructionType) -> u64 {
+    todo!()
 }
 
 fn decode_opcode(
