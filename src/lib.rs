@@ -118,6 +118,11 @@ enum Opcode {
     Lw,
     Lbu,
     Lhu,
+
+    // Store opcodes
+    Sb,
+    Sh,
+    Sw,
 }
 
 #[cfg(test)]
