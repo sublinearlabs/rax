@@ -117,7 +117,7 @@ enum Opcode {
     Lh,
     Lw,
     Lbu,
-    Lhu
+    Lhu,
 }
 
 #[cfg(test)]
