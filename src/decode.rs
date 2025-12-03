@@ -173,7 +173,38 @@ fn decode_r_insn(funct3: u32, funct7: u32) -> Opcode {
 }
 
 fn decode_i_insn(opcode_value: u32, funct3: u32, imm: u64) -> Opcode {
-    todo!()
+    match opcode_value {
+        0b0010011 => match funct3 {
+            0x0 => Opcode::Addi,
+            0x4 => Opcode::Xori,
+            0x6 => Opcode::Ori,
+            0x7 => Opcode::Andi,
+            0x1 => Opcode::Slli,
+            0x5 => match (imm >> 5) & mask(7) {
+                0x00 => Opcode::Srli,
+                0x20 => Opcode::Srai,
+                _ => panic!("unknown opcode"),
+            },
+            0x2 => Opcode::Slti,
+            0x3 => Opcode::Sltiu,
+            _ => panic!("unknown opcode"),
+        },
+        0b000011 => match funct3 {
+            0x0 => Opcode::Lb,
+            0x1 => Opcode::Lh,
+            0x2 => Opcode::Lw,
+            0x4 => Opcode::Lbu,
+            0x5 => Opcode::Lhu,
+            _ => panic!("unknown opcode"),
+        },
+        0b1100111 => Opcode::Jalr,
+        0b1110011 => match imm {
+            0x0 => Opcode::Ecall,
+            0x1 => Opcode::Ebreak,
+            _ => Opcode::Eother,
+        },
+        _ => panic!("unknown opcode"),
+    }
 }
 
 fn decode_s_insn(funct3: u32) -> Opcode {
