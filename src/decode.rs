@@ -247,3 +247,25 @@ fn decode_u_opcode(opcode_value: u32) -> Opcode {
         _ => panic!("unknwon opcode"),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::decode::decode_insn;
+
+    // TODO test the entire instruction decoding
+    #[test]
+    fn test_immediate_decoding() {
+        // addi x10 x11 12 (I Type)
+        assert_eq!(decode_insn(0x00C58513).imm, 12);
+        // sw x8, 6(x4) (S Type)
+        assert_eq!(decode_insn(0x00822323).imm, 6);
+        // sw x8, -6(x4) (S Type)
+        assert_eq!(decode_insn(0xfe822d23).imm, -6_i32 as u64);
+        // beq x5, x6, 20 (B Type)
+        assert_eq!(decode_insn(0x00628a63).imm, 20);
+        // lui x5, 164 (U Type)
+        assert_eq!(decode_insn(0x000a42b7).imm >> 12, 164);
+        // jal x5, 44 (J Type)
+        assert_eq!(decode_insn(0x02c002ef).imm, 44);
+    }
+}
