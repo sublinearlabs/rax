@@ -1,5 +1,5 @@
 /// Mask with the lowest `n` bits set (0–32).
-fn mask32(n: u8) -> u32 {
+pub fn mask32(n: u8) -> u32 {
     if n == 32 {
         return u32::MAX;
     }
@@ -8,7 +8,7 @@ fn mask32(n: u8) -> u32 {
 }
 
 /// Mask with the lowest `n` bits set (0–64).
-fn mask(n: u8) -> u64 {
+pub fn mask(n: u8) -> u64 {
     if n == 64 {
         return u64::MAX;
     }
@@ -17,7 +17,7 @@ fn mask(n: u8) -> u64 {
 }
 
 /// Sign-extend the low `bit_count` bits of `val` into a u64.
-fn sext(val: u32, bit_count: usize) -> u64 {
+pub fn sext(val: u32, bit_count: usize) -> u64 {
     debug_assert_eq!(val as u64 >> bit_count, 0, "upper bits must be zero");
 
     // bit count must be at least 1 and at most 32

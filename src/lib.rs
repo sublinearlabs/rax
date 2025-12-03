@@ -110,7 +110,14 @@ enum Opcode {
     Srli,
     Srai,
     Slti,
-    Sltiu
+    Sltiu,
+
+    // Load opcodes
+    Lb,
+    Lh,
+    Lw,
+    Lbu,
+    Lhu,
 }
 
 #[cfg(test)]

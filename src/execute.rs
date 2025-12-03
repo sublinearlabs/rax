@@ -1,4 +1,4 @@
-use crate::{Instruction, Opcode, VM};
+use crate::{Instruction, Opcode, VM, util::mask};
 
 impl VM {
     pub(crate) fn execute_instruction(&mut self, insn: Instruction) {
@@ -44,7 +44,7 @@ impl VM {
             Opcode::Addi => {
                 *self.reg_mut(insn.rd) = self.reg(insn.rs1) + insn.imm;
             }
-            
+
             Opcode::Xori => {
                 *self.reg_mut(insn.rd) = self.reg(insn.rs1) ^ insn.imm;
             }
@@ -66,9 +66,25 @@ impl VM {
             }
 
             Opcode::Slti | Opcode::Sltiu => {
-                *self.reg_mut(insn.rd) = if self.reg(insn.rs1) < insn.imm {1} else {0};
+                *self.reg_mut(insn.rd) = if self.reg(insn.rs1) < insn.imm { 1 } else { 0 };
             }
-            
+
+            // Load Opcodes
+            Opcode::Lb | Opcode::Lbu => {
+                let addr = self.reg(insn.rs1 + (insn.imm as usize)) as usize;
+                *self.reg_mut(insn.rd) = self.mem(addr) & mask(8);
+            }
+
+            Opcode::Lh | Opcode::Lhu => {
+                let addr = self.reg(insn.rs1 + (insn.imm as usize)) as usize;
+                *self.reg_mut(insn.rd) = self.mem(addr) & mask(32);
+            }
+
+            Opcode::Lw => {
+                let addr = self.reg(insn.rs1 + (insn.imm as usize)) as usize;
+                *self.reg_mut(insn.rd) = self.mem(addr);
+            }
+
             // TODO remove the earger check once all opcodes have been implemented
             _ => {}
         }
