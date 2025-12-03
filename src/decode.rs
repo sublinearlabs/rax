@@ -1,6 +1,7 @@
 use crate::util::{map_range, mask, mask32, sext};
 
 // RISCV Opcodes
+#[derive(Debug)]
 pub(crate) enum Opcode {
     Add,
     Sub,
@@ -64,6 +65,7 @@ enum InstructionType {
 }
 
 // RISCV insturction
+#[derive(Debug)]
 pub(crate) struct Instruction {
     pub(crate) opcode: Opcode,
     pub(crate) rd: usize,
@@ -291,7 +293,6 @@ fn decode_u_opcode(opcode_value: u32) -> Opcode {
 mod tests {
     use crate::decode::decode_insn;
 
-    // TODO test the entire instruction decoding
     #[test]
     fn test_immediate_decoding() {
         // addi x10 x11 12 (I Type)
