@@ -1,4 +1,4 @@
-use crate::util::{mask, mask32};
+use crate::util::{map_range, mask, mask32, sext};
 
 // RISCV Opcodes
 pub(crate) enum Opcode {
@@ -133,14 +133,50 @@ pub(crate) fn decode_insn(insn: u32) -> Instruction {
 }
 
 fn decode_imm(insn: u32, insn_type: &InstructionType) -> u64 {
-    let imm = 0;
+    let mut imm = 0u32;
     match insn_type {
-        InstructionType::R | InstructionType::FENCE => imm,
-        InstructionType::I => todo!(),
-        InstructionType::S => todo!(),
-        InstructionType::B => todo!(),
-        InstructionType::U => todo!(),
-        InstructionType::J => todo!(),
+        InstructionType::R | InstructionType::FENCE => imm as u64,
+        InstructionType::I => {
+            // inst[31:20] => imm[11:0]
+            imm = map_range(insn, imm, 31, 11, 12);
+            // highest imm bit = 11 (so len = 12)
+            sext(imm, 12)
+        }
+        InstructionType::S => {
+            // inst[11:7] => imm[4:0]
+            imm = map_range(insn, imm, 11, 4, 5);
+            // inst[31:25] => imm[11:5]
+            imm = map_range(insn, imm, 31, 11, 7);
+            // highest imm bit = 11 (so len = 12)
+            sext(imm, 12)
+        }
+        InstructionType::B => {
+            // inst[7] => imm[11]
+            imm = map_range(insn, imm, 7, 11, 1);
+            // inst[11:8] => imm[4:1]
+            imm = map_range(insn, imm, 11, 4, 4);
+            // inst[30:25] => imm[10:5]
+            imm = map_range(insn, imm, 30, 10, 6);
+            // inst[31] => imm[12]
+            imm = map_range(insn, imm, 31, 12, 1);
+            // highest imm bit = 12 (so len = 13)
+            sext(imm, 13)
+        }
+        InstructionType::U => {
+            todo!()
+        }
+        InstructionType::J => {
+            // inst[19:12] => imm[19:12]
+            imm = map_range(insn, imm, 19, 19, 8);
+            // inst[20] => imm[11]
+            imm = map_range(insn, imm, 20, 11, 1);
+            // inst[30:21] => imm[10:1]
+            imm = map_range(insn, imm, 30, 10, 10);
+            // inst[31] => imm[20]
+            imm = map_range(insn, imm, 31, 20, 1);
+            // highest imm bit = 20 (so len = 21)
+            sext(imm, 21)
+        }
     }
 }
 
