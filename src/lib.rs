@@ -2,6 +2,7 @@ use crate::memory::Memory;
 
 mod execute;
 mod memory;
+mod util;
 
 #[derive(Default)]
 struct VM {
