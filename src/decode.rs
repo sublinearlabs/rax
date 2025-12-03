@@ -182,5 +182,9 @@ fn decode_b_insn(funct3: u32) -> Opcode {
 }
 
 fn decode_u_opcode(opcode_value: u32) -> Opcode {
-    todo!()
+    match opcode_value {
+        0b0110111 => Opcode::Lui,
+        0b0010111 => Opcode::Auipc,
+        _ => panic!("unknwon opcode"),
+    }
 }
