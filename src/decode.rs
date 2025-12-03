@@ -1,3 +1,5 @@
+use core::panic;
+
 use crate::util::{mask, mask32};
 
 // RISCV Opcodes
@@ -168,7 +170,15 @@ fn decode_s_insn(funct3: u32) -> Opcode {
 }
 
 fn decode_b_insn(funct3: u32) -> Opcode {
-    todo!()
+    match funct3 {
+        0x0 => Opcode::Beq,
+        0x1 => Opcode::Bne,
+        0x4 => Opcode::Blt,
+        0x5 => Opcode::Bge,
+        0x6 => Opcode::Bltu,
+        0x7 => Opcode::Bgeu,
+        _ => panic!("unknown opcode"),
+    }
 }
 
 fn decode_u_opcode(opcode_value: u32) -> Opcode {
