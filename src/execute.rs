@@ -73,10 +73,14 @@ impl VM {
                 *self.reg_mut(insn.rd) = if self.reg(insn.rs1) < insn.imm { 1 } else { 0 };
             }
 
-            // Load Opcodes
-            Opcode::Lb | Opcode::Lbu => {
-                let addr = self.reg(insn.rs1 + (insn.imm as usize)) as usize;
-                *self.reg_mut(insn.rd) = self.mem(addr) & mask(8);
+            Opcode::Lb => {
+                let addr = self.reg(insn.rs1).wrapping_add(insn.imm);
+                *self.reg_mut(insn.rd) = sext(self.mem(addr as usize) & mask(8), 8);
+            }
+
+            Opcode::Lbu => {
+                let addr = self.reg(insn.rs1).wrapping_add(insn.imm);
+                *self.reg_mut(insn.rd) = self.mem(addr as usize) & mask(8);
             }
 
             Opcode::Lh | Opcode::Lhu => {
