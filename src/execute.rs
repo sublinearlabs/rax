@@ -205,7 +205,8 @@ impl VM {
             }
 
             Opcode::Sraiw => {
-                *self.reg_mut(insn.rd) = sext((self.reg(insn.rs1) & mask(32)) >> insn.imm, 32);
+                let val = (self.reg(insn.rs1) & mask(32)) >> (insn.imm & mask(6));
+                *self.reg_mut(insn.rd) = sext(val, 32);
             }
 
             Opcode::Addw => {
