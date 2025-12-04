@@ -120,11 +120,8 @@ impl VM {
             }
 
             Opcode::Bne => {
-                // println!("I got hit. imm {}", insn.imm);
-                println!("{}", insn.rs1);
-                println!("{}", self.reg(insn.rs2));
                 if self.reg(insn.rs1) != self.reg(insn.rs2) {
-                    self.pc += insn.imm;
+                    self.pc = self.pc.wrapping_add(insn.imm);
                     return;
                 }
             }
