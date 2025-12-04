@@ -147,6 +147,15 @@ impl VM {
                 return;
             }
 
+            // Lui and Auipc
+            Opcode::Lui => {
+                *self.reg_mut(insn.rd) = insn.imm << 12;
+            }
+
+            Opcode::Auipc => {
+                *self.reg_mut(insn.rd) = self.pc + (insn.imm << 12);
+            }
+
             // TODO remove the earger check once all opcodes have been implemented
             _ => {}
         }
