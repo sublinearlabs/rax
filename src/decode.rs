@@ -1,5 +1,3 @@
-use core::panic;
-
 use crate::util::{map_range, mask, mask32, sext};
 
 // RISCV Opcodes
