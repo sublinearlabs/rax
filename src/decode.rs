@@ -110,7 +110,7 @@ pub(crate) fn decode_insn(insn: u32) -> Instruction {
         0b0010011 | 0b0000011 | 0b1100111 | 0b1110011 => InstructionType::I,
         0b0100011 => InstructionType::S,
         0b1100011 => InstructionType::B,
-        0b0110111 => InstructionType::U,
+        0b0110111 | 0b0010111 => InstructionType::U,
         0b1101111 => InstructionType::J,
         0b0001111 => InstructionType::FENCE,
         _ => panic!("unsupported instruction type"),
