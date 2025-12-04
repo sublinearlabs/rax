@@ -117,12 +117,12 @@ mod tests {
     }
 
     fn run_test_elf(path: String) {
-        print!("running test: {}", path);
+        print!("running test: {}\n", path);
 
         let mut vm = VM::init_from_elf(path);
         vm.run();
 
-        println!("{}", vm.exit_code);
+        println!("exit_code {}", vm.exit_code);
         assert!(vm.halted);
         assert_eq!(vm.exit_code, 0);
     }
