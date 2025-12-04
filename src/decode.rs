@@ -40,6 +40,8 @@ pub(crate) enum Opcode {
     Lw,
     Lbu,
     Lhu,
+    Lwu,
+    Ld,
 
     Sb,
     Sh,
@@ -276,6 +278,8 @@ fn decode_i_insn(opcode_value: u32, funct3: u32, imm: u64) -> Opcode {
             0x2 => Opcode::Lw,
             0x4 => Opcode::Lbu,
             0x5 => Opcode::Lhu,
+            0x6 => Opcode::Lwu,
+            0x3 => Opcode::Ld,
             _ => panic!("unknown opcode"),
         },
         0b1100111 => Opcode::Jalr,
