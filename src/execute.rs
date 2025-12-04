@@ -83,9 +83,14 @@ impl VM {
                 *self.reg_mut(insn.rd) = self.mem(addr as usize) & mask(8);
             }
 
-            Opcode::Lh | Opcode::Lhu => {
-                let addr = self.reg(insn.rs1 + (insn.imm as usize)) as usize;
-                *self.reg_mut(insn.rd) = self.mem(addr) & mask(32);
+            Opcode::Lh => {
+                let addr = self.reg(insn.rs1).wrapping_add(insn.imm);
+                *self.reg_mut(insn.rd) = sext(self.mem(addr as usize) & mask(16), 16);
+            }
+
+            Opcode::Lhu => {
+                let addr = self.reg(insn.rs1).wrapping_add(insn.imm);
+                *self.reg_mut(insn.rd) = self.mem(addr as usize) & mask(16);
             }
 
             Opcode::Lw => {
