@@ -204,7 +204,7 @@ fn decode_opcode(
     imm: u64,
 ) -> Opcode {
     match insn_type {
-        InstructionType::R => decode_r_insn(funct3, funct7),
+        InstructionType::R => decode_r_insn(opcode_value, funct3, funct7),
         InstructionType::I => decode_i_insn(opcode_value, funct3, imm),
         InstructionType::S => decode_s_insn(funct3),
         InstructionType::B => decode_b_insn(funct3),
@@ -241,7 +241,15 @@ fn decode_r_insn(opcode_value: u32, funct3: u32, funct7: u32) -> Opcode {
                 0x20 => Opcode::Subw,
                 _ => panic!("unknown opcode"),
             },
+            0x1 => Opcode::Sllw,
+            0x5 => match funct7 {
+                0x00 => Opcode::Srlw,
+                0x20 => Opcode::Sraw,
+                _ => panic!("unknown opcode"),
+            },
+            _ => panic!("unknown opcode"),
         },
+        _ => panic!("unknown opcode"),
     }
 }
 
