@@ -190,14 +190,14 @@ impl VM {
                 *self.reg_mut(insn.rd) = self.pc.wrapping_add(insn.imm);
             }
 
-            // I Instructions
             Opcode::Addiw => {
                 let res = self.reg(insn.rs1).wrapping_add(insn.imm) & mask(32);
                 *self.reg_mut(insn.rd) = sext(res, 32);
             }
 
             Opcode::Slliw => {
-                *self.reg_mut(insn.rd) = sext(self.reg(insn.rs1) << insn.imm, 32);
+                let val = self.reg(insn.rs1) << (insn.imm & mask(6));
+                *self.reg_mut(insn.rd) = sext(val & mask(32), 32);
             }
 
             Opcode::Srliw => {
