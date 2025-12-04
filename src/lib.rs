@@ -108,6 +108,26 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_rv64ui() {
+        let _ = fs::read_dir("test-bin")
+            .expect("Failed to read directory")
+            .filter_map(|entry| entry.ok())
+            .map(|entry| run_test_elf(entry.path().to_str().unwrap().to_string()))
+            .collect::<Vec<_>>();
+    }
+
+    fn run_test_elf(path: String) {
+        print!("running test: {}", path);
+
+        let mut vm = VM::init_from_elf(path);
+        vm.run();
+
+        println!("{}", vm.exit_code);
+        assert!(vm.halted);
+        assert_eq!(vm.exit_code, 0);
+    }
+
+    #[test]
     fn test_register_read_write() {
         let mut vm = VM::init();
 

@@ -13,7 +13,7 @@ impl VM {
             }
 
             Opcode::Sub => {
-                *self.reg_mut(insn.rd) = self.reg(insn.rs1) - self.reg(insn.rs2);
+                *self.reg_mut(insn.rd) = self.reg(insn.rs1).wrapping_sub(self.reg(insn.rs2));
             }
 
             Opcode::Xor => {
@@ -114,7 +114,7 @@ impl VM {
             // Branch Opcodes
             Opcode::Beq => {
                 if self.reg(insn.rs1) == self.reg(insn.rs2) {
-                    self.pc += insn.imm;
+                    self.pc = self.pc.wrapping_add(insn.imm);
                     return;
                 }
             }
@@ -126,23 +126,30 @@ impl VM {
                 }
             }
 
-            Opcode::Blt | Opcode::Bltu => {
+            Opcode::Blt => {
+                if (self.reg(insn.rs1) as i32) < (self.reg(insn.rs2) as i32) {
+                    self.pc = self.pc.wrapping_add(insn.imm);
+                    return;
+                }
+            }
+
+            Opcode::Bltu => {
                 if self.reg(insn.rs1) < self.reg(insn.rs2) {
-                    self.pc += insn.imm;
+                    self.pc = self.pc.wrapping_add(insn.imm);
                     return;
                 }
             }
 
             Opcode::Bge => {
                 if (self.reg(insn.rs1) as i64) >= (self.reg(insn.rs2) as i64) {
-                    self.pc += insn.imm;
+                    self.pc = self.pc.wrapping_add(insn.imm);
                     return;
                 }
             }
 
             Opcode::Bgeu => {
                 if self.reg(insn.rs1) >= self.reg(insn.rs2) {
-                    self.pc += insn.imm;
+                    self.pc = self.pc.wrapping_add(insn.imm);
                     return;
                 };
             }
@@ -166,7 +173,7 @@ impl VM {
             }
 
             Opcode::Auipc => {
-                *self.reg_mut(insn.rd) = self.pc + insn.imm;
+                *self.reg_mut(insn.rd) = self.pc.wrapping_add(insn.imm);
             }
 
             // I Instructions
@@ -188,8 +195,10 @@ impl VM {
             }
 
             Opcode::Addw => {
-                *self.reg_mut(insn.rd) =
-                    sext((self.reg(insn.rs1) + self.reg(insn.rs2)) & mask(32), 32);
+                *self.reg_mut(insn.rd) = sext(
+                    self.reg(insn.rs1).wrapping_add(self.reg(insn.rs2)) & mask(32),
+                    32,
+                );
             }
 
             Opcode::Subw => {
