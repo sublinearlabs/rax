@@ -70,6 +70,7 @@ impl Memory {
         self.ensure_page(idx)[offset] = value;
     }
 
+    /// Write multiple bytes from a given address
     pub(crate) fn write_bytes(&mut self, addr: u64, data: &[u8]) {
         for (i, val) in data.iter().enumerate() {
             self.write_byte(addr + i as u64, *val);

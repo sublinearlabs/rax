@@ -52,6 +52,7 @@ impl VM {
         self.memory.mem_mut(addr as u64)
     }
 
+    /// Write multiple bytes from a given address
     fn write_bytes(&mut self, addr: usize, data: &[u8]) {
         self.memory.write_bytes(addr as u64, data);
     }
