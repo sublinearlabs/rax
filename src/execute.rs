@@ -3,6 +3,8 @@ use crate::{
     util::{mask, sext},
 };
 
+// TODO consider cleaning up sext logic
+
 impl VM {
     pub(crate) fn execute_instruction(&mut self, insn: Instruction) {
         match insn.opcode {
@@ -223,8 +225,11 @@ impl VM {
             }
 
             Opcode::Subw => {
-                *self.reg_mut(insn.rd) =
-                    sext((self.reg(insn.rs1) - self.reg(insn.rs2)) & mask(32), 32);
+                // TODO why do I still get upper bits not empty
+                let a = self.reg(insn.rs1) as i32;
+                let b = self.reg(insn.rs2) as i32;
+                let val = a.wrapping_sub(b);
+                *self.reg_mut(insn.rd) = sext(val as u64, 32);
             }
 
             Opcode::Sllw => {
