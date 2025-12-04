@@ -108,6 +108,8 @@ impl VM {
             // TODO remove the earger check once all opcodes have been implemented
             _ => {}
         }
+
+        self.pc += 4;
     }
 }
 

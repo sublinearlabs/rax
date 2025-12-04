@@ -1,5 +1,9 @@
+use crate::decode::Instruction;
+use crate::decode::Opcode;
+use crate::decode::decode_insn;
 use crate::memory::Memory;
 
+mod decode;
 mod execute;
 mod memory;
 mod util;
@@ -9,13 +13,21 @@ struct VM {
     registers: [u64; 32],
     memory: Memory,
     x0_sink: u64, // blackhole for writes to x0
-    pc: usize,
+    pc: u64,
+    halted: bool,
 }
 
 impl VM {
     /// Returns a VM with empty state
     fn init() -> Self {
         Self::default()
+    }
+
+    /// Perform one cycle
+    fn step(&mut self) {
+        let raw_insn = self.mem32(self.pc as usize);
+        let insn = decode_insn(raw_insn);
+        self.execute_instruction(insn);
     }
 
     /// Returns the current value at the idx register
@@ -43,86 +55,27 @@ impl VM {
         result
     }
 
+    /// Reads 32 bytes from memory at the given addr
+    /// assumes value at memory address is the LSB
+    fn mem32(&self, addr: usize) -> u32 {
+        let mut result = 0_u32;
+        for i in 0..4 {
+            let byte = self.memory.read((addr + i) as u64);
+            result |= (byte as u32) << (i * 8);
+        }
+        result
+    }
+
     /// Returns a mutable reference to a single byte at the given
     /// memory addr
     fn mem_mut(&mut self, addr: usize) -> &mut u8 {
         self.memory.mem_mut(addr as u64)
     }
-}
 
-// RISCV insturction
-struct Instruction {
-    opcode: Opcode,
-    rd: usize,
-    rs1: usize,
-    rs2: usize,
-    imm: u64,
-}
-
-impl Instruction {
-    fn new(opcode: Opcode) -> Self {
-        Self {
-            opcode,
-            rd: 0,
-            rs1: 0,
-            rs2: 0,
-            imm: 0,
-        }
+    /// Write multiple bytes from a given address
+    fn write_bytes(&mut self, addr: usize, data: &[u8]) {
+        self.memory.write_bytes(addr as u64, data);
     }
-
-    fn rd(self, val: usize) -> Self {
-        Self { rd: val, ..self }
-    }
-
-    fn rs1(self, val: usize) -> Self {
-        Self { rs1: val, ..self }
-    }
-
-    fn rs2(self, val: usize) -> Self {
-        Self { rs2: val, ..self }
-    }
-
-    fn imm(self, val: u64) -> Self {
-        Self { imm: val, ..self }
-    }
-}
-
-// RISCV Opcodes
-enum Opcode {
-    // Register opcodes
-    Add,
-    Sub,
-    Xor,
-    Or,
-    And,
-    Sll,
-    Srl,
-    Sra,
-    Slt,
-    Sltu,
-
-    // Immediate opcodes
-    Addi,
-    Xori,
-    Ori,
-    Andi,
-    Slli,
-    Srli,
-    Srai,
-    Slti,
-    Sltiu,
-
-    // Load opcodes
-    Lb,
-    Lh,
-    Lw,
-    Lbu,
-    Lhu,
-
-    // Store opcodes
-    Sb,
-    Sh,
-    Sw,
 }
 
 #[cfg(test)]
@@ -157,16 +110,60 @@ mod tests {
     fn test_memory_loading_le() {
         let mut vm = VM::init();
 
-        let num = 4_u64;
-        let num_bytes = num.to_le_bytes();
+        let bytes = [
+            0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0A, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00,
+        ];
 
         // write to memory
-        let addr = 0;
-        for i in 0..8 {
-            *vm.mem_mut(addr + i) = num_bytes[i];
-        }
+        vm.write_bytes(0, &bytes);
 
         // read from memory
-        assert_eq!(vm.mem(addr), num);
+        assert_eq!(vm.mem(0), 4);
+        assert_eq!(vm.mem(8), 10);
+    }
+
+    #[test]
+    fn test_instruction_loading() {
+        let fib_prog = [
+            // Fib Step 0
+            0xb3, 0x81, 0x20, 0x00, // add x3, x1, x2
+            0xb3, 0x00, 0x01, 0x00, // add x1, x2, x0
+            0x33, 0x81, 0x01, 0x00, // add x2, x3, x0
+            // Fib Step 1
+            0xb3, 0x81, 0x20, 0x00, // add x3, x1, x2
+            0xb3, 0x00, 0x01, 0x00, // add x1, x2, x0
+            0x33, 0x81, 0x01, 0x00, // add x2, x3, x0
+            // Fib Step 2
+            0xb3, 0x81, 0x20, 0x00, // add x3, x1, x2
+            0xb3, 0x00, 0x01, 0x00, // add x1, x2, x0
+            0x33, 0x81, 0x01, 0x00, // add x2, x3, x0
+        ];
+
+        let mut vm = VM::init();
+        vm.write_bytes(0, &fib_prog);
+        *vm.reg_mut(1) = 1;
+        *vm.reg_mut(2) = 1;
+
+        vm.step();
+        vm.step();
+        vm.step();
+
+        assert_eq!(vm.reg(1), 1);
+        assert_eq!(vm.reg(2), 2);
+
+        vm.step();
+        vm.step();
+        vm.step();
+
+        assert_eq!(vm.reg(1), 2);
+        assert_eq!(vm.reg(2), 3);
+
+        vm.step();
+        vm.step();
+        vm.step();
+
+        assert_eq!(vm.reg(1), 3);
+        assert_eq!(vm.reg(2), 5);
     }
 }

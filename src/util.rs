@@ -1,23 +1,23 @@
 /// Mask with the lowest `n` bits set (0–32).
-pub fn mask32(n: u8) -> u32 {
+pub(crate) fn mask32(n: u8) -> u32 {
     if n == 32 {
         return u32::MAX;
     }
 
-    (1 << n) - 1
+    (1u32 << n) - 1
 }
 
 /// Mask with the lowest `n` bits set (0–64).
-pub fn mask(n: u8) -> u64 {
+pub(crate) fn mask(n: u8) -> u64 {
     if n == 64 {
         return u64::MAX;
     }
 
-    (1 << n) - 1
+    (1u64 << n) - 1
 }
 
 /// Sign-extend the low `bit_count` bits of `val` into a u64.
-pub fn sext(val: u32, bit_count: usize) -> u64 {
+pub(crate) fn sext(val: u32, bit_count: usize) -> u64 {
     debug_assert_eq!(val as u64 >> bit_count, 0, "upper bits must be zero");
 
     // bit count must be at least 1 and at most 32
@@ -39,9 +39,23 @@ pub fn sext(val: u32, bit_count: usize) -> u64 {
     val
 }
 
+/// Copies a slice from src starting at src_start to
+/// dest_start.
+/// Assumption
+///     ORs the mapped slice into `dest` rather than overwriting it.
+///     Bits already set in the destination range remain set.
+pub(crate) fn map_range(src: u32, dest: u32, src_start: u8, dest_start: u8, len: u8) -> u32 {
+    debug_assert!(len > 0 && len <= 32);
+    debug_assert!(src_start + 1 >= len);
+    debug_assert!(dest_start + 1 >= len);
+
+    let src_slice = (src >> (src_start + 1 - len)) & mask32(len);
+    dest | src_slice << (dest_start + 1 - len)
+}
+
 #[cfg(test)]
 mod test {
-    use crate::util::{mask, sext};
+    use crate::util::{map_range, mask, sext};
 
     #[test]
     fn test_mask_basic() {
@@ -108,5 +122,23 @@ mod test {
         assert_eq!(sext(0x7FFF_FFFF, 32), 0x7FFF_FFFF); // positive max
         assert_eq!(sext(0x8000_0000, 32), 0xFFFF_FFFF_8000_0000); // negative
         assert_eq!(sext(0xFFFF_FFFF, 32), u64::MAX); // -1
+    }
+
+    #[test]
+    fn test_map_range() {
+        let val: u32 = 0b0000_0000_0000_0000_0000_0000_0000_0000;
+        let target_val: u32 = 0b1111_1111_1111_1111_1111_1111_1111_1111;
+
+        assert_eq!(
+            map_range(target_val, val, 31, 20, 8),
+            0b0000_0000_0001_1111_1110_0000_0000_0000
+        );
+
+        let val: u32 = 0b0000_0000_0000_1111_1111_0000_0000_0000;
+
+        assert_eq!(
+            map_range(target_val, val, 31, 0, 1),
+            0b0000_0000_0000_1111_1111_0000_0000_0001
+        );
     }
 }
