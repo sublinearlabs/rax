@@ -5,7 +5,6 @@ use crate::{
 
 impl VM {
     pub(crate) fn execute_instruction(&mut self, insn: Instruction) {
-        println!("A10 Reg: {}", self.reg(10));
         match insn.opcode {
             // Register Opcodes
             Opcode::Add => {
