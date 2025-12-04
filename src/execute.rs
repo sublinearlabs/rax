@@ -5,6 +5,7 @@ use crate::{
 
 impl VM {
     pub(crate) fn execute_instruction(&mut self, insn: Instruction) {
+        println!("A10 Reg: {}", self.reg(10));
         match insn.opcode {
             // Register Opcodes
             Opcode::Add => {
@@ -113,37 +114,40 @@ impl VM {
             // Branch Opcodes
             Opcode::Beq => {
                 if self.reg(insn.rs1) == self.reg(insn.rs2) {
-                    self.pc += insn.imm
-                };
-                return;
+                    self.pc += insn.imm;
+                    return;
+                }
             }
 
             Opcode::Bne => {
+                // println!("I got hit. imm {}", insn.imm);
+                println!("{}", insn.rs1);
+                println!("{}", self.reg(insn.rs2));
                 if self.reg(insn.rs1) != self.reg(insn.rs2) {
-                    self.pc += insn.imm
-                };
-                return;
+                    self.pc += insn.imm;
+                    return;
+                }
             }
 
             Opcode::Blt | Opcode::Bltu => {
                 if self.reg(insn.rs1) < self.reg(insn.rs2) {
-                    self.pc += insn.imm
-                };
-                return;
+                    self.pc += insn.imm;
+                    return;
+                }
             }
 
             Opcode::Bge => {
                 if (self.reg(insn.rs1) as i64) >= (self.reg(insn.rs2) as i64) {
                     self.pc += insn.imm;
+                    return;
                 }
-                return;
             }
 
             Opcode::Bgeu => {
                 if self.reg(insn.rs1) >= self.reg(insn.rs2) {
-                    self.pc += insn.imm
+                    self.pc += insn.imm;
+                    return;
                 };
-                return;
             }
 
             // Jump opcodes
