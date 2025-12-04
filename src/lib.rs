@@ -21,6 +21,13 @@ impl VM {
         Self::default()
     }
 
+    // TODO add documentation
+    fn step() {
+        // get the pc
+        // read from mem with mem32 as little endian
+        todo!()
+    }
+
     /// Returns the current value at the idx register
     fn reg(&self, idx: usize) -> u64 {
         if idx == 0 { 0 } else { self.registers[idx] }
