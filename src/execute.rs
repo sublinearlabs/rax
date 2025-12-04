@@ -161,11 +161,11 @@ impl VM {
 
             // Lui and Auipc
             Opcode::Lui => {
-                *self.reg_mut(insn.rd) = insn.imm << 12;
+                *self.reg_mut(insn.rd) = insn.imm;
             }
 
             Opcode::Auipc => {
-                *self.reg_mut(insn.rd) = self.pc + (insn.imm << 12);
+                *self.reg_mut(insn.rd) = self.pc + insn.imm;
             }
 
             // I Instructions
