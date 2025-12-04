@@ -25,9 +25,9 @@ impl VM {
 
     /// Perform one cycle
     fn step(&mut self) {
-        let insn = self.mem32(self.pc as usize);
-        let decoded_insn = decode_insn(insn);
-        self.execute_instruction(decoded_insn);
+        let raw_insn = self.mem32(self.pc as usize);
+        let insn = decode_insn(raw_insn);
+        self.execute_instruction(insn);
     }
 
     /// Returns the current value at the idx register
@@ -121,5 +121,49 @@ mod tests {
         // read from memory
         assert_eq!(vm.mem(0), 4);
         assert_eq!(vm.mem(8), 10);
+    }
+
+    #[test]
+    fn test_instruction_loading() {
+        let fib_prog = [
+            // Fib Step 0
+            0xb3, 0x81, 0x20, 0x00, // add x3, x1, x2
+            0xb3, 0x00, 0x01, 0x00, // add x1, x2, x0
+            0x33, 0x81, 0x01, 0x00, // add x2, x3, x0
+            // Fib Step 1
+            0xb3, 0x81, 0x20, 0x00, // add x3, x1, x2
+            0xb3, 0x00, 0x01, 0x00, // add x1, x2, x0
+            0x33, 0x81, 0x01, 0x00, // add x2, x3, x0
+            // Fib Step 2
+            0xb3, 0x81, 0x20, 0x00, // add x3, x1, x2
+            0xb3, 0x00, 0x01, 0x00, // add x1, x2, x0
+            0x33, 0x81, 0x01, 0x00, // add x2, x3, x0
+        ];
+
+        let mut vm = VM::init();
+        vm.write_bytes(0, &fib_prog);
+        *vm.reg_mut(1) = 1;
+        *vm.reg_mut(2) = 1;
+
+        vm.step();
+        vm.step();
+        vm.step();
+
+        assert_eq!(vm.reg(1), 1);
+        assert_eq!(vm.reg(2), 2);
+
+        vm.step();
+        vm.step();
+        vm.step();
+
+        assert_eq!(vm.reg(1), 2);
+        assert_eq!(vm.reg(2), 3);
+
+        vm.step();
+        vm.step();
+        vm.step();
+
+        assert_eq!(vm.reg(1), 3);
+        assert_eq!(vm.reg(2), 5);
     }
 }
