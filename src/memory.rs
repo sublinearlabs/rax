@@ -1,4 +1,4 @@
-use std::{char::MAX, collections::HashMap};
+use std::collections::HashMap;
 
 /// Number of bits to describe entries in a page
 const PAGE_SHIFT: u64 = 12;
