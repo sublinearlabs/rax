@@ -9,7 +9,7 @@ impl VM {
         match insn.opcode {
             // Register Opcodes
             Opcode::Add => {
-                *self.reg_mut(insn.rd) = self.reg(insn.rs1) + self.reg(insn.rs2);
+                *self.reg_mut(insn.rd) = self.reg(insn.rs1).wrapping_add(self.reg(insn.rs2));
             }
 
             Opcode::Sub => {
@@ -46,7 +46,7 @@ impl VM {
 
             // Immediate Opcodes
             Opcode::Addi => {
-                *self.reg_mut(insn.rd) = self.reg(insn.rs1) + insn.imm;
+                *self.reg_mut(insn.rd) = self.reg(insn.rs1).wrapping_add(insn.imm);
             }
 
             Opcode::Xori => {
@@ -174,7 +174,8 @@ impl VM {
 
             // I Instructions
             Opcode::Addiw => {
-                *self.reg_mut(insn.rd) = sext(self.reg(insn.rs1) + insn.imm, 32);
+                let res = self.reg(insn.rs1).wrapping_add(insn.imm) & mask(32);
+                *self.reg_mut(insn.rd) = sext(res, 32);
             }
 
             Opcode::Slliw => {
