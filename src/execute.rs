@@ -94,8 +94,8 @@ impl VM {
             }
 
             Opcode::Lw => {
-                let addr = self.reg(insn.rs1 + (insn.imm as usize)) as usize;
-                *self.reg_mut(insn.rd) = self.mem(addr);
+                let addr = self.reg(insn.rs1).wrapping_add(insn.imm);
+                *self.reg_mut(insn.rd) = self.mem(addr as usize);
             }
 
             // Store Opcodes
