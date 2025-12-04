@@ -1,4 +1,7 @@
-use crate::{Instruction, Opcode, VM, util::mask};
+use crate::{
+    Instruction, Opcode, VM,
+    util::{mask, sext},
+};
 
 impl VM {
     pub(crate) fn execute_instruction(&mut self, insn: Instruction) {
@@ -154,6 +157,47 @@ impl VM {
 
             Opcode::Auipc => {
                 *self.reg_mut(insn.rd) = self.pc + (insn.imm << 12);
+            }
+
+            // I Instructions
+            Opcode::Addiw => {
+                *self.reg_mut(insn.rd) = sext(self.reg(insn.rs1) + insn.imm, 32);
+            }
+
+            Opcode::Slliw => {
+                *self.reg_mut(insn.rd) = sext(self.reg(insn.rs1) << insn.imm, 32);
+            }
+
+            Opcode::Srliw => {
+                *self.reg_mut(insn.rd) = sext((self.reg(insn.rs1) & mask(32)) >> insn.imm, 32);
+            }
+
+            Opcode::Sraiw => {
+                *self.reg_mut(insn.rd) = sext((self.reg(insn.rs1) & mask(32)) >> insn.imm, 32);
+            }
+
+            Opcode::Addw => {
+                *self.reg_mut(insn.rd) =
+                    sext((self.reg(insn.rs1) + self.reg(insn.rs2)) & mask(32), 32);
+            }
+
+            Opcode::Subw => {
+                *self.reg_mut(insn.rd) =
+                    sext((self.reg(insn.rs1) - self.reg(insn.rs2)) & mask(32), 32);
+            }
+
+            Opcode::Sllw => {
+                *self.reg_mut(insn.rd) = sext(
+                    (self.reg(insn.rs1) << (self.reg(insn.rs2) & mask(5))) & mask(32),
+                    32,
+                );
+            }
+
+            Opcode::Srlw => {
+                *self.reg_mut(insn.rd) = sext(
+                    ((self.reg(insn.rs1) & mask(32)) >> (self.reg(insn.rs2) & mask(5))),
+                    32,
+                );
             }
 
             // TODO remove the earger check once all opcodes have been implemented

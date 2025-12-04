@@ -17,15 +17,15 @@ pub(crate) fn mask(n: u8) -> u64 {
 }
 
 /// Sign-extend the low `bit_count` bits of `val` into a u64.
-pub(crate) fn sext(val: u32, bit_count: usize) -> u64 {
-    debug_assert_eq!(val as u64 >> bit_count, 0, "upper bits must be zero");
+pub(crate) fn sext(val: u64, bit_count: usize) -> u64 {
+    debug_assert_eq!(val >> bit_count, 0, "upper bits must be zero");
 
     // bit count must be at least 1 and at most 32
     if bit_count == 0 || bit_count > 32 {
         panic!("invalid bit count");
     }
 
-    let val = val as u64;
+    let val = val;
 
     // bit_count represents the length of the binary sequence we plan to extend
     // right_shift to erase all elements other than the sign bit

@@ -154,7 +154,7 @@ fn decode_imm(insn: u32, insn_type: &InstructionType) -> u64 {
             // inst[31:20] => imm[11:0]
             imm = map_range(insn, imm, 31, 11, 12);
             // highest imm bit = 11 (so len = 12)
-            sext(imm, 12)
+            sext(imm as u64, 12)
         }
         InstructionType::S => {
             // inst[11:7] => imm[4:0]
@@ -162,7 +162,7 @@ fn decode_imm(insn: u32, insn_type: &InstructionType) -> u64 {
             // inst[31:25] => imm[11:5]
             imm = map_range(insn, imm, 31, 11, 7);
             // highest imm bit = 11 (so len = 12)
-            sext(imm, 12)
+            sext(imm as u64, 12)
         }
         InstructionType::B => {
             // inst[7] => imm[11]
@@ -174,13 +174,13 @@ fn decode_imm(insn: u32, insn_type: &InstructionType) -> u64 {
             // inst[31] => imm[12]
             imm = map_range(insn, imm, 31, 12, 1);
             // highest imm bit = 12 (so len = 13)
-            sext(imm, 13)
+            sext(imm as u64, 13)
         }
         InstructionType::U => {
             // inst[31:12] => imm[31:12]
             imm = map_range(insn, imm, 31, 31, 20);
             // highest imm bit = 31 (so len = 32)
-            sext(imm, 32)
+            sext(imm as u64, 32)
         }
         InstructionType::J => {
             // inst[19:12] => imm[19:12]
@@ -192,7 +192,7 @@ fn decode_imm(insn: u32, insn_type: &InstructionType) -> u64 {
             // inst[31] => imm[20]
             imm = map_range(insn, imm, 31, 20, 1);
             // highest imm bit = 20 (so len = 21)
-            sext(imm, 21)
+            sext(imm as u64, 21)
         }
     }
 }
