@@ -31,8 +31,13 @@ impl VM {
                 *self.reg_mut(insn.rd) = self.reg(insn.rs1) << (self.reg(insn.rs2) & mask(6));
             }
 
-            Opcode::Srl | Opcode::Sra => {
-                *self.reg_mut(insn.rd) = self.reg(insn.rs1) >> self.reg(insn.rs2);
+            Opcode::Srl => {
+                *self.reg_mut(insn.rd) = self.reg(insn.rs1) >> (self.reg(insn.rs2) & mask(6));
+            }
+
+            Opcode::Sra => {
+                let val = self.reg(insn.rs1) as i64;
+                *self.reg_mut(insn.rd) = (val >> (self.reg(insn.rs2) & mask(6))) as u64;
             }
 
             Opcode::Slt | Opcode::Sltu => {
@@ -196,7 +201,7 @@ impl VM {
             }
 
             Opcode::Slliw => {
-                let val = self.reg(insn.rs1) << (insn.imm & mask(6));
+                let val = self.reg(insn.rs1) << (insn.imm & mask(5));
                 *self.reg_mut(insn.rd) = sext(val & mask(32), 32);
             }
 
@@ -204,9 +209,10 @@ impl VM {
                 *self.reg_mut(insn.rd) = sext((self.reg(insn.rs1) & mask(32)) >> insn.imm, 32);
             }
 
+            // TODO there is still a problem with this
             Opcode::Sraiw => {
-                let val = (self.reg(insn.rs1) & mask(32)) >> (insn.imm & mask(6));
-                *self.reg_mut(insn.rd) = sext(val, 32);
+                let val = (self.reg(insn.rs1) & mask(32)) as i64;
+                *self.reg_mut(insn.rd) = (val >> (insn.imm & mask(5))) as u64;
             }
 
             Opcode::Addw => {
