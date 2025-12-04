@@ -105,6 +105,31 @@ impl VM {
                 }
             }
 
+            // Branch Opcodes
+            Opcode::Beq => {
+                if self.reg(insn.rs1) == self.reg(insn.rs2) {
+                    self.pc += insn.imm
+                };
+            }
+
+            Opcode::Bne => {
+                if self.reg(insn.rs1) != self.reg(insn.rs2) {
+                    self.pc += insn.imm
+                };
+            }
+
+            Opcode::Blt | Opcode::Bltu => {
+                if self.reg(insn.rs1) < self.reg(insn.rs2) {
+                    self.pc += insn.imm
+                };
+            }
+
+            Opcode::Bge | Opcode::Bgeu => {
+                if self.reg(insn.rs1) >= self.reg(insn.rs2) {
+                    self.pc += insn.imm
+                };
+            }
+
             // TODO remove the earger check once all opcodes have been implemented
             _ => {}
         }
