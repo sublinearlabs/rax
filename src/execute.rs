@@ -5,10 +5,11 @@ use crate::{
 
 impl VM {
     pub(crate) fn execute_instruction(&mut self, insn: Instruction) {
+        println!("A10 Reg: {}", self.reg(10));
         match insn.opcode {
             // Register Opcodes
             Opcode::Add => {
-                *self.reg_mut(insn.rd) = self.reg(insn.rs1) + self.reg(insn.rs2);
+                *self.reg_mut(insn.rd) = self.reg(insn.rs1).wrapping_add(self.reg(insn.rs2));
             }
 
             Opcode::Sub => {
@@ -45,7 +46,7 @@ impl VM {
 
             // Immediate Opcodes
             Opcode::Addi => {
-                *self.reg_mut(insn.rd) = self.reg(insn.rs1) + insn.imm;
+                *self.reg_mut(insn.rd) = self.reg(insn.rs1).wrapping_add(insn.imm);
             }
 
             Opcode::Xori => {
@@ -101,6 +102,8 @@ impl VM {
                 }
             }
 
+            // Suspicious, need to look into this some more (but doesn't seem pressing for add to
+            // work)
             Opcode::Sw => {
                 let addr = insn.rs1 + (insn.imm as usize);
                 for i in 0..8 {
@@ -111,30 +114,37 @@ impl VM {
             // Branch Opcodes
             Opcode::Beq => {
                 if self.reg(insn.rs1) == self.reg(insn.rs2) {
-                    self.pc += insn.imm
-                };
-                return;
+                    self.pc += insn.imm;
+                    return;
+                }
             }
 
             Opcode::Bne => {
                 if self.reg(insn.rs1) != self.reg(insn.rs2) {
-                    self.pc += insn.imm
-                };
-                return;
+                    self.pc = self.pc.wrapping_add(insn.imm);
+                    return;
+                }
             }
 
             Opcode::Blt | Opcode::Bltu => {
                 if self.reg(insn.rs1) < self.reg(insn.rs2) {
-                    self.pc += insn.imm
-                };
-                return;
+                    self.pc += insn.imm;
+                    return;
+                }
             }
 
-            Opcode::Bge | Opcode::Bgeu => {
+            Opcode::Bge => {
+                if (self.reg(insn.rs1) as i64) >= (self.reg(insn.rs2) as i64) {
+                    self.pc += insn.imm;
+                    return;
+                }
+            }
+
+            Opcode::Bgeu => {
                 if self.reg(insn.rs1) >= self.reg(insn.rs2) {
-                    self.pc += insn.imm
+                    self.pc += insn.imm;
+                    return;
                 };
-                return;
             }
 
             // Jump opcodes
@@ -152,16 +162,17 @@ impl VM {
 
             // Lui and Auipc
             Opcode::Lui => {
-                *self.reg_mut(insn.rd) = insn.imm << 12;
+                *self.reg_mut(insn.rd) = insn.imm;
             }
 
             Opcode::Auipc => {
-                *self.reg_mut(insn.rd) = self.pc + (insn.imm << 12);
+                *self.reg_mut(insn.rd) = self.pc + insn.imm;
             }
 
             // I Instructions
             Opcode::Addiw => {
-                *self.reg_mut(insn.rd) = sext(self.reg(insn.rs1) + insn.imm, 32);
+                let res = self.reg(insn.rs1).wrapping_add(insn.imm) & mask(32);
+                *self.reg_mut(insn.rd) = sext(res, 32);
             }
 
             Opcode::Slliw => {
@@ -195,9 +206,23 @@ impl VM {
 
             Opcode::Srlw => {
                 *self.reg_mut(insn.rd) = sext(
-                    ((self.reg(insn.rs1) & mask(32)) >> (self.reg(insn.rs2) & mask(5))),
+                    (self.reg(insn.rs1) & mask(32)) >> (self.reg(insn.rs2) & mask(5)),
                     32,
                 );
+            }
+
+            Opcode::Ecall => {
+                let func = self.reg(17);
+                match func {
+                    93 => {
+                        // halt
+                        self.halted = true;
+                        self.exit_code = self.reg(10);
+                    }
+                    _ => {
+                        panic!("skipping ecall");
+                    }
+                }
             }
 
             // TODO remove the earger check once all opcodes have been implemented

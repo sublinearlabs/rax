@@ -19,6 +19,7 @@ struct VM {
     x0_sink: u64, // blackhole for writes to x0
     pc: u64,
     halted: bool,
+    exit_code: u64,
 }
 
 impl VM {
@@ -46,10 +47,11 @@ impl VM {
 
     /// perform one cycle
     fn step(&mut self) {
+        print!("{:x}: ", self.pc);
         let raw_insn = self.mem32(self.pc as usize);
         let insn = decode_insn(raw_insn);
-        self.pc += 4;
-        // self.execute_instruction(insn);
+        print!(" {:?}\n", insn.opcode);
+        self.execute_instruction(insn);
     }
 
     /// Returns the current value at the idx register
@@ -86,7 +88,6 @@ impl VM {
             print!("{:x} ", byte);
             result |= (byte as u32) << (i * 8);
         }
-        print!("\n");
         result
     }
 
@@ -195,5 +196,7 @@ mod tests {
     fn test_p_add() {
         let mut vm = VM::init_from_elf(String::from("test-bin/rv64ui-p-add"));
         vm.run();
+        assert!(vm.halted);
+        assert_eq!(vm.exit_code, 0);
     }
 }
