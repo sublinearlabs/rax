@@ -64,8 +64,14 @@ impl VM {
                 *self.reg_mut(insn.rd) = self.reg(insn.rs1) << insn.imm;
             }
 
-            Opcode::Srli | Opcode::Srai => {
-                *self.reg_mut(insn.rd) = self.reg(insn.rs1) >> insn.imm;
+            Opcode::Srli => {
+                *self.reg_mut(insn.rd) = self.reg(insn.rs1) >> (insn.imm & mask(6));
+            }
+
+            Opcode::Srai => {
+                let shift = insn.imm & mask(6);
+                let val = self.reg(insn.rs1) as i64;
+                *self.reg_mut(insn.rd) = (val >> shift) as u64;
             }
 
             Opcode::Slti | Opcode::Sltiu => {
