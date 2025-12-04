@@ -1,3 +1,5 @@
+use core::panic;
+
 use crate::util::{map_range, mask, mask32, sext};
 
 // RISCV Opcodes
@@ -15,12 +17,16 @@ pub(crate) enum Opcode {
     Sltu,
 
     Addi,
+    Addiw,
     Xori,
     Ori,
     Andi,
     Slli,
+    Slliw,
     Srli,
+    Srliw,
     Srai,
+    Sraiw,
     Slti,
     Sltiu,
 
@@ -107,7 +113,7 @@ pub(crate) fn decode_insn(insn: u32) -> Instruction {
 
     let insn_type = match opcode_value {
         0b0110011 => InstructionType::R,
-        0b0010011 | 0b0000011 | 0b1100111 | 0b1110011 => InstructionType::I,
+        0b0010011 | 0b0000011 | 0b1100111 | 0b1110011 | 0b0011011 => InstructionType::I,
         0b0100011 => InstructionType::S,
         0b1100011 => InstructionType::B,
         0b0110111 | 0b0010111 => InstructionType::U,
@@ -255,6 +261,16 @@ fn decode_i_insn(opcode_value: u32, funct3: u32, imm: u64) -> Opcode {
             0x0 => Opcode::Ecall,
             0x1 => Opcode::Ebreak,
             _ => Opcode::Eother,
+        },
+        0b0011011 => match funct3 {
+            0x0 => Opcode::Addiw,
+            0x1 => Opcode::Slliw,
+            0x5 => match (imm >> 5) & mask(7) {
+                0x00 => Opcode::Srliw,
+                0x20 => Opcode::Sraiw,
+                _ => panic!("unknown opcode"),
+            },
+            _ => panic!("unknown opcode"),
         },
         _ => panic!("unknown opcode"),
     }
