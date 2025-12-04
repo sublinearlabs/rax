@@ -28,7 +28,7 @@ impl VM {
             }
 
             Opcode::Sll => {
-                *self.reg_mut(insn.rd) = self.reg(insn.rs1) << self.reg(insn.rs2);
+                *self.reg_mut(insn.rd) = self.reg(insn.rs1) << (self.reg(insn.rs2) & mask(6));
             }
 
             Opcode::Srl | Opcode::Sra => {
