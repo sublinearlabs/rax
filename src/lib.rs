@@ -48,7 +48,8 @@ impl VM {
     fn step(&mut self) {
         let raw_insn = self.mem32(self.pc as usize);
         let insn = decode_insn(raw_insn);
-        self.execute_instruction(insn);
+        self.pc += 4;
+        // self.execute_instruction(insn);
     }
 
     /// Returns the current value at the idx register
@@ -82,8 +83,10 @@ impl VM {
         let mut result = 0_u32;
         for i in 0..4 {
             let byte = self.memory.read((addr + i) as u64);
+            print!("{:x} ", byte);
             result |= (byte as u32) << (i * 8);
         }
+        print!("\n");
         result
     }
 

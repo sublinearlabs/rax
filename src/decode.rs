@@ -4,23 +4,32 @@ use crate::util::{map_range, mask, mask32, sext};
 #[derive(Debug)]
 pub(crate) enum Opcode {
     Add,
+    Addw,
     Sub,
+    Subw,
     Xor,
     Or,
     And,
     Sll,
+    Sllw,
     Srl,
+    Srlw,
     Sra,
+    Sraw,
     Slt,
     Sltu,
 
     Addi,
+    Addiw,
     Xori,
     Ori,
     Andi,
     Slli,
+    Slliw,
     Srli,
+    Srliw,
     Srai,
+    Sraiw,
     Slti,
     Sltiu,
 
@@ -29,10 +38,13 @@ pub(crate) enum Opcode {
     Lw,
     Lbu,
     Lhu,
+    Lwu,
+    Ld,
 
     Sb,
     Sh,
     Sw,
+    Sd,
 
     Beq,
     Bne,
@@ -106,11 +118,11 @@ pub(crate) fn decode_insn(insn: u32) -> Instruction {
     let opcode_value = insn & mask32(7);
 
     let insn_type = match opcode_value {
-        0b0110011 => InstructionType::R,
-        0b0010011 | 0b0000011 | 0b1100111 | 0b1110011 => InstructionType::I,
+        0b0110011 | 0b0111011 => InstructionType::R,
+        0b0010011 | 0b0000011 | 0b1100111 | 0b1110011 | 0b0011011 => InstructionType::I,
         0b0100011 => InstructionType::S,
         0b1100011 => InstructionType::B,
-        0b0110111 => InstructionType::U,
+        0b0110111 | 0b0010111 => InstructionType::U,
         0b1101111 => InstructionType::J,
         0b0001111 => InstructionType::FENCE,
         _ => panic!("unsupported instruction type"),
@@ -193,7 +205,7 @@ fn decode_opcode(
     imm: u64,
 ) -> Opcode {
     match insn_type {
-        InstructionType::R => decode_r_insn(funct3, funct7),
+        InstructionType::R => decode_r_insn(opcode_value, funct3, funct7),
         InstructionType::I => decode_i_insn(opcode_value, funct3, imm),
         InstructionType::S => decode_s_insn(funct3),
         InstructionType::B => decode_b_insn(funct3),
@@ -203,24 +215,41 @@ fn decode_opcode(
     }
 }
 
-fn decode_r_insn(funct3: u32, funct7: u32) -> Opcode {
-    match funct3 {
-        0x0 => match funct7 {
-            0x00 => Opcode::Add,
-            0x20 => Opcode::Sub,
+fn decode_r_insn(opcode_value: u32, funct3: u32, funct7: u32) -> Opcode {
+    match opcode_value {
+        0b0110011 => match funct3 {
+            0x0 => match funct7 {
+                0x00 => Opcode::Add,
+                0x20 => Opcode::Sub,
+                _ => panic!("unknown opcode"),
+            },
+            0x4 => Opcode::Xor,
+            0x6 => Opcode::Or,
+            0x7 => Opcode::And,
+            0x1 => Opcode::Sll,
+            0x5 => match funct7 {
+                0x00 => Opcode::Srl,
+                0x20 => Opcode::Sra,
+                _ => panic!("unknown opcode"),
+            },
+            0x2 => Opcode::Slt,
+            0x3 => Opcode::Sltu,
             _ => panic!("unknown opcode"),
         },
-        0x4 => Opcode::Xor,
-        0x6 => Opcode::Or,
-        0x7 => Opcode::And,
-        0x1 => Opcode::Sll,
-        0x5 => match funct7 {
-            0x00 => Opcode::Srl,
-            0x20 => Opcode::Sra,
+        0b0111011 => match funct3 {
+            0x0 => match funct7 {
+                0x00 => Opcode::Addw,
+                0x20 => Opcode::Subw,
+                _ => panic!("unknown opcode"),
+            },
+            0x1 => Opcode::Sllw,
+            0x5 => match funct7 {
+                0x00 => Opcode::Srlw,
+                0x20 => Opcode::Sraw,
+                _ => panic!("unknown opcode"),
+            },
             _ => panic!("unknown opcode"),
         },
-        0x2 => Opcode::Slt,
-        0x3 => Opcode::Sltu,
         _ => panic!("unknown opcode"),
     }
 }
@@ -248,6 +277,8 @@ fn decode_i_insn(opcode_value: u32, funct3: u32, imm: u64) -> Opcode {
             0x2 => Opcode::Lw,
             0x4 => Opcode::Lbu,
             0x5 => Opcode::Lhu,
+            0x6 => Opcode::Lwu,
+            0x3 => Opcode::Ld,
             _ => panic!("unknown opcode"),
         },
         0b1100111 => Opcode::Jalr,
@@ -255,6 +286,16 @@ fn decode_i_insn(opcode_value: u32, funct3: u32, imm: u64) -> Opcode {
             0x0 => Opcode::Ecall,
             0x1 => Opcode::Ebreak,
             _ => Opcode::Eother,
+        },
+        0b0011011 => match funct3 {
+            0x0 => Opcode::Addiw,
+            0x1 => Opcode::Slliw,
+            0x5 => match (imm >> 5) & mask(7) {
+                0x00 => Opcode::Srliw,
+                0x20 => Opcode::Sraiw,
+                _ => panic!("unknown opcode"),
+            },
+            _ => panic!("unknown opcode"),
         },
         _ => panic!("unknown opcode"),
     }
@@ -265,6 +306,7 @@ fn decode_s_insn(funct3: u32) -> Opcode {
         0x0 => Opcode::Sb,
         0x1 => Opcode::Sh,
         0x2 => Opcode::Sw,
+        0x3 => Opcode::Sd,
         _ => panic!("unknown opcode"),
     }
 }
