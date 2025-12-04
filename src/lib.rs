@@ -37,14 +37,14 @@ impl VM {
         vm
     }
 
-    /// Execute the VM
+    /// execute the vm
     fn run(&mut self) {
         while !self.halted {
             self.step();
         }
     }
 
-    /// Perform one cycle
+    /// perform one cycle
     fn step(&mut self) {
         let raw_insn = self.mem32(self.pc as usize);
         let insn = decode_insn(raw_insn);
@@ -186,5 +186,11 @@ mod tests {
 
         assert_eq!(vm.reg(1), 3);
         assert_eq!(vm.reg(2), 5);
+    }
+
+    #[test]
+    fn test_p_add() {
+        let mut vm = VM::init_from_elf(String::from("test-bin/rv64ui-p-add"));
+        vm.run();
     }
 }
