@@ -1,5 +1,6 @@
 use crate::decode::Instruction;
 use crate::decode::Opcode;
+use crate::decode::decode_insn;
 use crate::memory::Memory;
 
 mod decode;
@@ -12,13 +13,21 @@ struct VM {
     registers: [u64; 32],
     memory: Memory,
     x0_sink: u64, // blackhole for writes to x0
-    pc: usize,
+    pc: u64,
+    halted: bool,
 }
 
 impl VM {
     /// Returns a VM with empty state
     fn init() -> Self {
         Self::default()
+    }
+
+    /// Perform one cycle
+    fn step(&mut self) {
+        let raw_insn = self.mem32(self.pc as usize);
+        let insn = decode_insn(raw_insn);
+        self.execute_instruction(insn);
     }
 
     /// Returns the current value at the idx register
@@ -42,6 +51,17 @@ impl VM {
         for i in 0..8 {
             let byte = self.memory.read((addr + i) as u64);
             result |= (byte as u64) << (i * 8);
+        }
+        result
+    }
+
+    /// Reads 32 bytes from memory at the given addr
+    /// assumes value at memory address is the LSB
+    fn mem32(&self, addr: usize) -> u32 {
+        let mut result = 0_u32;
+        for i in 0..4 {
+            let byte = self.memory.read((addr + i) as u64);
+            result |= (byte as u32) << (i * 8);
         }
         result
     }
@@ -101,5 +121,49 @@ mod tests {
         // read from memory
         assert_eq!(vm.mem(0), 4);
         assert_eq!(vm.mem(8), 10);
+    }
+
+    #[test]
+    fn test_instruction_loading() {
+        let fib_prog = [
+            // Fib Step 0
+            0xb3, 0x81, 0x20, 0x00, // add x3, x1, x2
+            0xb3, 0x00, 0x01, 0x00, // add x1, x2, x0
+            0x33, 0x81, 0x01, 0x00, // add x2, x3, x0
+            // Fib Step 1
+            0xb3, 0x81, 0x20, 0x00, // add x3, x1, x2
+            0xb3, 0x00, 0x01, 0x00, // add x1, x2, x0
+            0x33, 0x81, 0x01, 0x00, // add x2, x3, x0
+            // Fib Step 2
+            0xb3, 0x81, 0x20, 0x00, // add x3, x1, x2
+            0xb3, 0x00, 0x01, 0x00, // add x1, x2, x0
+            0x33, 0x81, 0x01, 0x00, // add x2, x3, x0
+        ];
+
+        let mut vm = VM::init();
+        vm.write_bytes(0, &fib_prog);
+        *vm.reg_mut(1) = 1;
+        *vm.reg_mut(2) = 1;
+
+        vm.step();
+        vm.step();
+        vm.step();
+
+        assert_eq!(vm.reg(1), 1);
+        assert_eq!(vm.reg(2), 2);
+
+        vm.step();
+        vm.step();
+        vm.step();
+
+        assert_eq!(vm.reg(1), 2);
+        assert_eq!(vm.reg(2), 3);
+
+        vm.step();
+        vm.step();
+        vm.step();
+
+        assert_eq!(vm.reg(1), 3);
+        assert_eq!(vm.reg(2), 5);
     }
 }
