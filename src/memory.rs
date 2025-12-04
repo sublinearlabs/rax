@@ -60,6 +60,21 @@ impl Memory {
         let offset = Self::page_offset(addr);
         &mut self.ensure_page(idx)[offset]
     }
+
+    pub(crate) fn write_byte(&mut self, addr: u64, value: u8) {
+        if addr > MAX_ADDR {
+            panic!("write out of range: 0x{:x}", addr);
+        }
+        let idx = Self::page_idx(addr);
+        let offset = Self::page_offset(addr);
+        self.ensure_page(idx)[offset] = value;
+    }
+
+    pub(crate) fn write_bytes(&mut self, addr: u64, data: &[u8]) {
+        for (i, val) in data.iter().enumerate() {
+            self.write_byte(addr + i as u64, *val);
+        }
+    }
 }
 
 #[cfg(test)]

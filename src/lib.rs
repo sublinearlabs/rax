@@ -51,6 +51,10 @@ impl VM {
     fn mem_mut(&mut self, addr: usize) -> &mut u8 {
         self.memory.mem_mut(addr as u64)
     }
+
+    fn write_bytes(&mut self, addr: usize, data: &[u8]) {
+        self.memory.write_bytes(addr as u64, data);
+    }
 }
 
 #[cfg(test)]
@@ -85,16 +89,16 @@ mod tests {
     fn test_memory_loading_le() {
         let mut vm = VM::init();
 
-        let num = 4_u64;
-        let num_bytes = num.to_le_bytes();
+        let bytes = [
+            0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0A, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00,
+        ];
 
         // write to memory
-        let addr = 0;
-        for i in 0..8 {
-            *vm.mem_mut(addr + i) = num_bytes[i];
-        }
+        vm.write_bytes(0, &bytes);
 
         // read from memory
-        assert_eq!(vm.mem(addr), num);
+        assert_eq!(vm.mem(0), 4);
+        assert_eq!(vm.mem(8), 10);
     }
 }
