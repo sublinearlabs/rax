@@ -76,6 +76,13 @@ impl Memory {
             self.write_byte(addr + i as u64, *val);
         }
     }
+
+    /// This is a NO-OP
+    /// everytime a new page is created it is prefilled with zero
+    /// reading from a page that doesn't exist also returns a 0
+    /// so logically everything is zero filled by default
+    #[inline(always)]
+    pub(crate) fn zero_fill(&self, _addr: u64, _size: usize) {}
 }
 
 #[cfg(test)]

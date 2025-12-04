@@ -1,9 +1,14 @@
+use std::fs;
+use std::fs::File;
+
 use crate::decode::Instruction;
 use crate::decode::Opcode;
 use crate::decode::decode_insn;
+use crate::elf::decode_elf;
 use crate::memory::Memory;
 
 mod decode;
+mod elf;
 mod execute;
 mod memory;
 mod util;
@@ -21,6 +26,16 @@ impl VM {
     /// Returns a VM with empty state
     fn init() -> Self {
         Self::default()
+    }
+
+    /// Init the VM from an elf file
+    fn init_from_elf(path: String) -> Self {
+        let elf_bytes = fs::read(path).unwrap();
+        let (memory, pc) = decode_elf(&elf_bytes);
+        let mut vm = VM::default();
+        vm.memory = memory;
+        vm.pc = pc;
+        vm
     }
 
     /// Perform one cycle
