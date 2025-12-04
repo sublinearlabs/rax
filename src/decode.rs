@@ -6,13 +6,18 @@ use crate::util::{map_range, mask, mask32, sext};
 #[derive(Debug)]
 pub(crate) enum Opcode {
     Add,
+    Addw,
     Sub,
+    Subw,
     Xor,
     Or,
     And,
     Sll,
+    Sllw,
     Srl,
+    Srlw,
     Sra,
+    Sraw,
     Slt,
     Sltu,
 
@@ -112,7 +117,7 @@ pub(crate) fn decode_insn(insn: u32) -> Instruction {
     let opcode_value = insn & mask32(7);
 
     let insn_type = match opcode_value {
-        0b0110011 => InstructionType::R,
+        0b0110011 | 0b0111011 => InstructionType::R,
         0b0010011 | 0b0000011 | 0b1100111 | 0b1110011 | 0b0011011 => InstructionType::I,
         0b0100011 => InstructionType::S,
         0b1100011 => InstructionType::B,
@@ -209,25 +214,34 @@ fn decode_opcode(
     }
 }
 
-fn decode_r_insn(funct3: u32, funct7: u32) -> Opcode {
-    match funct3 {
-        0x0 => match funct7 {
-            0x00 => Opcode::Add,
-            0x20 => Opcode::Sub,
+fn decode_r_insn(opcode_value: u32, funct3: u32, funct7: u32) -> Opcode {
+    match opcode_value {
+        0b0110011 => match funct3 {
+            0x0 => match funct7 {
+                0x00 => Opcode::Add,
+                0x20 => Opcode::Sub,
+                _ => panic!("unknown opcode"),
+            },
+            0x4 => Opcode::Xor,
+            0x6 => Opcode::Or,
+            0x7 => Opcode::And,
+            0x1 => Opcode::Sll,
+            0x5 => match funct7 {
+                0x00 => Opcode::Srl,
+                0x20 => Opcode::Sra,
+                _ => panic!("unknown opcode"),
+            },
+            0x2 => Opcode::Slt,
+            0x3 => Opcode::Sltu,
             _ => panic!("unknown opcode"),
         },
-        0x4 => Opcode::Xor,
-        0x6 => Opcode::Or,
-        0x7 => Opcode::And,
-        0x1 => Opcode::Sll,
-        0x5 => match funct7 {
-            0x00 => Opcode::Srl,
-            0x20 => Opcode::Sra,
-            _ => panic!("unknown opcode"),
+        0b0111011 => match funct3 {
+            0x0 => match funct7 {
+                0x00 => Opcode::Addw,
+                0x20 => Opcode::Subw,
+                _ => panic!("unknown opcode"),
+            },
         },
-        0x2 => Opcode::Slt,
-        0x3 => Opcode::Sltu,
-        _ => panic!("unknown opcode"),
     }
 }
 
