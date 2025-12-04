@@ -101,6 +101,8 @@ impl VM {
                 }
             }
 
+            // Suspicious, need to look into this some more (but doesn't seem pressing for add to
+            // work)
             Opcode::Sw => {
                 let addr = insn.rs1 + (insn.imm as usize);
                 for i in 0..8 {
@@ -130,7 +132,14 @@ impl VM {
                 return;
             }
 
-            Opcode::Bge | Opcode::Bgeu => {
+            Opcode::Bge => {
+                if (self.reg(insn.rs1) as i64) >= (self.reg(insn.rs2) as i64) {
+                    self.pc += insn.imm;
+                }
+                return;
+            }
+
+            Opcode::Bgeu => {
                 if self.reg(insn.rs1) >= self.reg(insn.rs2) {
                     self.pc += insn.imm
                 };
