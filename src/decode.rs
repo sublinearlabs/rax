@@ -46,6 +46,7 @@ pub(crate) enum Opcode {
     Sb,
     Sh,
     Sw,
+    Sd,
 
     Beq,
     Bne,
@@ -307,6 +308,7 @@ fn decode_s_insn(funct3: u32) -> Opcode {
         0x0 => Opcode::Sb,
         0x1 => Opcode::Sh,
         0x2 => Opcode::Sw,
+        0x3 => Opcode::Sd,
         _ => panic!("unknown opcode"),
     }
 }
