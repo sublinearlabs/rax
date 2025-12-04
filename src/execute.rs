@@ -110,24 +110,41 @@ impl VM {
                 if self.reg(insn.rs1) == self.reg(insn.rs2) {
                     self.pc += insn.imm
                 };
+                return;
             }
 
             Opcode::Bne => {
                 if self.reg(insn.rs1) != self.reg(insn.rs2) {
                     self.pc += insn.imm
                 };
+                return;
             }
 
             Opcode::Blt | Opcode::Bltu => {
                 if self.reg(insn.rs1) < self.reg(insn.rs2) {
                     self.pc += insn.imm
                 };
+                return;
             }
 
             Opcode::Bge | Opcode::Bgeu => {
                 if self.reg(insn.rs1) >= self.reg(insn.rs2) {
                     self.pc += insn.imm
                 };
+                return;
+            }
+
+            // Jump opcodes
+            Opcode::Jal => {
+                *self.reg_mut(insn.rd) = self.pc + 4;
+                self.pc += insn.imm;
+                return;
+            }
+
+            Opcode::Jalr => {
+                *self.reg_mut(insn.rd) = self.pc + 4;
+                self.pc = self.reg(insn.rs1) as u64 + insn.imm;
+                return;
             }
 
             // TODO remove the earger check once all opcodes have been implemented
@@ -184,5 +201,26 @@ mod test {
         assert_eq!(vm.mem(10), 73585981057);
         assert_eq!(vm.mem(11), 287445238);
         assert_eq!(vm.mem(12), 1122832);
+    }
+
+    #[test]
+    fn test_jal_opcode() {
+        let mut vm = VM::init();
+        vm.pc = 8;
+        let insn = Instruction::new(Opcode::Jal).imm(12).rd(3);
+        vm.execute_instruction(insn);
+        assert_eq!(vm.reg(3), 12);
+        assert_eq!(vm.pc, 20);
+    }
+
+    #[test]
+    fn test_jalr_opcode() {
+        let mut vm = VM::init();
+        vm.pc = 8;
+        *vm.reg_mut(5) = 6;
+        let insn = Instruction::new(Opcode::Jalr).rs1(5).imm(9).rd(3);
+        vm.execute_instruction(insn);
+        assert_eq!(vm.reg(3), 12);
+        assert_eq!(vm.pc, 15);
     }
 }
