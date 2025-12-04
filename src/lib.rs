@@ -1,5 +1,4 @@
 use std::fs;
-use std::fs::File;
 
 use crate::decode::Instruction;
 use crate::decode::Opcode;
@@ -36,6 +35,13 @@ impl VM {
         vm.memory = memory;
         vm.pc = pc;
         vm
+    }
+
+    /// Execute the VM
+    fn run(&mut self) {
+        while !self.halted {
+            self.step();
+        }
     }
 
     /// Perform one cycle
