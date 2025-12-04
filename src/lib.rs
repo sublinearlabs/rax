@@ -1,5 +1,6 @@
 use crate::decode::Instruction;
 use crate::decode::Opcode;
+use crate::decode::decode_insn;
 use crate::memory::Memory;
 
 mod decode;
@@ -12,7 +13,8 @@ struct VM {
     registers: [u64; 32],
     memory: Memory,
     x0_sink: u64, // blackhole for writes to x0
-    pc: usize,
+    pc: u64,
+    halted: bool,
 }
 
 impl VM {
@@ -21,11 +23,11 @@ impl VM {
         Self::default()
     }
 
-    // TODO add documentation
-    fn step() {
-        // get the pc
-        // read from mem with mem32 as little endian
-        todo!()
+    /// Perform one cycle
+    fn step(&mut self) {
+        let insn = self.mem32(self.pc as usize);
+        let decoded_insn = decode_insn(insn);
+        self.execute_instruction(decoded_insn);
     }
 
     /// Returns the current value at the idx register
