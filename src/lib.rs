@@ -19,6 +19,7 @@ struct VM {
     x0_sink: u64, // blackhole for writes to x0
     pc: u64,
     halted: bool,
+    exit_code: u64,
 }
 
 impl VM {
@@ -195,5 +196,7 @@ mod tests {
     fn test_p_add() {
         let mut vm = VM::init_from_elf(String::from("test-bin/rv64ui-p-add"));
         vm.run();
+        assert!(vm.halted);
+        assert_eq!(vm.exit_code, 0);
     }
 }

@@ -206,9 +206,23 @@ impl VM {
 
             Opcode::Srlw => {
                 *self.reg_mut(insn.rd) = sext(
-                    ((self.reg(insn.rs1) & mask(32)) >> (self.reg(insn.rs2) & mask(5))),
+                    (self.reg(insn.rs1) & mask(32)) >> (self.reg(insn.rs2) & mask(5)),
                     32,
                 );
+            }
+
+            Opcode::Ecall => {
+                let func = self.reg(17);
+                match func {
+                    93 => {
+                        // halt
+                        self.halted = true;
+                        self.exit_code = self.reg(10);
+                    }
+                    _ => {
+                        panic!("skipping ecall");
+                    }
+                }
             }
 
             // TODO remove the earger check once all opcodes have been implemented
