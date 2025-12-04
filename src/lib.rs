@@ -46,6 +46,17 @@ impl VM {
         result
     }
 
+    /// Reads 32 bytes from memory at the given addr
+    /// assumes value at memory address is the LSB
+    fn mem32(&self, addr: usize) -> u32 {
+        let mut result = 0_u32;
+        for i in 0..4 {
+            let byte = self.memory.read((addr + i) as u64);
+            result |= (byte as u32) << (i * 8);
+        }
+        result
+    }
+
     /// Returns a mutable reference to a single byte at the given
     /// memory addr
     fn mem_mut(&mut self, addr: usize) -> &mut u8 {
