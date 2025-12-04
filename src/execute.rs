@@ -85,6 +85,26 @@ impl VM {
                 *self.reg_mut(insn.rd) = self.mem(addr);
             }
 
+            // Store Opcodes
+            Opcode::Sb => {
+                *self.mem_mut(insn.rs1 + (insn.imm as usize)) =
+                    (self.reg(insn.rs2) & mask(8)) as u8;
+            }
+
+            Opcode::Sh => {
+                let addr = insn.rs1 + (insn.imm as usize);
+                for i in 0..4 {
+                    *self.mem_mut(addr + i) = ((self.reg(insn.rs2) >> (8 * i)) & mask(8)) as u8;
+                }
+            }
+
+            Opcode::Sw => {
+                let addr = insn.rs1 + (insn.imm as usize);
+                for i in 0..8 {
+                    *self.mem_mut(addr + i) = ((self.reg(insn.rs2) >> (8 * i)) & mask(8)) as u8;
+                }
+            }
+
             // TODO remove the earger check once all opcodes have been implemented
             _ => {}
         }
@@ -105,5 +125,39 @@ mod test {
         // r8 = r3 + r5
         vm.execute_instruction(Instruction::new(Opcode::Add).rs1(3).rs2(5).rd(8));
         assert_eq!(vm.reg(8), 12 + 32);
+    }
+
+    #[test]
+    fn test_store_byte() {
+        let mut vm = VM::init();
+        *vm.reg_mut(3) = 12;
+        let insn = Instruction::new(Opcode::Sb).rs1(5).imm(2).rs2(3);
+        vm.execute_instruction(insn);
+        assert_eq!(vm.mem(7), 12);
+    }
+
+    #[test]
+    fn test_store_half_word() {
+        let mut vm = VM::init();
+        *vm.reg_mut(3) = 4194867295;
+        let insn = Instruction::new(Opcode::Sh).rs1(5).imm(2).rs2(3);
+        vm.execute_instruction(insn);
+        assert_eq!(vm.mem(7), 4194867295);
+        assert_eq!(vm.mem(8), 16386200);
+        assert_eq!(vm.mem(9), 64008);
+    }
+
+    #[test]
+    fn test_store_word() {
+        let mut vm = VM::init();
+        *vm.reg_mut(3) = 1234567898765432123;
+        let insn = Instruction::new(Opcode::Sw).rs1(5).imm(2).rs2(3);
+        vm.execute_instruction(insn);
+        assert_eq!(vm.mem(7), 1234567898765432123);
+        assert_eq!(vm.mem(8), 4822530854552469);
+        assert_eq!(vm.mem(9), 18838011150595);
+        assert_eq!(vm.mem(10), 73585981057);
+        assert_eq!(vm.mem(11), 287445238);
+        assert_eq!(vm.mem(12), 1122832);
     }
 }
