@@ -128,8 +128,8 @@ mod tests {
         vm.run();
 
         println!("exit_code {}", vm.exit_code);
-        // assert!(vm.halted);
-        // assert_eq!(vm.exit_code, 0);
+        assert!(vm.halted);
+        assert_eq!(vm.exit_code, 0);
     }
 
     #[test]
