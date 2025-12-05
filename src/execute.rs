@@ -276,9 +276,9 @@ impl VM {
             }
 
             Opcode::Sraw => {
-                let val = (((self.reg(insn.rs1) & mask(32)) as i32)
-                    >> (self.reg(insn.rs2) & mask(5)) as i64) as u64;
-                *self.reg_mut(insn.rd) = sext(val, 32);
+                *self.reg_mut(insn.rd) = (((self.reg(insn.rs1) & mask(32)) as i32)
+                    >> (self.reg(insn.rs2) & mask(5)) as i64)
+                    as u64;
             }
 
             Opcode::Lwu => {
