@@ -107,7 +107,7 @@ impl VM {
 
             Opcode::Lw => {
                 let addr = self.reg(insn.rs1).wrapping_add(insn.imm);
-                *self.reg_mut(insn.rd) = sext(self.mem(addr as usize) & mask(32), 16);
+                *self.reg_mut(insn.rd) = sext(self.mem(addr as usize) & mask(32), 32);
             }
 
             // Store Opcodes
@@ -243,6 +243,17 @@ impl VM {
                     (self.reg(insn.rs1) & mask(32)) >> (self.reg(insn.rs2) & mask(5)),
                     32,
                 );
+            }
+
+            Opcode::Sraw => {
+                let val = (((self.reg(insn.rs1) & mask(32)) as i32)
+                    >> (self.reg(insn.rs2) & mask(5)) as i64) as u64;
+                *self.reg_mut(insn.rd) = sext(val, 32);
+            }
+
+            Opcode::Lwu => {
+                let addr = self.reg(insn.rs1).wrapping_add(insn.imm) as usize;
+                *self.reg_mut(insn.rd) = self.mem(addr) & mask(32);
             }
 
             Opcode::Ld => {
