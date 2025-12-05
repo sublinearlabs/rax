@@ -225,11 +225,10 @@ impl VM {
             }
 
             Opcode::Subw => {
-                // TODO why do I still get upper bits not empty
                 let a = self.reg(insn.rs1) as i32;
                 let b = self.reg(insn.rs2) as i32;
-                let val = a.wrapping_sub(b);
-                *self.reg_mut(insn.rd) = sext(val as u64, 32);
+                let val = a.wrapping_sub(b) as i64;
+                *self.reg_mut(insn.rd) = val as u64;
             }
 
             Opcode::Sllw => {
