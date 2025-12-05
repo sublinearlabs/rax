@@ -177,14 +177,15 @@ impl VM {
 
             // Jump opcodes
             Opcode::Jal => {
-                *self.reg_mut(insn.rd) = self.pc + 4;
-                self.pc += insn.imm;
+                *self.reg_mut(insn.rd) = self.pc.wrapping_add(4);
+                self.pc = self.pc.wrapping_add(insn.imm);
                 return;
             }
 
             Opcode::Jalr => {
-                *self.reg_mut(insn.rd) = self.pc + 4;
-                self.pc = self.reg(insn.rs1) as u64 + insn.imm;
+                let old_rs1 = self.reg(insn.rs1);
+                *self.reg_mut(insn.rd) = self.pc.wrapping_add(4);
+                self.pc = old_rs1.wrapping_add(insn.imm);
                 return;
             }
 

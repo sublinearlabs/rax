@@ -47,7 +47,7 @@ impl VM {
 
     /// perform one cycle
     fn step(&mut self) {
-        // print!("{:x}: ", self.pc);
+        print!("{:x}: ", self.pc);
         let raw_insn = self.mem32(self.pc as usize);
         let insn = decode_insn(raw_insn);
         print!(" {:?}\n", insn.opcode);
