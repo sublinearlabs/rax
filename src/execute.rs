@@ -42,7 +42,16 @@ impl VM {
                 *self.reg_mut(insn.rd) = (val >> (self.reg(insn.rs2) & mask(6))) as u64;
             }
 
-            Opcode::Slt | Opcode::Sltu => {
+            Opcode::Slt => {
+                *self.reg_mut(insn.rd) =
+                    if (self.reg(insn.rs1) as i64) < (self.reg(insn.rs2) as i64) {
+                        1
+                    } else {
+                        0
+                    };
+            }
+
+            Opcode::Sltu => {
                 *self.reg_mut(insn.rd) = if self.reg(insn.rs1) < self.reg(insn.rs2) {
                     1
                 } else {
@@ -81,7 +90,15 @@ impl VM {
                 *self.reg_mut(insn.rd) = (val >> shift) as u64;
             }
 
-            Opcode::Slti | Opcode::Sltiu => {
+            Opcode::Slti => {
+                *self.reg_mut(insn.rd) = if (self.reg(insn.rs1) as i64) < (insn.imm as i64) {
+                    1
+                } else {
+                    0
+                };
+            }
+
+            Opcode::Sltiu => {
                 *self.reg_mut(insn.rd) = if self.reg(insn.rs1) < insn.imm { 1 } else { 0 };
             }
 
