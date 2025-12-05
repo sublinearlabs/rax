@@ -110,6 +110,11 @@ impl VM {
                 *self.reg_mut(insn.rd) = sext(self.mem(addr as usize) & mask(32), 32);
             }
 
+            Opcode::Ld => {
+                let addr = self.reg(insn.rs1).wrapping_add(insn.imm);
+                *self.reg_mut(insn.rd) = self.mem(addr as usize);
+            }
+
             // Store Opcodes
             Opcode::Sb => {
                 *self.mem_mut(insn.rs1 + (insn.imm as usize)) =
@@ -128,6 +133,13 @@ impl VM {
             Opcode::Sw => {
                 let addr = insn.rs1 + (insn.imm as usize);
                 for i in 0..4 {
+                    *self.mem_mut(addr + i) = ((self.reg(insn.rs2) >> (8 * i)) & mask(8)) as u8;
+                }
+            }
+
+            Opcode::Sd => {
+                let addr = insn.rs1 + (insn.imm as usize);
+                for i in 0..8 {
                     *self.mem_mut(addr + i) = ((self.reg(insn.rs2) >> (8 * i)) & mask(8)) as u8;
                 }
             }
@@ -244,18 +256,6 @@ impl VM {
                     (self.reg(insn.rs1) & mask(32)) >> (self.reg(insn.rs2) & mask(5)),
                     32,
                 );
-            }
-
-            Opcode::Ld => {
-                let addr = self.reg(insn.rs1).wrapping_add(insn.imm);
-                *self.reg_mut(insn.rd) = self.mem(addr as usize);
-            }
-
-            Opcode::Sd => {
-                let addr = insn.rs1 + (insn.imm as usize);
-                for i in 0..8 {
-                    *self.mem_mut(addr + i) = ((self.reg(insn.rs2) >> (8 * i)) & mask(8)) as u8;
-                }
             }
 
             Opcode::Ecall => {
