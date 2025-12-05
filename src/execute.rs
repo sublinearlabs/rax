@@ -241,10 +241,10 @@ impl VM {
                 *self.reg_mut(insn.rd) = sext((self.reg(insn.rs1) & mask(32)) >> insn.imm, 32);
             }
 
-            // TODO there is still a problem with this
             Opcode::Sraiw => {
-                let val = (self.reg(insn.rs1) & mask(32)) as i64;
-                *self.reg_mut(insn.rd) = (val >> (insn.imm & mask(5))) as u64;
+                let shift = (insn.imm & mask(5)) as i32;
+                let a = (self.reg(insn.rs1) & mask(32)) as i32;
+                *self.reg_mut(insn.rd) = (a >> shift) as i64 as u64;
             }
 
             Opcode::Addw => {
