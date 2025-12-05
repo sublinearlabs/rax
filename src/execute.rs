@@ -112,12 +112,12 @@ impl VM {
 
             // Store Opcodes
             Opcode::Sb => {
-                *self.mem_mut(insn.rs1 + (insn.imm as usize)) =
-                    (self.reg(insn.rs2) & mask(8)) as u8;
+                let addr = self.reg(insn.rs1).wrapping_add(insn.imm) as usize;
+                *self.mem_mut(addr) = (self.reg(insn.rs2) & mask(8)) as u8;
             }
 
             Opcode::Sh => {
-                let addr = insn.rs1 + (insn.imm as usize);
+                let addr = self.reg(insn.rs1).wrapping_add(insn.imm) as usize;
                 for i in 0..2 {
                     *self.mem_mut(addr + i) = ((self.reg(insn.rs2) >> (8 * i)) & mask(8)) as u8;
                 }
@@ -126,7 +126,7 @@ impl VM {
             // Suspicious, need to look into this some more (but doesn't seem pressing for add to
             // work)
             Opcode::Sw => {
-                let addr = insn.rs1 + (insn.imm as usize);
+                let addr = self.reg(insn.rs1).wrapping_add(insn.imm) as usize;
                 for i in 0..4 {
                     *self.mem_mut(addr + i) = ((self.reg(insn.rs2) >> (8 * i)) & mask(8)) as u8;
                 }
@@ -251,7 +251,7 @@ impl VM {
             }
 
             Opcode::Sd => {
-                let addr = insn.rs1 + (insn.imm as usize);
+                let addr = self.reg(insn.rs1).wrapping_add(insn.imm) as usize;
                 for i in 0..8 {
                     *self.mem_mut(addr + i) = ((self.reg(insn.rs2) >> (8 * i)) & mask(8)) as u8;
                 }
@@ -297,7 +297,8 @@ mod test {
     fn test_store_byte() {
         let mut vm = VM::init();
         *vm.reg_mut(3) = 12;
-        let insn = Instruction::new(Opcode::Sb).rs1(5).imm(2).rs2(3);
+        *vm.reg_mut(2) = 5;
+        let insn = Instruction::new(Opcode::Sb).rs1(2).imm(2).rs2(3);
         vm.execute_instruction(insn);
         assert_eq!(vm.mem(7), 12);
     }
@@ -306,7 +307,8 @@ mod test {
     fn test_store_half_word() {
         let mut vm = VM::init();
         *vm.reg_mut(3) = 64008;
-        let insn = Instruction::new(Opcode::Sh).rs1(5).imm(2).rs2(3);
+        *vm.reg_mut(2) = 5;
+        let insn = Instruction::new(Opcode::Sh).rs1(2).imm(2).rs2(3);
         vm.execute_instruction(insn);
         assert_eq!(vm.mem(7), 64008);
         assert_eq!(vm.mem(8), 250);
@@ -316,7 +318,8 @@ mod test {
     fn test_store_word() {
         let mut vm = VM::init();
         *vm.reg_mut(3) = 2299561908;
-        let insn = Instruction::new(Opcode::Sw).rs1(5).imm(2).rs2(3);
+        *vm.reg_mut(2) = 5;
+        let insn = Instruction::new(Opcode::Sw).rs1(2).imm(2).rs2(3);
         vm.execute_instruction(insn);
         assert_eq!(vm.mem(7), 2299561908);
         assert_eq!(vm.mem(8), 8982663);
@@ -327,7 +330,8 @@ mod test {
     fn test_store_double_word() {
         let mut vm = VM::init();
         *vm.reg_mut(3) = 1234567898765432123;
-        let insn = Instruction::new(Opcode::Sd).rs1(5).imm(2).rs2(3);
+        *vm.reg_mut(2) = 5;
+        let insn = Instruction::new(Opcode::Sd).rs1(2).imm(2).rs2(3);
         vm.execute_instruction(insn);
         assert_eq!(vm.mem(7), 1234567898765432123);
         assert_eq!(vm.mem(8), 4822530854552469);
