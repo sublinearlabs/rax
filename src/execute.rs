@@ -227,6 +227,7 @@ impl VM {
                 *self.reg_mut(insn.rd) = self.pc.wrapping_add(insn.imm);
             }
 
+            // I Instructions
             Opcode::Addiw => {
                 let res = self.reg(insn.rs1).wrapping_add(insn.imm) & mask(32);
                 *self.reg_mut(insn.rd) = sext(res, 32);
@@ -286,6 +287,35 @@ impl VM {
                 *self.reg_mut(insn.rd) = self.mem(addr) & mask(32);
             }
 
+            // M Instructions
+            Opcode::Mulw => {
+                *self.reg_mut(insn.rd) = (((self.reg(insn.rs1).wrapping_mul(self.reg(insn.rs2))
+                    & mask(32)) as i32) as i64) as u64
+            }
+
+            Opcode::Divw => {
+                *self.reg_mut(insn.rd) = (((self.reg(insn.rs1) & mask(32)) as i32)
+                    .wrapping_div((self.reg(insn.rs2) & mask(32)) as i32)
+                    as i64) as u64;
+            }
+
+            Opcode::Divuw => {
+                *self.reg_mut(insn.rd) =
+                    (self.reg(insn.rs1) & mask(32)).wrapping_div(self.reg(insn.rs2) & mask(32));
+            }
+
+            Opcode::Remw => {
+                *self.reg_mut(insn.rd) = (((self.reg(insn.rs1) & mask(32)) as i32)
+                    .wrapping_rem((self.reg(insn.rs2) & mask(32)) as i32)
+                    as i64) as u64;
+            }
+
+            Opcode::Remuw => {
+                *self.reg_mut(insn.rd) =
+                    (self.reg(insn.rs1) & mask(32)).wrapping_rem(self.reg(insn.rs2) & mask(32));
+            }
+
+            // System Opcodes
             Opcode::Ecall => {
                 let func = self.reg(17);
                 match func {
