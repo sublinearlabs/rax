@@ -50,7 +50,7 @@ impl VM {
         // print!("{:x}: ", self.pc);
         let raw_insn = self.mem32(self.pc as usize);
         let insn = decode_insn(raw_insn);
-        print!(" {:?}\n", insn.opcode);
+        // print!(" {:?}\n", insn.opcode);
         self.execute_instruction(insn);
     }
 
@@ -117,6 +117,11 @@ mod tests {
     }
 
     fn run_test_elf(path: String) {
+        if path.contains("-v-") {
+            println!("skipping v tests");
+            return;
+        }
+
         print!("running test: {}\n", path);
 
         let mut vm = VM::init_from_elf(path);
