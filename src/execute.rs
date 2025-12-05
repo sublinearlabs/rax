@@ -275,6 +275,17 @@ impl VM {
                 );
             }
 
+            Opcode::Sraw => {
+                let val = (((self.reg(insn.rs1) & mask(32)) as i32)
+                    >> (self.reg(insn.rs2) & mask(5)) as i64) as u64;
+                *self.reg_mut(insn.rd) = sext(val, 32);
+            }
+
+            Opcode::Lwu => {
+                let addr = self.reg(insn.rs1).wrapping_add(insn.imm) as usize;
+                *self.reg_mut(insn.rd) = self.mem(addr) & mask(32);
+            }
+
             Opcode::Ecall => {
                 let func = self.reg(17);
                 match func {
