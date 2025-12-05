@@ -1,8 +1,8 @@
 use std::fs;
 
+use crate::decode::decode_insn;
 use crate::decode::Instruction;
 use crate::decode::Opcode;
-use crate::decode::decode_insn;
 use crate::elf::decode_elf;
 use crate::memory::Memory;
 
@@ -56,7 +56,11 @@ impl VM {
 
     /// Returns the current value at the idx register
     fn reg(&self, idx: usize) -> u64 {
-        if idx == 0 { 0 } else { self.registers[idx] }
+        if idx == 0 {
+            0
+        } else {
+            self.registers[idx]
+        }
     }
 
     /// Returns a mutable reference to the idx register
@@ -109,7 +113,16 @@ mod tests {
 
     #[test]
     fn test_rv64ui() {
-        let _ = fs::read_dir("test-bin")
+        let _ = fs::read_dir("test-bin/rv64ui")
+            .expect("Failed to read directory")
+            .filter_map(|entry| entry.ok())
+            .map(|entry| run_test_elf(entry.path().to_str().unwrap().to_string()))
+            .collect::<Vec<_>>();
+    }
+
+    #[test]
+    fn test_rv64um() {
+        let _ = fs::read_dir("test-bin/rv64um")
             .expect("Failed to read directory")
             .filter_map(|entry| entry.ok())
             .map(|entry| run_test_elf(entry.path().to_str().unwrap().to_string()))
@@ -117,7 +130,7 @@ mod tests {
     }
 
     fn run_test_elf(path: String) {
-        print!("running test: {}\n", path);
+        println!("running test: {path}");
 
         let mut vm = VM::init_from_elf(path);
         vm.run();
