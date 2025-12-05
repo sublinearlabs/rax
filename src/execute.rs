@@ -138,7 +138,7 @@ impl VM {
             }
 
             Opcode::Sd => {
-                let addr = insn.rs1 + (insn.imm as usize);
+                let addr = self.reg(insn.rs1).wrapping_add(insn.imm) as usize;
                 for i in 0..8 {
                     *self.mem_mut(addr + i) = ((self.reg(insn.rs2) >> (8 * i)) & mask(8)) as u8;
                 }
