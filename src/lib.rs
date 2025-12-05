@@ -117,11 +117,6 @@ mod tests {
     }
 
     fn run_test_elf(path: String) {
-        if path.contains("-v-") {
-            println!("skipping v tests");
-            return;
-        }
-
         print!("running test: {}\n", path);
 
         let mut vm = VM::init_from_elf(path);
