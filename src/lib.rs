@@ -47,6 +47,16 @@ impl VM {
         }
     }
 
+    fn run_with_timing(&mut self) {
+        let start = std::time::Instant::now();
+        self.run();
+        let end = start.elapsed();
+        println!("run took: {:?}ms", end.as_micros());
+        println!("cycles: {}", self.cycles);
+        // cycles / microseconds = Mhz
+        println!("{:.2} Mhz", self.cycles as f64 / end.as_micros() as f64)
+    }
+
     /// perform one cycle
     fn step(&mut self) {
         // print!("{:x}: ", self.pc);
