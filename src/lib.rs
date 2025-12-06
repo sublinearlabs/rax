@@ -226,5 +226,7 @@ mod tests {
 
         assert_eq!(vm.reg(1), 3);
         assert_eq!(vm.reg(2), 5);
+
+        assert_eq!(vm.cycles, 9);
     }
 }
