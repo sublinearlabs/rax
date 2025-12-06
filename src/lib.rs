@@ -20,6 +20,7 @@ struct VM {
     pc: u64,
     halted: bool,
     exit_code: u64,
+    cycles: u64,
 }
 
 impl VM {
@@ -32,10 +33,11 @@ impl VM {
     fn init_from_elf(path: String) -> Self {
         let elf_bytes = fs::read(path).unwrap();
         let (memory, pc) = decode_elf(&elf_bytes);
-        let mut vm = VM::default();
-        vm.memory = memory;
-        vm.pc = pc;
-        vm
+        Self {
+            memory,
+            pc,
+            ..Default::default()
+        }
     }
 
     /// execute the vm
