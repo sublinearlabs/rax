@@ -1,8 +1,8 @@
 use std::fs;
 
-use crate::decode::decode_insn;
 use crate::decode::Instruction;
 use crate::decode::Opcode;
+use crate::decode::decode_insn;
 use crate::elf::decode_elf;
 use crate::memory::Memory;
 
@@ -56,11 +56,7 @@ impl VM {
 
     /// Returns the current value at the idx register
     fn reg(&self, idx: usize) -> u64 {
-        if idx == 0 {
-            0
-        } else {
-            self.registers[idx]
-        }
+        if idx == 0 { 0 } else { self.registers[idx] }
     }
 
     /// Returns a mutable reference to the idx register
