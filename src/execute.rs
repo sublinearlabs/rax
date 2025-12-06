@@ -288,6 +288,45 @@ impl VM {
             }
 
             // M Instructions
+            Opcode::Mul => {
+                *self.reg_mut(insn.rd) =
+                    (self.reg(insn.rs1) as i64).wrapping_mul(self.reg(insn.rs2) as i64) as u64;
+            }
+
+            Opcode::Mulh => {
+                *self.reg_mut(insn.rd) = ((self.reg(insn.rs1) as i64)
+                    .wrapping_mul((self.reg(insn.rs2)) as i64)
+                    >> 32) as u64;
+            }
+
+            Opcode::Mulhsu => {
+                *self.reg_mut(insn.rd) = ((self.reg(insn.rs1) as i64)
+                    .wrapping_mul(self.reg(insn.rs2) as i64)
+                    >> 32) as u64;
+            }
+
+            Opcode::Mulhu => {
+                *self.reg_mut(insn.rd) = self.reg(insn.rs1).wrapping_mul(self.reg(insn.rs2)) >> 32;
+            }
+
+            Opcode::Div => {
+                *self.reg_mut(insn.rd) =
+                    (self.reg(insn.rs1) as i64).wrapping_div(self.reg(insn.rs2) as i64) as u64;
+            }
+
+            Opcode::Divu => {
+                *self.reg_mut(insn.rd) = self.reg(insn.rs1).wrapping_div(self.reg(insn.rs2));
+            }
+
+            Opcode::Rem => {
+                *self.reg_mut(insn.rd) =
+                    (self.reg(insn.rs1) as i64).wrapping_rem(self.reg(insn.rs2) as i64) as u64;
+            }
+
+            Opcode::Remu => {
+                *self.reg_mut(insn.rd) = self.reg(insn.rs1).wrapping_rem(self.reg(insn.rs2));
+            }
+
             Opcode::Mulw => {
                 *self.reg_mut(insn.rd) = (((self.reg(insn.rs1).wrapping_mul(self.reg(insn.rs2))
                     & mask(32)) as i32) as i64) as u64
