@@ -54,6 +54,7 @@ impl VM {
         let insn = decode_insn(raw_insn);
         // print!(" {:?}\n", insn.opcode);
         self.execute_instruction(insn);
+        self.cycles = self.cycles.wrapping_add(1);
     }
 
     /// Returns the current value at the idx register
