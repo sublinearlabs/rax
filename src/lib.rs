@@ -20,6 +20,7 @@ struct VM {
     pc: u64,
     halted: bool,
     exit_code: u64,
+    cycles: u64,
 }
 
 impl VM {
@@ -32,10 +33,11 @@ impl VM {
     fn init_from_elf(path: String) -> Self {
         let elf_bytes = fs::read(path).unwrap();
         let (memory, pc) = decode_elf(&elf_bytes);
-        let mut vm = VM::default();
-        vm.memory = memory;
-        vm.pc = pc;
-        vm
+        Self {
+            memory,
+            pc,
+            ..Default::default()
+        }
     }
 
     /// execute the vm
@@ -45,6 +47,16 @@ impl VM {
         }
     }
 
+    fn run_with_timing(&mut self) {
+        let start = std::time::Instant::now();
+        self.run();
+        let end = start.elapsed();
+        println!("run took: {:?}ms", end.as_micros());
+        println!("cycles: {}", self.cycles);
+        // cycles / microseconds = Mhz
+        println!("{:.2} Mhz", self.cycles as f64 / end.as_micros() as f64)
+    }
+
     /// perform one cycle
     fn step(&mut self) {
         // print!("{:x}: ", self.pc);
@@ -52,6 +64,7 @@ impl VM {
         let insn = decode_insn(raw_insn);
         print!(" {:?}\n", insn.opcode);
         self.execute_instruction(insn);
+        self.cycles = self.cycles.wrapping_add(1);
     }
 
     /// Returns the current value at the idx register
@@ -219,5 +232,7 @@ mod tests {
 
         assert_eq!(vm.reg(1), 3);
         assert_eq!(vm.reg(2), 5);
+
+        assert_eq!(vm.cycles, 9);
     }
 }
