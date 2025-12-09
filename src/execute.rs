@@ -412,6 +412,44 @@ impl VM {
                 }
             }
 
+            // Zalrsc A instructions
+            Opcode::LrW => {
+                *self.reg_mut(insn.rd) = sext(self.mem(self.reg(insn.rs1) as usize) & mask(32), 32);
+                self.reservation_set = self.reg(insn.rs1);
+            }
+
+            Opcode::LrD => {
+                let addr = self.reg(insn.rs1);
+                *self.reg_mut(insn.rd) = self.mem(addr as usize);
+                self.reservation_set = addr;
+            }
+
+            Opcode::ScW => {
+                let addr = self.reg(insn.rs1) as usize;
+                if self.reg(insn.rs1) == self.reservation_set {
+                    for i in 0..4 {
+                        *self.mem_mut(addr + i) = ((self.reg(insn.rs2) >> (8 * i)) & mask(8)) as u8;
+                    }
+                    *self.reg_mut(insn.rd) = 0;
+                } else {
+                    *self.reg_mut(insn.rd) = 1;
+                };
+                self.reservation_set = 0;
+            }
+
+            Opcode::ScD => {
+                let addr = self.reg(insn.rs1) as usize;
+                if self.reg(insn.rs1) == self.reservation_set {
+                    for i in 0..8 {
+                        *self.mem_mut(addr + i) = ((self.reg(insn.rs2) >> (8 * i)) & mask(8)) as u8;
+                    }
+                    *self.reg_mut(insn.rd) = 0;
+                } else {
+                    *self.reg_mut(insn.rd) = 1;
+                };
+                self.reservation_set = 0;
+            }
+
             // System Opcodes
             Opcode::Ecall => {
                 let func = self.reg(17);

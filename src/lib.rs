@@ -17,6 +17,7 @@ struct VM {
     registers: [u64; 32],
     memory: Memory,
     x0_sink: u64, // blackhole for writes to x0
+    reservation_set: u64,
     pc: u64,
     halted: bool,
     exit_code: u64,

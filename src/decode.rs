@@ -72,6 +72,11 @@ pub(crate) enum Opcode {
     Lui,
     Auipc,
 
+    LrW,
+    ScW,
+    LrD,
+    ScD,
+
     Ecall,
     Ebreak,
     Eother,
@@ -131,7 +136,7 @@ pub(crate) fn decode_insn(insn: u32) -> Instruction {
     let opcode_value = insn & mask32(7);
 
     let insn_type = match opcode_value {
-        0b0110011 | 0b0111011 => InstructionType::R,
+        0b0110011 | 0b0111011 | 0b0101111 => InstructionType::R,
         0b0010011 | 0b0000011 | 0b1100111 | 0b1110011 | 0b0011011 => InstructionType::I,
         0b0100011 => InstructionType::S,
         0b1100011 => InstructionType::B,
@@ -299,6 +304,19 @@ fn decode_r_insn(opcode_value: u32, funct3: u32, funct7: u32) -> Opcode {
             },
             0x7 => match funct7 {
                 0x1 => Opcode::Remuw,
+                _ => panic!("unknown opcode"),
+            },
+            _ => panic!("unknown opcode"),
+        },
+        0b0101111 => match funct3 {
+            0x2 => match funct7 >> 2 {
+                0x2 => Opcode::LrW,
+                0x3 => Opcode::ScW,
+                _ => panic!("unknown opcode"),
+            },
+            0x3 => match funct7 >> 2 {
+                0x2 => Opcode::LrD,
+                0x3 => Opcode::ScD,
                 _ => panic!("unknown opcode"),
             },
             _ => panic!("unknown opcode"),
