@@ -263,23 +263,21 @@ impl VM {
             }
 
             Opcode::Sllw => {
-                *self.reg_mut(insn.rd) = sext(
-                    (self.reg(insn.rs1) << (self.reg(insn.rs2) & mask(5))) & mask(32),
-                    32,
-                );
+                let a = self.reg(insn.rs1);
+                let shift = self.reg(insn.rs2) & mask(5);
+                *self.reg_mut(insn.rd) = sext((a << shift) & mask(32), 32);
             }
 
             Opcode::Srlw => {
-                *self.reg_mut(insn.rd) = sext(
-                    (self.reg(insn.rs1) & mask(32)) >> (self.reg(insn.rs2) & mask(5)),
-                    32,
-                );
+                let a = self.reg(insn.rs1) & mask(32);
+                let shift = self.reg(insn.rs2) & mask(5);
+                *self.reg_mut(insn.rd) = sext(a >> shift, 32);
             }
 
             Opcode::Sraw => {
-                *self.reg_mut(insn.rd) = (((self.reg(insn.rs1) & mask(32)) as i32)
-                    >> (self.reg(insn.rs2) & mask(5)))
-                    as i64 as u64;
+                let a = (self.reg(insn.rs1) & mask(32)) as i32;
+                let shift = self.reg(insn.rs2) & mask(5);
+                *self.reg_mut(insn.rd) = (a >> shift) as i64 as u64;
             }
 
             Opcode::Lwu => {
@@ -289,26 +287,27 @@ impl VM {
 
             // M Instructions
             Opcode::Mul => {
-                *self.reg_mut(insn.rd) =
-                    (self.reg(insn.rs1) as i64).wrapping_mul(self.reg(insn.rs2) as i64) as u64;
+                let a = self.reg(insn.rs1) as i64;
+                let b = self.reg(insn.rs2) as i64;
+                *self.reg_mut(insn.rd) = a.wrapping_mul(b) as u64;
             }
 
             Opcode::Mulh => {
-                *self.reg_mut(insn.rd) = (((self.reg(insn.rs1) as i64) as i128)
-                    .wrapping_mul(((self.reg(insn.rs2)) as i64) as i128)
-                    >> 64) as u64;
+                let a = (self.reg(insn.rs1) as i64) as i128;
+                let b = ((self.reg(insn.rs2)) as i64) as i128;
+                *self.reg_mut(insn.rd) = (a.wrapping_mul(b) >> 64) as u64;
             }
 
             Opcode::Mulhsu => {
-                *self.reg_mut(insn.rd) = (((self.reg(insn.rs1) as i64) as i128)
-                    .wrapping_mul((self.reg(insn.rs2) as u128) as i128)
-                    >> 64) as u64;
+                let a = (self.reg(insn.rs1) as i64) as i128;
+                let b = (self.reg(insn.rs2) as u128) as i128;
+                *self.reg_mut(insn.rd) = (a.wrapping_mul(b) >> 64) as u64;
             }
 
             Opcode::Mulhu => {
-                *self.reg_mut(insn.rd) = ((self.reg(insn.rs1) as u128)
-                    .wrapping_mul(self.reg(insn.rs2) as u128)
-                    >> 64) as u64;
+                let a = self.reg(insn.rs1) as u128;
+                let b = self.reg(insn.rs2) as u128;
+                *self.reg_mut(insn.rd) = (a.wrapping_mul(b) >> 64) as u64;
             }
 
             Opcode::Div => {
@@ -360,8 +359,9 @@ impl VM {
             }
 
             Opcode::Mulw => {
-                *self.reg_mut(insn.rd) = (((self.reg(insn.rs1).wrapping_mul(self.reg(insn.rs2))
-                    & mask(32)) as i32) as i64) as u64
+                let a = self.reg(insn.rs1);
+                let b = self.reg(insn.rs2);
+                *self.reg_mut(insn.rd) = (((a.wrapping_mul(b) & mask(32)) as i32) as i64) as u64
             }
 
             Opcode::Divw => {
