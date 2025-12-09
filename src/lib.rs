@@ -139,6 +139,15 @@ mod tests {
             .collect::<Vec<_>>();
     }
 
+    #[test]
+    fn test_rv64ua() {
+        let _ = fs::read_dir("test-bin/rv64ua")
+            .expect("Failed to read directory")
+            .filter_map(|entry| entry.ok())
+            .map(|entry| run_test_elf(entry.path().to_str().unwrap().to_string()))
+            .collect::<Vec<_>>();
+    }
+
     fn run_test_elf(path: String) {
         println!("running test: {path}");
 
