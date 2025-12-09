@@ -177,7 +177,7 @@ impl VM {
             }
 
             Opcode::Blt => {
-                if (self.reg(insn.rs1) as i32) < (self.reg(insn.rs2) as i32) {
+                if (self.reg(insn.rs1) as i64) < (self.reg(insn.rs2) as i64) {
                     self.pc = self.pc.wrapping_add(insn.imm);
                     return;
                 }
@@ -227,6 +227,7 @@ impl VM {
                 *self.reg_mut(insn.rd) = self.pc.wrapping_add(insn.imm);
             }
 
+            // I Instructions
             Opcode::Addiw => {
                 let res = self.reg(insn.rs1).wrapping_add(insn.imm) & mask(32);
                 *self.reg_mut(insn.rd) = sext(res, 32);
@@ -262,23 +263,21 @@ impl VM {
             }
 
             Opcode::Sllw => {
-                *self.reg_mut(insn.rd) = sext(
-                    (self.reg(insn.rs1) << (self.reg(insn.rs2) & mask(5))) & mask(32),
-                    32,
-                );
+                let a = self.reg(insn.rs1);
+                let shift = self.reg(insn.rs2) & mask(5);
+                *self.reg_mut(insn.rd) = sext((a << shift) & mask(32), 32);
             }
 
             Opcode::Srlw => {
-                *self.reg_mut(insn.rd) = sext(
-                    (self.reg(insn.rs1) & mask(32)) >> (self.reg(insn.rs2) & mask(5)),
-                    32,
-                );
+                let a = self.reg(insn.rs1) & mask(32);
+                let shift = self.reg(insn.rs2) & mask(5);
+                *self.reg_mut(insn.rd) = sext(a >> shift, 32);
             }
 
             Opcode::Sraw => {
-                *self.reg_mut(insn.rd) = (((self.reg(insn.rs1) & mask(32)) as i32)
-                    >> (self.reg(insn.rs2) & mask(5)))
-                    as i64 as u64;
+                let a = (self.reg(insn.rs1) & mask(32)) as i32;
+                let shift = self.reg(insn.rs2) & mask(5);
+                *self.reg_mut(insn.rd) = (a >> shift) as i64 as u64;
             }
 
             Opcode::Lwu => {
@@ -286,6 +285,134 @@ impl VM {
                 *self.reg_mut(insn.rd) = self.mem(addr) & mask(32);
             }
 
+            // M Instructions
+            Opcode::Mul => {
+                let a = self.reg(insn.rs1) as i64;
+                let b = self.reg(insn.rs2) as i64;
+                *self.reg_mut(insn.rd) = a.wrapping_mul(b) as u64;
+            }
+
+            Opcode::Mulh => {
+                let a = (self.reg(insn.rs1) as i64) as i128;
+                let b = ((self.reg(insn.rs2)) as i64) as i128;
+                *self.reg_mut(insn.rd) = (a.wrapping_mul(b) >> 64) as u64;
+            }
+
+            Opcode::Mulhsu => {
+                let a = (self.reg(insn.rs1) as i64) as i128;
+                let b = (self.reg(insn.rs2) as u128) as i128;
+                *self.reg_mut(insn.rd) = (a.wrapping_mul(b) >> 64) as u64;
+            }
+
+            Opcode::Mulhu => {
+                let a = self.reg(insn.rs1) as u128;
+                let b = self.reg(insn.rs2) as u128;
+                *self.reg_mut(insn.rd) = (a.wrapping_mul(b) >> 64) as u64;
+            }
+
+            Opcode::Div => {
+                let dividend = self.reg(insn.rs1) as i64;
+                let divisor = self.reg(insn.rs2) as i64;
+
+                *self.reg_mut(insn.rd) = if divisor == 0 {
+                    u64::MAX
+                } else if dividend == i64::MIN && divisor == -1 {
+                    dividend as u64
+                } else {
+                    dividend.wrapping_div(divisor) as u64
+                }
+            }
+
+            Opcode::Divu => {
+                let dividend = self.reg(insn.rs1);
+                let divisor = self.reg(insn.rs2);
+
+                *self.reg_mut(insn.rd) = if divisor == 0 {
+                    u64::MAX
+                } else {
+                    dividend.wrapping_div(divisor)
+                }
+            }
+
+            Opcode::Rem => {
+                let dividend = self.reg(insn.rs1) as i64;
+                let divisor = self.reg(insn.rs2) as i64;
+
+                *self.reg_mut(insn.rd) = if divisor == 0 {
+                    dividend as u64
+                } else if dividend == i64::MIN && divisor == -1 {
+                    0
+                } else {
+                    dividend.wrapping_rem(divisor) as u64
+                }
+            }
+
+            Opcode::Remu => {
+                let dividend = self.reg(insn.rs1);
+                let divisor = self.reg(insn.rs2);
+
+                *self.reg_mut(insn.rd) = if divisor == 0 {
+                    dividend
+                } else {
+                    dividend.wrapping_rem(divisor)
+                }
+            }
+
+            Opcode::Mulw => {
+                let a = self.reg(insn.rs1);
+                let b = self.reg(insn.rs2);
+                *self.reg_mut(insn.rd) = (((a.wrapping_mul(b) & mask(32)) as i32) as i64) as u64
+            }
+
+            Opcode::Divw => {
+                let dividend = (self.reg(insn.rs1) & mask(32)) as i32;
+                let divisor = (self.reg(insn.rs2) & mask(32)) as i32;
+
+                *self.reg_mut(insn.rd) = if divisor == 0 {
+                    u64::MAX
+                } else if dividend == i32::MIN && divisor == -1 {
+                    (dividend as i64) as u64
+                } else {
+                    (dividend.wrapping_div(divisor) as i64) as u64
+                }
+            }
+
+            Opcode::Divuw => {
+                let dividend = (self.reg(insn.rs1) & mask(32)) as u32;
+                let divisor = (self.reg(insn.rs2) & mask(32)) as u32;
+
+                *self.reg_mut(insn.rd) = if divisor == 0 {
+                    u64::MAX
+                } else {
+                    sext(dividend.wrapping_div(divisor) as u64, 32)
+                }
+            }
+
+            Opcode::Remw => {
+                let dividend = (self.reg(insn.rs1) & mask(32)) as i32;
+                let divisor = (self.reg(insn.rs2) & mask(32)) as i32;
+
+                *self.reg_mut(insn.rd) = if divisor == 0 {
+                    (dividend as i64) as u64
+                } else if dividend == i32::MIN && divisor == -1 {
+                    0
+                } else {
+                    (dividend.wrapping_rem(divisor) as i64) as u64
+                }
+            }
+
+            Opcode::Remuw => {
+                let dividend = (self.reg(insn.rs1) & mask(32)) as u32;
+                let divisor = (self.reg(insn.rs2) & mask(32)) as u32;
+
+                *self.reg_mut(insn.rd) = if divisor == 0 {
+                    sext(dividend as u64, 32)
+                } else {
+                    sext(dividend.wrapping_rem(divisor) as u64, 32)
+                }
+            }
+
+            // System Opcodes
             Opcode::Ecall => {
                 let func = self.reg(17);
                 match func {

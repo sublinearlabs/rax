@@ -1,8 +1,8 @@
 use std::fs;
 
-use crate::decode::decode_insn;
 use crate::decode::Instruction;
 use crate::decode::Opcode;
+use crate::decode::decode_insn;
 use crate::elf::decode_elf;
 use crate::memory::Memory;
 
@@ -62,18 +62,14 @@ impl VM {
         // print!("{:x}: ", self.pc);
         let raw_insn = self.mem32(self.pc as usize);
         let insn = decode_insn(raw_insn);
-        // print!(" {:?}\n", insn.opcode);
+        print!(" {:?}\n", insn.opcode);
         self.execute_instruction(insn);
         self.cycles = self.cycles.wrapping_add(1);
     }
 
     /// Returns the current value at the idx register
     fn reg(&self, idx: usize) -> u64 {
-        if idx == 0 {
-            0
-        } else {
-            self.registers[idx]
-        }
+        if idx == 0 { 0 } else { self.registers[idx] }
     }
 
     /// Returns a mutable reference to the idx register
