@@ -461,12 +461,12 @@ impl VM {
 
             Opcode::AmoaddW => {
                 let addr = self.reg(insn.rs1) as usize;
-                let value = (self.mem(addr) & mask(32)) as i32;
-                // *self.reg_mut(insn.rd) = sext(value, 32);
+                let temp = (self.mem(addr) & mask(32)) as i32;
+                *self.reg_mut(insn.rd) = (temp as i64) as u64;
                 let rs2_val = (self.reg(insn.rs2) & mask(32)) as i32;
-                let res = (value.wrapping_add(rs2_val) as i64) as u64;
+                let res = (temp.wrapping_add(rs2_val) as i64) as u64;
                 for i in 0..4 {
-                    *self.mem_mut(addr + i) = ((self.reg(insn.rs2) >> (8 * i)) & mask(8)) as u8;
+                    *self.mem_mut(addr + i) = ((res >> (8 * i)) & mask(8)) as u8;
                 }
             }
 
