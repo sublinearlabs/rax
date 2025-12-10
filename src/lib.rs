@@ -17,6 +17,7 @@ struct VM {
     registers: [u64; 32],
     memory: Memory,
     x0_sink: u64, // blackhole for writes to x0
+    reservation_set: u64,
     pc: u64,
     halted: bool,
     exit_code: u64,
@@ -136,6 +137,17 @@ mod tests {
             .filter_map(|entry| entry.ok())
             .map(|entry| run_test_elf(entry.path().to_str().unwrap().to_string()))
             .collect::<Vec<_>>();
+    }
+
+    #[test]
+    fn test_rv64ua() {
+        let _ = fs::read_dir("test-bin/rv64ua")
+            .expect("Failed to read directory")
+            .filter_map(|entry| entry.ok())
+            .map(|entry| run_test_elf(entry.path().to_str().unwrap().to_string()))
+            .collect::<Vec<_>>();
+
+        // run_test_elf("test-bin/rv64ua/rv64ua-p-amomax_d".to_string());
     }
 
     fn run_test_elf(path: String) {
