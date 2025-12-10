@@ -525,6 +525,28 @@ impl VM {
                 }
             }
 
+            Opcode::AmominuW => {
+                let addr = self.reg(insn.rs1) as usize;
+                let temp = self.mem(addr) & mask(32);
+                *self.reg_mut(insn.rd) = sext(temp, 32);
+                let rs2_val = self.reg(insn.rs2) & mask(32);
+                let res = sext(temp.min(rs2_val), 32);
+                for i in 0..4 {
+                    *self.mem_mut(addr + i) = ((res >> (8 * i)) & mask(8)) as u8;
+                }
+            }
+
+            Opcode::AmomaxuW => {
+                let addr = self.reg(insn.rs1) as usize;
+                let temp = self.mem(addr) & mask(32);
+                *self.reg_mut(insn.rd) = sext(temp, 32);
+                let rs2_val = self.reg(insn.rs2) & mask(32);
+                let res = sext(temp.max(rs2_val), 32);
+                for i in 0..4 {
+                    *self.mem_mut(addr + i) = ((res >> (8 * i)) & mask(8)) as u8;
+                }
+            }
+
             // System Opcodes
             Opcode::Ecall => {
                 let func = self.reg(17);
