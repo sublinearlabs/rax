@@ -450,6 +450,7 @@ impl VM {
                 self.reservation_set = 0;
             }
 
+            // Zaamo A instructions
             Opcode::AmoswapW => {
                 let addr = self.reg(insn.rs1) as usize;
                 let temp = self.mem(addr) & mask(32);
@@ -543,6 +544,103 @@ impl VM {
                 let rs2_val = self.reg(insn.rs2) & mask(32);
                 let res = sext(temp.max(rs2_val), 32);
                 for i in 0..4 {
+                    *self.mem_mut(addr + i) = ((res >> (8 * i)) & mask(8)) as u8;
+                }
+            }
+
+            Opcode::AmoswapD => {
+                let addr = self.reg(insn.rs1) as usize;
+                let temp = self.mem(addr);
+                *self.reg_mut(insn.rd) = temp;
+                for i in 0..8 {
+                    *self.mem_mut(addr + i) = ((self.reg(insn.rs2) >> (8 * i)) & mask(8)) as u8;
+                }
+            }
+
+            Opcode::AmoaddD => {
+                let addr = self.reg(insn.rs1) as usize;
+                let temp = self.mem(addr);
+                *self.reg_mut(insn.rd) = temp;
+                let rs2_val = self.reg(insn.rs2);
+                let res = temp.wrapping_add(rs2_val);
+                for i in 0..8 {
+                    *self.mem_mut(addr + i) = ((res >> (8 * i)) & mask(8)) as u8;
+                }
+            }
+
+            Opcode::AmoxorD => {
+                let addr = self.reg(insn.rs1) as usize;
+                let temp = self.mem(addr);
+                *self.reg_mut(insn.rd) = temp;
+                let rs2_val = self.reg(insn.rs2);
+                let res = temp ^ rs2_val;
+                for i in 0..8 {
+                    *self.mem_mut(addr + i) = ((res >> (8 * i)) & mask(8)) as u8;
+                }
+            }
+
+            Opcode::AmoandD => {
+                let addr = self.reg(insn.rs1) as usize;
+                let temp = self.mem(addr);
+                *self.reg_mut(insn.rd) = temp;
+                let rs2_val = self.reg(insn.rs2);
+                let res = temp & rs2_val;
+                for i in 0..8 {
+                    *self.mem_mut(addr + i) = ((res >> (8 * i)) & mask(8)) as u8;
+                }
+            }
+
+            Opcode::AmoorD => {
+                let addr = self.reg(insn.rs1) as usize;
+                let temp = self.mem(addr);
+                *self.reg_mut(insn.rd) = temp;
+                let rs2_val = self.reg(insn.rs2);
+                let res = temp | rs2_val;
+                for i in 0..8 {
+                    *self.mem_mut(addr + i) = ((res >> (8 * i)) & mask(8)) as u8;
+                }
+            }
+
+            Opcode::AmominD => {
+                let addr = self.reg(insn.rs1) as usize;
+                let temp = self.mem(addr);
+                *self.reg_mut(insn.rd) = temp;
+                let rs2_val = self.reg(insn.rs2) as i64;
+                let res = (temp as i64).min(rs2_val) as u64;
+                for i in 0..8 {
+                    *self.mem_mut(addr + i) = ((res >> (8 * i)) & mask(8)) as u8;
+                }
+            }
+
+            Opcode::AmomaxD => {
+                let addr = self.reg(insn.rs1) as usize;
+                let temp = self.mem(addr);
+                *self.reg_mut(insn.rd) = temp;
+                let rs2_val = self.reg(insn.rs2) as i64;
+                let res = (temp as i64).max(rs2_val) as u64;
+                for i in 0..8 {
+                    *self.mem_mut(addr + i) = ((res >> (8 * i)) & mask(8)) as u8;
+                }
+            }
+
+            Opcode::AmominuD => {
+                let addr = self.reg(insn.rs1) as usize;
+                let temp = self.mem(addr);
+                *self.reg_mut(insn.rd) = temp;
+                let rs2_val = self.reg(insn.rs2);
+                let res = temp.min(rs2_val);
+                for i in 0..8 {
+                    *self.mem_mut(addr + i) = ((res >> (8 * i)) & mask(8)) as u8;
+                }
+            }
+
+            Opcode::AmomaxuD => {
+                let addr = self.reg(insn.rs1) as usize;
+                let temp = self.mem(addr);
+                *self.reg_mut(insn.rd) = temp;
+                let rs2_val = self.reg(insn.rs2);
+                let res = temp.max(rs2_val);
+                for i in 0..8 {
                     *self.mem_mut(addr + i) = ((res >> (8 * i)) & mask(8)) as u8;
                 }
             }
