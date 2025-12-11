@@ -213,7 +213,7 @@ pub(crate) fn decode_insn(insn: u32) -> Instruction {
     let insn_type = match opcode_value {
         0b0110011 | 0b0111011 | 0b0101111 | 0b1010011 | 0b1000011 | 0b1000111 | 0b1001011
         | 0b1001111 => InstructionType::R,
-        0b0010011 | 0b0000011 | 0b1100111 | 0b1110011 | 0b0011011 | 0b0000111=> InstructionType::I,
+        0b0010011 | 0b0000011 | 0b1100111 | 0b1110011 | 0b0011011 | 0b0000111 => InstructionType::I,
         0b0100011 | 0b0100111 => InstructionType::S,
         0b1100011 => InstructionType::B,
         0b0110111 | 0b0010111 => InstructionType::U,
@@ -229,7 +229,7 @@ pub(crate) fn decode_insn(insn: u32) -> Instruction {
     let funct7 = (insn >> 25) & mask32(7);
 
     let imm = decode_imm(insn, &insn_type);
-    let opcode = decode_opcode(opcode_value, insn_type, funct3, funct7, imm);
+    let opcode = decode_opcode(opcode_value, insn_type, rs2, funct3, funct7, imm);
 
     Instruction {
         opcode,
@@ -294,14 +294,15 @@ fn decode_imm(insn: u32, insn_type: &InstructionType) -> u64 {
 fn decode_opcode(
     opcode_value: u32,
     insn_type: InstructionType,
+    rs2: u32,
     funct3: u32,
     funct7: u32,
     imm: u64,
 ) -> Opcode {
     match insn_type {
-        InstructionType::R => decode_r_insn(opcode_value, funct3, funct7),
+        InstructionType::R => decode_r_insn(opcode_value, rs2, funct3, funct7),
         InstructionType::I => decode_i_insn(opcode_value, funct3, imm),
-        InstructionType::S => decode_s_insn(funct3),
+        InstructionType::S => decode_s_insn(opcode_value, funct3),
         InstructionType::B => decode_b_insn(funct3),
         InstructionType::U => decode_u_opcode(opcode_value),
         InstructionType::J => Opcode::Jal,
@@ -309,7 +310,7 @@ fn decode_opcode(
     }
 }
 
-fn decode_r_insn(opcode_value: u32, funct3: u32, funct7: u32) -> Opcode {
+fn decode_r_insn(opcode_value: u32, rs2: u32, funct3: u32, funct7: u32) -> Opcode {
     match opcode_value {
         0b0110011 => match funct3 {
             0x0 => match funct7 {
@@ -526,6 +527,7 @@ fn decode_r_insn(opcode_value: u32, funct3: u32, funct7: u32) -> Opcode {
             },
             _ => panic!("unknown opcode"),
         },
+        _ => panic!("unknown opcode"),
     }
 }
 
@@ -572,16 +574,29 @@ fn decode_i_insn(opcode_value: u32, funct3: u32, imm: u64) -> Opcode {
             },
             _ => panic!("unknown opcode"),
         },
+        0b0000111 => match funct3 {
+            0x2 => Opcode::Flw,
+            0x3 => Opcode::Fld,
+            _ => panic!("unknown opcode"),
+        },
         _ => panic!("unknown opcode"),
     }
 }
 
-fn decode_s_insn(funct3: u32) -> Opcode {
-    match funct3 {
-        0x0 => Opcode::Sb,
-        0x1 => Opcode::Sh,
-        0x2 => Opcode::Sw,
-        0x3 => Opcode::Sd,
+fn decode_s_insn(opcode_value: u32, funct3: u32) -> Opcode {
+    match opcode_value {
+        0b0100011 => match funct3 {
+            0x0 => Opcode::Sb,
+            0x1 => Opcode::Sh,
+            0x2 => Opcode::Sw,
+            0x3 => Opcode::Sd,
+            _ => panic!("unknown opcode"),
+        },
+        0b0100111 => match funct3 {
+            0x2 => Opcode::Fsw,
+            0x3 => Opcode::Fsd,
+            _ => panic!("unknown opcode"),
+        },
         _ => panic!("unknown opcode"),
     }
 }
