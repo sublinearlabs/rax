@@ -212,9 +212,9 @@ pub(crate) fn decode_insn(insn: u32) -> Instruction {
 
     let insn_type = match opcode_value {
         0b0110011 | 0b0111011 | 0b0101111 | 0b1010011 | 0b1000011 | 0b1000111 | 0b1001011
-        | 0b1001111 | 0b0000111 | 0b0100111 => InstructionType::R,
-        0b0010011 | 0b0000011 | 0b1100111 | 0b1110011 | 0b0011011 => InstructionType::I,
-        0b0100011 => InstructionType::S,
+        | 0b1001111 => InstructionType::R,
+        0b0010011 | 0b0000011 | 0b1100111 | 0b1110011 | 0b0011011 | 0b0000111=> InstructionType::I,
+        0b0100011 | 0b0100111 => InstructionType::S,
         0b1100011 => InstructionType::B,
         0b0110111 | 0b0010111 => InstructionType::U,
         0b1101111 => InstructionType::J,
