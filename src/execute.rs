@@ -919,6 +919,29 @@ impl VM {
                 *self.f_reg_mut(insn.rd) = a as u64;
             }
 
+            Opcode::Flw => {
+                let addr = (self.reg(insn.rs1) + insn.imm) as usize;
+                let data = self.mem(addr) & mask(32);
+                *self.f_reg_mut(insn.rd) = data;
+            }
+
+            Opcode::Fsw => {
+                let addr = (self.reg(insn.rs1) + insn.imm) as usize;
+                let data = (self.f_reg(insn.rs2) & mask(32)).to_le_bytes();
+                self.write_bytes(addr, &data);
+            }
+
+            Opcode::Fld => {
+                let addr = (self.reg(insn.rs1) + insn.imm) as usize;
+                *self.f_reg_mut(insn.rd) = self.mem(addr);
+            }
+
+            Opcode::Fsd => {
+                let data = self.f_reg(insn.rs2).to_le_bytes();
+                let addr = (self.reg(insn.rs1) + insn.imm) as usize;
+                self.write_bytes(addr, &data);
+            }
+
             // System Opcodes
             Opcode::Ecall => {
                 let func = self.reg(17);
