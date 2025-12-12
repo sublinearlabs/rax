@@ -645,6 +645,280 @@ impl VM {
                 }
             }
 
+            // F instructions
+            Opcode::FmaddS => {
+                let rs3 = insn.imm >> 2;
+                let a = (self.f_reg(insn.rs1) & mask(32)) as f32;
+                let b = (self.f_reg(insn.rs2) & mask(32)) as f32;
+                let c = (self.f_reg(rs3 as usize) & mask(32)) as f32;
+                *self.f_reg_mut(insn.rd) = ((a * b) + c) as u64;
+            }
+
+            Opcode::FmsubS => {
+                let rs3 = insn.imm >> 2;
+                let a = (self.f_reg(insn.rs1) & mask(32)) as f32;
+                let b = (self.f_reg(insn.rs2) & mask(32)) as f32;
+                let c = (self.f_reg(rs3 as usize) & mask(32)) as f32;
+                *self.f_reg_mut(insn.rd) = ((a * b) - c) as u64;
+            }
+
+            Opcode::FnmsubS => {
+                let rs3 = insn.imm >> 2;
+                let a = (self.f_reg(insn.rs1) & mask(32)) as f32;
+                let b = (self.f_reg(insn.rs2) & mask(32)) as f32;
+                let c = (self.f_reg(rs3 as usize) & mask(32)) as f32;
+                *self.f_reg_mut(insn.rd) = (-(a * b) + c) as u64;
+            }
+
+            Opcode::FnmaddS => {
+                let rs3 = insn.imm >> 2;
+                let a = (self.f_reg(insn.rs1) & mask(32)) as f32;
+                let b = (self.f_reg(insn.rs2) & mask(32)) as f32;
+                let c = (self.f_reg(rs3 as usize) & mask(32)) as f32;
+                *self.f_reg_mut(insn.rd) = (-(a * b) - c) as u64;
+            }
+
+            Opcode::FaddS => {
+                let a = (self.f_reg(insn.rs1) & mask(32)) as f32;
+                let b = (self.f_reg(insn.rs2) & mask(32)) as f32;
+                *self.f_reg_mut(insn.rd) = (a + b) as u64;
+            }
+
+            Opcode::FsubS => {
+                let a = (self.f_reg(insn.rs1) & mask(32)) as f32;
+                let b = (self.f_reg(insn.rs2) & mask(32)) as f32;
+                *self.f_reg_mut(insn.rd) = (a - b) as u64;
+            }
+
+            Opcode::FmulS => {
+                let a = (self.f_reg(insn.rs1) & mask(32)) as f32;
+                let b = (self.f_reg(insn.rs2) & mask(32)) as f32;
+                *self.f_reg_mut(insn.rd) = (a * b) as u64;
+            }
+
+            Opcode::FdivS => {
+                let a = (self.f_reg(insn.rs1) & mask(32)) as f32;
+                let b = (self.f_reg(insn.rs2) & mask(32)) as f32;
+                *self.f_reg_mut(insn.rd) = (a / b) as u64;
+            }
+
+            Opcode::FsqrtS => {
+                let a = (self.f_reg(insn.rs1) & mask(32)) as f32;
+                *self.f_reg_mut(insn.rd) = f32::sqrt(a) as u64;
+            }
+
+            Opcode::FsgnjS => {
+                todo!()
+            }
+
+            Opcode::FsgnjnS => {
+                todo!()
+            }
+
+            Opcode::FsgnjxS => {
+                todo!()
+            }
+
+            Opcode::FminS => {
+                let a = (self.f_reg(insn.rs1) & mask(32)) as f32;
+                let b = (self.f_reg(insn.rs2) & mask(32)) as f32;
+                *self.f_reg_mut(insn.rd) = a.min(b) as u64;
+            }
+
+            Opcode::FmaxS => {
+                let a = (self.f_reg(insn.rs1) & mask(32)) as f32;
+                let b = (self.f_reg(insn.rs2) & mask(32)) as f32;
+                *self.f_reg_mut(insn.rd) = a.max(b) as u64;
+            }
+
+            Opcode::FcvtWS => {
+                let a = (((self.f_reg(insn.rs1) & mask(32)) as f32) as i32) as i64;
+                *self.reg_mut(insn.rd) = a as u64;
+            }
+
+            Opcode::FcvtWuS => {
+                let a = ((self.f_reg(insn.rs1) & mask(32)) as f32) as u64;
+                *self.reg_mut(insn.rd) = sext(a, 32);
+            }
+
+            Opcode::FmvXW => {
+                *self.reg_mut(insn.rd) = sext(self.f_reg(insn.rs1) & mask(32), 32);
+            }
+
+            Opcode::FeqS => {
+                let a = (self.f_reg(insn.rs1) & mask(32)) as f32;
+                let b = (self.f_reg(insn.rs2) & mask(32)) as f32;
+                *self.reg_mut(insn.rd) = a.eq(&b) as u64;
+            }
+
+            Opcode::FltS => {
+                let a = (self.f_reg(insn.rs1) & mask(32)) as f32;
+                let b = (self.f_reg(insn.rs2) & mask(32)) as f32;
+                *self.reg_mut(insn.rd) = a.lt(&b) as u64;
+            }
+
+            Opcode::FleS => {
+                let a = (self.f_reg(insn.rs1) & mask(32)) as f32;
+                let b = (self.f_reg(insn.rs2) & mask(32)) as f32;
+                *self.reg_mut(insn.rd) = a.le(&b) as u64;
+            }
+
+            Opcode::FclassS => {
+                todo!()
+            }
+
+            Opcode::FcvtSW => {
+                let a = ((self.reg(insn.rs1) & mask(32)) as i32) as f32;
+                *self.f_reg_mut(insn.rd) = a as u64;
+            }
+
+            Opcode::FcvtSWu => {
+                let a = ((self.reg(insn.rs1) & mask(32)) as u32) as f32;
+                *self.f_reg_mut(insn.rd) = a as u64;
+            }
+
+            Opcode::FmvWX => {
+                let a = (self.reg(insn.rs1) & mask(32)) as f32;
+                *self.f_reg_mut(insn.rd) = a as u64;
+            }
+
+            Opcode::FmaddD => {
+                let rs3 = insn.imm >> 2;
+                let a = self.f_reg(insn.rs1) as f64;
+                let b = self.f_reg(insn.rs2) as f64;
+                let c = self.f_reg(rs3 as usize) as f64;
+                *self.f_reg_mut(insn.rd) = ((a * b) + c) as u64;
+            }
+
+            Opcode::FmsubD => {
+                let rs3 = insn.imm >> 2;
+                let a = self.f_reg(insn.rs1) as f64;
+                let b = self.f_reg(insn.rs2) as f64;
+                let c = self.f_reg(rs3 as usize) as f64;
+                *self.f_reg_mut(insn.rd) = ((a * b) - c) as u64;
+            }
+
+            Opcode::FnmsubD => {
+                let rs3 = insn.imm >> 2;
+                let a = self.f_reg(insn.rs1) as f64;
+                let b = self.f_reg(insn.rs2) as f64;
+                let c = self.f_reg(rs3 as usize) as f64;
+                *self.f_reg_mut(insn.rd) = (-(a * b) + c) as u64;
+            }
+
+            Opcode::FnmaddD => {
+                let rs3 = insn.imm >> 2;
+                let a = self.f_reg(insn.rs1) as f64;
+                let b = self.f_reg(insn.rs2) as f64;
+                let c = self.f_reg(rs3 as usize) as f64;
+                *self.f_reg_mut(insn.rd) = (-(a * b) - c) as u64;
+            }
+
+            Opcode::FaddD => {
+                let a = self.f_reg(insn.rs1) as f64;
+                let b = self.f_reg(insn.rs2) as f64;
+                *self.f_reg_mut(insn.rd) = (a + b) as u64;
+            }
+
+            Opcode::FsubD => {
+                let a = self.f_reg(insn.rs1) as f64;
+                let b = self.f_reg(insn.rs2) as f64;
+                *self.f_reg_mut(insn.rd) = (a - b) as u64;
+            }
+
+            Opcode::FmulD => {
+                let a = self.f_reg(insn.rs1) as f64;
+                let b = self.f_reg(insn.rs2) as f64;
+                *self.f_reg_mut(insn.rd) = (a * b) as u64;
+            }
+
+            Opcode::FdivD => {
+                let a = self.f_reg(insn.rs1) as f64;
+                let b = self.f_reg(insn.rs2) as f64;
+                *self.f_reg_mut(insn.rd) = (a / b) as u64;
+            }
+
+            Opcode::FsqrtD => {
+                let a = self.f_reg(insn.rs1) as f64;
+                *self.f_reg_mut(insn.rd) = f64::sqrt(a) as u64;
+            }
+
+            Opcode::FsgnjD => {
+                todo!()
+            }
+
+            Opcode::FsgnjnD => {
+                todo!()
+            }
+
+            Opcode::FsgnjxD => {
+                todo!()
+            }
+
+            Opcode::FminD => {
+                let a = self.f_reg(insn.rs1) as f64;
+                let b = self.f_reg(insn.rs2) as f64;
+                *self.f_reg_mut(insn.rd) = a.min(b) as u64;
+            }
+
+            Opcode::FmaxD => {
+                let a = self.f_reg(insn.rs1) as f64;
+                let b = self.f_reg(insn.rs2) as f64;
+                *self.f_reg_mut(insn.rd) = a.max(b) as u64;
+            }
+
+            Opcode::FcvtSD => {
+                let a = (self.f_reg(insn.rs1) as f64) as f32;
+                *self.f_reg_mut(insn.rd) = a as u64;
+            }
+
+            Opcode::FcvtDS => {
+                let a = (self.f_reg(insn.rs1) as f32) as f64;
+                *self.f_reg_mut(insn.rd) = a as u64;
+            }
+
+            Opcode::FeqD => {
+                let a = self.f_reg(insn.rs1) as f64;
+                let b = self.f_reg(insn.rs2) as f64;
+                *self.reg_mut(insn.rd) = a.eq(&b) as u64;
+            }
+
+            Opcode::FltD => {
+                let a = self.f_reg(insn.rs1) as f64;
+                let b = self.f_reg(insn.rs2) as f64;
+                *self.reg_mut(insn.rd) = a.lt(&b) as u64;
+            }
+
+            Opcode::FleD => {
+                let a = self.f_reg(insn.rs1) as f64;
+                let b = self.f_reg(insn.rs2) as f64;
+                *self.reg_mut(insn.rd) = a.le(&b) as u64;
+            }
+
+            Opcode::FclassD => {
+                todo!()
+            }
+
+            Opcode::FcvtWD => {
+                let a = ((self.f_reg(insn.rs1) as f64) as i32) as i64;
+                *self.reg_mut(insn.rd) = a as u64;
+            }
+
+            Opcode::FcvtWuD => {
+                let a = (self.f_reg(insn.rs1) as f64) as u32;
+                *self.reg_mut(insn.rd) = sext(a as u64, 32);
+            }
+
+            Opcode::FcvtDW => {
+                let a = ((self.reg(insn.rs1) as f64) as i32) as i64;
+                *self.f_reg_mut(insn.rd) = a as u64;
+            }
+
+            Opcode::FcvtDWu => {
+                let a = (self.reg(insn.rs1) as u32) as f64;
+                *self.f_reg_mut(insn.rd) = a as u64;
+            }
+
             // System Opcodes
             Opcode::Ecall => {
                 let func = self.reg(17);
