@@ -15,6 +15,7 @@ mod util;
 #[derive(Default)]
 struct VM {
     registers: [u64; 32],
+    f_reg: [u64; 32],
     memory: Memory,
     x0_sink: u64, // blackhole for writes to x0
     reservation_set: u64,
@@ -73,6 +74,11 @@ impl VM {
         if idx == 0 { 0 } else { self.registers[idx] }
     }
 
+    /// Returns the current value at the idx floating point register
+    fn f_reg(&self, idx: usize) -> u64 {
+        self.f_reg[idx]
+    }
+
     /// Returns a mutable reference to the idx register
     fn reg_mut(&mut self, idx: usize) -> &mut u64 {
         if idx == 0 {
@@ -80,6 +86,11 @@ impl VM {
         } else {
             &mut self.registers[idx]
         }
+    }
+
+    /// Returns a mutable reference to the idx floating point register
+    fn f_reg_mut(&mut self, idx: usize) -> &mut u64 {
+        &mut self.f_reg[idx]
     }
 
     /// Reads 64 bytes from memory at the given addr
