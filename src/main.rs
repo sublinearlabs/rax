@@ -5,7 +5,7 @@
 //! Usage: cargo run --release
 
 use riscv::VM;
-use riscv::trace::NoopTracer;
+use riscv::trace::FullTracer;
 
 /// Path to the fibonacci binary
 const FIB_BINARY: &str = "rust-bin/fib/target/riscv64ima-unknown-none-elf/release/fib";
@@ -13,7 +13,7 @@ const FIB_BINARY: &str = "rust-bin/fib/target/riscv64ima-unknown-none-elf/releas
 fn main() {
     println!("Loading ELF: {}", FIB_BINARY);
 
-    let mut vm = VM::<NoopTracer>::init_from_elf(FIB_BINARY.to_string());
+    let mut vm = VM::<FullTracer>::init_from_elf(FIB_BINARY.to_string());
 
     println!("Running fibonacci program...\n");
 
