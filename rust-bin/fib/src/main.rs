@@ -6,8 +6,8 @@ use core::panic::PanicInfo;
 /// Entry point for the RISC-V program
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
-    // Calculate fibonacci(10)
-    let n = 10;
+    // Calculate fibonacci(10_000)
+    let n = 10_000;
     let result = fib(n);
 
     // Store result in a0 register and exit
