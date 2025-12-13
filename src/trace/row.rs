@@ -82,3 +82,85 @@ impl TraceRowBuilder {
         self.row
     }
 }
+
+impl From<TraceRowBuilder> for TraceRow {
+    fn from(builder: TraceRowBuilder) -> Self {
+        builder.build()
+    }
+}
+
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_builder_basic() {
+        let regs = [0u64; 32];
+        let row = TraceRowBuilder::new(0, 0x1000, regs)
+            .next_pc(0x1004)
+            .build();
+
+        assert_eq!(row.clk, 0);
+        assert_eq!(row.pc, 0x1000);
+        assert_eq!(row.next_pc, 0x1004);
+    }
+
+    #[test]
+    fn test_builder_rd_write() {
+        let regs = [0u64; 32];
+        let row = TraceRowBuilder::new(0, 0x1000, regs)
+            .rd_write(5, 42)
+            .build();
+
+        assert_eq!(row.rd, 5);
+        assert_eq!(row.rd_val, 42);
+    }
+
+    #[test]
+    fn test_builder_mul_intermediate() {
+        let regs = [0u64; 32];
+        let row = TraceRowBuilder::new(0, 0x1000, regs)
+            .mul_intermediate(0x1234, 0x5678)
+            .build();
+
+        assert_eq!(row.mul_lo, 0x1234);
+        assert_eq!(row.mul_hi, 0x5678);
+    }
+
+    #[test]
+    fn test_builder_halt() {
+        let regs = [0u64; 32];
+        let row = TraceRowBuilder::new(0, 0x1000, regs).halt().build();
+
+        assert!(row.halted);
+    }
+
+    #[test]
+    fn test_builder_from_trait() {
+        let regs = [0u64; 32];
+        let builder = TraceRowBuilder::new(0, 0x1000, regs);
+        let row: TraceRow = builder.into();
+
+        assert_eq!(row.pc, 0x1000);
+    }
+
+    #[test]
+    fn test_builder_chaining() {
+        let mut regs = [0u64; 32];
+        regs[1] = 100;
+        regs[2] = 200;
+
+        let row = TraceRowBuilder::new(5, 0x2000, regs)
+            .rd_write(3, 300)
+            .next_pc(0x2008)
+            .build();
+
+        assert_eq!(row.clk, 5);
+        assert_eq!(row.pc, 0x2000);
+        assert_eq!(row.rd, 3);
+        assert_eq!(row.rd_val, 300);
+        assert_eq!(row.next_pc, 0x2008);
+    }
+}
