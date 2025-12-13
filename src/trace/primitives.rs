@@ -610,3 +610,66 @@ impl InstructionStats {
             + self.system
     }
 }
+
+
+
+
+
+
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_trace_row_creation() {
+        let regs = [0u64; 32];
+        let row = TraceRow::new(0, 0x1000, regs);
+        assert_eq!(row.clk, 0);
+        assert_eq!(row.pc, 0x1000);
+        assert_eq!(row.next_pc, 0x1004);
+    }
+
+    #[test]
+    fn test_execution_trace() {
+        let mut trace = ExecutionTrace::new(0x1000, [0u64; 32]);
+        assert!(trace.is_empty());
+
+        let row = TraceRow::new(0, 0x1000, [0u64; 32]);
+        trace.push(row);
+
+        assert_eq!(trace.len(), 1);
+        assert_eq!(trace.total_cycles, 1);
+    }
+
+    #[test]
+    fn test_instr_flags_alu() {
+        let flags = InstrFlags::from_opcode(&Opcode::Add);
+        assert!(flags.is_alu);
+        assert!(!flags.is_load);
+        assert!(!flags.is_store);
+    }
+
+    #[test]
+    fn test_instr_flags_load() {
+        let flags = InstrFlags::from_opcode(&Opcode::Ld);
+        assert!(flags.is_load);
+        assert!(!flags.is_alu);
+    }
+
+    #[test]
+    fn test_instr_flags_atomic() {
+        let flags = InstrFlags::from_opcode(&Opcode::AmoaddD);
+        assert!(flags.is_amo);
+        assert!(!flags.is_lr);
+        assert!(!flags.is_sc);
+    }
+
+    #[test]
+    fn test_mem_op_default() {
+        let mem_op = MemOp::default();
+        assert_eq!(mem_op, MemOp::None);
+    }
+}
+
