@@ -1,8 +1,9 @@
 use crate::util::{map_range, mask, mask32, sext};
+use serde::{Deserialize, Serialize};
 
 // RISCV Opcodes
-#[derive(Debug)]
-pub(crate) enum Opcode {
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Opcode {
     Add,
     Addw,
     Sub,
@@ -115,18 +116,18 @@ enum InstructionType {
     FENCE,
 }
 
-// RISCV insturction
-#[derive(Debug)]
-pub(crate) struct Instruction {
-    pub(crate) opcode: Opcode,
-    pub(crate) rd: usize,
-    pub(crate) rs1: usize,
-    pub(crate) rs2: usize,
-    pub(crate) imm: u64,
+// RISCV instruction
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Instruction {
+    pub opcode: Opcode,
+    pub rd: usize,
+    pub rs1: usize,
+    pub rs2: usize,
+    pub imm: u64,
 }
 
 impl Instruction {
-    pub(crate) fn new(opcode: Opcode) -> Self {
+    pub fn new(opcode: Opcode) -> Self {
         Self {
             opcode,
             rd: 0,
@@ -136,24 +137,24 @@ impl Instruction {
         }
     }
 
-    pub(crate) fn rd(self, val: usize) -> Self {
+    pub fn rd(self, val: usize) -> Self {
         Self { rd: val, ..self }
     }
 
-    pub(crate) fn rs1(self, val: usize) -> Self {
+    pub fn rs1(self, val: usize) -> Self {
         Self { rs1: val, ..self }
     }
 
-    pub(crate) fn rs2(self, val: usize) -> Self {
+    pub fn rs2(self, val: usize) -> Self {
         Self { rs2: val, ..self }
     }
 
-    pub(crate) fn imm(self, val: u64) -> Self {
+    pub fn imm(self, val: u64) -> Self {
         Self { imm: val, ..self }
     }
 }
 
-pub(crate) fn decode_insn(insn: u32) -> Instruction {
+pub fn decode_insn(insn: u32) -> Instruction {
     let opcode_value = insn & mask32(7);
 
     let insn_type = match opcode_value {

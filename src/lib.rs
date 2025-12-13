@@ -1,16 +1,15 @@
 use std::fs;
-
-use crate::decode::Instruction;
-use crate::decode::Opcode;
-use crate::decode::decode_insn;
 use crate::elf::decode_elf;
 use crate::memory::Memory;
+pub use decode::{Instruction, Opcode, decode_insn};
 
-mod decode;
+pub mod decode;
 mod elf;
 mod execute;
 mod memory;
 mod util;
+mod trace;
+
 
 #[derive(Default)]
 struct VM {

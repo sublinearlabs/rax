@@ -1,7 +1,6 @@
-use crate::{
-    Instruction, Opcode, VM,
-    util::{mask, sext},
-};
+use crate::VM;
+use crate::decode::{Instruction, Opcode};
+use crate::util::{mask, sext};
 
 // TODO consider cleaning up sext logic
 
