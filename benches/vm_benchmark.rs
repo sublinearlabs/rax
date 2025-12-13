@@ -11,7 +11,7 @@ use riscv::VM;
 use riscv::trace::{FullTracer, NoopTracer};
 
 /// Path to the fibonacci binary
-const FIB_BINARY: &str = "rust-bin/fib/target/riscv64ima-unknown-none-elf/release/fib";
+const FIB_BINARY: &str = "rust-bin/fib/target/riscv64ima-unknown-none-elf/release/fib"; // I intend to change to the block exec program... I trust that data more :)
 
 /// Benchmark running the fibonacci program without tracing (NoopTracer).
 ///
