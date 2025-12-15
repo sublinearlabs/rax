@@ -648,63 +648,63 @@ impl VM {
             // F instructions
             Opcode::FmaddS => {
                 let rs3 = insn.imm >> 2;
-                let a = (self.f_reg(insn.rs1) & mask(32)) as f32;
-                let b = (self.f_reg(insn.rs2) & mask(32)) as f32;
-                let c = (self.f_reg(rs3 as usize) & mask(32)) as f32;
-                *self.f_reg_mut(insn.rd) = ((a * b) + c) as u64;
+                let a = f32::from_bits(self.f_reg(insn.rs1) as u32);
+                let b = f32::from_bits(self.f_reg(insn.rs2) as u32);
+                let c = f32::from_bits(self.f_reg(rs3 as usize) as u32);
+                *self.f_reg_mut(insn.rd) = a.mul_add(b, c).to_bits() as u64;
             }
 
             Opcode::FmsubS => {
                 let rs3 = insn.imm >> 2;
-                let a = (self.f_reg(insn.rs1) & mask(32)) as f32;
-                let b = (self.f_reg(insn.rs2) & mask(32)) as f32;
-                let c = (self.f_reg(rs3 as usize) & mask(32)) as f32;
-                *self.f_reg_mut(insn.rd) = ((a * b) - c) as u64;
+                let a = f32::from_bits(self.f_reg(insn.rs1) as u32);
+                let b = f32::from_bits(self.f_reg(insn.rs2) as u32);
+                let c = f32::from_bits(self.f_reg(rs3 as usize) as u32);
+                *self.f_reg_mut(insn.rd) = a.mul_add(b, -c).to_bits() as u64;
             }
 
             Opcode::FnmsubS => {
                 let rs3 = insn.imm >> 2;
-                let a = (self.f_reg(insn.rs1) & mask(32)) as f32;
-                let b = (self.f_reg(insn.rs2) & mask(32)) as f32;
-                let c = (self.f_reg(rs3 as usize) & mask(32)) as f32;
-                *self.f_reg_mut(insn.rd) = (-(a * b) + c) as u64;
+                let a = f32::from_bits(self.f_reg(insn.rs1) as u32);
+                let b = f32::from_bits(self.f_reg(insn.rs2) as u32);
+                let c = f32::from_bits(self.f_reg(rs3 as usize) as u32);
+                *self.f_reg_mut(insn.rd) = (-a).mul_add(b, c).to_bits() as u64;
             }
 
             Opcode::FnmaddS => {
                 let rs3 = insn.imm >> 2;
-                let a = (self.f_reg(insn.rs1) & mask(32)) as f32;
-                let b = (self.f_reg(insn.rs2) & mask(32)) as f32;
-                let c = (self.f_reg(rs3 as usize) & mask(32)) as f32;
-                *self.f_reg_mut(insn.rd) = (-(a * b) - c) as u64;
+                let a = f32::from_bits(self.f_reg(insn.rs1) as u32);
+                let b = f32::from_bits(self.f_reg(insn.rs2) as u32);
+                let c = f32::from_bits(self.f_reg(rs3 as usize) as u32);
+                *self.f_reg_mut(insn.rd) = (-a).mul_add(b, -c).to_bits() as u64;
             }
 
             Opcode::FaddS => {
-                let a = (self.f_reg(insn.rs1) & mask(32)) as f32;
-                let b = (self.f_reg(insn.rs2) & mask(32)) as f32;
-                *self.f_reg_mut(insn.rd) = (a + b) as u64;
+                let a = f32::from_bits(self.f_reg(insn.rs1) as u32);
+                let b = f32::from_bits(self.f_reg(insn.rs2) as u32);
+                *self.f_reg_mut(insn.rd) = (a + b).to_bits() as u64;
             }
 
             Opcode::FsubS => {
-                let a = (self.f_reg(insn.rs1) & mask(32)) as f32;
-                let b = (self.f_reg(insn.rs2) & mask(32)) as f32;
-                *self.f_reg_mut(insn.rd) = (a - b) as u64;
+                let a = f32::from_bits(self.f_reg(insn.rs1) as u32);
+                let b = f32::from_bits(self.f_reg(insn.rs2) as u32);
+                *self.f_reg_mut(insn.rd) = (a - b).to_bits() as u64;
             }
 
             Opcode::FmulS => {
-                let a = (self.f_reg(insn.rs1) & mask(32)) as f32;
-                let b = (self.f_reg(insn.rs2) & mask(32)) as f32;
-                *self.f_reg_mut(insn.rd) = (a * b) as u64;
+                let a = f32::from_bits(self.f_reg(insn.rs1) as u32);
+                let b = f32::from_bits(self.f_reg(insn.rs2) as u32);
+                *self.f_reg_mut(insn.rd) = (a * b).to_bits() as u64;
             }
 
             Opcode::FdivS => {
-                let a = (self.f_reg(insn.rs1) & mask(32)) as f32;
-                let b = (self.f_reg(insn.rs2) & mask(32)) as f32;
-                *self.f_reg_mut(insn.rd) = (a / b) as u64;
+                let a = f32::from_bits(self.f_reg(insn.rs1) as u32);
+                let b = f32::from_bits(self.f_reg(insn.rs2) as u32);
+                *self.f_reg_mut(insn.rd) = (a / b).to_bits() as u64;
             }
 
             Opcode::FsqrtS => {
-                let a = (self.f_reg(insn.rs1) & mask(32)) as f32;
-                *self.f_reg_mut(insn.rd) = f32::sqrt(a) as u64;
+                let a = f32::from_bits(self.f_reg(insn.rs1) as u32);
+                *self.f_reg_mut(insn.rd) = a.sqrt().to_bits() as u64;
             }
 
             Opcode::FsgnjS => {
@@ -720,25 +720,25 @@ impl VM {
             }
 
             Opcode::FminS => {
-                let a = (self.f_reg(insn.rs1) & mask(32)) as f32;
-                let b = (self.f_reg(insn.rs2) & mask(32)) as f32;
-                *self.f_reg_mut(insn.rd) = a.min(b) as u64;
+                let a = f32::from_bits(self.f_reg(insn.rs1) as u32);
+                let b = f32::from_bits(self.f_reg(insn.rs2) as u32);
+                *self.f_reg_mut(insn.rd) = a.min(b).to_bits() as u64;
             }
 
             Opcode::FmaxS => {
-                let a = (self.f_reg(insn.rs1) & mask(32)) as f32;
-                let b = (self.f_reg(insn.rs2) & mask(32)) as f32;
-                *self.f_reg_mut(insn.rd) = a.max(b) as u64;
+                let a = f32::from_bits(self.f_reg(insn.rs1) as u32);
+                let b = f32::from_bits(self.f_reg(insn.rs2) as u32);
+                *self.f_reg_mut(insn.rd) = a.max(b).to_bits() as u64;
             }
 
             Opcode::FcvtWS => {
-                let a = (((self.f_reg(insn.rs1) & mask(32)) as f32) as i32) as i64;
+                let a = (f32::from_bits(self.f_reg(insn.rs1) as u32) as i32) as i64;
                 *self.reg_mut(insn.rd) = a as u64;
             }
 
             Opcode::FcvtWuS => {
-                let a = ((self.f_reg(insn.rs1) & mask(32)) as f32) as u64;
-                *self.reg_mut(insn.rd) = sext(a, 32);
+                let a = f32::from_bits(self.f_reg(insn.rs1) as u32) as u32;
+                *self.reg_mut(insn.rd) = a as u64;
             }
 
             Opcode::FmvXW => {
@@ -746,20 +746,20 @@ impl VM {
             }
 
             Opcode::FeqS => {
-                let a = (self.f_reg(insn.rs1) & mask(32)) as f32;
-                let b = (self.f_reg(insn.rs2) & mask(32)) as f32;
+                let a = f32::from_bits(self.f_reg(insn.rs1) as u32);
+                let b = f32::from_bits(self.f_reg(insn.rs2) as u32);
                 *self.reg_mut(insn.rd) = a.eq(&b) as u64;
             }
 
             Opcode::FltS => {
-                let a = (self.f_reg(insn.rs1) & mask(32)) as f32;
-                let b = (self.f_reg(insn.rs2) & mask(32)) as f32;
+                let a = f32::from_bits(self.f_reg(insn.rs1) as u32);
+                let b = f32::from_bits(self.f_reg(insn.rs2) as u32);
                 *self.reg_mut(insn.rd) = a.lt(&b) as u64;
             }
 
             Opcode::FleS => {
-                let a = (self.f_reg(insn.rs1) & mask(32)) as f32;
-                let b = (self.f_reg(insn.rs2) & mask(32)) as f32;
+                let a = f32::from_bits(self.f_reg(insn.rs1) as u32);
+                let b = f32::from_bits(self.f_reg(insn.rs2) as u32);
                 *self.reg_mut(insn.rd) = a.le(&b) as u64;
             }
 
@@ -768,130 +768,139 @@ impl VM {
             }
 
             Opcode::FcvtSW => {
-                let a = ((self.reg(insn.rs1) & mask(32)) as i32) as f32;
-                *self.f_reg_mut(insn.rd) = a as u64;
+                let a = (self.reg(insn.rs1) as i32) as f32;
+                *self.f_reg_mut(insn.rd) = a.to_bits() as u64;
             }
 
             Opcode::FcvtSWu => {
-                let a = ((self.reg(insn.rs1) & mask(32)) as u32) as f32;
-                *self.f_reg_mut(insn.rd) = a as u64;
+                let a = (self.reg(insn.rs1) as u32) as f32;
+                *self.f_reg_mut(insn.rd) = a.to_bits() as u64;
             }
 
             Opcode::FmvWX => {
-                let a = (self.reg(insn.rs1) & mask(32)) as f32;
+                let a = self.reg(insn.rs1) as u32;
                 *self.f_reg_mut(insn.rd) = a as u64;
             }
 
             Opcode::FmaddD => {
                 let rs3 = insn.imm >> 2;
-                let a = self.f_reg(insn.rs1) as f64;
-                let b = self.f_reg(insn.rs2) as f64;
-                let c = self.f_reg(rs3 as usize) as f64;
-                *self.f_reg_mut(insn.rd) = ((a * b) + c) as u64;
+                let a = f64::from_bits(self.f_reg(insn.rs1));
+                let b = f64::from_bits(self.f_reg(insn.rs2));
+                let c = f64::from_bits(self.f_reg(rs3 as usize));
+                *self.f_reg_mut(insn.rd) = a.mul_add(b, c).to_bits();
             }
 
             Opcode::FmsubD => {
                 let rs3 = insn.imm >> 2;
-                let a = self.f_reg(insn.rs1) as f64;
-                let b = self.f_reg(insn.rs2) as f64;
-                let c = self.f_reg(rs3 as usize) as f64;
-                *self.f_reg_mut(insn.rd) = ((a * b) - c) as u64;
+                let a = f64::from_bits(self.f_reg(insn.rs1));
+                let b = f64::from_bits(self.f_reg(insn.rs2));
+                let c = f64::from_bits(self.f_reg(rs3 as usize));
+                *self.f_reg_mut(insn.rd) = a.mul_add(b, -c).to_bits();
             }
 
             Opcode::FnmsubD => {
                 let rs3 = insn.imm >> 2;
-                let a = self.f_reg(insn.rs1) as f64;
-                let b = self.f_reg(insn.rs2) as f64;
-                let c = self.f_reg(rs3 as usize) as f64;
-                *self.f_reg_mut(insn.rd) = (-(a * b) + c) as u64;
+                let a = f64::from_bits(self.f_reg(insn.rs1));
+                let b = f64::from_bits(self.f_reg(insn.rs2));
+                let c = f64::from_bits(self.f_reg(rs3 as usize));
+                *self.f_reg_mut(insn.rd) = (-a).mul_add(b, c).to_bits();
             }
 
             Opcode::FnmaddD => {
                 let rs3 = insn.imm >> 2;
-                let a = self.f_reg(insn.rs1) as f64;
-                let b = self.f_reg(insn.rs2) as f64;
-                let c = self.f_reg(rs3 as usize) as f64;
-                *self.f_reg_mut(insn.rd) = (-(a * b) - c) as u64;
+                let a = f64::from_bits(self.f_reg(insn.rs1));
+                let b = f64::from_bits(self.f_reg(insn.rs2));
+                let c = f64::from_bits(self.f_reg(rs3 as usize));
+                *self.f_reg_mut(insn.rd) = (-a).mul_add(b, -c).to_bits();
             }
 
             Opcode::FaddD => {
-                let a = self.f_reg(insn.rs1) as f64;
-                let b = self.f_reg(insn.rs2) as f64;
-                *self.f_reg_mut(insn.rd) = (a + b) as u64;
+                let a = f64::from_bits(self.f_reg(insn.rs1));
+                let b = f64::from_bits(self.f_reg(insn.rs2));
+                *self.f_reg_mut(insn.rd) = (a + b).to_bits();
             }
 
             Opcode::FsubD => {
-                let a = self.f_reg(insn.rs1) as f64;
-                let b = self.f_reg(insn.rs2) as f64;
-                *self.f_reg_mut(insn.rd) = (a - b) as u64;
+                let a = f64::from_bits(self.f_reg(insn.rs1));
+                let b = f64::from_bits(self.f_reg(insn.rs2));
+                *self.f_reg_mut(insn.rd) = (a - b).to_bits();
             }
 
             Opcode::FmulD => {
-                let a = self.f_reg(insn.rs1) as f64;
-                let b = self.f_reg(insn.rs2) as f64;
-                *self.f_reg_mut(insn.rd) = (a * b) as u64;
+                let a = f64::from_bits(self.f_reg(insn.rs1));
+                let b = f64::from_bits(self.f_reg(insn.rs2));
+                *self.f_reg_mut(insn.rd) = (a * b).to_bits();
             }
 
             Opcode::FdivD => {
-                let a = self.f_reg(insn.rs1) as f64;
-                let b = self.f_reg(insn.rs2) as f64;
-                *self.f_reg_mut(insn.rd) = (a / b) as u64;
+                let a = f64::from_bits(self.f_reg(insn.rs1));
+                let b = f64::from_bits(self.f_reg(insn.rs2));
+                *self.f_reg_mut(insn.rd) = (a / b).to_bits();
             }
 
             Opcode::FsqrtD => {
-                let a = self.f_reg(insn.rs1) as f64;
-                *self.f_reg_mut(insn.rd) = f64::sqrt(a) as u64;
+                let a = f64::from_bits(self.f_reg(insn.rs1));
+                *self.f_reg_mut(insn.rd) = a.sqrt().to_bits();
             }
 
             Opcode::FsgnjD => {
-                todo!()
+                let sign = self.f_reg(insn.rs2) & (1 << 63);
+                let val = self.f_reg(insn.rs1) & mask(63);
+                let res = sign | val;
+                *self.f_reg_mut(insn.rd) = res;
             }
 
             Opcode::FsgnjnD => {
-                todo!()
+                let sign = (self.f_reg(insn.rs2) & (1 << 63)) ^ (1 << 63);
+                let val = self.f_reg(insn.rs1) & mask(63);
+                let res = sign | val;
+                *self.f_reg_mut(insn.rd) = res;
             }
 
             Opcode::FsgnjxD => {
-                todo!()
+                let sign = (self.f_reg(insn.rs1) & (1 << 63)) ^ (self.f_reg(insn.rs2) & (1 << 63));
+                let val = self.f_reg(insn.rs1) & mask(63);
+                let res = sign | val;
+                *self.f_reg_mut(insn.rd) = res;
             }
 
             Opcode::FminD => {
-                let a = self.f_reg(insn.rs1) as f64;
-                let b = self.f_reg(insn.rs2) as f64;
-                *self.f_reg_mut(insn.rd) = a.min(b) as u64;
+                let a = f64::from_bits(self.f_reg(insn.rs1));
+                let b = f64::from_bits(self.f_reg(insn.rs2));
+                *self.f_reg_mut(insn.rd) = a.min(b).to_bits();
             }
 
             Opcode::FmaxD => {
                 let a = self.f_reg(insn.rs1) as f64;
                 let b = self.f_reg(insn.rs2) as f64;
-                *self.f_reg_mut(insn.rd) = a.max(b) as u64;
+                *self.f_reg_mut(insn.rd) = a.max(b).to_bits();
             }
 
             Opcode::FcvtSD => {
-                let a = (self.f_reg(insn.rs1) as f64) as f32;
-                *self.f_reg_mut(insn.rd) = a as u64;
+                let a = f64::from_bits(self.f_reg(insn.rs1)) as f32;
+                *self.f_reg_mut(insn.rd) = a.to_bits() as u64;
             }
 
             Opcode::FcvtDS => {
-                let a = (self.f_reg(insn.rs1) as f32) as f64;
-                *self.f_reg_mut(insn.rd) = a as u64;
+                let a = f32::from_bits(self.f_reg(insn.rs1) as u32) as f64;
+                *self.f_reg_mut(insn.rd) = a.to_bits();
             }
 
             Opcode::FeqD => {
-                let a = self.f_reg(insn.rs1) as f64;
-                let b = self.f_reg(insn.rs2) as f64;
+                let a = f64::from_bits(self.f_reg(insn.rs1));
+                let b = f64::from_bits(self.f_reg(insn.rs2));
                 *self.reg_mut(insn.rd) = a.eq(&b) as u64;
             }
 
             Opcode::FltD => {
-                let a = self.f_reg(insn.rs1) as f64;
-                let b = self.f_reg(insn.rs2) as f64;
+                let a = f64::from_bits(self.f_reg(insn.rs1));
+                let b = f64::from_bits(self.f_reg(insn.rs2));
                 *self.reg_mut(insn.rd) = a.lt(&b) as u64;
             }
 
             Opcode::FleD => {
-                let a = self.f_reg(insn.rs1) as f64;
-                let b = self.f_reg(insn.rs2) as f64;
+                let a = f64::from_bits(self.f_reg(insn.rs1));
+                let b = f64::from_bits(self.f_reg(insn.rs2));
                 *self.reg_mut(insn.rd) = a.le(&b) as u64;
             }
 
@@ -900,23 +909,23 @@ impl VM {
             }
 
             Opcode::FcvtWD => {
-                let a = ((self.f_reg(insn.rs1) as f64) as i32) as i64;
+                let a = (f64::from_bits(self.f_reg(insn.rs1)) as i32) as i64;
                 *self.reg_mut(insn.rd) = a as u64;
             }
 
             Opcode::FcvtWuD => {
-                let a = (self.f_reg(insn.rs1) as f64) as u32;
-                *self.reg_mut(insn.rd) = sext(a as u64, 32);
+                let a = f64::from_bits(self.f_reg(insn.rs1)) as u32;
+                *self.reg_mut(insn.rd) = a as u64;
             }
 
             Opcode::FcvtDW => {
-                let a = ((self.reg(insn.rs1) as f64) as i32) as i64;
-                *self.f_reg_mut(insn.rd) = a as u64;
+                let a = (self.reg(insn.rs1) as i32) as f64;
+                *self.f_reg_mut(insn.rd) = a.to_bits();
             }
 
             Opcode::FcvtDWu => {
                 let a = (self.reg(insn.rs1) as u32) as f64;
-                *self.f_reg_mut(insn.rd) = a as u64;
+                *self.f_reg_mut(insn.rd) = a.to_bits();
             }
 
             Opcode::Flw => {
@@ -927,7 +936,7 @@ impl VM {
 
             Opcode::Fsw => {
                 let addr = (self.reg(insn.rs1) + insn.imm) as usize;
-                let data = (self.f_reg(insn.rs2) & mask(32)).to_le_bytes();
+                let data = (self.f_reg(insn.rs2) as u32).to_le_bytes();
                 self.write_bytes(addr, &data);
             }
 
