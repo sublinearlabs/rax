@@ -708,15 +708,24 @@ impl VM {
             }
 
             Opcode::FsgnjS => {
-                todo!()
+                let sign = self.f_reg(insn.rs2) & (1 << 31);
+                let val = self.f_reg(insn.rs1) & mask(31);
+                let data = sign | val;
+                *self.f_reg_mut(insn.rd) = data;
             }
 
             Opcode::FsgnjnS => {
-                todo!()
+                let sign = (self.f_reg(insn.rs2) ^ (1 << 31)) & (1 << 31);
+                let val = self.f_reg(insn.rs1) & mask(31);
+                let data = sign | val;
+                *self.f_reg_mut(insn.rd) = data;
             }
 
             Opcode::FsgnjxS => {
-                todo!()
+                let sign = (self.f_reg(insn.rs2) & (1 << 31)) ^ (self.f_reg(insn.rs1) & (1 << 31));
+                let val = self.f_reg(insn.rs1) & mask(31);
+                let data = sign | val;
+                *self.f_reg_mut(insn.rd) = data;
             }
 
             Opcode::FminS => {
@@ -851,7 +860,7 @@ impl VM {
             }
 
             Opcode::FsgnjnD => {
-                let sign = (self.f_reg(insn.rs2) & (1 << 63)) ^ (1 << 63);
+                let sign = (self.f_reg(insn.rs2) ^ (1 << 63)) & (1 << 63);
                 let val = self.f_reg(insn.rs1) & mask(63);
                 let res = sign | val;
                 *self.f_reg_mut(insn.rd) = res;
