@@ -51,6 +51,9 @@ impl<T: Tracer> VM<T> {
         Self::default()
     }
 
+    /// Default stack pointer address (128 MB)
+    const DEFAULT_STACK_POINTER: u64 = 0x0800_0000;
+
     /// Init the VM from an elf file
     pub fn init_from_elf(path: String) -> Self {
         let elf_bytes = fs::read(path).unwrap();
@@ -66,7 +69,11 @@ impl<T: Tracer> VM<T> {
     pub fn init_from_elf_with_tracer(path: String, tracer: T) -> Self {
         let elf_bytes = fs::read(path).unwrap();
         let (memory, pc) = decode_elf(&elf_bytes);
+        // Initialize stack pointer (x2/sp) to a valid memory address
+        let mut registers = [0u64; 32];
+        registers[2] = Self::DEFAULT_STACK_POINTER;
         Self {
+            registers,
             memory,
             pc,
             tracer,
