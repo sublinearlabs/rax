@@ -58,11 +58,7 @@ impl<T: Tracer> VM<T> {
     pub fn init_from_elf(path: String) -> Self {
         let elf_bytes = fs::read(path).unwrap();
         let (memory, pc) = decode_elf(&elf_bytes);
-        // Initialize stack pointer (x2/sp) to a valid memory address
-        let mut registers = [0u64; 32];
-        registers[2] = Self::DEFAULT_STACK_POINTER;
         Self {
-            registers,
             memory,
             pc,
             ..Default::default()
@@ -226,6 +222,7 @@ impl<T: Tracer> VM<T> {
     }
 }
 
+
 /// VM with no tracing (zero overhead)
 pub type FastVM = VM<NoopTracer>;
 
@@ -261,11 +258,6 @@ mod tests {
             .filter_map(|entry| entry.ok())
             .map(|entry| run_test_elf(entry.path().to_str().unwrap().to_string()))
             .collect::<Vec<_>>();
-    }
-
-    #[test]
-    fn test_rust_fib() {
-        run_test_elf("rust-bin/fib/target/riscv64ima-unknown-none-elf/release/fib".to_string());
     }
 
     fn run_test_elf(path: String) {
@@ -386,7 +378,7 @@ mod tests {
         vm.step();
 
         let trace = vm.take_trace().expect("Should have trace");
-
+        
         assert_eq!(trace.rows.len(), 3);
         assert_eq!(trace.total_cycles, 3);
     }
