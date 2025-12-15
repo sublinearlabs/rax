@@ -226,6 +226,7 @@ impl<T: Tracer> VM<T> {
     }
 }
 
+
 /// VM with no tracing (zero overhead)
 pub type FastVM = VM<NoopTracer>;
 
@@ -387,6 +388,7 @@ mod tests {
 
         let trace = vm.take_trace().expect("Should have trace");
 
+        
         assert_eq!(trace.rows.len(), 3);
         assert_eq!(trace.total_cycles, 3);
     }

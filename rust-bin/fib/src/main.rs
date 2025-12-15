@@ -8,6 +8,7 @@ use core::panic::PanicInfo;
 pub extern "C" fn _start() -> ! {
     // Calculate fibonacci(10_000)
     let n = 9_000_000;
+    let n = 10_000;
     let result = fib(n);
 
     // Store result in a0 register and exit
