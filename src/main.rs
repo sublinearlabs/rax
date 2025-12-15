@@ -32,4 +32,4 @@ fn main() {
 // With tracing
 // run took: 2062230ms
 // cycles: 72000006
-// 34.91 Mhz
+// 12.34 Mhz
