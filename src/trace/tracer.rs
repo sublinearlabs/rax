@@ -1,0 +1,429 @@
+//! Zero-cost abstraction for execution tracing.
+use super::primitives::{ExecutionTrace, InstrFlags, MemOp, TraceRow};
+use crate::decode::Instruction;
+
+/// Trait for instruction execution tracing.
+///
+/// This trait enables zero-cost abstraction for tracing:
+/// - When using `NoopTracer`, all methods are inlined and optimized away
+/// - When using `FullTracer`, a complete execution trace is built
+///
+/// The trait is designed to be called at specific points during instruction
+/// execution, allowing the tracer to capture the complete CPU state.
+pub trait Tracer: Default + Sized {
+    /// Begin tracing a new instruction.
+    ///
+    /// Called at the start of instruction execution with the current CPU state.
+    fn begin_instruction(
+        &mut self,
+        clk: u64,
+        pc: u64,
+        regs: &[u64; 32],
+        raw_instr: u32,
+        instr: &Instruction,
+    );
+
+    /// Record destination register write.
+    fn record_rd(&mut self, rd: u8, value: u64);
+
+    /// Record next PC value.
+    fn record_next_pc(&mut self, next_pc: u64);
+
+    /// Record memory operation.
+    fn record_mem_op(&mut self, op: MemOp);
+
+    /// Record multiplication intermediate values for verification.
+    fn record_mul(&mut self, lo: u64, hi: u64);
+
+    /// Record reservation address for LR/SC atomic operations.
+    fn record_reservation(&mut self, addr: u64);
+
+    /// Mark instruction as causing halt.
+    fn record_halt(&mut self);
+
+    /// Commit current instruction's trace row.
+    ///
+    /// Called at the end of instruction execution to finalize the trace row.
+    fn commit(&mut self);
+
+    /// Finalize and return the execution trace.
+    ///
+    /// Consumes the tracer and returns the complete execution trace,
+    /// or `None` if tracing was not enabled.
+    fn finalize(self, final_regs: [u64; 32], final_pc: u64) -> Option<ExecutionTrace>;
+
+    /// Check if this tracer actually records traces.
+    ///
+    /// Returns `false` for `NoopTracer`, `true` for `FullTracer`.
+    /// Can be used for conditional logic that should only run when tracing.
+    fn is_active(&self) -> bool;
+}
+
+
+/// A no-op tracer that does nothing.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct NoopTracer;
+
+impl Tracer for NoopTracer {
+    #[inline(always)]
+    fn begin_instruction(
+        &mut self,
+        _clk: u64,
+        _pc: u64,
+        _regs: &[u64; 32],
+        _raw_instr: u32,
+        _instr: &Instruction,
+    ) {
+    }
+
+    #[inline(always)]
+    fn record_rd(&mut self, _rd: u8, _value: u64) {}
+
+    #[inline(always)]
+    fn record_next_pc(&mut self, _next_pc: u64) {}
+
+    #[inline(always)]
+    fn record_mem_op(&mut self, _op: MemOp) {}
+
+    #[inline(always)]
+    fn record_mul(&mut self, _lo: u64, _hi: u64) {}
+
+    #[inline(always)]
+    fn record_reservation(&mut self, _addr: u64) {}
+
+    #[inline(always)]
+    fn record_halt(&mut self) {}
+
+    #[inline(always)]
+    fn commit(&mut self) {}
+
+    #[inline(always)]
+    fn finalize(self, _final_regs: [u64; 32], _final_pc: u64) -> Option<ExecutionTrace> {
+        None
+    }
+
+    #[inline(always)]
+    fn is_active(&self) -> bool {
+        false
+    }
+}
+
+
+/// A full tracer that builds a complete execution trace.
+///
+/// This tracer captures all CPU state changes during execution,
+/// building a `TraceRow` for each instruction executed.
+#[derive(Debug, Default)]
+pub struct FullTracer {
+    /// The execution trace being built.
+    trace: ExecutionTrace,
+    /// Current instruction's trace row being built.
+    current: Option<TraceRow>,
+}
+
+impl FullTracer {
+    /// Create a new full tracer with initial state.
+    pub fn new(initial_pc: u64, initial_regs: [u64; 32]) -> Self {
+        Self {
+            trace: ExecutionTrace::new(initial_pc, initial_regs),
+            current: None,
+        }
+    }
+
+    /// Get a reference to the current trace.
+    pub fn trace(&self) -> &ExecutionTrace {
+        &self.trace
+    }
+
+    /// Get the number of rows recorded so far.
+    pub fn len(&self) -> usize {
+        self.trace.len()
+    }
+
+    /// Check if no rows have been recorded.
+    pub fn is_empty(&self) -> bool {
+        self.trace.is_empty()
+    }
+}
+
+impl Tracer for FullTracer {
+    fn begin_instruction(
+        &mut self,
+        clk: u64,
+        pc: u64,
+        regs: &[u64; 32],
+        raw_instr: u32,
+        instr: &Instruction,
+    ) {
+        let rs1_val = if instr.rs1 == 0 { 0 } else { regs[instr.rs1] };
+        let rs2_val = if instr.rs2 == 0 { 0 } else { regs[instr.rs2] };
+
+        self.current = Some(TraceRow {
+            clk,
+            pc,
+            next_pc: pc.wrapping_add(4), // Default: sequential execution, use record_next_pc should the instruction be non-sequential liek branch or jump
+            regs: *regs,
+            raw_instr,
+            opcode: instr.opcode,
+            flags: InstrFlags::from_opcode(&instr.opcode),
+            rs1: instr.rs1 as u8,
+            rs2: instr.rs2 as u8,
+            rd: instr.rd as u8,
+            imm: instr.imm,
+            rs1_val,
+            rs2_val,
+            rd_val: 0,
+            mem_op: MemOp::None,
+            mul_lo: 0,
+            mul_hi: 0,
+            reservation_addr: 0,
+            halted: false,
+        });
+    }
+
+    fn record_rd(&mut self, rd: u8, value: u64) {
+        if let Some(ref mut row) = self.current {
+            row.rd = rd;
+            row.rd_val = value;
+        }
+    }
+
+    fn record_next_pc(&mut self, next_pc: u64) {
+        if let Some(ref mut row) = self.current {
+            row.next_pc = next_pc;
+        }
+    }
+
+    fn record_mem_op(&mut self, op: MemOp) {
+        if let Some(ref mut row) = self.current {
+            row.mem_op = op;
+        }
+    }
+
+    fn record_mul(&mut self, lo: u64, hi: u64) {
+        if let Some(ref mut row) = self.current {
+            row.mul_lo = lo;
+            row.mul_hi = hi;
+        }
+    }
+
+    fn record_reservation(&mut self, addr: u64) {
+        if let Some(ref mut row) = self.current {
+            row.reservation_addr = addr;
+        }
+    }
+
+    fn record_halt(&mut self) {
+        if let Some(ref mut row) = self.current {
+            row.halted = true;
+        }
+    }
+
+    fn commit(&mut self) {
+        if let Some(row) = self.current.take() {
+            let trace_row = TraceRow {
+                clk: row.clk,
+                pc: row.pc,
+                next_pc: row.next_pc,
+                raw_instr: row.raw_instr,
+                opcode: row.opcode,
+                flags: row.flags,
+                regs: row.regs,
+                rs1: row.rs1,
+                rs2: row.rs2,
+                rd: row.rd,
+                imm: row.imm,
+                rs1_val: row.rs1_val,
+                rs2_val: row.rs2_val,
+                rd_val: row.rd_val,
+                mem_op: row.mem_op,
+                mul_lo: row.mul_lo,
+                mul_hi: row.mul_hi,
+                reservation_addr: row.reservation_addr,
+                halted: row.halted,
+            };
+            self.trace.push(trace_row);
+        }
+    }
+
+    fn finalize(mut self, final_regs: [u64; 32], final_pc: u64) -> Option<ExecutionTrace> {
+        self.trace.final_regs = final_regs;
+        self.trace.final_pc = final_pc;
+        Some(self.trace)
+    }
+
+    #[inline(always)]
+    fn is_active(&self) -> bool {
+        true
+    }
+}
+
+/// Default tracer type based on feature flags.
+///
+/// - With `trace` feature: `FullTracer` (captures execution trace)
+/// - Without `trace` feature: `NoopTracer` (zero overhead)
+#[cfg(feature = "trace")]
+pub type DefaultTracer = FullTracer;
+
+#[cfg(not(feature = "trace"))]
+pub type DefaultTracer = NoopTracer;
+
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::decode::Opcode;
+
+    fn make_test_instruction() -> Instruction {
+        Instruction {
+            opcode: Opcode::Add,
+            rs1: 1,
+            rs2: 2,
+            rd: 3,
+            imm: 0,
+        }
+    }
+
+    #[test]
+    fn test_noop_tracer_is_zero_cost() {
+        let mut tracer = NoopTracer;
+        let regs = [0u64; 32];
+        let instr = make_test_instruction();
+
+        // These should all compile to nothing
+        tracer.begin_instruction(0, 0x1000, &regs, 0x00000033, &instr);
+        tracer.record_rd(3, 42);
+        tracer.record_next_pc(0x1004);
+        tracer.commit();
+
+        assert!(!tracer.is_active());
+        assert!(tracer.finalize([0; 32], 0).is_none());
+    }
+
+    #[test]
+    fn test_full_tracer_captures_state() {
+        let mut tracer = FullTracer::new(0x1000, [0u64; 32]);
+        let mut regs = [0u64; 32];
+        regs[1] = 10;
+        regs[2] = 20;
+        let instr = make_test_instruction();
+
+        tracer.begin_instruction(0, 0x1000, &regs, 0x002080b3, &instr);
+        tracer.record_rd(3, 30);
+        tracer.record_next_pc(0x1004);
+        tracer.commit();
+
+        assert!(tracer.is_active());
+        assert_eq!(tracer.len(), 1);
+
+        let trace = tracer.finalize([0; 32], 0x1004).unwrap();
+        assert_eq!(trace.rows.len(), 1);
+
+        let row = &trace.rows[0];
+        assert_eq!(row.clk, 0);
+        assert_eq!(row.pc, 0x1000);
+        assert_eq!(row.next_pc, 0x1004);
+        assert_eq!(row.rs1_val, 10);
+        assert_eq!(row.rs2_val, 20);
+        assert_eq!(row.rd_val, 30);
+    }
+
+    #[test]
+    fn test_full_tracer_memory_op() {
+        let mut tracer = FullTracer::new(0x1000, [0u64; 32]);
+        let regs = [0u64; 32];
+        let instr = Instruction {
+            opcode: Opcode::Lw,
+            rs1: 1,
+            rs2: 0,
+            rd: 2,
+            imm: 0,
+        };
+
+        tracer.begin_instruction(0, 0x1000, &regs, 0x00000003, &instr);
+        tracer.record_mem_op(MemOp::LoadWord {
+            addr: 0x2000,
+            value: 0x12345678,
+            signed: true,
+        });
+        tracer.record_rd(2, 0x12345678);
+        tracer.commit();
+
+        let trace = tracer.finalize([0; 32], 0x1004).unwrap();
+        let row = &trace.rows[0];
+
+        match row.mem_op {
+            MemOp::LoadWord {
+                addr,
+                value,
+                signed,
+            } => {
+                assert_eq!(addr, 0x2000);
+                assert_eq!(value, 0x12345678);
+                assert!(signed);
+            }
+            _ => panic!("Expected LoadWord"),
+        }
+    }
+
+    #[test]
+    fn test_full_tracer_halt() {
+        let mut tracer = FullTracer::new(0x1000, [0u64; 32]);
+        let regs = [0u64; 32];
+        let instr = Instruction {
+            opcode: Opcode::Ecall,
+            rs1: 0,
+            rs2: 0,
+            rd: 0,
+            imm: 0,
+        };
+
+        tracer.begin_instruction(0, 0x1000, &regs, 0x00000073, &instr);
+        tracer.record_halt();
+        tracer.commit();
+
+        let trace = tracer.finalize([0; 32], 0x1000).unwrap();
+        assert!(trace.rows[0].halted);
+    }
+
+    #[test]
+    fn test_full_tracer_mul_intermediate() {
+        let mut tracer = FullTracer::new(0x1000, [0u64; 32]);
+        let regs = [0u64; 32];
+        let instr = Instruction {
+            opcode: Opcode::Mul,
+            rs1: 1,
+            rs2: 2,
+            rd: 3,
+            imm: 0,
+        };
+
+        tracer.begin_instruction(0, 0x1000, &regs, 0x00000033, &instr);
+        tracer.record_mul(0xDEADBEEF, 0xCAFEBABE);
+        tracer.commit();
+
+        let trace = tracer.finalize([0; 32], 0x1004).unwrap();
+        let row = &trace.rows[0];
+        assert_eq!(row.mul_lo, 0xDEADBEEF);
+        assert_eq!(row.mul_hi, 0xCAFEBABE);
+    }
+
+    #[test]
+    fn test_multiple_instructions() {
+        let mut tracer = FullTracer::new(0x1000, [0u64; 32]);
+        let regs = [0u64; 32];
+
+        for i in 0..5 {
+            let instr = make_test_instruction();
+            tracer.begin_instruction(i, 0x1000 + (i * 4), &regs, 0x00000033, &instr);
+            tracer.record_next_pc(0x1000 + ((i + 1) * 4));
+            tracer.commit();
+        }
+
+        assert_eq!(tracer.len(), 5);
+
+        let trace = tracer.finalize([0; 32], 0x1014).unwrap();
+        assert_eq!(trace.total_cycles, 5);
+    }
+}
