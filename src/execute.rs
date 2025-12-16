@@ -757,19 +757,19 @@ impl VM {
             Opcode::FeqS => {
                 let a = f32::from_bits(self.f_reg(insn.rs1) as u32);
                 let b = f32::from_bits(self.f_reg(insn.rs2) as u32);
-                *self.reg_mut(insn.rd) = a.eq(&b) as u64;
+                *self.reg_mut(insn.rd) = if a.is_nan() | b.is_nan() { 0 } else { a.eq(&b) as u64 };
             }
 
             Opcode::FltS => {
                 let a = f32::from_bits(self.f_reg(insn.rs1) as u32);
                 let b = f32::from_bits(self.f_reg(insn.rs2) as u32);
-                *self.reg_mut(insn.rd) = a.lt(&b) as u64;
+                *self.reg_mut(insn.rd) = if a.is_nan() | b.is_nan() { 0 } else { a.lt(&b) as u64 };
             }
 
             Opcode::FleS => {
                 let a = f32::from_bits(self.f_reg(insn.rs1) as u32);
                 let b = f32::from_bits(self.f_reg(insn.rs2) as u32);
-                *self.reg_mut(insn.rd) = a.le(&b) as u64;
+                *self.reg_mut(insn.rd) = if a.is_nan() | b.is_nan() { 0 } else { a.le(&b) as u64 };
             }
 
             Opcode::FclassS => {
@@ -899,19 +899,19 @@ impl VM {
             Opcode::FeqD => {
                 let a = f64::from_bits(self.f_reg(insn.rs1));
                 let b = f64::from_bits(self.f_reg(insn.rs2));
-                *self.reg_mut(insn.rd) = a.eq(&b) as u64;
+                *self.reg_mut(insn.rd) = if a.is_nan() | b.is_nan() { 0 } else { a.eq(&b) as u64 };
             }
 
             Opcode::FltD => {
                 let a = f64::from_bits(self.f_reg(insn.rs1));
                 let b = f64::from_bits(self.f_reg(insn.rs2));
-                *self.reg_mut(insn.rd) = a.lt(&b) as u64;
+                *self.reg_mut(insn.rd) = if a.is_nan() | b.is_nan() { 0 } else { a.lt(&b) as u64 };
             }
 
             Opcode::FleD => {
                 let a = f64::from_bits(self.f_reg(insn.rs1));
                 let b = f64::from_bits(self.f_reg(insn.rs2));
-                *self.reg_mut(insn.rd) = a.le(&b) as u64;
+                *self.reg_mut(insn.rd) = if a.is_nan() | b.is_nan() { 0 } else { a.le(&b) as u64 };
             }
 
             Opcode::FclassD => {
