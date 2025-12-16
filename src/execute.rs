@@ -1,6 +1,6 @@
 use crate::{
     Instruction, Opcode, VM,
-    util::{mask, sext},
+    util::{mask, mask32, sext},
 };
 
 // TODO consider cleaning up sext logic
@@ -773,7 +773,8 @@ impl VM {
             }
 
             Opcode::FclassS => {
-                todo!()
+                let val = classify32(self.f_reg(insn.rs1) as u32);
+                *self.reg_mut(insn.rd) = val;
             }
 
             Opcode::FcvtSW => {
@@ -914,7 +915,8 @@ impl VM {
             }
 
             Opcode::FclassD => {
-                todo!()
+                let val = classify64(self.f_reg(insn.rs1));
+                *self.reg_mut(insn.rd) = val;
             }
 
             Opcode::FcvtWD => {
@@ -980,6 +982,60 @@ impl VM {
         }
 
         self.pc += 4;
+    }
+}
+
+fn classify32(val: u32) -> u64 {
+    let sign = val >> 31;
+    let exponent = (val >> 23) & mask32(8);
+    let frac = val & mask32(23);
+
+    match (sign, exponent, frac) {
+        (1, 0xff, 0) => 1,
+        (0, 0xff, 0) => 1 << 7,
+
+        (_, 0xff, frac) => {
+            let quiet_bit = (frac >> 22) & 1;
+            if quiet_bit == 0 { 1 << 8 } else { 1 << 9 }
+        }
+
+        (1, 0, 0) => 1 << 3,
+        (0, 0, 0) => 1 << 4,
+
+        (1, 0, _) => 1 << 2,
+        (0, 0, _) => 1 << 5,
+
+        (1, _, _) => 1 << 1,
+        (0, _, _) => 1 << 6,
+
+        (_, _, _) => 0,
+    }
+}
+
+fn classify64(val: u64) -> u64 {
+    let sign = val >> 63;
+    let exponent = (val >> 52) & mask(11);
+    let frac = val & mask(52);
+
+    match (sign, exponent, frac) {
+        (1, 0x7ff, 0) => 1,
+        (0, 0x7ff, 0) => 1 << 7,
+
+        (_, 0x7ff, frac) => {
+            let quiet_bit = (frac >> 51) & 1;
+            if quiet_bit == 0 { 1 << 8 } else { 1 << 9 }
+        }
+
+        (1, 0, 0) => 1 << 3,
+        (0, 0, 0) => 1 << 4,
+
+        (1, 0, _) => 1 << 2,
+        (0, 0, _) => 1 << 5,
+
+        (1, _, _) => 1 << 1,
+        (0, _, _) => 1 << 6,
+
+        (_, _, _) => 0,
     }
 }
 

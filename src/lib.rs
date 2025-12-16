@@ -169,7 +169,7 @@ mod tests {
         //     .map(|entry| run_test_elf(entry.path().to_str().unwrap().to_string()))
         //     .collect::<Vec<_>>();
 
-        run_test_elf("test-bin/rv64uf/rv64uf-p-fmin".to_string());
+        run_test_elf("test-bin/rv64uf/rv64uf-p-fadd".to_string());
     }
 
     fn run_test_elf(path: String) {
