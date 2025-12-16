@@ -17,6 +17,7 @@ struct VM {
     registers: [u64; 32],
     f_reg: [u64; 32],
     memory: Memory,
+    fcsr_reg: u32,
     x0_sink: u64, // blackhole for writes to x0
     reservation_set: u64,
     pc: u64,
@@ -125,6 +126,14 @@ impl VM {
     /// Write multiple bytes from a given address
     fn write_bytes(&mut self, addr: usize, data: &[u8]) {
         self.memory.write_bytes(addr as u64, data);
+    }
+
+    fn fcsr_reg(&self) -> u32 {
+        self.fcsr_reg
+    }
+
+    fn fcsr_reg_mut(&mut self) -> &mut u32 {
+        &mut self.fcsr_reg
     }
 }
 
