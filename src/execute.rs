@@ -986,6 +986,51 @@ impl VM {
                 self.write_bytes(addr, &data);
             }
 
+            Opcode::FcvtLS => {
+                let val = (f32::from_bits(self.f_reg(insn.rs1) as u32)) as i64;
+                *self.reg_mut(insn.rd) = val as u64;
+            }
+
+            Opcode::FcvtLuS => {
+                let val = f32::from_bits(self.f_reg(insn.rs1) as u32);
+                *self.reg_mut(insn.rd) = val as u64;
+            }
+
+            Opcode::FcvtSL => {
+                let val = (self.reg(insn.rs1) as i64) as f32;
+                *self.f_reg_mut(insn.rd) = val.to_bits() as u64;
+            }
+
+            Opcode::FcvtSLu => {
+                let val = self.reg(insn.rs1) as u32 as f32;
+                *self.f_reg_mut(insn.rd) = val.to_bits() as u64;
+            }
+
+            Opcode::FcvtLD => {
+                //
+            }
+
+            Opcode::FcvtLuD => {
+                //
+            }
+
+            Opcode::FmvXD => {
+                //
+            }
+
+            Opcode::FcvtDL => {
+                //
+            }
+
+            Opcode::FcvtDLu => {
+                //
+            }
+
+            Opcode::FmvDX => {
+                //
+            }
+
+            // CSR instructions
             Opcode::Csrrw => {
                 let old = self.fcsr_reg() as u64;
                 *self.fcsr_reg_mut() = self.reg(insn.rs1) as u32;
