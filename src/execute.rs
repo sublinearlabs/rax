@@ -986,6 +986,64 @@ impl VM {
                 self.write_bytes(addr, &data);
             }
 
+            Opcode::Csrrw => {
+                let old = self.fcsr_reg() as u64;
+                *self.fcsr_reg_mut() = self.reg(insn.rs1) as u32;
+                if insn.rd != 0 {
+                    *self.reg_mut(insn.rd) = old;
+                }
+            }
+
+            Opcode::Csrrs => {
+                let old = self.fcsr_reg() as u64;
+                if insn.rs1 != 0 {
+                    *self.fcsr_reg_mut() |= self.reg(insn.rs1) as u32;
+                }
+                if insn.rd != 0 {
+                    *self.reg_mut(insn.rd) = old;
+                }
+            }
+
+            Opcode::Csrrc => {
+                let old = self.fcsr_reg() as u64;
+                if insn.rs1 != 0 {
+                    *self.fcsr_reg_mut() &= !(self.reg(insn.rs1) as u32);
+                }
+                if insn.rd != 0 {
+                    *self.reg_mut(insn.rd) = old;
+                }
+            }
+
+            Opcode::Csrrwi => {
+                let old = self.fcsr_reg() as u64;
+                *self.fcsr_reg_mut() = (insn.rs1 as u32) & mask32(5);
+                if insn.rd != 0 {
+                    *self.reg_mut(insn.rd) = old;
+                }
+            }
+
+            Opcode::Csrrsi => {
+                let old = self.fcsr_reg() as u64;
+                let val = (insn.rs1 as u32) & mask32(5);
+                if val != 0 {
+                    *self.fcsr_reg_mut() |= val;
+                }
+                if insn.rd != 0 {
+                    *self.reg_mut(insn.rd) = old;
+                }
+            }
+
+            Opcode::Csrrci => {
+                let old = self.fcsr_reg() as u64;
+                let val = (insn.rs1 as u32) & mask32(5);
+                if val != 0 {
+                    *self.fcsr_reg_mut() &= !val;
+                }
+                if insn.rd != 0 {
+                    *self.reg_mut(insn.rd) = old;
+                }
+            }
+
             // System Opcodes
             Opcode::Ecall => {
                 let func = self.reg(17);

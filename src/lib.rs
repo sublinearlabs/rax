@@ -172,13 +172,13 @@ mod tests {
 
     #[test]
     fn test_rv64uf() {
-        // let _ = fs::read_dir("test-bin/rv64uf")
-        //     .expect("Failed to read directory")
-        //     .filter_map(|entry| entry.ok())
-        //     .map(|entry| run_test_elf(entry.path().to_str().unwrap().to_string()))
-        //     .collect::<Vec<_>>();
+        let _ = fs::read_dir("test-bin/rv64uf")
+            .expect("Failed to read directory")
+            .filter_map(|entry| entry.ok())
+            .map(|entry| run_test_elf(entry.path().to_str().unwrap().to_string()))
+            .collect::<Vec<_>>();
 
-        run_test_elf("test-bin/rv64uf/rv64uf-p-fadd".to_string());
+        // run_test_elf("test-bin/rv64uf/rv64uf-p-fadd".to_string());
     }
 
     fn run_test_elf(path: String) {

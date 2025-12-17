@@ -152,6 +152,14 @@ pub(crate) enum Opcode {
     Fld,
     Fsd,
 
+    // CSR instructions
+    Csrrw,
+    Csrrs,
+    Csrrc,
+    Csrrwi,
+    Csrrsi,
+    Csrrci,
+
     Ecall,
     Ebreak,
     Eother,
@@ -559,10 +567,19 @@ fn decode_i_insn(opcode_value: u32, funct3: u32, imm: u64) -> Opcode {
             _ => panic!("unknown opcode"),
         },
         0b1100111 => Opcode::Jalr,
-        0b1110011 => match imm {
-            0x0 => Opcode::Ecall,
-            0x1 => Opcode::Ebreak,
-            _ => Opcode::Eother,
+        0b1110011 => match funct3 {
+            0x0 => match imm {
+                0x0 => Opcode::Ecall,
+                0x1 => Opcode::Ebreak,
+                _ => Opcode::Eother,
+            },
+            0x1 => Opcode::Csrrw,
+            0x2 => Opcode::Csrrs,
+            0x3 => Opcode::Csrrc,
+            0x5 => Opcode::Csrrwi,
+            0x6 => Opcode::Csrrsi,
+            0x7 => Opcode::Csrrci,
+            _ => panic!("unknown opcode"),
         },
         0b0011011 => match funct3 {
             0x0 => Opcode::Addiw,
