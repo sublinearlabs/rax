@@ -152,6 +152,18 @@ pub(crate) enum Opcode {
     Fld,
     Fsd,
 
+    FcvtLS,
+    FcvtLuS,
+    FcvtSL,
+    FcvtSLu,
+
+    FcvtLD,
+    FcvtLuD,
+    FmvXD,
+    FcvtDL,
+    FcvtDLu,
+    FmvDX,
+
     // CSR instructions
     Csrrw,
     Csrrs,
@@ -475,11 +487,15 @@ fn decode_r_insn(opcode_value: u32, rs2: u32, funct3: u32, funct7: u32) -> Opcod
                 0x18 => match rs2 {
                     0x0 => Opcode::FcvtWS,
                     0x1 => Opcode::FcvtWuS,
+                    0x2 => Opcode::FcvtLS,
+                    0x3 => Opcode::FcvtLuS,
                     _ => panic!("unknown opcode"),
                 },
                 0x1A => match rs2 {
                     0x0 => Opcode::FcvtSW,
                     0x1 => Opcode::FcvtSWu,
+                    0x2 => Opcode::FcvtSL,
+                    0x3 => Opcode::FcvtSLu,
                     _ => panic!("unknown opcode"),
                 },
                 0x1C => match funct3 {
@@ -520,15 +536,24 @@ fn decode_r_insn(opcode_value: u32, rs2: u32, funct3: u32, funct7: u32) -> Opcod
                 0x18 => match rs2 {
                     0x0 => Opcode::FcvtWD,
                     0x1 => Opcode::FcvtWuD,
+                    0x2 => Opcode::FcvtLD,
+                    0x3 => Opcode::FcvtLuD,
                     _ => panic!("unknown opcode"),
                 },
                 0x1A => match rs2 {
                     0x0 => Opcode::FcvtDW,
                     0x1 => Opcode::FcvtDWu,
+                    0x2 => Opcode::FcvtDL,
+                    0x3 => Opcode::FcvtDLu,
                     _ => panic!("unknown opcode"),
                 },
                 0x1C => match funct3 {
+                    0x0 => Opcode::FmvXD,
                     0x1 => Opcode::FclassD,
+                    _ => panic!("unknown opcode"),
+                },
+                0x1E => match funct3 {
+                    0x0 => Opcode::FmvDX,
                     _ => panic!("unknown opcode"),
                 },
                 _ => panic!("unknown opcode"),

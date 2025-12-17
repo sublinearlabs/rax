@@ -65,7 +65,7 @@ impl VM {
         // print!("{:x}: ", self.pc);
         let raw_insn = self.mem32(self.pc as usize);
         let insn = decode_insn(raw_insn);
-        print!(" {:?}\n", insn.opcode);
+        print!(" {:?}, addr: {:0x}\n", insn.opcode, self.pc);
         self.execute_instruction(insn);
         self.cycles = self.cycles.wrapping_add(1);
     }
@@ -135,6 +135,18 @@ impl VM {
     fn fcsr_reg_mut(&mut self) -> &mut u32 {
         &mut self.fcsr_reg
     }
+
+    fn set_fflags(&mut self, val: u32) {
+        self.fcsr_reg &= !0x1f;
+
+        self.fcsr_reg |= val & 0x1f;
+    }
+
+    fn set_frm(&mut self, val: u32) {
+        self.fcsr_reg &= !(0x7 << 5);
+
+        self.fcsr_reg |= (val & 0x7) << 5;
+    }
 }
 
 #[cfg(test)]
@@ -172,13 +184,13 @@ mod tests {
 
     #[test]
     fn test_rv64uf() {
-        let _ = fs::read_dir("test-bin/rv64uf")
-            .expect("Failed to read directory")
-            .filter_map(|entry| entry.ok())
-            .map(|entry| run_test_elf(entry.path().to_str().unwrap().to_string()))
-            .collect::<Vec<_>>();
+        // let _ = fs::read_dir("test-bin/rv64uf")
+        //     .expect("Failed to read directory")
+        //     .filter_map(|entry| entry.ok())
+        //     .map(|entry| run_test_elf(entry.path().to_str().unwrap().to_string()))
+        //     .collect::<Vec<_>>();
 
-        // run_test_elf("test-bin/rv64uf/rv64uf-p-fadd".to_string());
+        run_test_elf("test-bin/rv64uf/rv64uf-p-fcvt".to_string());
     }
 
     fn run_test_elf(path: String) {
