@@ -1,5 +1,6 @@
 use std::fs;
 
+use crate::decode::decode_compressed_insn;
 use crate::elf::decode_elf;
 use crate::memory::Memory;
 use crate::trace::{DefaultTracer, FullTracer, NoopTracer, Tracer};
@@ -121,8 +122,15 @@ impl<T: Tracer> VM<T> {
 
     /// Perform one cycle with tracing
     pub fn step(&mut self) {
-        let raw_insn = self.mem32(self.pc as usize);
-        let insn = decode_insn(raw_insn);
+        let insn_lower = self.mem16(self.pc as usize);
+        let (insn, raw_insn) = if (insn_lower & 0b11) != 0b11 {
+            // compressed
+            (decode_compressed_insn(insn_lower), insn_lower as u32)
+        } else {
+            let insn_upper = self.mem16((self.pc + 2) as usize);
+            let insn_full = (insn_upper as u32) << 16 | insn_lower as u32;
+            (decode_insn(insn_full), insn_full)
+        };
 
         // Begin tracing this instruction
         self.tracer
