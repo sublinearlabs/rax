@@ -213,6 +213,17 @@ impl<T: Tracer> VM<T> {
         result
     }
 
+    /// Read 16 bytes from memory at the given addr
+    /// assumes value at memory address is the LSB
+    pub(crate) fn mem16(&self, addr: usize) -> u16 {
+        let mut result = 0_u16;
+        for i in 0..2 {
+            let byte = self.memory.read((addr + i) as u64);
+            result |= (byte as u16) << (i * 8);
+        }
+        result
+    }
+
     /// Returns a mutable reference to a single byte at the given
     /// memory addr
     pub(crate) fn mem_mut(&mut self, addr: usize) -> &mut u8 {

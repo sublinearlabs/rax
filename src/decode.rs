@@ -452,6 +452,10 @@ fn decode_u_opcode(opcode_value: u32) -> Opcode {
     }
 }
 
+pub(crate) fn decode_compressed_insn(insn: u16) -> Instruction {
+    todo!()
+}
+
 #[cfg(test)]
 mod tests {
     use crate::decode::decode_insn;
