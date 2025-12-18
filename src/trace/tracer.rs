@@ -59,7 +59,6 @@ pub trait Tracer: Default + Sized {
     fn is_active(&self) -> bool;
 }
 
-
 /// A no-op tracer that does nothing.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct NoopTracer;
@@ -107,7 +106,6 @@ impl Tracer for NoopTracer {
         false
     }
 }
-
 
 /// A full tracer that builds a complete execution trace.
 ///
@@ -268,8 +266,6 @@ pub type DefaultTracer = FullTracer;
 #[cfg(not(feature = "trace"))]
 pub type DefaultTracer = NoopTracer;
 
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -282,6 +278,7 @@ mod tests {
             rs2: 2,
             rd: 3,
             imm: 0,
+            is_compressed: false,
         }
     }
 
@@ -339,6 +336,7 @@ mod tests {
             rs2: 0,
             rd: 2,
             imm: 0,
+            is_compressed: false,
         };
 
         tracer.begin_instruction(0, 0x1000, &regs, 0x00000003, &instr);
@@ -377,6 +375,7 @@ mod tests {
             rs2: 0,
             rd: 0,
             imm: 0,
+            is_compressed: false,
         };
 
         tracer.begin_instruction(0, 0x1000, &regs, 0x00000073, &instr);
@@ -397,6 +396,7 @@ mod tests {
             rs2: 2,
             rd: 3,
             imm: 0,
+            is_compressed: false,
         };
 
         tracer.begin_instruction(0, 0x1000, &regs, 0x00000033, &instr);

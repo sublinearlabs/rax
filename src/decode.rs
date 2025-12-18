@@ -124,6 +124,7 @@ pub struct Instruction {
     pub rs1: usize,
     pub rs2: usize,
     pub imm: u64,
+    pub is_compressed: bool,
 }
 
 impl Instruction {
@@ -134,6 +135,7 @@ impl Instruction {
             rs1: 0,
             rs2: 0,
             imm: 0,
+            is_compressed: false,
         }
     }
 
@@ -151,6 +153,13 @@ impl Instruction {
 
     pub fn imm(self, val: u64) -> Self {
         Self { imm: val, ..self }
+    }
+
+    pub fn is_compressed(self, compressed: bool) -> Self {
+        Self {
+            is_compressed: compressed,
+            ..self
+        }
     }
 }
 
@@ -183,6 +192,7 @@ pub fn decode_insn(insn: u32) -> Instruction {
         rs1: rs1 as usize,
         rs2: rs2 as usize,
         imm,
+        is_compressed: false,
     }
 }
 
