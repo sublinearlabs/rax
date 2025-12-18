@@ -1007,27 +1007,33 @@ impl VM {
             }
 
             Opcode::FcvtLD => {
-                //
+                let val = f64::from_bits(self.f_reg(insn.rs1)) as i64;
+                *self.reg_mut(insn.rd) = val as u64;
             }
 
             Opcode::FcvtLuD => {
-                //
+                let val = f64::from_bits(self.f_reg(insn.rs1));
+                *self.reg_mut(insn.rd) = val as u64;
             }
 
             Opcode::FmvXD => {
-                //
+                let val = self.f_reg(insn.rs1);
+                *self.reg_mut(insn.rd) = val;
             }
 
             Opcode::FcvtDL => {
-                //
+                let val = (self.reg(insn.rs1) as i64) as f64;
+                *self.f_reg_mut(insn.rd) = val.to_bits();
             }
 
             Opcode::FcvtDLu => {
-                //
+                let val = self.reg(insn.rs1) as f64;
+                *self.f_reg_mut(insn.rd) = val.to_bits();
             }
 
             Opcode::FmvDX => {
-                //
+                let val = self.reg(insn.rs1);
+                *self.f_reg_mut(insn.rd) = val;
             }
 
             // CSR instructions
