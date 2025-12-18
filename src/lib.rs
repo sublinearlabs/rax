@@ -147,6 +147,14 @@ impl VM {
 
         self.fcsr_reg |= (val & 0x7) << 5;
     }
+
+    fn frm(&self) -> u32 {
+        (self.fcsr_reg >> 5) & 0x7
+    }
+
+    fn fflags(&self) -> u32 {
+        self.fcsr_reg & 0x1f
+    }
 }
 
 #[cfg(test)]
