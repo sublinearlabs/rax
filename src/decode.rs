@@ -114,6 +114,17 @@ enum InstructionType {
     U,
     J,
     FENCE,
+
+    // Compressed Instruction Types
+    CR,
+    CI,
+    CSS,
+    CIW,
+    CL,
+    CS,
+    CA,
+    CB,
+    CJ,
 }
 
 // RISCV instruction
@@ -244,6 +255,8 @@ fn decode_imm(insn: u32, insn_type: &InstructionType) -> u64 {
             // highest imm bit = 20 (so len = 21)
             sext(imm as u64, 21)
         }
+
+        _ => todo!(),
     }
 }
 
@@ -262,6 +275,7 @@ fn decode_opcode(
         InstructionType::U => decode_u_opcode(opcode_value),
         InstructionType::J => Opcode::Jal,
         InstructionType::FENCE => Opcode::Fence,
+        _ => todo!(),
     }
 }
 
