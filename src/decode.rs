@@ -482,10 +482,11 @@ pub(crate) fn decode_compressed_insn(insn: u16) -> Instruction {
     // determine the instruction format type
     let insn_type = decode_compressed_type(quadrant, funct3);
 
-    // use the instruction format type to decode the immediate
-    let imm = decode_compressed_insn_imm(&insn_type, insn);
-
     // dispatch to the particular c instruction type decoder
+    // determines the actual C instruction
+
+    // only after we know the C instruction do we actually attempt to decoded the imm
+
     // this should return the desired instruction
 
     todo!()
@@ -499,14 +500,6 @@ fn decode_compressed_type(quadrant: u16, funct3: u16) -> CompressedInstructionTy
         },
         _ => panic!("unsupported instruction type"),
     }
-}
-
-fn decode_compressed_insn_imm(insn_type: &CompressedInstructionType, insn: u16) -> u16 {
-    let mut imm = 0u16;
-    // match insn_type {
-    //     _ => todo!(),
-    // }
-    imm
 }
 
 #[cfg(test)]
