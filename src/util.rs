@@ -16,6 +16,15 @@ pub(crate) fn mask(n: u8) -> u64 {
     (1u64 << n) - 1
 }
 
+/// Mask with the lowest `n` bits set (0-16).
+pub(crate) fn mask16(n: u8) -> u16 {
+    if n == 16 {
+        return u16::MAX;
+    }
+
+    (1u16 << n) - 1
+}
+
 /// Sign-extend the low `bit_count` bits of `val` into a u64.
 pub(crate) fn sext(val: u64, bit_count: usize) -> u64 {
     debug_assert_eq!(val >> bit_count, 0, "upper bits must be zero");

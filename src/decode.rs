@@ -1,4 +1,4 @@
-use crate::util::{map_range, mask, mask32, sext};
+use crate::util::{map_range, mask, mask16, mask32, sext};
 use serde::{Deserialize, Serialize};
 
 // RISCV Opcodes
@@ -129,7 +129,7 @@ enum CompressedInstructionType {
 }
 
 // RISCV instruction
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Instruction {
     pub opcode: Opcode,
     pub rd: usize,
@@ -465,12 +465,25 @@ fn decode_u_opcode(opcode_value: u32) -> Opcode {
 }
 
 pub(crate) fn decode_compressed_insn(insn: u16) -> Instruction {
+    let quadrant = insn & mask16(2);
+    let rs2 = (insn >> 2) & mask16(5);
+    let rs1 = (insn >> 7) & mask16(5);
+    let rd = rs1;
+    let funct4 = (insn >> 12) & mask16(4);
+    let funct3 = (insn >> 13) & mask16(3);
+    let funct6 = (insn >> 10) & mask16(6);
+    let rs1_prime = (insn >> 7) & mask16(3);
+    let rd_prime = rs1_prime;
+
     todo!()
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::decode::decode_insn;
+    use crate::{
+        Instruction, Opcode,
+        decode::{decode_compressed_insn, decode_insn},
+    };
 
     #[test]
     fn test_immediate_decoding() {
@@ -486,5 +499,12 @@ mod tests {
         assert_eq!(decode_insn(0x000a42b7).imm >> 12, 164);
         // jal x5, 44 (J Type)
         assert_eq!(decode_insn(0x02c002ef).imm, 44);
+    }
+
+    #[test]
+    fn test_decode_compressed_insn() {
+        let decoded_insn = decode_compressed_insn(0x0095);
+        let expected_decoded_insn = Instruction::new(Opcode::Addi).rd(5).rs1(5).imm(1);
+        assert_eq!(decoded_insn, expected_decoded_insn);
     }
 }
