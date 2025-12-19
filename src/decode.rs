@@ -1,6 +1,9 @@
 use crate::util::{map_range, mask, mask16, mask32, sext};
 use serde::{Deserialize, Serialize};
 
+// TODO implement better error handling, remove panics
+// if an instruction is invalid just return an invalid instruction type
+
 // RISCV Opcodes
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Opcode {
@@ -465,6 +468,7 @@ fn decode_u_opcode(opcode_value: u32) -> Opcode {
 }
 
 pub(crate) fn decode_compressed_insn(insn: u16) -> Instruction {
+    // extract the relevant fields
     let quadrant = insn & mask16(2);
     let rs2 = (insn >> 2) & mask16(5);
     let rs1 = (insn >> 7) & mask16(5);
@@ -474,6 +478,13 @@ pub(crate) fn decode_compressed_insn(insn: u16) -> Instruction {
     let funct6 = (insn >> 10) & mask16(6);
     let rs1_prime = (insn >> 7) & mask16(3);
     let rd_prime = rs1_prime;
+
+    // determine the instruction format type
+
+    // use the instruction format type to decode the immediate
+
+    // dispatch to the particular c instruction type decoder
+    // this should return the desired instruction
 
     todo!()
 }
