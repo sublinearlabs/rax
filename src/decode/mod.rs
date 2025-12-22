@@ -3,7 +3,7 @@ mod insn;
 mod insn_formats;
 mod util;
 
-use imm::{imm_b, imm_i, imm_j, imm_s, imm_u, shamt5, shamt6};
+use imm::{imm_b, imm_i, imm_j, imm_s, imm_u, shamt6};
 use insn::Instruction;
 use insn_formats::{B, I, J, R, S, Sh, U};
 use util::{funct3, funct7, opcode, rd, rs1, rs2};
