@@ -119,12 +119,12 @@ fn imm_u(insn: u32) -> i32 {
 }
 
 #[inline]
-fn shamt_rv32(insn: u32) -> i32 {
+fn shamt5(insn: u32) -> u8 {
     todo!()
 }
 
 #[inline]
-fn shamt_rv64(insn: u32) -> i32 {
+fn shamt6(insn: u32) -> u8 {
     todo!()
 }
 fn decode(insn: u32) -> Instruction {
@@ -167,19 +167,30 @@ fn decode_op(insn: u32) -> Instruction {
 }
 
 fn decode_op_imm(insn: u32) -> Instruction {
-    let insn_operands = I {
-        rd: rd(insn),
-        rs1: rs1(insn),
-        imm: imm_i(insn),
+    let rd = rd(insn);
+    let rs1 = rs1(insn);
+    let imm = imm_i(insn);
+
+    let i_operands = I { rd, rs1, imm };
+    let s_operands = Sh {
+        rd,
+        rs1,
+        shamt: shamt6(insn),
     };
 
     match funct3(insn) {
-        0x0 => Instruction::Addi(insn_operands),
-        0x4 => Instruction::Xori(insn_operands),
-        0x6 => Instruction::Ori(insn_operands),
-        0x7 => Instruction::Andi(insn_operands),
-        0x2 => Instruction::Slti(insn_operands),
-        0x3 => Instruction::Sltiu(insn_operands),
+        0x0 => Instruction::Addi(i_operands),
+        0x4 => Instruction::Xori(i_operands),
+        0x6 => Instruction::Ori(i_operands),
+        0x7 => Instruction::Andi(i_operands),
+        0x2 => Instruction::Slti(i_operands),
+        0x3 => Instruction::Sltiu(i_operands),
+        0x1 | 0x5 => match (funct3(insn), funct7(insn)) {
+            (0x0, 0x00) => Instruction::Slli(s_operands),
+            (0x5, 0x00) => Instruction::Srli(s_operands),
+            (0x5, 0x20) => Instruction::Srai(s_operands),
+            _ => Instruction::Illegal(insn),
+        },
         _ => Instruction::Illegal(insn),
     }
 }
