@@ -58,6 +58,13 @@ enum Instruction {
 }
 
 /// Extracts the opcode value from a 32 bit insn
+#[inline]
 fn opcode(insn: u32) -> u8 {
     (insn & mask32(7)) as u8
+}
+
+fn decode(insn: u32) -> Instruction {
+    match opcode(insn) {
+        _ => panic!("unimplemented"),
+    }
 }
