@@ -1,7 +1,7 @@
 use crate::decode::insn_formats::{B, I, J, R, S, Sh, U};
 
 pub(crate) enum Instruction {
-    // Base Instruction (I)
+    // RV32I
     // Integer Register Register
     Add(R),
     Sub(R),
@@ -51,6 +51,24 @@ pub(crate) enum Instruction {
     Ebreak,
     // Fence
     Fence,
+
+    // RV64I
+    // Register-Register
+    Addw(R),
+    Subw(R),
+    Sllw(R),
+    Srlw(R),
+    Sraw(R),
+    // Register-Immediate
+    Addiw(I),
+    Slliw(Sh),
+    Srliw(Sh),
+    Sraiw(Sh),
+    // Loads
+    Ld(I),
+    Lwu(I),
+    // Stores
+    Sd(S),
 
     // Illegal Instruction
     Illegal(u32),
