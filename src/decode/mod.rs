@@ -55,6 +55,9 @@ enum Instruction {
     Ebreak,
     // Fence
     Fence,
+
+    // Illegal Instruction
+    Illegal(u32),
 }
 
 /// Extracts the opcode value from a 32 bit insn
