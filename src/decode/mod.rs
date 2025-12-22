@@ -8,6 +8,8 @@ use insn::Instruction;
 use insn_formats::{B, I, J, R, S, Sh, U};
 use util::{funct3, funct7, opcode, rd, rs1, rs2};
 
+use crate::decode::imm::shamt5;
+
 fn decode(insn: u32) -> Instruction {
     match opcode(insn) {
         0b0110011 => decode_op(insn),
@@ -97,14 +99,24 @@ fn decode_op_32(insn: u32) -> Instruction {
 }
 
 fn decode_op_imm_32(insn: u32) -> Instruction {
-    // here we care about
-    // Addiw,
-    // slliw,
-    // srliw,
-    // sraiw
-    //
-    //
-    todo!()
+    let rd = rd(insn);
+    let rs1 = rs1(insn);
+    let imm = imm_i(insn);
+
+    let i_operands = I { rd, rs1, imm };
+    let s_operands = Sh {
+        rd,
+        rs1,
+        shamt: shamt5(insn),
+    };
+
+    match (funct3(insn), funct7(insn)) {
+        (0x0, _) => Instruction::Addiw(i_operands),
+        (0x1, 0x00) => Instruction::Slliw(s_operands),
+        (0x5, 0x00) => Instruction::Srliw(s_operands),
+        (0x5, 0x20) => Instruction::Sraiw(s_operands),
+        _ => Instruction::Illegal(insn),
+    }
 }
 
 fn decode_load(insn: u32) -> Instruction {
@@ -137,6 +149,7 @@ fn decode_store(insn: u32) -> Instruction {
         0x0 => Instruction::Sb(operand),
         0x1 => Instruction::Sh(operand),
         0x2 => Instruction::Sw(operand),
+        0x3 => Instruction::Sd(operand),
         _ => Instruction::Illegal(insn),
     }
 }
