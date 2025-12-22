@@ -1,62 +1,9 @@
+mod insn;
 mod insn_formats;
-use crate::util::{mask, mask32};
+
+use crate::util::mask32;
+use insn::Instruction;
 use insn_formats::{B, I, J, R, S, Sh, U};
-
-enum Instruction {
-    // Base Instruction (I)
-    // Integer Register Register
-    Add(R),
-    Sub(R),
-    Sll(R),
-    Slt(R),
-    Sltu(R),
-    Xor(R),
-    Srl(R),
-    Sra(R),
-    Or(R),
-    And(R),
-    // Integer Register Immediate
-    Addi(I),
-    Slti(I),
-    Sltiu(I),
-    Xori(I),
-    Ori(I),
-    Andi(I),
-    Slli(Sh),
-    Srli(Sh),
-    Srai(Sh),
-    // Loads
-    Lb(I),
-    Lh(I),
-    Lw(I),
-    Lbu(I),
-    Lhu(I),
-    // Stores
-    Sb(S),
-    Sh(S),
-    Sw(S),
-    // Branches
-    Beq(B),
-    Bne(B),
-    Blt(B),
-    Bge(B),
-    Bltu(B),
-    Bgeu(B),
-    // Jumps
-    Jal(J),
-    Jalr(I),
-    // Upper Immediates
-    Lui(U),
-    Auipc(U),
-    // System
-    Ecall,
-    Ebreak,
-    // Fence
-    Fence,
-
-    // Illegal Instruction
-    Illegal(u32),
-}
 
 /// Extracts the opcode value from a 32 bit insn
 #[inline]
@@ -131,9 +78,9 @@ fn imm_j(insn: u32) -> i32 {
     // insn[19:12] => imm[19:12]
     let imm19_12 = (insn >> 12) & mask32(8);
     // insn[20] => imm[11]
-    let imm11 = (insn >> 20) & mask32(10);
+    let imm11 = (insn >> 20) & mask32(1);
     // insn[30:21] => imm[10:1]
-    let imm10_1 = (insn >> 21) & mask32(1);
+    let imm10_1 = (insn >> 21) & mask32(10);
 
     let imm = (imm20 << 20) | (imm19_12 << 12) | (imm11 << 11) | (imm10_1 << 1);
     ((imm as i32) << 11) >> 11
@@ -262,7 +209,7 @@ fn decode_branch(insn: u32) -> Instruction {
     let operand = B {
         rs1: rs1(insn),
         rs2: rs2(insn),
-        imm: imm_s(insn),
+        imm: imm_b(insn),
     };
 
     match funct3(insn) {
