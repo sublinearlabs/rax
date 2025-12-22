@@ -181,6 +181,7 @@ pub(crate) enum Opcode {
 
 enum InstructionType {
     R,
+    R4,
     I,
     S,
     B,
@@ -196,6 +197,7 @@ pub(crate) struct Instruction {
     pub(crate) rd: usize,
     pub(crate) rs1: usize,
     pub(crate) rs2: usize,
+    pub(crate) rs3: usize,
     pub(crate) imm: u64,
 }
 
@@ -206,6 +208,7 @@ impl Instruction {
             rd: 0,
             rs1: 0,
             rs2: 0,
+            rs3: 0,
             imm: 0,
         }
     }
@@ -231,31 +234,34 @@ pub(crate) fn decode_insn(insn: u32) -> Instruction {
     let opcode_value = insn & mask32(7);
 
     let insn_type = match opcode_value {
-        0b0110011 | 0b0111011 | 0b0101111 | 0b1010011 | 0b1000011 | 0b1000111 | 0b1001011
-        | 0b1001111 => InstructionType::R,
+        0b0110011 | 0b0111011 | 0b0101111 | 0b1010011 => InstructionType::R,
         0b0010011 | 0b0000011 | 0b1100111 | 0b1110011 | 0b0011011 | 0b0000111 => InstructionType::I,
         0b0100011 | 0b0100111 => InstructionType::S,
         0b1100011 => InstructionType::B,
         0b0110111 | 0b0010111 => InstructionType::U,
         0b1101111 => InstructionType::J,
         0b0001111 => InstructionType::FENCE,
+        0b1000011 | 0b1000111 | 0b1001011 | 0b1001111 => InstructionType::R4,
         _ => panic!("unsupported instruction type"),
     };
 
     let rd = (insn >> 7) & mask32(5);
     let rs1 = (insn >> 15) & mask32(5);
     let rs2 = (insn >> 20) & mask32(5);
+    let rs3 = (insn >> 27) & mask32(5);
+    let funct2 = (insn >> 25) & mask32(2);
     let funct3 = (insn >> 12) & mask32(3);
     let funct7 = (insn >> 25) & mask32(7);
 
     let imm = decode_imm(insn, &insn_type);
-    let opcode = decode_opcode(opcode_value, insn_type, rs2, funct3, funct7, imm);
+    let opcode = decode_opcode(opcode_value, insn_type, rs2, funct2, funct3, funct7, imm);
 
     Instruction {
         opcode,
         rd: rd as usize,
         rs1: rs1 as usize,
         rs2: rs2 as usize,
+        rs3: rs3 as usize,
         imm,
     }
 }
@@ -263,7 +269,7 @@ pub(crate) fn decode_insn(insn: u32) -> Instruction {
 fn decode_imm(insn: u32, insn_type: &InstructionType) -> u64 {
     let mut imm = 0u32;
     match insn_type {
-        InstructionType::R | InstructionType::FENCE => imm as u64,
+        InstructionType::R | InstructionType::FENCE | InstructionType::R4 => imm as u64,
         InstructionType::I => {
             // inst[31:20] => imm[11:0]
             imm = map_range(insn, imm, 31, 11, 12);
@@ -315,6 +321,7 @@ fn decode_opcode(
     opcode_value: u32,
     insn_type: InstructionType,
     rs2: u32,
+    funct2: u32,
     funct3: u32,
     funct7: u32,
     imm: u64,
@@ -325,6 +332,7 @@ fn decode_opcode(
         InstructionType::S => decode_s_insn(opcode_value, funct3),
         InstructionType::B => decode_b_insn(funct3),
         InstructionType::U => decode_u_opcode(opcode_value),
+        InstructionType::R4 => decode_r4_insn(opcode_value, funct2),
         InstructionType::J => Opcode::Jal,
         InstructionType::FENCE => Opcode::Fence,
     }
@@ -434,26 +442,6 @@ fn decode_r_insn(opcode_value: u32, rs2: u32, funct3: u32, funct7: u32) -> Opcod
                 0x1C => Opcode::AmomaxuD,
                 _ => panic!("unknown opcode"),
             },
-            _ => panic!("unknown opcode"),
-        },
-        0b1000011 => match funct7 & mask32(2) {
-            0x0 => Opcode::FmaddS,
-            0x1 => Opcode::FmaddD,
-            _ => panic!("unknown opcode"),
-        },
-        0b1000111 => match funct7 & mask32(2) {
-            0x0 => Opcode::FmsubS,
-            0x1 => Opcode::FmsubD,
-            _ => panic!("unknown opcode"),
-        },
-        0b1001011 => match funct7 & mask32(2) {
-            0x0 => Opcode::FnmsubS,
-            0x1 => Opcode::FnmsubD,
-            _ => panic!("unknown opcode"),
-        },
-        0b1001111 => match funct7 & mask32(2) {
-            0x0 => Opcode::FnmaddS,
-            0x1 => Opcode::FnmaddD,
             _ => panic!("unknown opcode"),
         },
         0b1010011 => match funct7 & mask32(2) {
@@ -637,6 +625,35 @@ fn decode_s_insn(opcode_value: u32, funct3: u32) -> Opcode {
         0b0100111 => match funct3 {
             0x2 => Opcode::Fsw,
             0x3 => Opcode::Fsd,
+            _ => panic!("unknown opcode"),
+        },
+        _ => panic!("unknown opcode"),
+    }
+}
+
+fn decode_r4_insn(opcode_value: u32, funct2: u32) -> Opcode {
+    match opcode_value {
+        0b1000011 => match funct2 {
+            0x0 => Opcode::FmaddS,
+            0x1 => Opcode::FmaddD,
+            _ => {
+                println!("unknown opcode: {:b}", funct2);
+                panic!("Over");
+            }
+        },
+        0b1000111 => match funct2 {
+            0x0 => Opcode::FmsubS,
+            0x1 => Opcode::FmsubD,
+            _ => panic!("unknown opcode"),
+        },
+        0b1001011 => match funct2 {
+            0x0 => Opcode::FnmsubS,
+            0x1 => Opcode::FnmsubD,
+            _ => panic!("unknown opcode"),
+        },
+        0b1001111 => match funct2 {
+            0x0 => Opcode::FnmaddS,
+            0x1 => Opcode::FnmaddD,
             _ => panic!("unknown opcode"),
         },
         _ => panic!("unknown opcode"),
