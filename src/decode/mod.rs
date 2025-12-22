@@ -4,6 +4,8 @@ use insn_formats::{B, I, J, R, S, Sh, U};
 
 use crate::util::mask32;
 
+// TODO add better error handling
+
 enum Instruction {
     // Base Instruction (I)
     // Integer Register Register
@@ -68,6 +70,17 @@ fn opcode(insn: u32) -> u8 {
 
 fn decode(insn: u32) -> Instruction {
     match opcode(insn) {
-        _ => panic!("unimplemented"),
+        0b0110011 => decode_op(insn),
+        0b0010011 => decode_op_imm(insn),
+        0b0000011 => decode_load(insn),
+        0b0100011 => decode_store(insn),
+        0b1100011 => decode_branch(insn),
+        0b1101111 => decode_jal(insn),
+        0b1100111 => decode_jalr(insn),
+        0b0110111 => decode_lui(insn),
+        0b0010111 => decode_auipc(insn),
+        0b1110011 => decode_system(insn),
+        0b0001111 => decode_fence(insn),
+        _ => Instruction::Illegal(insn),
     }
 }
