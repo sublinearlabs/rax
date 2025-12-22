@@ -3,9 +3,9 @@ use std::fs;
 use crate::elf::decode_elf;
 use crate::memory::Memory;
 use crate::trace::{DefaultTracer, FullTracer, NoopTracer, Tracer};
-pub use decode::{Instruction, Opcode, decode_insn};
+pub use decode_old::{Instruction, Opcode, decode_insn};
 
-pub mod decode;
+pub mod decode_old;
 mod elf;
 mod execute;
 mod memory;

@@ -1,5 +1,5 @@
 use crate::VM;
-use crate::decode::{Instruction, Opcode};
+use crate::decode_old::{Instruction, Opcode};
 use crate::trace::{MemOp, Tracer};
 use crate::util::{mask, sext};
 
