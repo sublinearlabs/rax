@@ -68,6 +68,31 @@ fn opcode(insn: u32) -> u8 {
     (insn & mask32(7)) as u8
 }
 
+#[inline]
+fn funct3(insn: u32) -> u8 {
+    todo!()
+}
+
+#[inline]
+fn funct7(insn: u32) -> u8 {
+    todo!()
+}
+
+#[inline]
+fn rd(insn: u32) -> u8 {
+    todo!()
+}
+
+#[inline]
+fn rs1(insn: u32) -> u8 {
+    todo!()
+}
+
+#[inline]
+fn rs2(insn: u32) -> u8 {
+    todo!()
+}
+
 fn decode(insn: u32) -> Instruction {
     match opcode(insn) {
         0b0110011 => decode_op(insn),
@@ -81,6 +106,28 @@ fn decode(insn: u32) -> Instruction {
         0b0010111 => decode_auipc(insn),
         0b1110011 => decode_system(insn),
         0b0001111 => decode_fence(insn),
+        _ => Instruction::Illegal(insn),
+    }
+}
+
+fn decode_op(insn: u32) -> Instruction {
+    let insn_operands = R {
+        rd: rd(insn),
+        rs1: rs1(insn),
+        rs2: rs2(insn),
+    };
+
+    match (funct3(insn), funct7(insn)) {
+        (0x0, 0x00) => Instruction::Add(insn_operands),
+        (0x0, 0x20) => Instruction::Sub(insn_operands),
+        (0x4, 0x00) => Instruction::Xor(insn_operands),
+        (0x6, 0x00) => Instruction::Or(insn_operands),
+        (0x7, 0x00) => Instruction::And(insn_operands),
+        (0x1, 0x00) => Instruction::Sll(insn_operands),
+        (0x5, 0x00) => Instruction::Srl(insn_operands),
+        (0x5, 0x20) => Instruction::Sra(insn_operands),
+        (0x2, 0x00) => Instruction::Slt(insn_operands),
+        (0x3, 0x00) => Instruction::Sltu(insn_operands),
         _ => Instruction::Illegal(insn),
     }
 }

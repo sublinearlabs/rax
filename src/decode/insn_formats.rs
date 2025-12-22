@@ -2,18 +2,18 @@
 ///
 /// Semantics `rd <- f(rs1, rs2)`
 pub(crate) struct R {
-    rd: u8,
-    rs1: u8,
-    rs2: u8,
+    pub(crate) rd: u8,
+    pub(crate) rs1: u8,
+    pub(crate) rs2: u8,
 }
 
 /// I-type register-immediate format
 ///
 /// `imm` is a sign-extended immediate
 pub(crate) struct I {
-    rd: u8,
-    rs1: u8,
-    imm: i32,
+    pub(crate) rd: u8,
+    pub(crate) rs1: u8,
+    pub(crate) imm: i32,
 }
 
 /// Shift immediate sub-format (I type shifts)
@@ -22,9 +22,9 @@ pub(crate) struct I {
 /// - RV32: 5 bits
 /// - RV64: 6 bits
 pub(crate) struct Sh {
-    rd: u8,
-    rs1: u8,
-    shamt: u8,
+    pub(crate) rd: u8,
+    pub(crate) rs1: u8,
+    pub(crate) shamt: u8,
 }
 
 /// S-type store format
@@ -33,9 +33,9 @@ pub(crate) struct Sh {
 ///
 /// Semantics `mem[rs1 + imm] <- rs2`
 pub(crate) struct S {
-    rs1: u8,
-    rs2: u8,
-    imm: i32,
+    pub(crate) rs1: u8,
+    pub(crate) rs2: u8,
+    pub(crate) imm: i32,
 }
 
 /// B-type branch format
@@ -46,9 +46,9 @@ pub(crate) struct S {
 ///
 /// `imm` is the sign-extended PC-relative byte offset
 pub(crate) struct B {
-    rs1: u8,
-    rs2: u8,
-    imm: i32,
+    pub(crate) rs1: u8,
+    pub(crate) rs2: u8,
+    pub(crate) imm: i32,
 }
 
 /// J-type jump format
@@ -59,8 +59,8 @@ pub(crate) struct B {
 /// - `rd <- next_pc`
 /// - `pc <- pc + imm`
 pub(crate) struct J {
-    rd: u8,
-    imm: i32,
+    pub(crate) rd: u8,
+    pub(crate) imm: i32,
 }
 
 /// U-type upper-immediate format
@@ -69,6 +69,6 @@ pub(crate) struct J {
 ///
 /// stores the imm already shifted left by 12 bits
 pub(crate) struct U {
-    rd: u8,
-    imm: i32,
+    pub(crate) rd: u8,
+    pub(crate) imm: i32,
 }
