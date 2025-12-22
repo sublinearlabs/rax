@@ -70,27 +70,27 @@ fn opcode(insn: u32) -> u8 {
 
 #[inline]
 fn funct3(insn: u32) -> u8 {
-    todo!()
+    ((insn >> 12) & mask32(3)) as u8
 }
 
 #[inline]
 fn funct7(insn: u32) -> u8 {
-    todo!()
+    ((insn >> 25) & mask32(7)) as u8
 }
 
 #[inline]
 fn rd(insn: u32) -> u8 {
-    todo!()
+    ((insn >> 7) & mask32(5)) as u8
 }
 
 #[inline]
 fn rs1(insn: u32) -> u8 {
-    todo!()
+    ((insn >> 15) & mask32(5)) as u8
 }
 
 #[inline]
 fn rs2(insn: u32) -> u8 {
-    todo!()
+    ((insn >> 20) & mask32(5)) as u8
 }
 
 fn decode(insn: u32) -> Instruction {
