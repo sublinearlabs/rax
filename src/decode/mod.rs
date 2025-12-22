@@ -1,49 +1,6 @@
-// TODO add documentation
-struct R {
-    rd: u8,
-    rs1: u8,
-    rs2: u8,
-}
+mod insn_formats;
 
-// TODO add documentation
-struct I {
-    rd: u8,
-    rs1: u8,
-    imm: i32,
-}
-
-// TODO add documentation
-struct Sh {
-    rd: u8,
-    rs1: u8,
-    shamt: u8,
-}
-
-// TODO add documentation
-struct S {
-    rs1: u8,
-    rs2: u8,
-    imm: i32,
-}
-
-// TODO add documentation
-struct B {
-    rs1: u8,
-    rs2: u8,
-    imm: i32,
-}
-
-// TODO add documentation
-struct J {
-    rd: u8,
-    imm: i32,
-}
-
-// TODO add documentation
-struct U {
-    rd: u8,
-    imm: i32,
-}
+use insn_formats::{B, I, J, R, S, Sh, U};
 
 enum Instruction {
     // Base Instruction (I)
