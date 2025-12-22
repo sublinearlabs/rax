@@ -211,3 +211,18 @@ fn decode_load(insn: u32) -> Instruction {
         _ => Instruction::Illegal(insn),
     }
 }
+
+fn decode_store(insn: u32) -> Instruction {
+    let operand = S {
+        rs1: rs1(insn),
+        rs2: rs2(insn),
+        imm: imm_s(insn),
+    };
+
+    match funct3(insn) {
+        0x0 => Instruction::Sb(operand),
+        0x1 => Instruction::Sh(operand),
+        0x2 => Instruction::Sw(operand),
+        _ => Instruction::Illegal(insn),
+    }
+}
