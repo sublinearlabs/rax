@@ -1,6 +1,6 @@
 //! Zero-cost abstraction for execution tracing.
 use super::primitives::{ExecutionTrace, InstrFlags, MemOp, TraceRow};
-use crate::decode::Instruction;
+use crate::decode_old::Instruction;
 
 /// Trait for instruction execution tracing.
 ///
@@ -59,7 +59,6 @@ pub trait Tracer: Default + Sized {
     fn is_active(&self) -> bool;
 }
 
-
 /// A no-op tracer that does nothing.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct NoopTracer;
@@ -107,7 +106,6 @@ impl Tracer for NoopTracer {
         false
     }
 }
-
 
 /// A full tracer that builds a complete execution trace.
 ///
@@ -268,12 +266,10 @@ pub type DefaultTracer = FullTracer;
 #[cfg(not(feature = "trace"))]
 pub type DefaultTracer = NoopTracer;
 
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::decode::Opcode;
+    use crate::decode_old::Opcode;
 
     fn make_test_instruction() -> Instruction {
         Instruction {
