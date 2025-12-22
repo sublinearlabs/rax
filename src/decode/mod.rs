@@ -131,7 +131,7 @@ fn imm_j(insn: u32) -> i32 {
     // insn[19:12] => imm[19:12]
     let imm19_12 = (insn >> 12) & mask32(8);
     // insn[20] => imm[11]
-    let imm11 = (insn >> 20) & mask32(1);
+    let imm11 = (insn >> 20) & mask32(10);
     // insn[30:21] => imm[10:1]
     let imm10_1 = (insn >> 21) & mask32(1);
 
@@ -141,17 +141,21 @@ fn imm_j(insn: u32) -> i32 {
 
 #[inline]
 fn imm_u(insn: u32) -> i32 {
-    todo!()
+    // insn[31:12] => imm[31:12]
+    // just zero out the last 12 bits
+    (insn & !mask32(12)) as i32
 }
 
 #[inline]
 fn shamt5(insn: u32) -> u8 {
-    todo!()
+    let imm = (insn >> 20) & mask32(5);
+    imm as u8
 }
 
 #[inline]
 fn shamt6(insn: u32) -> u8 {
-    todo!()
+    let imm = (insn >> 20) & mask32(6);
+    imm as u8
 }
 
 fn decode(insn: u32) -> Instruction {
