@@ -277,6 +277,9 @@ mod tests {
 
         println!("exit_code {}", vm.exit_code);
         assert!(vm.halted);
+        if vm.exit_code != 0 {
+            println!("failing test {}", vm.exit_code >> 1);
+        }
         assert_eq!(vm.exit_code, 0);
     }
 
