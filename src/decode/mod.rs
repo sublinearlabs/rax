@@ -12,6 +12,9 @@ fn decode(insn: u32) -> Instruction {
     match opcode(insn) {
         0b0110011 => decode_op(insn),
         0b0010011 => decode_op_imm(insn),
+        0b0111011 => decode_op_32(insn),
+        0b0011011 => decode_op_imm_32(insn),
+
         0b0000011 => decode_load(insn),
         0b0100011 => decode_store(insn),
         0b1100011 => decode_branch(insn),
@@ -74,6 +77,27 @@ fn decode_op_imm(insn: u32) -> Instruction {
         },
         _ => Instruction::Illegal(insn),
     }
+}
+
+fn decode_op_32(insn: u32) -> Instruction {
+    let operands = R {
+        rd: rd(insn),
+        rs1: rs1(insn),
+        rs2: rs2(insn),
+    };
+
+    match (funct3(insn), funct7(insn)) {
+        (0x0, 0x00) => Instruction::Addw(operands),
+        (0x0, 0x20) => Instruction::Subw(operands),
+        (0x1, 0x00) => Instruction::Sllw(operands),
+        (0x5, 0x00) => Instruction::Srlw(operands),
+        (0x5, 0x20) => Instruction::Sraw(operands),
+        _ => Instruction::Illegal(insn),
+    }
+}
+
+fn decode_op_imm_32(insn: u32) -> Instruction {
+    todo!()
 }
 
 fn decode_load(insn: u32) -> Instruction {
