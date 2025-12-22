@@ -269,3 +269,23 @@ fn decode_lui(insn: u32) -> Instruction {
         imm: imm_u(insn),
     })
 }
+
+fn decode_auipc(insn: u32) -> Instruction {
+    Instruction::Auipc(U {
+        rd: rd(insn),
+        imm: imm_u(insn),
+    })
+}
+
+fn decode_system(insn: u32) -> Instruction {
+    let imm = imm_i(insn);
+    match (funct3(insn), imm) {
+        (0x0, 0x0) => Instruction::Ecall,
+        (0x0, 0x1) => Instruction::Ebreak,
+        _ => Instruction::Illegal(insn),
+    }
+}
+
+fn decode_fence(_insn: u32) -> Instruction {
+    Instruction::Fence
+}
