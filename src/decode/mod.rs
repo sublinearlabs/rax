@@ -226,3 +226,21 @@ fn decode_store(insn: u32) -> Instruction {
         _ => Instruction::Illegal(insn),
     }
 }
+
+fn decode_branch(insn: u32) -> Instruction {
+    let operand = B {
+        rs1: rs1(insn),
+        rs2: rs2(insn),
+        imm: imm_s(insn),
+    };
+
+    match funct3(insn) {
+        0x0 => Instruction::Beq(operand),
+        0x1 => Instruction::Bne(operand),
+        0x4 => Instruction::Blt(operand),
+        0x5 => Instruction::Bge(operand),
+        0x6 => Instruction::Bltu(operand),
+        0x7 => Instruction::Bgeu(operand),
+        _ => Instruction::Illegal(insn),
+    }
+}
