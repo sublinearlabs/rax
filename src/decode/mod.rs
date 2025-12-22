@@ -251,3 +251,14 @@ fn decode_jal(insn: u32) -> Instruction {
         imm: imm_j(insn),
     })
 }
+
+fn decode_jalr(insn: u32) -> Instruction {
+    match funct3(insn) {
+        0x0 => Instruction::Jalr(I {
+            rd: rd(insn),
+            rs1: rs1(insn),
+            imm: imm_i(insn),
+        }),
+        _ => Instruction::Illegal(insn),
+    }
+}
