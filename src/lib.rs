@@ -3,9 +3,9 @@ use std::fs;
 use crate::elf::decode_elf;
 use crate::memory::Memory;
 use crate::trace::{DefaultTracer, FullTracer, NoopTracer, Tracer};
-pub use decode_old::{Instruction, Opcode, decode_insn};
+use decode_old::{Instruction, Opcode, decode_insn};
 
-pub mod decode_old;
+mod decode_old;
 mod elf;
 mod execute;
 mod memory;
@@ -15,7 +15,7 @@ mod util;
 /// RISC-V Virtual Machine with configurable tracing.
 ///
 /// The VM is generic over a `Tracer` type, enabling zero-cost abstraction:
-/// - `NoopTracer`: All tracing calls are optimized away (zero overhead)
+/// - `NoopTracer`: All tracing calls are optimized away ()
 /// - `FullTracer`: Complete execution trace is captured
 pub struct VM<T: Tracer = DefaultTracer> {
     registers: [u64; 32],
