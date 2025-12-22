@@ -194,3 +194,20 @@ fn decode_op_imm(insn: u32) -> Instruction {
         _ => Instruction::Illegal(insn),
     }
 }
+
+fn decode_load(insn: u32) -> Instruction {
+    let operand = I {
+        rd: rd(insn),
+        rs1: rs1(insn),
+        imm: imm_i(insn),
+    };
+
+    match funct3(insn) {
+        0x0 => Instruction::Lb(operand),
+        0x1 => Instruction::Lh(operand),
+        0x2 => Instruction::Lw(operand),
+        0x4 => Instruction::Lbu(operand),
+        0x5 => Instruction::Lhu(operand),
+        _ => Instruction::Illegal(insn),
+    }
+}
