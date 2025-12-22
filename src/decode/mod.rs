@@ -1,10 +1,6 @@
 mod insn_formats;
-
-use insn_formats::{B, I, J, R, S, Sh, U};
-
 use crate::util::mask32;
-
-// TODO add better error handling
+use insn_formats::{B, I, J, R, S, Sh, U};
 
 enum Instruction {
     // Base Instruction (I)
@@ -95,7 +91,8 @@ fn rs2(insn: u32) -> u8 {
 
 #[inline]
 fn imm_i(insn: u32) -> i32 {
-    todo!()
+    // insn[31:20] => imm[11:0]
+    (insn as i32) >> 20
 }
 
 #[inline]
@@ -127,6 +124,7 @@ fn shamt5(insn: u32) -> u8 {
 fn shamt6(insn: u32) -> u8 {
     todo!()
 }
+
 fn decode(insn: u32) -> Instruction {
     match opcode(insn) {
         0b0110011 => decode_op(insn),
