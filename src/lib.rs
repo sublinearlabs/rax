@@ -5,6 +5,7 @@ use crate::memory::Memory;
 use crate::trace::{DefaultTracer, FullTracer, NoopTracer, Tracer};
 use decode_old::{Instruction, Opcode, decode_insn};
 
+mod decode;
 mod decode_old;
 mod elf;
 mod execute;
