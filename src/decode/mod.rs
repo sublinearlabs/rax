@@ -262,3 +262,10 @@ fn decode_jalr(insn: u32) -> Instruction {
         _ => Instruction::Illegal(insn),
     }
 }
+
+fn decode_lui(insn: u32) -> Instruction {
+    Instruction::Lui(U {
+        rd: rd(insn),
+        imm: imm_u(insn),
+    })
+}
