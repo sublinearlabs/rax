@@ -16,7 +16,7 @@ mod util;
 /// RISC-V Virtual Machine with configurable tracing.
 ///
 /// The VM is generic over a `Tracer` type, enabling zero-cost abstraction:
-/// - `NoopTracer`: All tracing calls are optimized away ()
+/// - `NoopTracer`: All tracing calls are optimized away (zero overhead)
 /// - `FullTracer`: Complete execution trace is captured
 pub struct VM<T: Tracer = DefaultTracer> {
     registers: [u64; 32],
