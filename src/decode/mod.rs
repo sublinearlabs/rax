@@ -2,6 +2,8 @@ mod insn_formats;
 
 use insn_formats::{B, I, J, R, S, Sh, U};
 
+use crate::util::mask32;
+
 enum Instruction {
     // Base Instruction (I)
     // Integer Register Register
@@ -53,4 +55,9 @@ enum Instruction {
     Ebreak,
     // Fence
     Fence,
+}
+
+/// Extracts the opcode value from a 32 bit insn
+fn opcode(insn: u32) -> u8 {
+    (insn & mask32(7)) as u8
 }
