@@ -70,6 +70,24 @@ pub(crate) enum Instruction {
     // Stores
     Sd(S),
 
+    // M extension
+    // RV32M
+    Mul(R),
+    Mulh(R),
+    Mulhsu(R),
+    Mulhu(R),
+    Div(R),
+    Divu(R),
+    Rem(R),
+    Remu(R),
+
+    // RV64M
+    Mulw(R),
+    Divw(R),
+    Divuw(R),
+    Remw(R),
+    Remuw(R),
+
     // Illegal Instruction
     Illegal(u32),
 }

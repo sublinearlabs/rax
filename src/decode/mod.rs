@@ -48,6 +48,16 @@ fn decode_op(insn: u32) -> Instruction {
         (0x5, 0x20) => Instruction::Sra(insn_operands),
         (0x2, 0x00) => Instruction::Slt(insn_operands),
         (0x3, 0x00) => Instruction::Sltu(insn_operands),
+
+        (0x0, 0x01) => Instruction::Mul(insn_operands),
+        (0x1, 0x01) => Instruction::Mulh(insn_operands),
+        (0x2, 0x01) => Instruction::Mulhsu(insn_operands),
+        (0x3, 0x01) => Instruction::Mulhu(insn_operands),
+        (0x4, 0x01) => Instruction::Div(insn_operands),
+        (0x5, 0x01) => Instruction::Divu(insn_operands),
+        (0x6, 0x01) => Instruction::Rem(insn_operands),
+        (0x7, 0x01) => Instruction::Remu(insn_operands),
+
         _ => Instruction::Illegal(insn),
     }
 }
@@ -94,6 +104,13 @@ fn decode_op_32(insn: u32) -> Instruction {
         (0x1, 0x00) => Instruction::Sllw(operands),
         (0x5, 0x00) => Instruction::Srlw(operands),
         (0x5, 0x20) => Instruction::Sraw(operands),
+
+        (0x0, 0x01) => Instruction::Mulw(operands),
+        (0x4, 0x01) => Instruction::Divw(operands),
+        (0x5, 0x01) => Instruction::Divuw(operands),
+        (0x6, 0x01) => Instruction::Remw(operands),
+        (0x7, 0x01) => Instruction::Remuw(operands),
+
         _ => Instruction::Illegal(insn),
     }
 }
