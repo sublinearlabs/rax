@@ -1,42 +1,12 @@
 mod imm;
 mod insn;
 mod insn_formats;
+mod util;
 
-use crate::util::mask32;
 use imm::{imm_b, imm_i, imm_j, imm_s, imm_u, shamt5, shamt6};
 use insn::Instruction;
 use insn_formats::{B, I, J, R, S, Sh, U};
-
-/// Extracts the opcode value from a 32 bit insn
-#[inline]
-fn opcode(insn: u32) -> u8 {
-    (insn & mask32(7)) as u8
-}
-
-#[inline]
-fn funct3(insn: u32) -> u8 {
-    ((insn >> 12) & mask32(3)) as u8
-}
-
-#[inline]
-fn funct7(insn: u32) -> u8 {
-    ((insn >> 25) & mask32(7)) as u8
-}
-
-#[inline]
-fn rd(insn: u32) -> u8 {
-    ((insn >> 7) & mask32(5)) as u8
-}
-
-#[inline]
-fn rs1(insn: u32) -> u8 {
-    ((insn >> 15) & mask32(5)) as u8
-}
-
-#[inline]
-fn rs2(insn: u32) -> u8 {
-    ((insn >> 20) & mask32(5)) as u8
-}
+use util::{funct3, funct7, opcode, rd, rs1, rs2};
 
 fn decode(insn: u32) -> Instruction {
     match opcode(insn) {
