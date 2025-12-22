@@ -97,6 +97,13 @@ fn decode_op_32(insn: u32) -> Instruction {
 }
 
 fn decode_op_imm_32(insn: u32) -> Instruction {
+    // here we care about
+    // Addiw,
+    // slliw,
+    // srliw,
+    // sraiw
+    //
+    //
     todo!()
 }
 
@@ -111,8 +118,10 @@ fn decode_load(insn: u32) -> Instruction {
         0x0 => Instruction::Lb(operand),
         0x1 => Instruction::Lh(operand),
         0x2 => Instruction::Lw(operand),
+        0x3 => Instruction::Ld(operand),
         0x4 => Instruction::Lbu(operand),
         0x5 => Instruction::Lhu(operand),
+        0x6 => Instruction::Lwu(operand),
         _ => Instruction::Illegal(insn),
     }
 }
