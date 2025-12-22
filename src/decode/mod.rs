@@ -26,6 +26,9 @@ fn decode(insn: u32) -> Instruction {
         0b0010111 => decode_auipc(insn),
         0b1110011 => decode_system(insn),
         0b0001111 => decode_fence(insn),
+
+        0b0101111 => decode_atomics(insn),
+
         _ => Instruction::Illegal(insn),
     }
 }
@@ -232,4 +235,9 @@ fn decode_system(insn: u32) -> Instruction {
 
 fn decode_fence(_insn: u32) -> Instruction {
     Instruction::Fence
+}
+
+fn decode_atomics(insn: u32) -> Instruction {
+    let funct5 = funct7(insn) >> 2;
+    todo!()
 }
