@@ -244,3 +244,10 @@ fn decode_branch(insn: u32) -> Instruction {
         _ => Instruction::Illegal(insn),
     }
 }
+
+fn decode_jal(insn: u32) -> Instruction {
+    Instruction::Jal(J {
+        rd: rd(insn),
+        imm: imm_j(insn),
+    })
+}
