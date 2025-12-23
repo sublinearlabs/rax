@@ -1,8 +1,9 @@
 use crate::util::{map_range, mask, mask32, sext};
+use serde::{Deserialize, Serialize};
 
 // RISCV Opcodes
-#[derive(Debug)]
-pub(crate) enum Opcode {
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Opcode {
     Add,
     Addw,
     Sub,
@@ -202,7 +203,7 @@ pub(crate) struct Instruction {
 }
 
 impl Instruction {
-    pub(crate) fn new(opcode: Opcode) -> Self {
+    pub fn new(opcode: Opcode) -> Self {
         Self {
             opcode,
             rd: 0,
@@ -213,24 +214,24 @@ impl Instruction {
         }
     }
 
-    pub(crate) fn rd(self, val: usize) -> Self {
+    pub fn rd(self, val: usize) -> Self {
         Self { rd: val, ..self }
     }
 
-    pub(crate) fn rs1(self, val: usize) -> Self {
+    pub fn rs1(self, val: usize) -> Self {
         Self { rs1: val, ..self }
     }
 
-    pub(crate) fn rs2(self, val: usize) -> Self {
+    pub fn rs2(self, val: usize) -> Self {
         Self { rs2: val, ..self }
     }
 
-    pub(crate) fn imm(self, val: u64) -> Self {
+    pub fn imm(self, val: u64) -> Self {
         Self { imm: val, ..self }
     }
 }
 
-pub(crate) fn decode_insn(insn: u32) -> Instruction {
+pub fn decode_insn(insn: u32) -> Instruction {
     let opcode_value = insn & mask32(7);
 
     let insn_type = match opcode_value {
@@ -682,7 +683,7 @@ fn decode_u_opcode(opcode_value: u32) -> Opcode {
 
 #[cfg(test)]
 mod tests {
-    use crate::decode::decode_insn;
+    use crate::decode_old::decode_insn;
 
     #[test]
     fn test_immediate_decoding() {
