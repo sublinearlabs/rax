@@ -276,6 +276,7 @@ mod tests {
             opcode: Opcode::Add,
             rs1: 1,
             rs2: 2,
+            rs3: 0,
             rd: 3,
             imm: 0,
         }
@@ -333,6 +334,7 @@ mod tests {
             opcode: Opcode::Lw,
             rs1: 1,
             rs2: 0,
+            rs3: 0,
             rd: 2,
             imm: 0,
         };
@@ -371,6 +373,7 @@ mod tests {
             opcode: Opcode::Ecall,
             rs1: 0,
             rs2: 0,
+            rs3: 0,
             rd: 0,
             imm: 0,
         };
@@ -391,6 +394,7 @@ mod tests {
             opcode: Opcode::Mul,
             rs1: 1,
             rs2: 2,
+            rs3: 0,
             rd: 3,
             imm: 0,
         };

@@ -22,13 +22,11 @@ fn main() {
     println!("\nexit_code: {}", vm.exit_code());
 }
 
-
-
 // No tracing
 // run took: 2062230ms
 // cycles: 72000006
 // 34.91 Mhz
-// 
+//
 // With tracing
 // run took: 2062230ms
 // cycles: 72000006

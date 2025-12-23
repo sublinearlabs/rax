@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{Instruction, Opcode};
+use crate::decode_old::{Instruction, Opcode};
 
 /// Memory operation type for RV64IMAC.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize,Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum MemOp {
     /// No memory operation this cycle.
     #[default]
@@ -54,11 +54,10 @@ pub enum MemOp {
     },
 }
 
-
 /// Flags indicating instruction class for AIR constraint selection.
-/// 
+///
 /// @dev it is easy to go this way rather than using a separate enum for each instruction.
-/// this would blot the table with is directly propostional to the proof size and proof time. 
+/// this would blot the table with is directly propostional to the proof size and proof time.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InstrFlags {
     // Basic RV64I flags
@@ -235,6 +234,11 @@ impl InstrFlags {
             Opcode::Ebreak => flags.is_ebreak = true,
             Opcode::Fence => flags.is_fence = true,
             Opcode::Eother => {}
+
+            // Remove when implemented
+            _ => {
+                unimplemented!()
+            }
         }
 
         flags
@@ -382,7 +386,6 @@ impl TraceRow {
         self
     }
 }
-
 
 /// Complete execution trace.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -575,7 +578,6 @@ impl ExecutionTrace {
     }
 }
 
-
 /// Statistics about instruction types in a trace.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct InstructionStats {
@@ -610,13 +612,6 @@ impl InstructionStats {
             + self.system
     }
 }
-
-
-
-
-
-
-
 
 #[cfg(test)]
 mod tests {
@@ -672,4 +667,3 @@ mod tests {
         assert_eq!(mem_op, MemOp::None);
     }
 }
-
