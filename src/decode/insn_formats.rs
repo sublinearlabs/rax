@@ -72,3 +72,22 @@ pub(crate) struct U {
     pub(crate) rd: u8,
     pub(crate) imm: i32,
 }
+
+/// RF format (floating-point)
+///
+/// Same register fields as R, but includes rounding mode `rm`
+pub(crate) struct RF {
+    pub(crate) rd: u8,
+    pub(crate) rs1: u8,
+    pub(crate) rs2: u8,
+    pub(crate) rm: u8,
+}
+
+/// R4-type (fused multiply-add format)
+pub(crate) struct R4 {
+    pub(crate) rd: u8,
+    pub(crate) rs1: u8,
+    pub(crate) rs2: u8,
+    pub(crate) rs3: u8,
+    pub(crate) rm: u8,
+}
