@@ -8,7 +8,11 @@ use insn::Instruction;
 use insn_formats::{B, I, J, R, S, Sh, U};
 use util::{funct3, funct7, opcode, rd, rs1, rs2};
 
-use crate::decode::{imm::shamt5, insn_formats::R4, util::rs3};
+use crate::decode::{
+    imm::shamt5,
+    insn_formats::{R4, RF},
+    util::rs3,
+};
 
 fn decode(insn: u32) -> Instruction {
     match opcode(insn) {
@@ -334,5 +338,12 @@ fn decode_fp_fma(insn: u32) -> Instruction {
 }
 
 fn decode_fp_op(insn: u32) -> Instruction {
+    let rd = rd(insn);
+    let rs1 = rs1(insn);
+    let rs2 = rs2(insn);
+    let rm = funct3(insn);
+
+    let operand = RF { rd, rs1, rs2, rm };
+
     todo!()
 }
