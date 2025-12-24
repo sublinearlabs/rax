@@ -150,6 +150,43 @@ pub(crate) enum Instruction {
     FcvtSL(RF),
     FcvtSLu(RF),
 
+    // D extension
+    // RV32D
+    Fld(I),
+    Fsd(S),
+    FmaddD(R4),
+    FmsubD(R4),
+    FnmsubD(R4),
+    FnmaddD(R4),
+    FaddD(RF),
+    FsubD(RF),
+    FmulD(RF),
+    FdivD(RF),
+    FsqrtD(RF),
+    FsgnjD(RF),
+    FsgnjnD(RF),
+    FsgnjxD(RF),
+    FminD(RF),
+    FmaxD(RF),
+    FeqD(RF),
+    FltD(RF),
+    FleD(RF),
+    FcvtWD(RF),
+    FcvtWuD(RF),
+    FcvtDW(RF),
+    FcvtDWu(RF),
+    FcvtSD(RF),
+    FcvtDS(RF),
+    FclassD(RF),
+
+    // RV64D
+    FcvtLD(RF),
+    FcvtLuD(RF),
+    FcvtDL(RF),
+    FcvtDLu(RF),
+    FmvXD(RF),
+    FmvDX(RF),
+
     // Illegal Instruction
     Illegal(u32),
 }
