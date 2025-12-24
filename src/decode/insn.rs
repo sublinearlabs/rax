@@ -1,4 +1,4 @@
-use crate::decode::insn_formats::{B, I, J, R, S, Sh, U};
+use crate::decode::insn_formats::{B, I, J, R, R4, RF, S, Sh, U};
 
 pub(crate) enum Instruction {
     // RV32I
@@ -114,6 +114,41 @@ pub(crate) enum Instruction {
     AmoMaxD(R),
     AmoMinuD(R),
     AmoMaxuD(R),
+
+    // F extension
+    // RV32F
+    Flw(I),
+    Fsw(S),
+    FmaddS(R4),
+    FmsubS(R4),
+    FnmsubS(R4),
+    FnmaddS(R4),
+    FaddS(RF),
+    FsubS(RF),
+    FmulS(RF),
+    FdivS(RF),
+    FsqrtS(RF),
+    FsgnjS(RF),
+    FsgnjnS(RF),
+    FsgnjxS(RF),
+    FminS(RF),
+    FmaxS(RF),
+    FeqS(RF),
+    FltS(RF),
+    FleS(RF),
+    FcvtWS(RF),
+    FcvtWuS(RF),
+    FcvtSW(RF),
+    FcvtSWu(RF),
+    FmvXW(RF),
+    FmvWX(RF),
+    FclassS(RF),
+
+    // RV64F
+    FcvtLS(RF),
+    FcvtLuS(RF),
+    FcvtSL(RF),
+    FcvtSLu(RF),
 
     // Illegal Instruction
     Illegal(u32),
