@@ -8,7 +8,7 @@ use insn::Instruction;
 use insn_formats::{B, I, J, R, S, Sh, U};
 use util::{funct3, funct7, opcode, rd, rs1, rs2};
 
-use crate::decode::imm::shamt5;
+use crate::decode::{imm::shamt5, insn_formats::R4, util::rs3};
 
 fn decode(insn: u32) -> Instruction {
     match opcode(insn) {
@@ -288,15 +288,49 @@ fn decode_atomics(insn: u32) -> Instruction {
 
 // Floating-point
 fn decode_fp_load(insn: u32) -> Instruction {
-    todo!()
+    let operand = I {
+        rd: rd(insn),
+        rs1: rs1(insn),
+        imm: imm_i(insn),
+    };
+
+    match funct3(insn) {
+        0x2 => Instruction::Flw(operand),
+        _ => Instruction::Illegal(insn),
+    }
 }
 
 fn decode_fp_store(insn: u32) -> Instruction {
-    todo!()
+    let operand = S {
+        rs1: rs1(insn),
+        rs2: rs2(insn),
+        imm: imm_s(insn),
+    };
+
+    match funct3(insn) {
+        0x2 => Instruction::Fsw(operand),
+        _ => Instruction::Illegal(insn),
+    }
 }
 
 fn decode_fp_fma(insn: u32) -> Instruction {
-    todo!()
+    let operand = R4 {
+        rd: rd(insn),
+        rs1: rs1(insn),
+        rs2: rs2(insn),
+        rs3: rs3(insn),
+        rm: funct3(insn),
+    };
+
+    let funct2 = (funct7(insn) & 0b11) as u8;
+
+    match (opcode(insn), funct2) {
+        (0b1000011, 0x0) => Instruction::FmaddS(operand),
+        (0b1000111, 0x0) => Instruction::FmsubS(operand),
+        (0b1001011, 0x0) => Instruction::FnmsubS(operand),
+        (0b1001111, 0x0) => Instruction::FnmaddS(operand),
+        _ => Instruction::Illegal(insn),
+    }
 }
 
 fn decode_fp_op(insn: u32) -> Instruction {
