@@ -345,5 +345,53 @@ fn decode_fp_op(insn: u32) -> Instruction {
 
     let operand = RF { rd, rs1, rs2, rm };
 
-    todo!()
+    match (funct7(insn), rm) {
+        // Arithmetic (rm is rounding mode)
+        (0x00, _) => Instruction::FaddS(operand),
+        (0x04, _) => Instruction::FsubS(operand),
+        (0x08, _) => Instruction::FmulS(operand),
+        (0x0c, _) => Instruction::FdivS(operand),
+
+        // sqrt (rm is rounding mode, rs2=0)
+        (0x2c, _) if rs2 == 0 => Instruction::FsqrtS(operand),
+
+        // Sign-injection
+        (0x10, 0x0) => Instruction::FsgnjS(operand),
+        (0x10, 0x1) => Instruction::FsgnjnS(operand),
+        (0x10, 0x2) => Instruction::FsgnjxS(operand),
+
+        // Min/Max
+        (0x14, 0x0) => Instruction::FminS(operand),
+        (0x14, 0x1) => Instruction::FmaxS(operand),
+
+        // Comparisons
+        (0x50, 0x0) => Instruction::FleS(operand),
+        (0x50, 0x1) => Instruction::FltS(operand),
+        (0x50, 0x2) => Instruction::FeqS(operand),
+
+        // Float to Int conversion
+        (0x60, _) => match rs2 {
+            0x00 => Instruction::FcvtWS(operand),
+            0x01 => Instruction::FcvtWuS(operand),
+            0x02 => Instruction::FcvtLS(operand),
+            0x03 => Instruction::FcvtLuS(operand),
+            _ => Instruction::Illegal(insn),
+        },
+
+        // Int to float conversion
+        (0x68, _) => match rs2 {
+            0x00 => Instruction::FcvtSW(operand),
+            0x01 => Instruction::FcvtSWu(operand),
+            0x02 => Instruction::FcvtSL(operand),
+            0x03 => Instruction::FcvtSLu(operand),
+            _ => Instruction::Illegal(insn),
+        },
+
+        // Move/classify
+        (0x70, 0x0) if rs2 == 0 => Instruction::FmvXW(operand),
+        (0x70, 0x1) if rs2 == 0 => Instruction::FclassS(operand),
+        (0x78, 0x0) if rs2 == 0 => Instruction::FmvWX(operand),
+
+        _ => Instruction::Illegal(insn),
+    }
 }
