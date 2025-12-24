@@ -1,6 +1,6 @@
 use std::i64;
 
-use crate::decode_old::{Instruction, Opcode};
+use crate::decode::{Instruction, decode};
 use crate::trace::{MemOp, Tracer};
 use crate::{
     VM, is_snan_f32, is_snan_f64,
@@ -9,51 +9,51 @@ use crate::{
 
 // TODO consider cleaning up sext logic
 impl<T: Tracer> VM<T> {
-    pub(crate) fn execute_instruction(&mut self, insn: Instruction) {
-        match insn.opcode {
+    pub(crate) fn execute_instruction(&mut self, insn: u32) {
+        match decode(insn) {
             // Register Opcodes
-            Opcode::Add => {
+            Instruction::Add(insn) => {
                 let result = self.reg(insn.rs1).wrapping_add(self.reg(insn.rs2));
                 self.write_rd(insn.rd, result);
             }
 
-            Opcode::Sub => {
+            Instruction::Sub(insn) => {
                 let result = self.reg(insn.rs1).wrapping_sub(self.reg(insn.rs2));
                 self.write_rd(insn.rd, result);
             }
 
-            Opcode::Xor => {
+            Instruction::Xor(insn) => {
                 let result = self.reg(insn.rs1) ^ self.reg(insn.rs2);
                 self.write_rd(insn.rd, result);
             }
 
-            Opcode::Or => {
+            Instruction::Or(insn) => {
                 let result = self.reg(insn.rs1) | self.reg(insn.rs2);
                 self.write_rd(insn.rd, result);
             }
 
-            Opcode::And => {
+            Instruction::And(insn) => {
                 let result = self.reg(insn.rs1) & self.reg(insn.rs2);
                 self.write_rd(insn.rd, result);
             }
 
-            Opcode::Sll => {
+            Instruction::Sll(insn) => {
                 let result = self.reg(insn.rs1) << (self.reg(insn.rs2) & mask(6));
                 self.write_rd(insn.rd, result);
             }
 
-            Opcode::Srl => {
+            Instruction::Srl(insn) => {
                 let result = self.reg(insn.rs1) >> (self.reg(insn.rs2) & mask(6));
                 self.write_rd(insn.rd, result);
             }
 
-            Opcode::Sra => {
+            Instruction::Sra(insn) => {
                 let val = self.reg(insn.rs1) as i64;
                 let result = (val >> (self.reg(insn.rs2) & mask(6))) as u64;
                 self.write_rd(insn.rd, result);
             }
 
-            Opcode::Slt => {
+            Instruction::Slt(insn) => {
                 let result = if (self.reg(insn.rs1) as i64) < (self.reg(insn.rs2) as i64) {
                     1
                 } else {
@@ -62,7 +62,7 @@ impl<T: Tracer> VM<T> {
                 self.write_rd(insn.rd, result);
             }
 
-            Opcode::Sltu => {
+            Instruction::Sltu(insn) => {
                 let result = if self.reg(insn.rs1) < self.reg(insn.rs2) {
                     1
                 } else {
@@ -72,44 +72,44 @@ impl<T: Tracer> VM<T> {
             }
 
             // Immediate Opcodes
-            Opcode::Addi => {
+            Instruction::Addi(insn) => {
                 let result = self.reg(insn.rs1).wrapping_add(insn.imm);
                 self.write_rd(insn.rd, result);
             }
 
-            Opcode::Xori => {
+            Instruction::Xori(insn) => {
                 let result = self.reg(insn.rs1) ^ insn.imm;
                 self.write_rd(insn.rd, result);
             }
 
-            Opcode::Ori => {
+            Instruction::Ori(insn) => {
                 let result = self.reg(insn.rs1) | insn.imm;
                 self.write_rd(insn.rd, result);
             }
 
-            Opcode::Andi => {
+            Instruction::Andi(insn) => {
                 let result = self.reg(insn.rs1) & insn.imm;
                 self.write_rd(insn.rd, result);
             }
 
-            Opcode::Slli => {
+            Instruction::Slli(insn) => {
                 let result = self.reg(insn.rs1) << insn.imm;
                 self.write_rd(insn.rd, result);
             }
 
-            Opcode::Srli => {
+            Instruction::Srli(insn) => {
                 let result = self.reg(insn.rs1) >> (insn.imm & mask(6));
                 self.write_rd(insn.rd, result);
             }
 
-            Opcode::Srai => {
+            Instruction::Srai(insn) => {
                 let shift = insn.imm & mask(6);
                 let val = self.reg(insn.rs1) as i64;
                 let result = (val >> shift) as u64;
                 self.write_rd(insn.rd, result);
             }
 
-            Opcode::Slti => {
+            Instruction::Slti(insn) => {
                 let result = if (self.reg(insn.rs1) as i64) < (insn.imm as i64) {
                     1
                 } else {
@@ -118,13 +118,13 @@ impl<T: Tracer> VM<T> {
                 self.write_rd(insn.rd, result);
             }
 
-            Opcode::Sltiu => {
+            Instruction::Sltiu(insn) => {
                 let result = if self.reg(insn.rs1) < insn.imm { 1 } else { 0 };
                 self.write_rd(insn.rd, result);
             }
 
             // Load Opcodes
-            Opcode::Lb => {
+            Instruction::Lb(insn) => {
                 let addr = self.reg(insn.rs1).wrapping_add(insn.imm);
                 let raw_value = self.mem(addr as usize) & mask(8);
                 let result = sext(raw_value, 8);
@@ -136,7 +136,7 @@ impl<T: Tracer> VM<T> {
                 self.write_rd(insn.rd, result);
             }
 
-            Opcode::Lbu => {
+            Instruction::Lbu(insn) => {
                 let addr = self.reg(insn.rs1).wrapping_add(insn.imm);
                 let result = self.mem(addr as usize) & mask(8);
                 self.tracer.record_mem_op(MemOp::LoadByte {
@@ -147,7 +147,7 @@ impl<T: Tracer> VM<T> {
                 self.write_rd(insn.rd, result);
             }
 
-            Opcode::Lh => {
+            Instruction::Lh(insn) => {
                 let addr = self.reg(insn.rs1).wrapping_add(insn.imm);
                 let raw_value = self.mem(addr as usize) & mask(16);
                 let result = sext(raw_value, 16);
@@ -159,7 +159,7 @@ impl<T: Tracer> VM<T> {
                 self.write_rd(insn.rd, result);
             }
 
-            Opcode::Lhu => {
+            Instruction::Lhu(insn) => {
                 let addr = self.reg(insn.rs1).wrapping_add(insn.imm);
                 let result = self.mem(addr as usize) & mask(16);
                 self.tracer.record_mem_op(MemOp::LoadHalf {
@@ -170,7 +170,7 @@ impl<T: Tracer> VM<T> {
                 self.write_rd(insn.rd, result);
             }
 
-            Opcode::Lw => {
+            Instruction::Lw(insn) => {
                 let addr = self.reg(insn.rs1).wrapping_add(insn.imm);
                 let raw_value = self.mem(addr as usize) & mask(32);
                 let result = sext(raw_value, 32);
@@ -182,7 +182,7 @@ impl<T: Tracer> VM<T> {
                 self.write_rd(insn.rd, result);
             }
 
-            Opcode::Lwu => {
+            Instruction::Lwu(insn) => {
                 let addr = self.reg(insn.rs1).wrapping_add(insn.imm);
                 let result = self.mem(addr as usize) & mask(32);
                 self.tracer.record_mem_op(MemOp::LoadWord {
@@ -193,7 +193,7 @@ impl<T: Tracer> VM<T> {
                 self.write_rd(insn.rd, result);
             }
 
-            Opcode::Ld => {
+            Instruction::Ld(insn) => {
                 let addr = self.reg(insn.rs1).wrapping_add(insn.imm);
                 let result = self.mem(addr as usize);
                 self.tracer.record_mem_op(MemOp::LoadDouble {
@@ -204,7 +204,7 @@ impl<T: Tracer> VM<T> {
             }
 
             // Store Opcodes
-            Opcode::Sb => {
+            Instruction::Sb(insn) => {
                 let addr = self.reg(insn.rs1).wrapping_add(insn.imm);
                 let value = self.reg(insn.rs2) & mask(8);
                 *self.mem_mut(addr as usize) = value as u8;
@@ -214,7 +214,7 @@ impl<T: Tracer> VM<T> {
                 });
             }
 
-            Opcode::Sh => {
+            Instruction::Sh(insn) => {
                 let addr = self.reg(insn.rs1).wrapping_add(insn.imm);
                 let value = self.reg(insn.rs2) & mask(16);
                 for i in 0..2 {
@@ -226,7 +226,7 @@ impl<T: Tracer> VM<T> {
                 });
             }
 
-            Opcode::Sw => {
+            Instruction::Sw(insn) => {
                 let addr = self.reg(insn.rs1).wrapping_add(insn.imm);
                 let value = self.reg(insn.rs2) & mask(32);
                 for i in 0..4 {
@@ -238,7 +238,7 @@ impl<T: Tracer> VM<T> {
                 });
             }
 
-            Opcode::Sd => {
+            Instruction::Sd(insn) => {
                 let addr = self.reg(insn.rs1).wrapping_add(insn.imm);
                 let value = self.reg(insn.rs2);
                 for i in 0..8 {
@@ -249,42 +249,42 @@ impl<T: Tracer> VM<T> {
             }
 
             // Branch Opcodes
-            Opcode::Beq => {
+            Instruction::Beq(insn) => {
                 if self.reg(insn.rs1) == self.reg(insn.rs2) {
                     self.pc = self.pc.wrapping_add(insn.imm);
                     return;
                 }
             }
 
-            Opcode::Bne => {
+            Instruction::Bne(insn) => {
                 if self.reg(insn.rs1) != self.reg(insn.rs2) {
                     self.pc = self.pc.wrapping_add(insn.imm);
                     return;
                 }
             }
 
-            Opcode::Blt => {
+            Instruction::Blt(insn) => {
                 if (self.reg(insn.rs1) as i64) < (self.reg(insn.rs2) as i64) {
                     self.pc = self.pc.wrapping_add(insn.imm);
                     return;
                 }
             }
 
-            Opcode::Bltu => {
+            Instruction::Bltu(insn) => {
                 if self.reg(insn.rs1) < self.reg(insn.rs2) {
                     self.pc = self.pc.wrapping_add(insn.imm);
                     return;
                 }
             }
 
-            Opcode::Bge => {
+            Instruction::Bge(insn) => {
                 if (self.reg(insn.rs1) as i64) >= (self.reg(insn.rs2) as i64) {
                     self.pc = self.pc.wrapping_add(insn.imm);
                     return;
                 }
             }
 
-            Opcode::Bgeu => {
+            Instruction::Bgeu(insn) => {
                 if self.reg(insn.rs1) >= self.reg(insn.rs2) {
                     self.pc = self.pc.wrapping_add(insn.imm);
                     return;
@@ -292,14 +292,14 @@ impl<T: Tracer> VM<T> {
             }
 
             // Jump opcodes
-            Opcode::Jal => {
+            Instruction::Jal(insn) => {
                 let result = self.pc.wrapping_add(4);
                 self.write_rd(insn.rd, result);
                 self.pc = self.pc.wrapping_add(insn.imm);
                 return;
             }
 
-            Opcode::Jalr => {
+            Instruction::Jalr(insn) => {
                 let target = self.reg(insn.rs1).wrapping_add(insn.imm);
                 let result = self.pc.wrapping_add(4);
                 self.write_rd(insn.rd, result);
@@ -308,41 +308,41 @@ impl<T: Tracer> VM<T> {
             }
 
             // Lui and Auipc
-            Opcode::Lui => {
+            Instruction::Lui(insn) => {
                 self.write_rd(insn.rd, insn.imm);
             }
 
-            Opcode::Auipc => {
+            Instruction::Auipc(insn) => {
                 let result = self.pc.wrapping_add(insn.imm);
                 self.write_rd(insn.rd, result);
             }
 
             // RV64I Instructions
-            Opcode::Addiw => {
+            Instruction::Addiw(insn) => {
                 let res = self.reg(insn.rs1).wrapping_add(insn.imm) & mask(32);
                 let result = sext(res, 32);
                 self.write_rd(insn.rd, result);
             }
 
-            Opcode::Slliw => {
+            Instruction::Slliw(insn) => {
                 let val = self.reg(insn.rs1) << (insn.imm & mask(5));
                 let result = sext(val & mask(32), 32);
                 self.write_rd(insn.rd, result);
             }
 
-            Opcode::Srliw => {
+            Instruction::Srliw(insn) => {
                 let result = sext((self.reg(insn.rs1) & mask(32)) >> insn.imm, 32);
                 self.write_rd(insn.rd, result);
             }
 
-            Opcode::Sraiw => {
+            Instruction::Sraiw(insn) => {
                 let shift = (insn.imm & mask(5)) as i32;
                 let a = (self.reg(insn.rs1) & mask(32)) as i32;
                 let result = (a >> shift) as i64 as u64;
                 self.write_rd(insn.rd, result);
             }
 
-            Opcode::Addw => {
+            Instruction::Addw(insn) => {
                 let result = sext(
                     self.reg(insn.rs1).wrapping_add(self.reg(insn.rs2)) & mask(32),
                     32,
@@ -350,28 +350,28 @@ impl<T: Tracer> VM<T> {
                 self.write_rd(insn.rd, result);
             }
 
-            Opcode::Subw => {
+            Instruction::Subw(insn) => {
                 let a = self.reg(insn.rs1) as i32;
                 let b = self.reg(insn.rs2) as i32;
                 let result = a.wrapping_sub(b) as i64 as u64;
                 self.write_rd(insn.rd, result);
             }
 
-            Opcode::Sllw => {
+            Instruction::Sllw(insn) => {
                 let a = self.reg(insn.rs1);
                 let shift = self.reg(insn.rs2) & mask(5);
                 let result = sext((a << shift) & mask(32), 32);
                 self.write_rd(insn.rd, result);
             }
 
-            Opcode::Srlw => {
+            Instruction::Srlw(insn) => {
                 let a = self.reg(insn.rs1) & mask(32);
                 let shift = self.reg(insn.rs2) & mask(5);
                 let result = sext(a >> shift, 32);
                 self.write_rd(insn.rd, result);
             }
 
-            Opcode::Sraw => {
+            Instruction::Sraw(insn) => {
                 let a = (self.reg(insn.rs1) & mask(32)) as i32;
                 let shift = self.reg(insn.rs2) & mask(5);
                 let result = (a >> shift) as i64 as u64;
@@ -379,7 +379,7 @@ impl<T: Tracer> VM<T> {
             }
 
             // M Extension - Multiplication
-            Opcode::Mul => {
+            Instruction::Mul(insn) => {
                 let a = self.reg(insn.rs1) as i64;
                 let b = self.reg(insn.rs2) as i64;
                 let full = (a as i128).wrapping_mul(b as i128);
@@ -388,7 +388,7 @@ impl<T: Tracer> VM<T> {
                 self.write_rd(insn.rd, result);
             }
 
-            Opcode::Mulh => {
+            Instruction::Mulh(insn) => {
                 let a = (self.reg(insn.rs1) as i64) as i128;
                 let b = (self.reg(insn.rs2) as i64) as i128;
                 let full = a.wrapping_mul(b);
@@ -398,7 +398,7 @@ impl<T: Tracer> VM<T> {
                 self.write_rd(insn.rd, hi);
             }
 
-            Opcode::Mulhsu => {
+            Instruction::Mulhsu(insn) => {
                 let a = (self.reg(insn.rs1) as i64) as i128;
                 let b = (self.reg(insn.rs2) as u128) as i128;
                 let full = a.wrapping_mul(b);
@@ -408,7 +408,7 @@ impl<T: Tracer> VM<T> {
                 self.write_rd(insn.rd, hi);
             }
 
-            Opcode::Mulhu => {
+            Instruction::Mulhu(insn) => {
                 let a = self.reg(insn.rs1) as u128;
                 let b = self.reg(insn.rs2) as u128;
                 let full = a.wrapping_mul(b);
@@ -418,7 +418,7 @@ impl<T: Tracer> VM<T> {
                 self.write_rd(insn.rd, hi);
             }
 
-            Opcode::Mulw => {
+            Instruction::Mulw(insn) => {
                 let a = self.reg(insn.rs1);
                 let b = self.reg(insn.rs2);
                 let product = a.wrapping_mul(b);
@@ -428,7 +428,7 @@ impl<T: Tracer> VM<T> {
             }
 
             // M Extension - Division
-            Opcode::Div => {
+            Instruction::Div(insn) => {
                 let dividend = self.reg(insn.rs1) as i64;
                 let divisor = self.reg(insn.rs2) as i64;
                 let result = if divisor == 0 {
@@ -441,7 +441,7 @@ impl<T: Tracer> VM<T> {
                 self.write_rd(insn.rd, result);
             }
 
-            Opcode::Divu => {
+            Instruction::Divu(insn) => {
                 let dividend = self.reg(insn.rs1);
                 let divisor = self.reg(insn.rs2);
                 let result = if divisor == 0 {
@@ -452,7 +452,7 @@ impl<T: Tracer> VM<T> {
                 self.write_rd(insn.rd, result);
             }
 
-            Opcode::Rem => {
+            Instruction::Rem(insn) => {
                 let dividend = self.reg(insn.rs1) as i64;
                 let divisor = self.reg(insn.rs2) as i64;
                 let result = if divisor == 0 {
@@ -465,7 +465,7 @@ impl<T: Tracer> VM<T> {
                 self.write_rd(insn.rd, result);
             }
 
-            Opcode::Remu => {
+            Instruction::Remu(insn) => {
                 let dividend = self.reg(insn.rs1);
                 let divisor = self.reg(insn.rs2);
                 let result = if divisor == 0 {
@@ -476,7 +476,7 @@ impl<T: Tracer> VM<T> {
                 self.write_rd(insn.rd, result);
             }
 
-            Opcode::Divw => {
+            Instruction::Divw(insn) => {
                 let dividend = (self.reg(insn.rs1) & mask(32)) as i32;
                 let divisor = (self.reg(insn.rs2) & mask(32)) as i32;
                 let result = if divisor == 0 {
@@ -489,7 +489,7 @@ impl<T: Tracer> VM<T> {
                 self.write_rd(insn.rd, result);
             }
 
-            Opcode::Divuw => {
+            Instruction::Divuw(insn) => {
                 let dividend = (self.reg(insn.rs1) & mask(32)) as u32;
                 let divisor = (self.reg(insn.rs2) & mask(32)) as u32;
                 let result = if divisor == 0 {
@@ -500,7 +500,7 @@ impl<T: Tracer> VM<T> {
                 self.write_rd(insn.rd, result);
             }
 
-            Opcode::Remw => {
+            Instruction::Remw(insn) => {
                 let dividend = (self.reg(insn.rs1) & mask(32)) as i32;
                 let divisor = (self.reg(insn.rs2) & mask(32)) as i32;
                 let result = if divisor == 0 {
@@ -513,7 +513,7 @@ impl<T: Tracer> VM<T> {
                 self.write_rd(insn.rd, result);
             }
 
-            Opcode::Remuw => {
+            Instruction::Remuw(insn) => {
                 let dividend = (self.reg(insn.rs1) & mask(32)) as u32;
                 let divisor = (self.reg(insn.rs2) & mask(32)) as u32;
                 let result = if divisor == 0 {
@@ -525,7 +525,7 @@ impl<T: Tracer> VM<T> {
             }
 
             // A Extension - Load Reserved / Store Conditional
-            Opcode::LrW => {
+            Instruction::LrW(insn) => {
                 let addr = self.reg(insn.rs1);
                 let value = self.mem(addr as usize) & mask(32);
                 let result = sext(value, 32);
@@ -538,7 +538,7 @@ impl<T: Tracer> VM<T> {
                 self.write_rd(insn.rd, result);
             }
 
-            Opcode::LrD => {
+            Instruction::LrD(insn) => {
                 let addr = self.reg(insn.rs1);
                 let value = self.mem(addr as usize);
                 self.reservation_set = addr;
@@ -548,7 +548,7 @@ impl<T: Tracer> VM<T> {
                 self.write_rd(insn.rd, value);
             }
 
-            Opcode::ScW => {
+            Instruction::ScW(insn) => {
                 let addr = self.reg(insn.rs1);
                 let value = self.reg(insn.rs2) & mask(32);
                 let success = addr == self.reservation_set;
@@ -567,7 +567,7 @@ impl<T: Tracer> VM<T> {
                 self.write_rd(insn.rd, result);
             }
 
-            Opcode::ScD => {
+            Instruction::ScD(insn) => {
                 let addr = self.reg(insn.rs1);
                 let value = self.reg(insn.rs2);
                 let success = addr == self.reservation_set;
@@ -587,7 +587,7 @@ impl<T: Tracer> VM<T> {
             }
 
             // A Extension - Atomic Memory Operations (Word)
-            Opcode::AmoswapW => {
+            Instruction::AmoSwapW(insn) => {
                 let addr = self.reg(insn.rs1);
                 let read_value = self.mem(addr as usize) & mask(32);
                 let write_value = self.reg(insn.rs2) & mask(32);
@@ -602,7 +602,7 @@ impl<T: Tracer> VM<T> {
                 self.write_rd(insn.rd, sext(read_value, 32));
             }
 
-            Opcode::AmoaddW => {
+            Instruction::AmoAddW(insn) => {
                 let addr = self.reg(insn.rs1);
                 let read_value = (self.mem(addr as usize) & mask(32)) as i32;
                 let rs2_val = (self.reg(insn.rs2) & mask(32)) as i32;
@@ -618,7 +618,7 @@ impl<T: Tracer> VM<T> {
                 self.write_rd(insn.rd, (read_value as i64) as u64);
             }
 
-            Opcode::AmoxorW => {
+            Instruction::AmoXorW(insn) => {
                 let addr = self.reg(insn.rs1);
                 let read_value = (self.mem(addr as usize) & mask(32)) as i32;
                 let rs2_val = (self.reg(insn.rs2) & mask(32)) as i32;
@@ -634,7 +634,7 @@ impl<T: Tracer> VM<T> {
                 self.write_rd(insn.rd, (read_value as i64) as u64);
             }
 
-            Opcode::AmoandW => {
+            Instruction::AmoAndW(insn) => {
                 let addr = self.reg(insn.rs1);
                 let read_value = (self.mem(addr as usize) & mask(32)) as i32;
                 let rs2_val = (self.reg(insn.rs2) & mask(32)) as i32;
@@ -650,7 +650,7 @@ impl<T: Tracer> VM<T> {
                 self.write_rd(insn.rd, (read_value as i64) as u64);
             }
 
-            Opcode::AmoorW => {
+            Instruction::AmoOrW(insn) => {
                 let addr = self.reg(insn.rs1);
                 let read_value = (self.mem(addr as usize) & mask(32)) as i32;
                 let rs2_val = (self.reg(insn.rs2) & mask(32)) as i32;
@@ -666,7 +666,7 @@ impl<T: Tracer> VM<T> {
                 self.write_rd(insn.rd, (read_value as i64) as u64);
             }
 
-            Opcode::AmominW => {
+            Instruction::AmoMinW(insn) => {
                 let addr = self.reg(insn.rs1);
                 let read_value = (self.mem(addr as usize) & mask(32)) as i32;
                 let rs2_val = (self.reg(insn.rs2) & mask(32)) as i32;
@@ -682,7 +682,7 @@ impl<T: Tracer> VM<T> {
                 self.write_rd(insn.rd, (read_value as i64) as u64);
             }
 
-            Opcode::AmomaxW => {
+            Instruction::AmoMaxW(insn) => {
                 let addr = self.reg(insn.rs1);
                 let read_value = (self.mem(addr as usize) & mask(32)) as i32;
                 let rs2_val = (self.reg(insn.rs2) & mask(32)) as i32;
@@ -698,7 +698,7 @@ impl<T: Tracer> VM<T> {
                 self.write_rd(insn.rd, (read_value as i64) as u64);
             }
 
-            Opcode::AmominuW => {
+            Instruction::AmoMinuW(insn) => {
                 let addr = self.reg(insn.rs1);
                 let read_value = self.mem(addr as usize) & mask(32);
                 let rs2_val = self.reg(insn.rs2) & mask(32);
@@ -714,7 +714,7 @@ impl<T: Tracer> VM<T> {
                 self.write_rd(insn.rd, sext(read_value, 32));
             }
 
-            Opcode::AmomaxuW => {
+            Instruction::AmoMaxuW(insn) => {
                 let addr = self.reg(insn.rs1);
                 let read_value = self.mem(addr as usize) & mask(32);
                 let rs2_val = self.reg(insn.rs2) & mask(32);
@@ -731,7 +731,7 @@ impl<T: Tracer> VM<T> {
             }
 
             // A Extension - Atomic Memory Operations (Double)
-            Opcode::AmoswapD => {
+            Instruction::AmoSwapD(insn) => {
                 let addr = self.reg(insn.rs1);
                 let read_value = self.mem(addr as usize);
                 let write_value = self.reg(insn.rs2);
@@ -746,7 +746,7 @@ impl<T: Tracer> VM<T> {
                 self.write_rd(insn.rd, read_value);
             }
 
-            Opcode::AmoaddD => {
+            Instruction::AmoAddD(insn) => {
                 let addr = self.reg(insn.rs1);
                 let read_value = self.mem(addr as usize);
                 let rs2_val = self.reg(insn.rs2);
@@ -762,7 +762,7 @@ impl<T: Tracer> VM<T> {
                 self.write_rd(insn.rd, read_value);
             }
 
-            Opcode::AmoxorD => {
+            Instruction::AmoXorD(insn) => {
                 let addr = self.reg(insn.rs1);
                 let read_value = self.mem(addr as usize);
                 let rs2_val = self.reg(insn.rs2);
@@ -778,7 +778,7 @@ impl<T: Tracer> VM<T> {
                 self.write_rd(insn.rd, read_value);
             }
 
-            Opcode::AmoandD => {
+            Instruction::AmoAndD(insn) => {
                 let addr = self.reg(insn.rs1);
                 let read_value = self.mem(addr as usize);
                 let rs2_val = self.reg(insn.rs2);
@@ -794,7 +794,7 @@ impl<T: Tracer> VM<T> {
                 self.write_rd(insn.rd, read_value);
             }
 
-            Opcode::AmoorD => {
+            Instruction::AmoOrD(insn) => {
                 let addr = self.reg(insn.rs1);
                 let read_value = self.mem(addr as usize);
                 let rs2_val = self.reg(insn.rs2);
@@ -810,7 +810,7 @@ impl<T: Tracer> VM<T> {
                 self.write_rd(insn.rd, read_value);
             }
 
-            Opcode::AmominD => {
+            Instruction::AmoMinD(insn) => {
                 let addr = self.reg(insn.rs1);
                 let read_value = self.mem(addr as usize);
                 let rs2_val = self.reg(insn.rs2) as i64;
@@ -826,7 +826,7 @@ impl<T: Tracer> VM<T> {
                 self.write_rd(insn.rd, read_value);
             }
 
-            Opcode::AmomaxD => {
+            Instruction::AmoMaxD(insn) => {
                 let addr = self.reg(insn.rs1);
                 let read_value = self.mem(addr as usize);
                 let rs2_val = self.reg(insn.rs2) as i64;
@@ -842,7 +842,7 @@ impl<T: Tracer> VM<T> {
                 self.write_rd(insn.rd, read_value);
             }
 
-            Opcode::AmominuD => {
+            Instruction::AmoMinuD(insn) => {
                 let addr = self.reg(insn.rs1);
                 let read_value = self.mem(addr as usize);
                 let rs2_val = self.reg(insn.rs2);
@@ -858,7 +858,7 @@ impl<T: Tracer> VM<T> {
                 self.write_rd(insn.rd, read_value);
             }
 
-            Opcode::AmomaxuD => {
+            Instruction::AmoMaxuD(insn) => {
                 let addr = self.reg(insn.rs1);
                 let read_value = self.mem(addr as usize);
                 let rs2_val = self.reg(insn.rs2);
@@ -875,7 +875,7 @@ impl<T: Tracer> VM<T> {
             }
 
             // F instructions
-            Opcode::FmaddS => {
+            Instruction::FmaddS(insn) => {
                 let a = self.read_f32(insn.rs1);
                 let b = self.read_f32(insn.rs2);
                 let c = self.read_f32(insn.rs3);
@@ -890,7 +890,7 @@ impl<T: Tracer> VM<T> {
                 self.raise_fflags_fma_f32(a, b, c, res);
             }
 
-            Opcode::FmsubS => {
+            Instruction::FmsubS(insn) => {
                 let a = self.read_f32(insn.rs1);
                 let b = self.read_f32(insn.rs2);
                 let c = self.read_f32(insn.rs3);
@@ -899,7 +899,7 @@ impl<T: Tracer> VM<T> {
                 self.raise_fflags_fma_f32(a, b, -c, res);
             }
 
-            Opcode::FnmsubS => {
+            Instruction::FnmsubS(insn) => {
                 let a = self.read_f32(insn.rs1);
                 let b = self.read_f32(insn.rs2);
                 let c = self.read_f32(insn.rs3);
@@ -908,7 +908,7 @@ impl<T: Tracer> VM<T> {
                 self.raise_fflags_fma_f32(-a, b, c, res);
             }
 
-            Opcode::FnmaddS => {
+            Instruction::FnmaddS(insn) => {
                 let a = self.read_f32(insn.rs1);
                 let b = self.read_f32(insn.rs2);
                 let c = self.read_f32(insn.rs3);
@@ -917,7 +917,7 @@ impl<T: Tracer> VM<T> {
                 self.raise_fflags_fma_f32(-a, b, -c, res);
             }
 
-            Opcode::FaddS => {
+            Instruction::FaddS(insn) => {
                 let a = self.read_f32(insn.rs1);
                 let b = self.read_f32(insn.rs2);
                 let mut res = a + b;
@@ -931,7 +931,7 @@ impl<T: Tracer> VM<T> {
                 self.raise_fflags_f32(a, b, res, '+');
             }
 
-            Opcode::FsubS => {
+            Instruction::FsubS(insn) => {
                 let a = self.read_f32(insn.rs1);
                 let b = self.read_f32(insn.rs2);
                 let mut res = a - b;
@@ -945,7 +945,7 @@ impl<T: Tracer> VM<T> {
                 self.raise_fflags_f32(a, b, res, '-');
             }
 
-            Opcode::FmulS => {
+            Instruction::FmulS(insn) => {
                 let a = self.read_f32(insn.rs1);
                 let b = self.read_f32(insn.rs2);
                 let mut res = a * b;
@@ -959,7 +959,7 @@ impl<T: Tracer> VM<T> {
                 self.raise_fflags_f32(a, b, res, '*');
             }
 
-            Opcode::FdivS => {
+            Instruction::FdivS(insn) => {
                 let a = self.read_f32(insn.rs1);
                 let b = self.read_f32(insn.rs2);
                 let mut res = a / b;
@@ -973,7 +973,7 @@ impl<T: Tracer> VM<T> {
                 self.raise_fflags_f32(a, b, res, '/');
             }
 
-            Opcode::FsqrtS => {
+            Instruction::FsqrtS(insn) => {
                 let a = self.read_f32(insn.rs1);
 
                 if is_snan_f32(a) || (a < 0.0 && !a.is_nan()) {
@@ -997,7 +997,7 @@ impl<T: Tracer> VM<T> {
                 self.write_f32(insn.rd, res);
             }
 
-            Opcode::FsgnjS => {
+            Instruction::FsgnjS(insn) => {
                 let rs1_bits = (self.f_reg[insn.rs1] & 0xFFFFFFFF) as u32;
                 let rs2_bits = (self.f_reg[insn.rs2] & 0xFFFFFFFF) as u32;
                 let sign = rs2_bits & (1 << 31);
@@ -1006,7 +1006,7 @@ impl<T: Tracer> VM<T> {
                 self.f_reg[insn.rd] = 0xFFFF_FFFF_0000_0000 | (result as u64);
             }
 
-            Opcode::FsgnjnS => {
+            Instruction::FsgnjnS(insn) => {
                 let rs1_bits = (self.f_reg[insn.rs1] & 0xFFFFFFFF) as u32;
                 let rs2_bits = (self.f_reg[insn.rs2] & 0xFFFFFFFF) as u32;
                 let sign = (rs2_bits ^ (1 << 31)) & (1 << 31);
@@ -1015,7 +1015,7 @@ impl<T: Tracer> VM<T> {
                 self.f_reg[insn.rd] = 0xFFFF_FFFF_0000_0000 | (result as u64);
             }
 
-            Opcode::FsgnjxS => {
+            Instruction::FsgnjxS(insn) => {
                 let rs1_bits = (self.f_reg[insn.rs1] & 0xFFFFFFFF) as u32;
                 let rs2_bits = (self.f_reg[insn.rs2] & 0xFFFFFFFF) as u32;
                 let sign = (rs1_bits & (1 << 31)) ^ (rs2_bits & (1 << 31));
@@ -1024,7 +1024,7 @@ impl<T: Tracer> VM<T> {
                 self.f_reg[insn.rd] = 0xFFFF_FFFF_0000_0000 | (result as u64);
             }
 
-            Opcode::FminS => {
+            Instruction::FminS(insn) => {
                 let a = self.read_f32(insn.rs1);
                 let b = self.read_f32(insn.rs2);
 
@@ -1048,7 +1048,7 @@ impl<T: Tracer> VM<T> {
                 self.write_f32(insn.rd, res);
             }
 
-            Opcode::FmaxS => {
+            Instruction::FmaxS(insn) => {
                 let a = self.read_f32(insn.rs1);
                 let b = self.read_f32(insn.rs2);
 
@@ -1072,7 +1072,7 @@ impl<T: Tracer> VM<T> {
                 self.write_f32(insn.rd, res);
             }
 
-            Opcode::FcvtWS => {
+            Instruction::FcvtWS(insn) => {
                 let val = self.read_f32(insn.rs1);
 
                 let (result, flags): (i32, u32) = if val.is_nan() {
@@ -1091,7 +1091,7 @@ impl<T: Tracer> VM<T> {
                 *self.reg_mut(insn.rd) = (result as i64) as u64;
             }
 
-            Opcode::FcvtWuS => {
+            Instruction::FcvtWuS(insn) => {
                 let val = self.read_f32(insn.rs1);
 
                 let (result, flags): (u32, u32) = if val.is_nan() {
@@ -1115,14 +1115,14 @@ impl<T: Tracer> VM<T> {
                 *self.reg_mut(insn.rd) = (result as i32) as i64 as u64;
             }
 
-            Opcode::FmvXW => {
+            Instruction::FmvXW(insn) => {
                 let raw_bits = (self.f_reg[insn.rs1] & 0xFFFFFFFF) as u32;
                 let result = sext(raw_bits as u64, 32);
 
                 *self.reg_mut(insn.rd) = result;
             }
 
-            Opcode::FeqS => {
+            Instruction::FeqS(insn) => {
                 let a = self.read_f32(insn.rs1);
                 let b = self.read_f32(insn.rs2);
 
@@ -1138,7 +1138,7 @@ impl<T: Tracer> VM<T> {
                 };
             }
 
-            Opcode::FltS => {
+            Instruction::FltS(insn) => {
                 let a = self.read_f32(insn.rs1);
                 let b = self.read_f32(insn.rs2);
 
@@ -1151,7 +1151,7 @@ impl<T: Tracer> VM<T> {
                 }
             }
 
-            Opcode::FleS => {
+            Instruction::FleS(insn) => {
                 let a = self.read_f32(insn.rs1);
                 let b = self.read_f32(insn.rs2);
 
@@ -1163,28 +1163,27 @@ impl<T: Tracer> VM<T> {
                     *self.reg_mut(insn.rd) = (a <= b) as u64;
                 }
             }
-
-            Opcode::FclassS => {
+            Instruction::FclassS(insn) => {
                 let val = classify32(self.read_f32(insn.rs1).to_bits());
                 *self.reg_mut(insn.rd) = val;
             }
 
-            Opcode::FcvtSW => {
+            Instruction::FcvtSW(insn) => {
                 let a = (self.reg(insn.rs1) as i32) as f32;
                 self.write_f32(insn.rd, a);
             }
 
-            Opcode::FcvtSWu => {
+            Instruction::FcvtSWu(insn) => {
                 let a = (self.reg(insn.rs1) as u32) as f32;
                 self.write_f32(insn.rd, a);
             }
 
-            Opcode::FmvWX => {
+            Instruction::FmvWX(insn) => {
                 let a = f32::from_bits(self.reg(insn.rs1) as u32);
                 self.write_f32(insn.rd, a);
             }
 
-            Opcode::FmaddD => {
+            Instruction::FmaddD(insn) => {
                 let a = self.read_f64(insn.rs1);
                 let b = self.read_f64(insn.rs2);
                 let c = self.read_f64(insn.rs3);
@@ -1193,7 +1192,7 @@ impl<T: Tracer> VM<T> {
                 self.raise_fflags_fma_f64(a, b, c, res);
             }
 
-            Opcode::FmsubD => {
+            Instruction::FmsubD(insn) => {
                 let a = self.read_f64(insn.rs1);
                 let b = self.read_f64(insn.rs2);
                 let c = self.read_f64(insn.rs3);
@@ -1202,7 +1201,7 @@ impl<T: Tracer> VM<T> {
                 self.raise_fflags_fma_f64(a, b, -c, res);
             }
 
-            Opcode::FnmsubD => {
+            Instruction::FnmsubD(insn) => {
                 let a = self.read_f64(insn.rs1);
                 let b = self.read_f64(insn.rs2);
                 let c = self.read_f64(insn.rs3);
@@ -1211,7 +1210,7 @@ impl<T: Tracer> VM<T> {
                 self.raise_fflags_fma_f64(-a, b, c, res);
             }
 
-            Opcode::FnmaddD => {
+            Instruction::FnmaddD(insn) => {
                 let a = self.read_f64(insn.rs1);
                 let b = self.read_f64(insn.rs2);
                 let c = self.read_f64(insn.rs3);
@@ -1220,7 +1219,7 @@ impl<T: Tracer> VM<T> {
                 self.raise_fflags_fma_f64(-a, b, -c, res);
             }
 
-            Opcode::FaddD => {
+            Instruction::FaddD(insn) => {
                 let a = self.read_f64(insn.rs1);
                 let b = self.read_f64(insn.rs2);
                 let mut res = a + b;
@@ -1233,7 +1232,7 @@ impl<T: Tracer> VM<T> {
                 self.raise_fflags_f64(a, b, res, '+');
             }
 
-            Opcode::FsubD => {
+            Instruction::FsubD(insn) => {
                 let a = self.read_f64(insn.rs1);
                 let b = self.read_f64(insn.rs2);
                 let mut res = a - b;
@@ -1246,7 +1245,7 @@ impl<T: Tracer> VM<T> {
                 self.raise_fflags_f64(a, b, res, '-');
             }
 
-            Opcode::FmulD => {
+            Instruction::FmulD(insn) => {
                 let a = self.read_f64(insn.rs1);
                 let b = self.read_f64(insn.rs2);
                 let mut res = a * b;
@@ -1259,7 +1258,7 @@ impl<T: Tracer> VM<T> {
                 self.raise_fflags_f64(a, b, res, '*');
             }
 
-            Opcode::FdivD => {
+            Instruction::FdivD(insn) => {
                 let a = self.read_f64(insn.rs1);
                 let b = self.read_f64(insn.rs2);
                 let mut res = a / b;
@@ -1272,7 +1271,7 @@ impl<T: Tracer> VM<T> {
                 self.raise_fflags_f64(a, b, res, '/');
             }
 
-            Opcode::FsqrtD => {
+            Instruction::FsqrtD(insn) => {
                 let a = self.read_f64(insn.rs1);
 
                 if is_snan_f64(a) || (a < 0.0 && !a.is_nan()) {
@@ -1288,21 +1287,21 @@ impl<T: Tracer> VM<T> {
                 self.write_f64(insn.rd, res);
             }
 
-            Opcode::FsgnjD => {
+            Instruction::FsgnjD(insn) => {
                 let sign = self.read_f64(insn.rs2).to_bits() & (1 << 63);
                 let val = self.read_f64(insn.rs1).to_bits() & mask(63);
                 let res = f64::from_bits(sign | val);
                 self.write_f64(insn.rd, res);
             }
 
-            Opcode::FsgnjnD => {
+            Instruction::FsgnjnD(insn) => {
                 let sign = (self.read_f64(insn.rs2).to_bits() ^ (1 << 63)) & (1 << 63);
                 let val = self.read_f64(insn.rs1).to_bits() & mask(63);
                 let res = f64::from_bits(sign | val);
                 self.write_f64(insn.rd, res);
             }
 
-            Opcode::FsgnjxD => {
+            Instruction::FsgnjxD(insn) => {
                 let sign = (self.read_f64(insn.rs1).to_bits() & (1 << 63))
                     ^ (self.read_f64(insn.rs2).to_bits() & (1 << 63));
                 let val = self.read_f64(insn.rs1).to_bits() & mask(63);
@@ -1310,7 +1309,7 @@ impl<T: Tracer> VM<T> {
                 self.write_f64(insn.rd, res);
             }
 
-            Opcode::FminD => {
+            Instruction::FminD(insn) => {
                 let a = self.read_f64(insn.rs1);
                 let b = self.read_f64(insn.rs2);
 
@@ -1336,7 +1335,7 @@ impl<T: Tracer> VM<T> {
                 self.write_f64(insn.rd, res);
             }
 
-            Opcode::FmaxD => {
+            Instruction::FmaxD(insn) => {
                 let a = self.read_f64(insn.rs1);
                 let b = self.read_f64(insn.rs2);
 
@@ -1362,7 +1361,7 @@ impl<T: Tracer> VM<T> {
                 self.write_f64(insn.rd, res);
             }
 
-            Opcode::FcvtSD => {
+            Instruction::FcvtSD(insn) => {
                 let a = self.read_f64(insn.rs1);
                 let res = a as f32;
 
@@ -1379,7 +1378,7 @@ impl<T: Tracer> VM<T> {
                 self.write_f32(insn.rd, res);
             }
 
-            Opcode::FcvtDS => {
+            Instruction::FcvtDS(insn) => {
                 let a = self.read_f32(insn.rs1);
 
                 // Set NV for sNaN
@@ -1391,7 +1390,7 @@ impl<T: Tracer> VM<T> {
                 self.write_f64(insn.rd, res);
             }
 
-            Opcode::FeqD => {
+            Instruction::FeqD(insn) => {
                 let a = self.read_f64(insn.rs1);
                 let b = self.read_f64(insn.rs2);
 
@@ -1406,7 +1405,7 @@ impl<T: Tracer> VM<T> {
                 };
             }
 
-            Opcode::FltD => {
+            Instruction::FltD(insn) => {
                 let a = self.read_f64(insn.rs1);
                 let b = self.read_f64(insn.rs2);
 
@@ -1418,7 +1417,7 @@ impl<T: Tracer> VM<T> {
                 }
             }
 
-            Opcode::FleD => {
+            Instruction::FleD(insn) => {
                 let a = self.read_f64(insn.rs1);
                 let b = self.read_f64(insn.rs2);
 
@@ -1430,12 +1429,12 @@ impl<T: Tracer> VM<T> {
                 }
             }
 
-            Opcode::FclassD => {
+            Instruction::FclassD(insn) => {
                 let val = classify64(self.read_f64(insn.rs1).to_bits());
                 *self.reg_mut(insn.rd) = val;
             }
 
-            Opcode::FcvtWD => {
+            Instruction::FcvtWD(insn) => {
                 let val = self.read_f64(insn.rs1);
 
                 let (result, flags): (i32, u32) = if val.is_nan() {
@@ -1455,7 +1454,7 @@ impl<T: Tracer> VM<T> {
                 *self.reg_mut(insn.rd) = (result as i64) as u64;
             }
 
-            Opcode::FcvtWuD => {
+            Instruction::FcvtWuD(insn) => {
                 let val = self.read_f64(insn.rs1);
 
                 let (result, flags): (u32, u32) = if val.is_nan() {
@@ -1477,41 +1476,41 @@ impl<T: Tracer> VM<T> {
                 *self.reg_mut(insn.rd) = (result as i32) as i64 as u64;
             }
 
-            Opcode::FcvtDW => {
+            Instruction::FcvtDW(insn) => {
                 let a = (self.reg(insn.rs1) as i32) as f64;
                 self.write_f64(insn.rd, a);
             }
 
-            Opcode::FcvtDWu => {
+            Instruction::FcvtDWu(insn) => {
                 let a = (self.reg(insn.rs1) as u32) as f64;
                 self.write_f64(insn.rd, a);
             }
 
-            Opcode::Flw => {
+            Instruction::Flw(insn) => {
                 let addr = (self.reg(insn.rs1).wrapping_add(insn.imm)) as usize;
                 let data = f32::from_bits(self.mem(addr) as u32);
                 self.write_f32(insn.rd, data);
             }
 
-            Opcode::Fsw => {
+            Instruction::Fsw(insn) => {
                 let addr = (self.reg(insn.rs1).wrapping_add(insn.imm)) as usize;
                 let data = self.read_f32(insn.rs2).to_bits().to_le_bytes();
                 self.write_bytes(addr, &data);
             }
 
-            Opcode::Fld => {
+            Instruction::Fld(insn) => {
                 let addr = (self.reg(insn.rs1).wrapping_add(insn.imm)) as usize;
                 let val = f64::from_bits(self.mem(addr));
                 self.write_f64(insn.rd, val);
             }
 
-            Opcode::Fsd => {
+            Instruction::Fsd(insn) => {
                 let data = self.read_f64(insn.rs2).to_le_bytes();
                 let addr = (self.reg(insn.rs1).wrapping_add(insn.imm)) as usize;
                 self.write_bytes(addr, &data);
             }
 
-            Opcode::FcvtLS => {
+            Instruction::FcvtLS(insn) => {
                 let val = self.read_f32(insn.rs1);
 
                 let (result, flags): (i64, u32) = if val.is_nan() {
@@ -1531,7 +1530,7 @@ impl<T: Tracer> VM<T> {
                 *self.reg_mut(insn.rd) = result as u64;
             }
 
-            Opcode::FcvtLuS => {
+            Instruction::FcvtLuS(insn) => {
                 let val = self.read_f32(insn.rs1);
 
                 let (result, flags): (u64, u32) = if val.is_nan() {
@@ -1553,17 +1552,17 @@ impl<T: Tracer> VM<T> {
                 *self.reg_mut(insn.rd) = result;
             }
 
-            Opcode::FcvtSL => {
+            Instruction::FcvtSL(insn) => {
                 let val = (self.reg(insn.rs1) as i64) as f32;
                 self.write_f32(insn.rd, val);
             }
 
-            Opcode::FcvtSLu => {
+            Instruction::FcvtSLu(insn) => {
                 let val = self.reg(insn.rs1) as f32;
                 self.write_f32(insn.rd, val);
             }
 
-            Opcode::FcvtLD => {
+            Instruction::FcvtLD(insn) => {
                 let val = self.read_f64(insn.rs1);
 
                 let (result, flags): (i64, u32) = if val.is_nan() {
@@ -1583,7 +1582,7 @@ impl<T: Tracer> VM<T> {
                 *self.reg_mut(insn.rd) = result as u64;
             }
 
-            Opcode::FcvtLuD => {
+            Instruction::FcvtLuD(insn) => {
                 let val = self.read_f64(insn.rs1);
 
                 let (result, flags): (u64, u32) = if val.is_nan() {
@@ -1605,28 +1604,28 @@ impl<T: Tracer> VM<T> {
                 *self.reg_mut(insn.rd) = result;
             }
 
-            Opcode::FmvXD => {
+            Instruction::FmvXD(insn) => {
                 let val = self.read_f64(insn.rs1);
                 *self.reg_mut(insn.rd) = val.to_bits();
             }
 
-            Opcode::FcvtDL => {
+            Instruction::FcvtDL(insn) => {
                 let val = (self.reg(insn.rs1) as i64) as f64;
                 self.write_f64(insn.rd, val);
             }
 
-            Opcode::FcvtDLu => {
+            Instruction::FcvtDLu(insn) => {
                 let val = self.reg(insn.rs1) as f64;
                 self.write_f64(insn.rd, val);
             }
 
-            Opcode::FmvDX => {
+            Instruction::FmvDX(insn) => {
                 let val = f64::from_bits(self.reg(insn.rs1));
                 self.write_f64(insn.rd, val);
             }
 
             // CSR instructions
-            Opcode::Csrrw => {
+            Instruction::Csrrw(insn) => {
                 let csr_addr = (insn.imm as u32) & 0xFFF; // Mask to 12 bits
                 let old = self.read_csr(csr_addr) as u64;
                 let val = self.reg(insn.rs1) as u32;
@@ -1637,7 +1636,7 @@ impl<T: Tracer> VM<T> {
                 }
             }
 
-            Opcode::Csrrs => {
+            Instruction::Csrrs(insn) => {
                 let csr_addr = (insn.imm as u32) & 0xFFF;
                 let old = self.read_csr(csr_addr) as u64;
                 if insn.rs1 != 0 {
@@ -1650,7 +1649,7 @@ impl<T: Tracer> VM<T> {
                 }
             }
 
-            Opcode::Csrrc => {
+            Instruction::Csrrc(insn) => {
                 let csr_addr = (insn.imm as u32) & 0xFFF;
                 let old = self.read_csr(csr_addr) as u64;
                 if insn.rs1 != 0 {
@@ -1663,7 +1662,7 @@ impl<T: Tracer> VM<T> {
                 }
             }
 
-            Opcode::Csrrwi => {
+            Instruction::Csrrwi(insn) => {
                 let csr_addr = (insn.imm as u32) & 0xFFF;
                 let old = self.read_csr(csr_addr) as u64;
                 let val = (insn.rs1 as u32) & 0x1F;
@@ -1673,7 +1672,7 @@ impl<T: Tracer> VM<T> {
                 }
             }
 
-            Opcode::Csrrsi => {
+            Instruction::Csrrsi(insn) => {
                 let csr_addr = (insn.imm as u32) & 0xFFF;
                 let old = self.read_csr(csr_addr) as u64;
                 let val = (insn.rs1 as u32) & 0x1F;
@@ -1686,7 +1685,7 @@ impl<T: Tracer> VM<T> {
                 }
             }
 
-            Opcode::Csrrci => {
+            Instruction::Csrrci(insn) => {
                 let csr_addr = (insn.imm as u32) & 0xFFF;
                 let old = self.read_csr(csr_addr) as u64;
                 let val = (insn.rs1 as u32) & 0x1F;
@@ -1700,7 +1699,7 @@ impl<T: Tracer> VM<T> {
             }
 
             // F instructions
-            Opcode::FmaddS => {
+            Instruction::FmaddS(insn) => {
                 let a = self.read_f32(insn.rs1);
                 let b = self.read_f32(insn.rs2);
                 let c = self.read_f32(insn.rs3);
@@ -1715,7 +1714,7 @@ impl<T: Tracer> VM<T> {
                 self.raise_fflags_fma_f32(a, b, c, res);
             }
 
-            Opcode::FmsubS => {
+            Instruction::FmsubS(insn) => {
                 let a = self.read_f32(insn.rs1);
                 let b = self.read_f32(insn.rs2);
                 let c = self.read_f32(insn.rs3);
@@ -1724,7 +1723,7 @@ impl<T: Tracer> VM<T> {
                 self.raise_fflags_fma_f32(a, b, -c, res);
             }
 
-            Opcode::FnmsubS => {
+            Instruction::FnmsubS(insn) => {
                 let a = self.read_f32(insn.rs1);
                 let b = self.read_f32(insn.rs2);
                 let c = self.read_f32(insn.rs3);
@@ -1733,7 +1732,7 @@ impl<T: Tracer> VM<T> {
                 self.raise_fflags_fma_f32(-a, b, c, res);
             }
 
-            Opcode::FnmaddS => {
+            Instruction::FnmaddS(insn) => {
                 let a = self.read_f32(insn.rs1);
                 let b = self.read_f32(insn.rs2);
                 let c = self.read_f32(insn.rs3);
@@ -1742,7 +1741,7 @@ impl<T: Tracer> VM<T> {
                 self.raise_fflags_fma_f32(-a, b, -c, res);
             }
 
-            Opcode::FaddS => {
+            Instruction::FaddS(insn) => {
                 let a = self.read_f32(insn.rs1);
                 let b = self.read_f32(insn.rs2);
                 let mut res = a + b;
@@ -1756,7 +1755,7 @@ impl<T: Tracer> VM<T> {
                 self.raise_fflags_f32(a, b, res, '+');
             }
 
-            Opcode::FsubS => {
+            Instruction::FsubS(insn) => {
                 let a = self.read_f32(insn.rs1);
                 let b = self.read_f32(insn.rs2);
                 let mut res = a - b;
@@ -1770,7 +1769,7 @@ impl<T: Tracer> VM<T> {
                 self.raise_fflags_f32(a, b, res, '-');
             }
 
-            Opcode::FmulS => {
+            Instruction::FmulS(insn) => {
                 let a = self.read_f32(insn.rs1);
                 let b = self.read_f32(insn.rs2);
                 let mut res = a * b;
@@ -1784,7 +1783,7 @@ impl<T: Tracer> VM<T> {
                 self.raise_fflags_f32(a, b, res, '*');
             }
 
-            Opcode::FdivS => {
+            Instruction::FdivS(insn) => {
                 let a = self.read_f32(insn.rs1);
                 let b = self.read_f32(insn.rs2);
                 let mut res = a / b;
@@ -1798,7 +1797,7 @@ impl<T: Tracer> VM<T> {
                 self.raise_fflags_f32(a, b, res, '/');
             }
 
-            Opcode::FsqrtS => {
+            Instruction::FsqrtS(insn) => {
                 let a = self.read_f32(insn.rs1);
 
                 if is_snan_f32(a) || (a < 0.0 && !a.is_nan()) {
@@ -1822,7 +1821,7 @@ impl<T: Tracer> VM<T> {
                 self.write_f32(insn.rd, res);
             }
 
-            Opcode::FsgnjS => {
+            Instruction::FsgnjS(insn) => {
                 let rs1_bits = (self.f_reg[insn.rs1] & 0xFFFFFFFF) as u32;
                 let rs2_bits = (self.f_reg[insn.rs2] & 0xFFFFFFFF) as u32;
                 let sign = rs2_bits & (1 << 31);
@@ -1831,7 +1830,7 @@ impl<T: Tracer> VM<T> {
                 self.f_reg[insn.rd] = 0xFFFF_FFFF_0000_0000 | (result as u64);
             }
 
-            Opcode::FsgnjnS => {
+            Instruction::FsgnjnS(insn) => {
                 let rs1_bits = (self.f_reg[insn.rs1] & 0xFFFFFFFF) as u32;
                 let rs2_bits = (self.f_reg[insn.rs2] & 0xFFFFFFFF) as u32;
                 let sign = (rs2_bits ^ (1 << 31)) & (1 << 31);
@@ -1840,7 +1839,7 @@ impl<T: Tracer> VM<T> {
                 self.f_reg[insn.rd] = 0xFFFF_FFFF_0000_0000 | (result as u64);
             }
 
-            Opcode::FsgnjxS => {
+            Instruction::FsgnjxS(insn) => {
                 let rs1_bits = (self.f_reg[insn.rs1] & 0xFFFFFFFF) as u32;
                 let rs2_bits = (self.f_reg[insn.rs2] & 0xFFFFFFFF) as u32;
                 let sign = (rs1_bits & (1 << 31)) ^ (rs2_bits & (1 << 31));
@@ -1849,7 +1848,7 @@ impl<T: Tracer> VM<T> {
                 self.f_reg[insn.rd] = 0xFFFF_FFFF_0000_0000 | (result as u64);
             }
 
-            Opcode::FminS => {
+            Instruction::FminS(insn) => {
                 let a = self.read_f32(insn.rs1);
                 let b = self.read_f32(insn.rs2);
 
@@ -1873,7 +1872,7 @@ impl<T: Tracer> VM<T> {
                 self.write_f32(insn.rd, res);
             }
 
-            Opcode::FmaxS => {
+            Instruction::FmaxS(insn) => {
                 let a = self.read_f32(insn.rs1);
                 let b = self.read_f32(insn.rs2);
 
@@ -1897,7 +1896,7 @@ impl<T: Tracer> VM<T> {
                 self.write_f32(insn.rd, res);
             }
 
-            Opcode::FcvtWS => {
+            Instruction::FcvtWS(insn) => {
                 let val = self.read_f32(insn.rs1);
 
                 let (result, flags): (i32, u32) = if val.is_nan() {
@@ -1916,7 +1915,7 @@ impl<T: Tracer> VM<T> {
                 *self.reg_mut(insn.rd) = (result as i64) as u64;
             }
 
-            Opcode::FcvtWuS => {
+            Instruction::FcvtWuS(insn) => {
                 let val = self.read_f32(insn.rs1);
 
                 let (result, flags): (u32, u32) = if val.is_nan() {
@@ -1940,14 +1939,14 @@ impl<T: Tracer> VM<T> {
                 *self.reg_mut(insn.rd) = (result as i32) as i64 as u64;
             }
 
-            Opcode::FmvXW => {
+            Instruction::FmvXW(insn) => {
                 let raw_bits = (self.f_reg[insn.rs1] & 0xFFFFFFFF) as u32;
                 let result = sext(raw_bits as u64, 32);
 
                 *self.reg_mut(insn.rd) = result;
             }
 
-            Opcode::FeqS => {
+            Instruction::FeqS(insn) => {
                 let a = self.read_f32(insn.rs1);
                 let b = self.read_f32(insn.rs2);
 
@@ -1963,7 +1962,7 @@ impl<T: Tracer> VM<T> {
                 };
             }
 
-            Opcode::FltS => {
+            Instruction::FltS(insn) => {
                 let a = self.read_f32(insn.rs1);
                 let b = self.read_f32(insn.rs2);
 
@@ -1976,7 +1975,7 @@ impl<T: Tracer> VM<T> {
                 }
             }
 
-            Opcode::FleS => {
+            Instruction::FleS(insn) => {
                 let a = self.read_f32(insn.rs1);
                 let b = self.read_f32(insn.rs2);
 
@@ -1989,27 +1988,27 @@ impl<T: Tracer> VM<T> {
                 }
             }
 
-            Opcode::FclassS => {
+            Instruction::FclassS(insn) => {
                 let val = classify32(self.read_f32(insn.rs1).to_bits());
                 *self.reg_mut(insn.rd) = val;
             }
 
-            Opcode::FcvtSW => {
+            Instruction::FcvtSW(insn) => {
                 let a = (self.reg(insn.rs1) as i32) as f32;
                 self.write_f32(insn.rd, a);
             }
 
-            Opcode::FcvtSWu => {
+            Instruction::FcvtSWu(insn) => {
                 let a = (self.reg(insn.rs1) as u32) as f32;
                 self.write_f32(insn.rd, a);
             }
 
-            Opcode::FmvWX => {
+            Instruction::FmvWX(insn) => {
                 let a = f32::from_bits(self.reg(insn.rs1) as u32);
                 self.write_f32(insn.rd, a);
             }
 
-            Opcode::FmaddD => {
+            Instruction::FmaddD(insn) => {
                 let a = self.read_f64(insn.rs1);
                 let b = self.read_f64(insn.rs2);
                 let c = self.read_f64(insn.rs3);
@@ -2018,7 +2017,7 @@ impl<T: Tracer> VM<T> {
                 self.raise_fflags_fma_f64(a, b, c, res);
             }
 
-            Opcode::FmsubD => {
+            Instruction::FmsubD(insn) => {
                 let a = self.read_f64(insn.rs1);
                 let b = self.read_f64(insn.rs2);
                 let c = self.read_f64(insn.rs3);
@@ -2027,7 +2026,7 @@ impl<T: Tracer> VM<T> {
                 self.raise_fflags_fma_f64(a, b, -c, res);
             }
 
-            Opcode::FnmsubD => {
+            Instruction::FnmsubD(insn) => {
                 let a = self.read_f64(insn.rs1);
                 let b = self.read_f64(insn.rs2);
                 let c = self.read_f64(insn.rs3);
@@ -2036,7 +2035,7 @@ impl<T: Tracer> VM<T> {
                 self.raise_fflags_fma_f64(-a, b, c, res);
             }
 
-            Opcode::FnmaddD => {
+            Instruction::FnmaddD(insn) => {
                 let a = self.read_f64(insn.rs1);
                 let b = self.read_f64(insn.rs2);
                 let c = self.read_f64(insn.rs3);
@@ -2045,7 +2044,7 @@ impl<T: Tracer> VM<T> {
                 self.raise_fflags_fma_f64(-a, b, -c, res);
             }
 
-            Opcode::FaddD => {
+            Instruction::FaddD(insn) => {
                 let a = self.read_f64(insn.rs1);
                 let b = self.read_f64(insn.rs2);
                 let mut res = a + b;
@@ -2058,7 +2057,7 @@ impl<T: Tracer> VM<T> {
                 self.raise_fflags_f64(a, b, res, '+');
             }
 
-            Opcode::FsubD => {
+            Instruction::FsubD(insn) => {
                 let a = self.read_f64(insn.rs1);
                 let b = self.read_f64(insn.rs2);
                 let mut res = a - b;
@@ -2071,7 +2070,7 @@ impl<T: Tracer> VM<T> {
                 self.raise_fflags_f64(a, b, res, '-');
             }
 
-            Opcode::FmulD => {
+            Instruction::FmulD(insn) => {
                 let a = self.read_f64(insn.rs1);
                 let b = self.read_f64(insn.rs2);
                 let mut res = a * b;
@@ -2084,7 +2083,7 @@ impl<T: Tracer> VM<T> {
                 self.raise_fflags_f64(a, b, res, '*');
             }
 
-            Opcode::FdivD => {
+            Instruction::FdivD(insn) => {
                 let a = self.read_f64(insn.rs1);
                 let b = self.read_f64(insn.rs2);
                 let mut res = a / b;
@@ -2097,7 +2096,7 @@ impl<T: Tracer> VM<T> {
                 self.raise_fflags_f64(a, b, res, '/');
             }
 
-            Opcode::FsqrtD => {
+            Instruction::FsqrtD(insn) => {
                 let a = self.read_f64(insn.rs1);
 
                 if is_snan_f64(a) || (a < 0.0 && !a.is_nan()) {
@@ -2113,21 +2112,21 @@ impl<T: Tracer> VM<T> {
                 self.write_f64(insn.rd, res);
             }
 
-            Opcode::FsgnjD => {
+            Instruction::FsgnjD(insn) => {
                 let sign = self.read_f64(insn.rs2).to_bits() & (1 << 63);
                 let val = self.read_f64(insn.rs1).to_bits() & mask(63);
                 let res = f64::from_bits(sign | val);
                 self.write_f64(insn.rd, res);
             }
 
-            Opcode::FsgnjnD => {
+            Instruction::FsgnjnD(insn) => {
                 let sign = (self.read_f64(insn.rs2).to_bits() ^ (1 << 63)) & (1 << 63);
                 let val = self.read_f64(insn.rs1).to_bits() & mask(63);
                 let res = f64::from_bits(sign | val);
                 self.write_f64(insn.rd, res);
             }
 
-            Opcode::FsgnjxD => {
+            Instruction::FsgnjxD(insn) => {
                 let sign = (self.read_f64(insn.rs1).to_bits() & (1 << 63))
                     ^ (self.read_f64(insn.rs2).to_bits() & (1 << 63));
                 let val = self.read_f64(insn.rs1).to_bits() & mask(63);
@@ -2135,7 +2134,7 @@ impl<T: Tracer> VM<T> {
                 self.write_f64(insn.rd, res);
             }
 
-            Opcode::FminD => {
+            Instruction::FminD(insn) => {
                 let a = self.read_f64(insn.rs1);
                 let b = self.read_f64(insn.rs2);
 
@@ -2161,7 +2160,7 @@ impl<T: Tracer> VM<T> {
                 self.write_f64(insn.rd, res);
             }
 
-            Opcode::FmaxD => {
+            Instruction::FmaxD(insn) => {
                 let a = self.read_f64(insn.rs1);
                 let b = self.read_f64(insn.rs2);
 
@@ -2187,7 +2186,7 @@ impl<T: Tracer> VM<T> {
                 self.write_f64(insn.rd, res);
             }
 
-            Opcode::FcvtSD => {
+            Instruction::FcvtSD(insn) => {
                 let a = self.read_f64(insn.rs1);
                 let res = a as f32;
 
@@ -2204,7 +2203,7 @@ impl<T: Tracer> VM<T> {
                 self.write_f32(insn.rd, res);
             }
 
-            Opcode::FcvtDS => {
+            Instruction::FcvtDS(insn) => {
                 let a = self.read_f32(insn.rs1);
 
                 // Set NV for sNaN
@@ -2216,7 +2215,7 @@ impl<T: Tracer> VM<T> {
                 self.write_f64(insn.rd, res);
             }
 
-            Opcode::FeqD => {
+            Instruction::FeqD(insn) => {
                 let a = self.read_f64(insn.rs1);
                 let b = self.read_f64(insn.rs2);
 
@@ -2231,7 +2230,7 @@ impl<T: Tracer> VM<T> {
                 };
             }
 
-            Opcode::FltD => {
+            Instruction::FltD(insn) => {
                 let a = self.read_f64(insn.rs1);
                 let b = self.read_f64(insn.rs2);
 
@@ -2243,7 +2242,7 @@ impl<T: Tracer> VM<T> {
                 }
             }
 
-            Opcode::FleD => {
+            Instruction::FleD(insn) => {
                 let a = self.read_f64(insn.rs1);
                 let b = self.read_f64(insn.rs2);
 
@@ -2255,12 +2254,12 @@ impl<T: Tracer> VM<T> {
                 }
             }
 
-            Opcode::FclassD => {
+            Instruction::FclassD(insn) => {
                 let val = classify64(self.read_f64(insn.rs1).to_bits());
                 *self.reg_mut(insn.rd) = val;
             }
 
-            Opcode::FcvtWD => {
+            Instruction::FcvtWD(insn) => {
                 let val = self.read_f64(insn.rs1);
 
                 let (result, flags): (i32, u32) = if val.is_nan() {
@@ -2280,7 +2279,7 @@ impl<T: Tracer> VM<T> {
                 *self.reg_mut(insn.rd) = (result as i64) as u64;
             }
 
-            Opcode::FcvtWuD => {
+            Instruction::FcvtWuD(insn) => {
                 let val = self.read_f64(insn.rs1);
 
                 let (result, flags): (u32, u32) = if val.is_nan() {
@@ -2302,41 +2301,41 @@ impl<T: Tracer> VM<T> {
                 *self.reg_mut(insn.rd) = (result as i32) as i64 as u64;
             }
 
-            Opcode::FcvtDW => {
+            Instruction::FcvtDW(insn) => {
                 let a = (self.reg(insn.rs1) as i32) as f64;
                 self.write_f64(insn.rd, a);
             }
 
-            Opcode::FcvtDWu => {
+            Instruction::FcvtDWu(insn) => {
                 let a = (self.reg(insn.rs1) as u32) as f64;
                 self.write_f64(insn.rd, a);
             }
 
-            Opcode::Flw => {
+            Instruction::Flw(insn) => {
                 let addr = (self.reg(insn.rs1).wrapping_add(insn.imm)) as usize;
                 let data = f32::from_bits(self.mem(addr) as u32);
                 self.write_f32(insn.rd, data);
             }
 
-            Opcode::Fsw => {
+            Instruction::Fsw(insn) => {
                 let addr = (self.reg(insn.rs1).wrapping_add(insn.imm)) as usize;
                 let data = self.read_f32(insn.rs2).to_bits().to_le_bytes();
                 self.write_bytes(addr, &data);
             }
 
-            Opcode::Fld => {
+            Instruction::Fld(insn) => {
                 let addr = (self.reg(insn.rs1).wrapping_add(insn.imm)) as usize;
                 let val = f64::from_bits(self.mem(addr));
                 self.write_f64(insn.rd, val);
             }
 
-            Opcode::Fsd => {
+            Instruction::Fsd(insn) => {
                 let data = self.read_f64(insn.rs2).to_le_bytes();
                 let addr = (self.reg(insn.rs1).wrapping_add(insn.imm)) as usize;
                 self.write_bytes(addr, &data);
             }
 
-            Opcode::FcvtLS => {
+            Instruction::FcvtLS(insn) => {
                 let val = self.read_f32(insn.rs1);
 
                 let (result, flags): (i64, u32) = if val.is_nan() {
@@ -2356,7 +2355,7 @@ impl<T: Tracer> VM<T> {
                 *self.reg_mut(insn.rd) = result as u64;
             }
 
-            Opcode::FcvtLuS => {
+            Instruction::FcvtLuS(insn) => {
                 let val = self.read_f32(insn.rs1);
 
                 let (result, flags): (u64, u32) = if val.is_nan() {
@@ -2378,17 +2377,17 @@ impl<T: Tracer> VM<T> {
                 *self.reg_mut(insn.rd) = result;
             }
 
-            Opcode::FcvtSL => {
+            Instruction::FcvtSL(insn) => {
                 let val = (self.reg(insn.rs1) as i64) as f32;
                 self.write_f32(insn.rd, val);
             }
 
-            Opcode::FcvtSLu => {
+            Instruction::FcvtSLu(insn) => {
                 let val = self.reg(insn.rs1) as f32;
                 self.write_f32(insn.rd, val);
             }
 
-            Opcode::FcvtLD => {
+            Instruction::FcvtLD(insn) => {
                 let val = self.read_f64(insn.rs1);
 
                 let (result, flags): (i64, u32) = if val.is_nan() {
@@ -2408,7 +2407,7 @@ impl<T: Tracer> VM<T> {
                 *self.reg_mut(insn.rd) = result as u64;
             }
 
-            Opcode::FcvtLuD => {
+            Instruction::FcvtLuD(insn) => {
                 let val = self.read_f64(insn.rs1);
 
                 let (result, flags): (u64, u32) = if val.is_nan() {
@@ -2430,28 +2429,28 @@ impl<T: Tracer> VM<T> {
                 *self.reg_mut(insn.rd) = result;
             }
 
-            Opcode::FmvXD => {
+            Instruction::FmvXD(insn) => {
                 let val = self.read_f64(insn.rs1);
                 *self.reg_mut(insn.rd) = val.to_bits();
             }
 
-            Opcode::FcvtDL => {
+            Instruction::FcvtDL(insn) => {
                 let val = (self.reg(insn.rs1) as i64) as f64;
                 self.write_f64(insn.rd, val);
             }
 
-            Opcode::FcvtDLu => {
+            Instruction::FcvtDLu(insn) => {
                 let val = self.reg(insn.rs1) as f64;
                 self.write_f64(insn.rd, val);
             }
 
-            Opcode::FmvDX => {
+            Instruction::FmvDX(insn) => {
                 let val = f64::from_bits(self.reg(insn.rs1));
                 self.write_f64(insn.rd, val);
             }
 
             // CSR instructions
-            Opcode::Csrrw => {
+            Instruction::Csrrw(insn) => {
                 let csr_addr = (insn.imm as u32) & 0xFFF; // Mask to 12 bits
                 let old = self.read_csr(csr_addr) as u64;
                 let val = self.reg(insn.rs1) as u32;
@@ -2462,7 +2461,7 @@ impl<T: Tracer> VM<T> {
                 }
             }
 
-            Opcode::Csrrs => {
+            Instruction::Csrrs(insn) => {
                 let csr_addr = (insn.imm as u32) & 0xFFF;
                 let old = self.read_csr(csr_addr) as u64;
                 if insn.rs1 != 0 {
@@ -2475,7 +2474,7 @@ impl<T: Tracer> VM<T> {
                 }
             }
 
-            Opcode::Csrrc => {
+            Instruction::Csrrc(insn) => {
                 let csr_addr = (insn.imm as u32) & 0xFFF;
                 let old = self.read_csr(csr_addr) as u64;
                 if insn.rs1 != 0 {
@@ -2488,7 +2487,7 @@ impl<T: Tracer> VM<T> {
                 }
             }
 
-            Opcode::Csrrwi => {
+            Instruction::Csrrwi(insn) => {
                 let csr_addr = (insn.imm as u32) & 0xFFF;
                 let old = self.read_csr(csr_addr) as u64;
                 let val = (insn.rs1 as u32) & 0x1F;
@@ -2498,7 +2497,7 @@ impl<T: Tracer> VM<T> {
                 }
             }
 
-            Opcode::Csrrsi => {
+            Instruction::Csrrsi(insn) => {
                 let csr_addr = (insn.imm as u32) & 0xFFF;
                 let old = self.read_csr(csr_addr) as u64;
                 let val = (insn.rs1 as u32) & 0x1F;
@@ -2511,7 +2510,7 @@ impl<T: Tracer> VM<T> {
                 }
             }
 
-            Opcode::Csrrci => {
+            Instruction::Csrrci(insn) => {
                 let csr_addr = (insn.imm as u32) & 0xFFF;
                 let old = self.read_csr(csr_addr) as u64;
                 let val = (insn.rs1 as u32) & 0x1F;
@@ -2525,7 +2524,7 @@ impl<T: Tracer> VM<T> {
             }
 
             // System Opcodes
-            Opcode::Ecall => {
+            Instruction::Ecall => {
                 let func = self.reg(17);
                 match func {
                     93 => {
@@ -2549,7 +2548,7 @@ impl<T: Tracer> VM<T> {
     /// Write to destination register with tracing.
     /// This helper ensures all register writes are traced.
     #[inline(always)]
-    fn write_rd(&mut self, rd: usize, value: u64) {
+    fn write_rd(&mut self, rd: u8, value: u64) {
         *self.reg_mut(rd) = value;
         self.tracer.record_rd(rd as u8, value);
     }

@@ -4,13 +4,13 @@ mod insn_formats;
 mod util;
 
 use imm::{imm_b, imm_i, imm_j, imm_s, imm_u, shamt6};
-use insn::Instruction;
+pub(crate) use insn::Instruction;
 use insn_formats::{B, I, J, R, R4, RF, S, Sh, U};
 use util::{funct3, funct7, opcode, rd, rs1, rs2};
 
 use crate::decode::{imm::shamt5, util::rs3};
 
-fn decode(insn: u32) -> Instruction {
+pub(crate) fn decode(insn: u32) -> Instruction {
     match opcode(insn) {
         0b0110011 => decode_op(insn),
         0b0010011 => decode_op_imm(insn),

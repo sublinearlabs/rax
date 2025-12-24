@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::decode_old::{Instruction, Opcode};
+use crate::decode::{Instruction, Opcode};
 
 /// Memory operation type for RV64IMAC.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]

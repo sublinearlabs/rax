@@ -1,6 +1,6 @@
 //! Zero-cost abstraction for execution tracing.
 use super::primitives::{ExecutionTrace, InstrFlags, MemOp, TraceRow};
-use crate::decode_old::Instruction;
+use crate::decode::Instruction;
 
 /// Trait for instruction execution tracing.
 ///
@@ -269,17 +269,14 @@ pub type DefaultTracer = NoopTracer;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::decode_old::Opcode;
+    // use crate::decode_old::Opcode;
 
     fn make_test_instruction() -> Instruction {
-        Instruction {
-            opcode: Opcode::Add,
+        Instruction::Add(R {
+            rd: 3,
             rs1: 1,
             rs2: 2,
-            rs3: 0,
-            rd: 3,
-            imm: 0,
-        }
+        })
     }
 
     #[test]
