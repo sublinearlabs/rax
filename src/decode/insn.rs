@@ -187,6 +187,17 @@ pub(crate) enum Instruction {
     FmvXD(RF),
     FmvDX(RF),
 
+    // Zicsr
+    // CSR Register
+    Csrrw(I),
+    Csrrs(I),
+    Csrrc(I),
+
+    // CSR Register Immediate
+    Csrrwi(I),
+    Csrrsi(I),
+    Csrrci(I),
+
     // Illegal Instruction
     Illegal(u32),
 }
