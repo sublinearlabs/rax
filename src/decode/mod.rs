@@ -300,6 +300,7 @@ fn decode_fp_load(insn: u32) -> Instruction {
 
     match funct3(insn) {
         0x2 => Instruction::Flw(operand),
+        0x3 => Instruction::Fld(operand),
         _ => Instruction::Illegal(insn),
     }
 }
@@ -313,6 +314,7 @@ fn decode_fp_store(insn: u32) -> Instruction {
 
     match funct3(insn) {
         0x2 => Instruction::Fsw(operand),
+        0x3 => Instruction::Fsd(operand),
         _ => Instruction::Illegal(insn),
     }
 }
@@ -329,10 +331,18 @@ fn decode_fp_fma(insn: u32) -> Instruction {
     let funct2 = (funct7(insn) & 0b11) as u8;
 
     match (opcode(insn), funct2) {
+        // S (fmt=0)
         (0b1000011, 0x0) => Instruction::FmaddS(operand),
         (0b1000111, 0x0) => Instruction::FmsubS(operand),
         (0b1001011, 0x0) => Instruction::FnmsubS(operand),
         (0b1001111, 0x0) => Instruction::FnmaddS(operand),
+
+        // S (fmt=1)
+        (0b1000011, 0x1) => Instruction::FmaddD(operand),
+        (0b1000111, 0x1) => Instruction::FmsubD(operand),
+        (0b1001011, 0x1) => Instruction::FnmsubD(operand),
+        (0b1001111, 0x1) => Instruction::FnmaddD(operand),
+
         _ => Instruction::Illegal(insn),
     }
 }
@@ -347,29 +357,54 @@ fn decode_fp_op(insn: u32) -> Instruction {
 
     match (funct7(insn), rm) {
         // Arithmetic (rm is rounding mode)
+        // S
         (0x00, _) => Instruction::FaddS(operand),
         (0x04, _) => Instruction::FsubS(operand),
         (0x08, _) => Instruction::FmulS(operand),
         (0x0c, _) => Instruction::FdivS(operand),
 
+        // D
+        (0x01, _) => Instruction::FaddD(operand),
+        (0x05, _) => Instruction::FsubD(operand),
+        (0x09, _) => Instruction::FmulD(operand),
+        (0x0d, _) => Instruction::FdivD(operand),
+
         // sqrt (rm is rounding mode, rs2=0)
+        // S
         (0x2c, _) if rs2 == 0 => Instruction::FsqrtS(operand),
+        // D
+        (0x2d, _) if rs2 == 0 => Instruction::FsqrtD(operand),
 
         // Sign-injection
+        // S
         (0x10, 0x0) => Instruction::FsgnjS(operand),
         (0x10, 0x1) => Instruction::FsgnjnS(operand),
         (0x10, 0x2) => Instruction::FsgnjxS(operand),
+        // D
+        (0x11, 0x0) => Instruction::FsgnjD(operand),
+        (0x11, 0x1) => Instruction::FsgnjnD(operand),
+        (0x11, 0x2) => Instruction::FsgnjxD(operand),
 
         // Min/Max
+        // S
         (0x14, 0x0) => Instruction::FminS(operand),
         (0x14, 0x1) => Instruction::FmaxS(operand),
+        // D
+        (0x15, 0x0) => Instruction::FminD(operand),
+        (0x15, 0x1) => Instruction::FmaxD(operand),
 
         // Comparisons
+        // S
         (0x50, 0x0) => Instruction::FleS(operand),
         (0x50, 0x1) => Instruction::FltS(operand),
         (0x50, 0x2) => Instruction::FeqS(operand),
+        // D
+        (0x51, 0x0) => Instruction::FleD(operand),
+        (0x51, 0x1) => Instruction::FltD(operand),
+        (0x51, 0x2) => Instruction::FeqD(operand),
 
         // Float to Int conversion
+        // S
         (0x60, _) => match rs2 {
             0x00 => Instruction::FcvtWS(operand),
             0x01 => Instruction::FcvtWuS(operand),
@@ -377,8 +412,17 @@ fn decode_fp_op(insn: u32) -> Instruction {
             0x03 => Instruction::FcvtLuS(operand),
             _ => Instruction::Illegal(insn),
         },
+        // D
+        (0x61, _) => match rs2 {
+            0x00 => Instruction::FcvtWD(operand),
+            0x01 => Instruction::FcvtWuD(operand),
+            0x02 => Instruction::FcvtLD(operand),
+            0x03 => Instruction::FcvtLuD(operand),
+            _ => Instruction::Illegal(insn),
+        },
 
         // Int to float conversion
+        // S
         (0x68, _) => match rs2 {
             0x00 => Instruction::FcvtSW(operand),
             0x01 => Instruction::FcvtSWu(operand),
@@ -386,11 +430,28 @@ fn decode_fp_op(insn: u32) -> Instruction {
             0x03 => Instruction::FcvtSLu(operand),
             _ => Instruction::Illegal(insn),
         },
+        // D
+        (0x69, _) => match rs2 {
+            0x00 => Instruction::FcvtDW(operand),
+            0x01 => Instruction::FcvtDWu(operand),
+            0x02 => Instruction::FcvtDL(operand),
+            0x03 => Instruction::FcvtDLu(operand),
+            _ => Instruction::Illegal(insn),
+        },
+
+        // Float to Float conversion between S and D
+        (0x20, _) if rs2 == 0x01 => Instruction::FcvtSD(operand),
+        (0x21, _) if rs2 == 0x00 => Instruction::FcvtDS(operand),
 
         // Move/classify
+        // S
         (0x70, 0x0) if rs2 == 0 => Instruction::FmvXW(operand),
         (0x70, 0x1) if rs2 == 0 => Instruction::FclassS(operand),
         (0x78, 0x0) if rs2 == 0 => Instruction::FmvWX(operand),
+        // D
+        (0x71, 0x0) if rs2 == 0 => Instruction::FmvXD(operand),
+        (0x71, 0x1) if rs2 == 0 => Instruction::FclassD(operand),
+        (0x79, 0x0) if rs2 == 0 => Instruction::FmvDX(operand),
 
         _ => Instruction::Illegal(insn),
     }
