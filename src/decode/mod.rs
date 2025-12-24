@@ -27,7 +27,17 @@ fn decode(insn: u32) -> Instruction {
         0b1110011 => decode_system(insn),
         0b0001111 => decode_fence(insn),
 
+        // Atomics
         0b0101111 => decode_atomics(insn),
+
+        // Floating-point
+        0b0000111 => decode_fp_load(insn),
+        0b0100111 => decode_fp_store(insn),
+        0b1000011 => decode_fp_fma(insn),
+        0b1000111 => decode_fp_fma(insn),
+        0b1001011 => decode_fp_fma(insn),
+        0b1001111 => decode_fp_fma(insn),
+        0b1010011 => decode_fp_op(insn),
 
         _ => Instruction::Illegal(insn),
     }
@@ -237,6 +247,7 @@ fn decode_fence(_insn: u32) -> Instruction {
     Instruction::Fence
 }
 
+// Atomics
 fn decode_atomics(insn: u32) -> Instruction {
     let funct5 = funct7(insn) >> 2;
 
@@ -273,4 +284,21 @@ fn decode_atomics(insn: u32) -> Instruction {
 
         _ => Instruction::Illegal(insn),
     }
+}
+
+// Floating-point
+fn decode_fp_load(insn: u32) -> Instruction {
+    todo!()
+}
+
+fn decode_fp_store(insn: u32) -> Instruction {
+    todo!()
+}
+
+fn decode_fp_fma(insn: u32) -> Instruction {
+    todo!()
+}
+
+fn decode_fp_op(insn: u32) -> Instruction {
+    todo!()
 }

@@ -30,3 +30,8 @@ pub(crate) fn rs1(insn: u32) -> u8 {
 pub(crate) fn rs2(insn: u32) -> u8 {
     ((insn >> 20) & mask32(5)) as u8
 }
+
+#[inline]
+pub(crate) fn rs3(insn: u32) -> u8 {
+    ((insn >> 27) & mask32(5)) as u8
+}
