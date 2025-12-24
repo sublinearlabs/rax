@@ -5,14 +5,10 @@ mod util;
 
 use imm::{imm_b, imm_i, imm_j, imm_s, imm_u, shamt6};
 use insn::Instruction;
-use insn_formats::{B, I, J, R, S, Sh, U};
+use insn_formats::{B, I, J, R, R4, RF, S, Sh, U};
 use util::{funct3, funct7, opcode, rd, rs1, rs2};
 
-use crate::decode::{
-    imm::shamt5,
-    insn_formats::{R4, RF},
-    util::rs3,
-};
+use crate::decode::{imm::shamt5, util::rs3};
 
 fn decode(insn: u32) -> Instruction {
     match opcode(insn) {
