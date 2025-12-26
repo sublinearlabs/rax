@@ -4,13 +4,16 @@ mod insn_formats;
 mod util;
 
 use imm::{imm_b, imm_i, imm_j, imm_s, imm_u, shamt6};
-use insn::Instruction;
-use insn_formats::{B, I, J, R, R4, RF, S, Sh, U};
+pub(crate) use insn::Instruction;
+pub(crate) use insn_formats::{B, I, J, R, R4, RF, S, Sh, U};
 use util::{funct3, funct7, opcode, rd, rs1, rs2};
 
-use crate::decode::{imm::shamt5, util::rs3};
+use crate::decode::{
+    imm::shamt5,
+    util::{funct6, rs3},
+};
 
-fn decode(insn: u32) -> Instruction {
+pub(crate) fn decode(insn: u32) -> Instruction {
     match opcode(insn) {
         0b0110011 => decode_op(insn),
         0b0010011 => decode_op_imm(insn),
@@ -94,10 +97,10 @@ fn decode_op_imm(insn: u32) -> Instruction {
         0x7 => Instruction::Andi(i_operands),
         0x2 => Instruction::Slti(i_operands),
         0x3 => Instruction::Sltiu(i_operands),
-        0x1 | 0x5 => match (funct3(insn), funct7(insn)) {
-            (0x1, 0x00) => Instruction::Slli(s_operands),
-            (0x5, 0x00) => Instruction::Srli(s_operands),
-            (0x5, 0x20) => Instruction::Srai(s_operands),
+        0x1 | 0x5 => match (funct3(insn), funct7(insn), funct6(insn)) {
+            (0x1, _, 0x00) => Instruction::Slli(s_operands),
+            (0x5, 0x00, _) => Instruction::Srli(s_operands),
+            (0x5, 0x20, _) => Instruction::Srai(s_operands),
             _ => Instruction::Illegal(insn),
         },
         _ => Instruction::Illegal(insn),
@@ -236,9 +239,22 @@ fn decode_auipc(insn: u32) -> Instruction {
 
 fn decode_system(insn: u32) -> Instruction {
     let imm = imm_i(insn);
+    
+    let operand = I {
+        rd: rd(insn),
+        rs1: rs1(insn),
+        imm: imm_i(insn),
+    };
+
     match (funct3(insn), imm) {
         (0x0, 0x0) => Instruction::Ecall,
         (0x0, 0x1) => Instruction::Ebreak,
+        (0x1, _) => Instruction::Csrrw(operand),
+        (0x2, _) => Instruction::Csrrs(operand),
+        (0x3, _) => Instruction::Csrrc(operand),
+        (0x5, _) => Instruction::Csrrwi(operand),
+        (0x6, _) => Instruction::Csrrsi(operand),
+        (0x7, _) => Instruction::Csrrci(operand),
         _ => Instruction::Illegal(insn),
     }
 }

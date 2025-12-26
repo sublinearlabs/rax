@@ -3,11 +3,11 @@ use std::fs;
 use crate::elf::decode_elf;
 use crate::memory::Memory;
 use crate::trace::{DefaultTracer, FullTracer, NoopTracer, Tracer};
-// use decode::{Instruction, Opcode, decode_insn};
-use crate::decode_old::decode_insn;
+use decode::decode;
+// use crate::decode_old::decode_insn;
 
 mod decode;
-mod decode_old;
+// mod decode_old;
 mod elf;
 mod execute;
 mod memory;
@@ -127,16 +127,34 @@ impl<T: Tracer> VM<T> {
 
     /// Perform one cycle with tracing
     pub fn step(&mut self) {
-        let raw_insn = self.mem32(self.pc as usize);
-        let insn = decode_insn(raw_insn);
+        let insn = self.mem32(self.pc as usize);
+        // let insn = decode(raw_insn);
 
         // Begin tracing this instruction
-        self.tracer
-            .begin_instruction(self.cycles, self.pc, &self.registers, raw_insn, &insn);
+        // self.tracer
+        // .begin_instruction(self.cycles, self.pc, &self.registers, insn, &insn);
 
         // Execute the instruction (this will update PC)
         // print!(" {:?}, addr: {:0x}\n", insn.opcode, self.pc);
+
+        let test_num = self.reg(3); // gp register
+        // Debug more tests
+        if test_num >= 3 && test_num <= 10 {
+            println!("Test {} Debug:", test_num);
+            println!("  PC: 0x{:08x}", self.pc);
+            println!("  raw_insn: 0x{:08x}", insn);
+            println!("  decoded: {:?}", decode(insn));
+            println!("  gp (x3): {}", self.reg(3));
+        }
+
         self.execute_instruction(insn);
+
+        if test_num >= 3 && test_num <= 10 {
+            println!("  After execution:");
+            println!("  gp (x3): {}", self.reg(3));
+            println!("  PC after: 0x{:08x}", self.pc);
+            println!();
+        }
 
         // Record next PC (set during execute_instruction or default to pc+4)
         self.tracer.record_next_pc(self.pc);
@@ -185,32 +203,36 @@ impl<T: Tracer> VM<T> {
     }
 
     /// Returns the current value at the idx register
-    pub(crate) fn reg(&self, idx: usize) -> u64 {
-        if idx == 0 { 0 } else { self.registers[idx] }
+    pub(crate) fn reg(&self, idx: u8) -> u64 {
+        if idx == 0 {
+            0
+        } else {
+            self.registers[idx as usize]
+        }
     }
 
     /// Returns a mutable reference to the idx register
-    pub(crate) fn reg_mut(&mut self, idx: usize) -> &mut u64 {
+    pub(crate) fn reg_mut(&mut self, idx: u8) -> &mut u64 {
         if idx == 0 {
             &mut self.x0_sink
         } else {
-            &mut self.registers[idx]
+            &mut self.registers[idx as usize]
         }
     }
 
     /// Returns the current value at the idx floating point register
-    fn read_f64(&self, idx: usize) -> f64 {
-        f64::from_bits(self.f_reg[idx])
+    fn read_f64(&self, idx: u8) -> f64 {
+        f64::from_bits(self.f_reg[idx as usize])
     }
 
     /// Returns a mutable reference to the idx floating point register
-    fn write_f64(&mut self, idx: usize, value: f64) {
-        self.f_reg[idx] = value.to_bits();
+    fn write_f64(&mut self, idx: u8, value: f64) {
+        self.f_reg[idx as usize] = value.to_bits();
     }
 
     // Read f32
-    fn read_f32(&self, idx: usize) -> f32 {
-        let val = self.f_reg[idx];
+    fn read_f32(&self, idx: u8) -> f32 {
+        let val = self.f_reg[idx as usize];
         if val >> 32 != 0xffff_ffff {
             // signal quiet
             return f32::from_bits(0x7FC0_0000);
@@ -219,8 +241,8 @@ impl<T: Tracer> VM<T> {
     }
 
     // Write f32
-    fn write_f32(&mut self, idx: usize, val: f32) {
-        self.f_reg[idx] = 0xffff_ffff_0000_0000 | (val.to_bits() as u64);
+    fn write_f32(&mut self, idx: u8, val: f32) {
+        self.f_reg[idx as usize] = 0xffff_ffff_0000_0000 | (val.to_bits() as u64);
     }
 
     /// Reads 64 bytes from memory at the given addr
@@ -546,9 +568,6 @@ mod tests {
 
         println!("exit_code {}", vm.exit_code);
         assert!(vm.halted);
-        if vm.exit_code != 0 {
-            println!("failing test {}", vm.exit_code >> 1);
-        }
         if vm.exit_code != 0 {
             println!("failing test {}", vm.exit_code >> 1);
         }

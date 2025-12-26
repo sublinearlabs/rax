@@ -1,5 +1,8 @@
+use serde::{Deserialize, Serialize};
+
 use crate::decode::insn_formats::{B, I, J, R, R4, RF, S, Sh, U};
 
+#[derive(Debug, Clone, Deserialize)]
 pub(crate) enum Instruction {
     // RV32I
     // Integer Register Register
@@ -49,6 +52,7 @@ pub(crate) enum Instruction {
     // System
     Ecall,
     Ebreak,
+    Eother,
     // Fence
     Fence,
 
@@ -187,6 +191,59 @@ pub(crate) enum Instruction {
     FmvXD(RF),
     FmvDX(RF),
 
+    // Zicsr
+    // CSR Register
+    Csrrw(I),
+    Csrrs(I),
+    Csrrc(I),
+
+    // CSR Register Immediate
+    Csrrwi(I),
+    Csrrsi(I),
+    Csrrci(I),
+
     // Illegal Instruction
     Illegal(u32),
+}
+
+impl Instruction {
+    pub fn rs1(&self) -> u8 {
+        match self {
+            Instruction::Add(r) | Instruction::Sub(r) => r.rs1 as u8,
+            Instruction::Addi(i) | Instruction::Lb(i) => i.rs1 as u8,
+            Instruction::Sb(s) | Instruction::Sh(s) => s.rs1 as u8,
+            Instruction::Beq(b) | Instruction::Bne(b) => b.rs1 as u8,
+            _ => 0,
+        }
+    }
+
+    pub fn rs2(&self) -> u8 {
+        match self {
+            Instruction::Add(r) | Instruction::Sub(r) => r.rs2 as u8,
+            Instruction::Sb(s) | Instruction::Sh(s) => s.rs2 as u8,
+            Instruction::Beq(b) | Instruction::Bne(b) => b.rs2 as u8,
+            _ => 0,
+        }
+    }
+
+    pub fn rd(&self) -> u8 {
+        match self {
+            Instruction::Add(r) | Instruction::Sub(r) => r.rd as u8,
+            Instruction::Addi(i) | Instruction::Lb(i) => i.rd as u8,
+            Instruction::Lui(u) | Instruction::Auipc(u) => u.rd as u8,
+            Instruction::Jal(j) => j.rd as u8,
+            _ => 0,
+        }
+    }
+
+    pub fn imm(&self) -> u64 {
+        match self {
+            Instruction::Addi(i) | Instruction::Lb(i) => i.imm as u64,
+            Instruction::Sb(s) | Instruction::Sh(s) => s.imm as u64,
+            Instruction::Beq(b) | Instruction::Bne(b) => b.imm as u64,
+            Instruction::Lui(u) | Instruction::Auipc(u) => u.imm as u64,
+            Instruction::Jal(j) => j.imm as u64,
+            _ => 0,
+        }
+    }
 }
