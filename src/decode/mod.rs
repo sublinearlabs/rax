@@ -95,7 +95,7 @@ fn decode_op_imm(insn: u32) -> Instruction {
         0x2 => Instruction::Slti(i_operands),
         0x3 => Instruction::Sltiu(i_operands),
         0x1 | 0x5 => match (funct3(insn), funct7(insn)) {
-            (0x0, 0x00) => Instruction::Slli(s_operands),
+            (0x1, 0x00) => Instruction::Slli(s_operands),
             (0x5, 0x00) => Instruction::Srli(s_operands),
             (0x5, 0x20) => Instruction::Srai(s_operands),
             _ => Instruction::Illegal(insn),
