@@ -12,6 +12,11 @@ pub(crate) fn funct3(insn: u32) -> u8 {
 }
 
 #[inline]
+pub(crate) fn funct6(insn: u32) -> u8 {
+    ((insn >> 26) & mask32(6)) as u8
+}
+
+#[inline]
 pub(crate) fn funct7(insn: u32) -> u8 {
     ((insn >> 25) & mask32(7)) as u8
 }

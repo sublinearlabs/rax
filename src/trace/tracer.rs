@@ -153,30 +153,30 @@ impl Tracer for FullTracer {
         raw_instr: u32,
         instr: &Instruction,
     ) {
-        let rs1_val = if instr.rs1 == 0 { 0 } else { regs[instr.rs1] };
-        let rs2_val = if instr.rs2 == 0 { 0 } else { regs[instr.rs2] };
+        // let rs1_val = if instr.rs1 == 0 { 0 } else { regs[instr.rs1] };
+        // let rs2_val = if instr.rs2 == 0 { 0 } else { regs[instr.rs2] };
 
-        self.current = Some(TraceRow {
-            clk,
-            pc,
-            next_pc: pc.wrapping_add(4), // Default: sequential execution, use record_next_pc should the instruction be non-sequential liek branch or jump
-            regs: *regs,
-            raw_instr,
-            opcode: instr.opcode,
-            flags: InstrFlags::from_opcode(&instr.opcode),
-            rs1: instr.rs1 as u8,
-            rs2: instr.rs2 as u8,
-            rd: instr.rd as u8,
-            imm: instr.imm,
-            rs1_val,
-            rs2_val,
-            rd_val: 0,
-            mem_op: MemOp::None,
-            mul_lo: 0,
-            mul_hi: 0,
-            reservation_addr: 0,
-            halted: false,
-        });
+        // self.current = Some(TraceRow {
+        //     clk,
+        //     pc,
+        //     next_pc: pc.wrapping_add(4), // Default: sequential execution, use record_next_pc should the instruction be non-sequential liek branch or jump
+        //     regs: *regs,
+        //     raw_instr,
+        //     opcode: instr.opcode,
+        //     flags: InstrFlags::from_opcode(&instr.opcode),
+        //     rs1: instr.rs1 as u8,
+        //     rs2: instr.rs2 as u8,
+        //     rd: instr.rd as u8,
+        //     imm: instr.imm,
+        //     rs1_val,
+        //     rs2_val,
+        //     rd_val: 0,
+        //     mem_op: MemOp::None,
+        //     mul_lo: 0,
+        //     mul_hi: 0,
+        //     reservation_addr: 0,
+        //     halted: false,
+        // });
     }
 
     fn record_rd(&mut self, rd: u8, value: u64) {
@@ -268,6 +268,8 @@ pub type DefaultTracer = NoopTracer;
 
 #[cfg(test)]
 mod tests {
+    use crate::decode::{I, R};
+
     use super::*;
     // use crate::decode_old::Opcode;
 
@@ -327,14 +329,11 @@ mod tests {
     fn test_full_tracer_memory_op() {
         let mut tracer = FullTracer::new(0x1000, [0u64; 32]);
         let regs = [0u64; 32];
-        let instr = Instruction {
-            opcode: Opcode::Lw,
+        let instr = Instruction::Lw(I {
             rs1: 1,
-            rs2: 0,
-            rs3: 0,
             rd: 2,
             imm: 0,
-        };
+        });
 
         tracer.begin_instruction(0, 0x1000, &regs, 0x00000003, &instr);
         tracer.record_mem_op(MemOp::LoadWord {
@@ -366,14 +365,7 @@ mod tests {
     fn test_full_tracer_halt() {
         let mut tracer = FullTracer::new(0x1000, [0u64; 32]);
         let regs = [0u64; 32];
-        let instr = Instruction {
-            opcode: Opcode::Ecall,
-            rs1: 0,
-            rs2: 0,
-            rs3: 0,
-            rd: 0,
-            imm: 0,
-        };
+        let instr = Instruction::Ecall;
 
         tracer.begin_instruction(0, 0x1000, &regs, 0x00000073, &instr);
         tracer.record_halt();
@@ -387,14 +379,11 @@ mod tests {
     fn test_full_tracer_mul_intermediate() {
         let mut tracer = FullTracer::new(0x1000, [0u64; 32]);
         let regs = [0u64; 32];
-        let instr = Instruction {
-            opcode: Opcode::Mul,
+        let instr = Instruction::Mul(R {
+            rd: 3,
             rs1: 1,
             rs2: 2,
-            rs3: 0,
-            rd: 3,
-            imm: 0,
-        };
+        });
 
         tracer.begin_instruction(0, 0x1000, &regs, 0x00000033, &instr);
         tracer.record_mul(0xDEADBEEF, 0xCAFEBABE);

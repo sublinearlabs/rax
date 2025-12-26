@@ -131,12 +131,30 @@ impl<T: Tracer> VM<T> {
         // let insn = decode(raw_insn);
 
         // Begin tracing this instruction
-        self.tracer
-            .begin_instruction(self.cycles, self.pc, &self.registers, insn, &insn);
+        // self.tracer
+        // .begin_instruction(self.cycles, self.pc, &self.registers, insn, &insn);
 
         // Execute the instruction (this will update PC)
         // print!(" {:?}, addr: {:0x}\n", insn.opcode, self.pc);
+
+        let test_num = self.reg(3); // gp register
+        // Debug more tests
+        if test_num >= 3 && test_num <= 10 {
+            println!("Test {} Debug:", test_num);
+            println!("  PC: 0x{:08x}", self.pc);
+            println!("  raw_insn: 0x{:08x}", insn);
+            println!("  decoded: {:?}", decode(insn));
+            println!("  gp (x3): {}", self.reg(3));
+        }
+
         self.execute_instruction(insn);
+
+        if test_num >= 3 && test_num <= 10 {
+            println!("  After execution:");
+            println!("  gp (x3): {}", self.reg(3));
+            println!("  PC after: 0x{:08x}", self.pc);
+            println!();
+        }
 
         // Record next PC (set during execute_instruction or default to pc+4)
         self.tracer.record_next_pc(self.pc);
@@ -209,7 +227,7 @@ impl<T: Tracer> VM<T> {
 
     /// Returns a mutable reference to the idx floating point register
     fn write_f64(&mut self, idx: u8, value: f64) {
-        self.f_reg[idx] = value.to_bits();
+        self.f_reg[idx as usize] = value.to_bits();
     }
 
     // Read f32
@@ -550,9 +568,6 @@ mod tests {
 
         println!("exit_code {}", vm.exit_code);
         assert!(vm.halted);
-        if vm.exit_code != 0 {
-            println!("failing test {}", vm.exit_code >> 1);
-        }
         if vm.exit_code != 0 {
             println!("failing test {}", vm.exit_code >> 1);
         }
