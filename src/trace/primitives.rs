@@ -262,7 +262,7 @@ impl InstrFlags {
 
 /// A single row of the execution trace.
 #[derive(Clone, Debug, Deserialize)]
-pub struct TraceRow {
+pub(crate) struct TraceRow {
     /// Clock cycle / step number.
     pub clk: u64,
     /// Program counter before this instruction.
@@ -639,6 +639,8 @@ impl InstructionStats {
 
 #[cfg(test)]
 mod tests {
+    use crate::decode::R;
+
     use super::*;
 
     #[test]
@@ -662,28 +664,40 @@ mod tests {
         assert_eq!(trace.total_cycles, 1);
     }
 
-    // #[test]
-    // fn test_instr_flags_alu() {
-    //     let flags = InstrFlags::from_opcode(&Opcode::Add);
-    //     assert!(flags.is_alu);
-    //     assert!(!flags.is_load);
-    //     assert!(!flags.is_store);
-    // }
+    #[test]
+    fn test_instr_flags_alu() {
+        let flags = InstrFlags::from_opcode(&Instruction::Add(R {
+            rd: 0,
+            rs1: 0,
+            rs2: 0,
+        }));
+        assert!(flags.is_alu);
+        assert!(!flags.is_load);
+        assert!(!flags.is_store);
+    }
 
-    // #[test]
-    // fn test_instr_flags_load() {
-    //     let flags = InstrFlags::from_opcode(&Opcode::Ld);
-    //     assert!(flags.is_load);
-    //     assert!(!flags.is_alu);
-    // }
+    #[test]
+    fn test_instr_flags_load() {
+        let flags = InstrFlags::from_opcode(&Instruction::Ld(I {
+            rd: 0,
+            rs1: 0,
+            imm: 0,
+        }));
+        assert!(flags.is_load);
+        assert!(!flags.is_alu);
+    }
 
-    // #[test]
-    // fn test_instr_flags_atomic() {
-    //     let flags = InstrFlags::from_opcode(&Opcode::AmoaddD);
-    //     assert!(flags.is_amo);
-    //     assert!(!flags.is_lr);
-    //     assert!(!flags.is_sc);
-    // }
+    #[test]
+    fn test_instr_flags_atomic() {
+        let flags = InstrFlags::from_opcode(&Instruction::AmoAddD(R {
+            rd: 0,
+            rs1: 0,
+            rs2: 0,
+        }));
+        assert!(flags.is_amo);
+        assert!(!flags.is_lr);
+        assert!(!flags.is_sc);
+    }
 
     #[test]
     fn test_mem_op_default() {

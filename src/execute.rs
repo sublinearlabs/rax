@@ -1790,86 +1790,92 @@ fn classify64(val: u64) -> u64 {
 #[cfg(test)]
 mod test {
     use crate::VM;
-    use crate::decode::Instruction;
     use crate::trace::NoopTracer;
 
-    // #[test]
-    // fn test_add_instruction() {
-    //     let mut vm = VM::<NoopTracer>::init();
-    //     *vm.reg_mut(3) = 12;
-    //     *vm.reg_mut(5) = 32;
-    //     // r8 = r3 + r5
-    //     vm.execute_instruction(Instruction::Add(R { rd: 8, rs1: 3, rs2: 5 }));
-    //     // vm.execute_instruction(Instruction::new(Opcode::Add).rs1(3).rs2(5).rd(8));
-    //     assert_eq!(vm.reg(8), 12 + 32);
-    // }
+    #[test]
+    fn test_add_instruction() {
+        let mut vm = VM::<NoopTracer>::init();
+        *vm.reg_mut(3) = 12;
+        *vm.reg_mut(5) = 32;
+        // r8 = r3 + r5
+        // 0x518433 = Instruction::Add(R { rd: 8, rs1: 3, rs2: 5 });
+        let insn = 0x518433;
+        vm.execute_instruction(insn);
+        assert_eq!(vm.reg(8), 12 + 32);
+    }
 
-    // #[test]
-    // fn test_store_byte() {
-    //     let mut vm = VM::<NoopTracer>::init();
-    //     *vm.reg_mut(3) = 12;
-    //     *vm.reg_mut(2) = 5;
-    //     let insn = Instruction::new(Opcode::Sb).rs1(2).imm(2).rs2(3);
-    //     vm.execute_instruction(insn);
-    //     assert_eq!(vm.mem(7), 12);
-    // }
+    #[test]
+    fn test_store_byte() {
+        let mut vm = VM::<NoopTracer>::init();
+        *vm.reg_mut(3) = 12;
+        *vm.reg_mut(2) = 5;
+        // 0x310123 = Instruction::Sb(S {rs1: 2, rs2: 3, imm: 2});
+        let insn = 0x310123;
+        vm.execute_instruction(insn);
+        assert_eq!(vm.mem(7), 12);
+    }
 
-    // #[test]
-    // fn test_store_half_word() {
-    //     let mut vm = VM::<NoopTracer>::init();
-    //     *vm.reg_mut(3) = 64008;
-    //     *vm.reg_mut(2) = 5;
-    //     let insn = Instruction::new(Opcode::Sh).rs1(2).imm(2).rs2(3);
-    //     vm.execute_instruction(insn);
-    //     assert_eq!(vm.mem(7), 64008);
-    //     assert_eq!(vm.mem(8), 250);
-    // }
+    #[test]
+    fn test_store_half_word() {
+        let mut vm = VM::<NoopTracer>::init();
+        *vm.reg_mut(3) = 64008;
+        *vm.reg_mut(2) = 5;
+        // 0x311123 = Instruction::Sh(S {rs1: 2, rs2: 3, imm: 2});
+        let insn = 0x311123;
+        vm.execute_instruction(insn);
+        assert_eq!(vm.mem(7), 64008);
+        assert_eq!(vm.mem(8), 250);
+    }
 
-    // #[test]
-    // fn test_store_word() {
-    //     let mut vm = VM::<NoopTracer>::init();
-    //     *vm.reg_mut(3) = 2299561908;
-    //     *vm.reg_mut(2) = 5;
-    //     let insn = Instruction::new(Opcode::Sw).rs1(2).imm(2).rs2(3);
-    //     vm.execute_instruction(insn);
-    //     assert_eq!(vm.mem(7), 2299561908);
-    //     assert_eq!(vm.mem(8), 8982663);
-    //     assert_eq!(vm.mem(9), 35088);
-    // }
+    #[test]
+    fn test_store_word() {
+        let mut vm = VM::<NoopTracer>::init();
+        *vm.reg_mut(3) = 2299561908;
+        *vm.reg_mut(2) = 5;
+        // 0x312123 = Instruction::Sw(S { rs1: 2, rs2: 3, imm: 2 });
+        let insn = 0x312123;
+        vm.execute_instruction(insn);
+        assert_eq!(vm.mem(7), 2299561908);
+        assert_eq!(vm.mem(8), 8982663);
+        assert_eq!(vm.mem(9), 35088);
+    }
 
-    // #[test]
-    // fn test_store_double_word() {
-    //     let mut vm = VM::<NoopTracer>::init();
-    //     *vm.reg_mut(3) = 1234567898765432123;
-    //     *vm.reg_mut(2) = 5;
-    //     let insn = Instruction::new(Opcode::Sd).rs1(2).imm(2).rs2(3);
-    //     vm.execute_instruction(insn);
-    //     assert_eq!(vm.mem(7), 1234567898765432123);
-    //     assert_eq!(vm.mem(8), 4822530854552469);
-    //     assert_eq!(vm.mem(9), 18838011150595);
-    //     assert_eq!(vm.mem(10), 73585981057);
-    //     assert_eq!(vm.mem(11), 287445238);
-    //     assert_eq!(vm.mem(12), 1122832);
-    // }
+    #[test]
+    fn test_store_double_word() {
+        let mut vm = VM::<NoopTracer>::init();
+        *vm.reg_mut(3) = 1234567898765432123;
+        *vm.reg_mut(2) = 5;
+        // 0x313123 = Instruction::Sd(S { rs1: 2, rs2: 3, imm: 2 });
+        let insn = 0x313123;
+        vm.execute_instruction(insn);
+        assert_eq!(vm.mem(7), 1234567898765432123);
+        assert_eq!(vm.mem(8), 4822530854552469);
+        assert_eq!(vm.mem(9), 18838011150595);
+        assert_eq!(vm.mem(10), 73585981057);
+        assert_eq!(vm.mem(11), 287445238);
+        assert_eq!(vm.mem(12), 1122832);
+    }
 
-    // #[test]
-    // fn test_jal_opcode() {
-    //     let mut vm = VM::<NoopTracer>::init();
-    //     vm.pc = 8;
-    //     let insn = Instruction::new(Opcode::Jal).imm(12).rd(3);
-    //     vm.execute_instruction(insn);
-    //     assert_eq!(vm.reg(3), 12);
-    //     assert_eq!(vm.pc, 20);
-    // }
+    #[test]
+    fn test_jal_opcode() {
+        let mut vm = VM::<NoopTracer>::init();
+        vm.pc = 8;
+        // 0xC001EF = Instruction::Jal(J { rd: 3, imm: 12 });
+        let insn = 0xC001EF;
+        vm.execute_instruction(insn);
+        assert_eq!(vm.reg(3), 12);
+        assert_eq!(vm.pc, 20);
+    }
 
-    // #[test]
-    // fn test_jalr_opcode() {
-    //     let mut vm = VM::<NoopTracer>::init();
-    //     vm.pc = 8;
-    //     *vm.reg_mut(5) = 6;
-    //     let insn = Instruction::new(Opcode::Jalr).rs1(5).imm(9).rd(3);
-    //     vm.execute_instruction(insn);
-    //     assert_eq!(vm.reg(3), 12);
-    //     assert_eq!(vm.pc, 15);
-    // }
+    #[test]
+    fn test_jalr_opcode() {
+        let mut vm = VM::<NoopTracer>::init();
+        vm.pc = 8;
+        *vm.reg_mut(5) = 6;
+        // 0x9281E7 = Instruction::Jalr(I {rs1: 5, rd: 3, imm: 9});
+        let insn = 0x9281E7;
+        vm.execute_instruction(insn);
+        assert_eq!(vm.reg(3), 12);
+        assert_eq!(vm.pc, 15);
+    }
 }
