@@ -256,6 +256,8 @@ pub type DefaultTracer = NoopTracer;
 
 #[cfg(test)]
 mod tests {
+    use crate::decode::{I, R};
+
     use super::*;
 
     #[test]
