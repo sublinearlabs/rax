@@ -128,11 +128,10 @@ impl<T: Tracer> VM<T> {
     /// Perform one cycle with tracing
     pub fn step(&mut self) {
         let insn = self.mem32(self.pc as usize);
-        // let insn = decode(raw_insn);
 
         // Begin tracing this instruction
-        // self.tracer
-        // .begin_instruction(self.cycles, self.pc, &self.registers, insn, &insn);
+        self.tracer
+            .begin_instruction(self.cycles, self.pc, &self.registers, insn);
 
         // Execute the instruction (this will update PC)
         // print!(" {:?}, addr: {:0x}\n", insn.opcode, self.pc);

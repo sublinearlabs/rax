@@ -239,7 +239,7 @@ fn decode_auipc(insn: u32) -> Instruction {
 
 fn decode_system(insn: u32) -> Instruction {
     let imm = imm_i(insn);
-    
+
     let operand = I {
         rd: rd(insn),
         rs1: rs1(insn),

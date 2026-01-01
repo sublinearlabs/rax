@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-/// R-tyoe register-register format
+/// R-type register-register format
 ///
 /// Semantics `rd <- f(rs1, rs2)`
 #[derive(Debug, Clone, Deserialize)]

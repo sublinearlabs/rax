@@ -9,7 +9,7 @@ mod primitives;
 mod tracer;
 
 // Re-export primitives
-pub use primitives::{ExecutionTrace, InstrFlags, MemOp, TraceRow};
+pub(crate) use primitives::{ExecutionTrace, InstrFlags, MemOp, TraceRow};
 
 // Re-export tracer types
 pub use tracer::{DefaultTracer, FullTracer, NoopTracer, Tracer};
