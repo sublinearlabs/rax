@@ -23,6 +23,34 @@ fn decode_compressed(insn: u16) -> Instruction {
     }
 }
 
+fn dec_c_addi4spn(insn: u16) -> Instruction {
+    todo!()
+}
+
+fn dec_c_fld(insn: u16) -> Instruction {
+    todo!()
+}
+
+fn dec_c_lw(insn: u16) -> Instruction {
+    todo!()
+}
+
+fn dec_c_flw_ld(insn: u16) -> Instruction {
+    todo!()
+}
+
+fn dec_c_fsd(insn: u16) -> Instruction {
+    todo!()
+}
+
+fn dec_c_sw(insn: u16) -> Instruction {
+    todo!()
+}
+
+fn dec_c_fsw_sd(insn: u16) -> Instruction {
+    todo!()
+}
+
 #[cfg(test)]
 mod tests {
     use crate::decode::{I, Instruction, compressed::decode_compressed};
