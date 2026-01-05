@@ -10,6 +10,7 @@ mod tests {
 
     #[test]
     fn test_decode_compressed() {
+        // c.nop (0x0001) expands to addi x0, x0, 0
         let compressed_instruction: u16 = 0x0001;
         let insn = decode_compressed(compressed_instruction);
         assert_eq!(
