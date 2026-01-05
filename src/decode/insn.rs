@@ -226,6 +226,10 @@ impl Instruction {
         }
     }
 
+    pub fn rs3(&self) -> u8 {
+        todo!()
+    }
+
     pub fn rd(&self) -> u8 {
         match self {
             Instruction::Add(r) | Instruction::Sub(r) => r.rd as u8,
@@ -245,5 +249,13 @@ impl Instruction {
             Instruction::Jal(j) => j.imm as u64,
             _ => 0,
         }
+    }
+
+    pub fn shamt(&self) -> u8 {
+        todo!()
+    }
+
+    pub fn rm(&self) -> u8 {
+        todo!()
     }
 }

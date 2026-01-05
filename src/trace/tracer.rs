@@ -144,6 +144,12 @@ impl Tracer for FullTracer {
             regs[instr.rs2() as usize]
         };
 
+        let rs3_val = if instr.rs3() == 0 {
+            0
+        } else {
+            regs[instr.rs3() as usize]
+        };
+
         self.current = Some(TraceRow {
             clk,
             pc,
@@ -154,10 +160,14 @@ impl Tracer for FullTracer {
             flags: InstrFlags::from_opcode(&instr),
             rs1: instr.rs1(),
             rs2: instr.rs2(),
+            rs3: instr.rs3(),
             rd: instr.rd(),
             imm: instr.imm(),
+            shamt: instr.shamt(),
+            rm: instr.rm(),
             rs1_val,
             rs2_val,
+            rs3_val,
             rd_val: 0,
             mem_op: MemOp::None,
             mul_lo: 0,
@@ -217,10 +227,14 @@ impl Tracer for FullTracer {
                 regs: row.regs,
                 rs1: row.rs1,
                 rs2: row.rs2,
+                rs3: row.rs3,
                 rd: row.rd,
                 imm: row.imm,
+                shamt: row.shamt,
+                rm: row.rm,
                 rs1_val: row.rs1_val,
                 rs2_val: row.rs2_val,
+                rs3_val: row.rs3_val,
                 rd_val: row.rd_val,
                 mem_op: row.mem_op,
                 mul_lo: row.mul_lo,
@@ -256,8 +270,6 @@ pub type DefaultTracer = NoopTracer;
 
 #[cfg(test)]
 mod tests {
-    use crate::decode::{I, R};
-
     use super::*;
 
     #[test]

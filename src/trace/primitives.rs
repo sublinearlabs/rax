@@ -297,14 +297,22 @@ pub(crate) struct TraceRow {
     pub rs1: u8,
     /// Source register 2 index.
     pub rs2: u8,
+    /// Source register 3 index.
+    pub rs3: u8,
     /// Destination register index (0 if no write).
     pub rd: u8,
     /// Immediate value.
     pub imm: u64,
+    /// Shift amount
+    pub shamt: u8,
+    /// Rounding mode
+    pub rm: u8,
     /// Value of rs1.
     pub rs1_val: u64,
     /// Value of rs2.
     pub rs2_val: u64,
+    /// Value of rs3.
+    pub rs3_val: u64,
     /// Value written to rd (if any).
     pub rd_val: u64,
     /// Memory operation (if any).
@@ -336,10 +344,14 @@ impl TraceRow {
             regs,
             rs1: 0,
             rs2: 0,
+            rs3: 0,
             rd: 0,
             imm: 0,
+            shamt: 0,
+            rm: 0,
             rs1_val: 0,
             rs2_val: 0,
+            rs3_val: 0,
             rd_val: 0,
             mem_op: MemOp::None,
             mul_lo: 0,
@@ -360,11 +372,15 @@ impl TraceRow {
         let flags = InstrFlags::from_opcode(&instr);
         let rs1 = instr.rs1();
         let rs2 = instr.rs2();
+        let rs3 = instr.rs3();
         let rd = instr.rd();
         let imm = instr.imm();
+        let shamt = instr.shamt();
+        let rm = instr.rm();
 
         let rs1_val = if rs1 == 0 { 0 } else { regs[rs1 as usize] };
         let rs2_val = if rs2 == 0 { 0 } else { regs[rs2 as usize] };
+        let rs3_val = if rs3 == 0 { 0 } else { regs[rs3 as usize] };
 
         Self {
             clk,
@@ -376,10 +392,14 @@ impl TraceRow {
             regs,
             rs1: rs1,
             rs2: rs2,
+            rs3: rs3,
             rd: rd,
             imm: imm,
+            shamt,
+            rm,
             rs1_val,
             rs2_val,
+            rs3_val,
             rd_val: 0,
             mem_op: MemOp::None,
             mul_lo: 0,
