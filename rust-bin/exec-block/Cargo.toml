@@ -1,5 +1,5 @@
 [package]
-name = "fib"
+name = "exec-block"
 version = "0.1.0"
 edition = "2021"
 
@@ -13,6 +13,9 @@ reth-primitives-traits = { git = "https://github.com/paradigmxyz/reth", rev = "c
 sparsestate = { git = "https://github.com/eth-act/zkvm-ethereum-mpt.git", tag = "v0.4.0" }
 sha2 = { version = "0.10.9", default-features = false }
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
+anyhow = { version = "1.0", default-features = false }
+reth-ethereum-primitives = { git = "https://github.com/paradigmxyz/reth", rev = "cfde951976bfa9100a6d9f806e06fb539ae25241", default-features = false }
+
 
 [profile.release]
 opt-level = "s"

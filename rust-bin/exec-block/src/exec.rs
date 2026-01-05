@@ -9,6 +9,8 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use sparsestate::SparseState;
 
+use crate::utils::to_reth_stateless_input;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RethStatelessValidatorInput {
     /// The stateless input for the stateless validation function.
@@ -19,7 +21,8 @@ pub struct RethStatelessValidatorInput {
 pub type RethStatelessValidatorOutput = ([u8; 32], [u8; 32], bool);
 
 pub fn runner(input_raw: &[u8]) -> [u8; 32] {
-    let input = serde_json::from_slice::<RethStatelessValidatorInput>(input_raw).unwrap();
+    let stateless_input = serde_json::from_slice::<StatelessInput>(input_raw).unwrap();
+    let input = to_reth_stateless_input(&stateless_input);
     let genesis = Genesis {
         config: input.stateless_input.chain_config.clone(),
         ..Default::default()

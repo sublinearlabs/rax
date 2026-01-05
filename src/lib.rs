@@ -63,7 +63,8 @@ impl<T: Tracer> VM<T> {
     /// Init the VM from an elf file
     pub fn init_from_elf(path: String) -> Self {
         let elf_bytes = fs::read(path).unwrap();
-        let (memory, pc) = decode_elf(&elf_bytes);
+        let (memory, pc, max_address) = decode_elf(&elf_bytes);
+        println!("Max address: {}", max_address);
         // Initialize stack pointer (x2/sp) to a valid memory address
         let mut registers = [0u64; 32];
         registers[2] = Self::DEFAULT_STACK_POINTER;
@@ -78,7 +79,8 @@ impl<T: Tracer> VM<T> {
     /// Init the VM from an elf file with a specific tracer
     pub fn init_from_elf_with_tracer(path: String, tracer: T) -> Self {
         let elf_bytes = fs::read(path).unwrap();
-        let (memory, pc) = decode_elf(&elf_bytes);
+        let (memory, pc, max_address) = decode_elf(&elf_bytes);
+        println!("Max address: {}", max_address);
         // Initialize stack pointer (x2/sp) to a valid memory address
         let mut registers = [0u64; 32];
         registers[2] = Self::DEFAULT_STACK_POINTER;
@@ -273,7 +275,7 @@ impl<T: Tracer> VM<T> {
     }
 
     /// Write multiple bytes from a given address
-    pub(crate) fn write_bytes(&mut self, addr: usize, data: &[u8]) {
+    pub fn write_bytes(&mut self, addr: usize, data: &[u8]) {
         self.memory.write_bytes(addr as u64, data);
     }
 
