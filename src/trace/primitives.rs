@@ -303,8 +303,6 @@ pub(crate) struct TraceRow {
     pub rd: u8,
     /// Immediate value.
     pub imm: u64,
-    /// Shift amount
-    pub shamt: u8,
     /// Rounding mode
     pub rm: u8,
     /// Value of rs1.
@@ -347,7 +345,6 @@ impl TraceRow {
             rs3: 0,
             rd: 0,
             imm: 0,
-            shamt: 0,
             rm: 0,
             rs1_val: 0,
             rs2_val: 0,
@@ -375,7 +372,6 @@ impl TraceRow {
         let rs3 = instr.rs3();
         let rd = instr.rd();
         let imm = instr.imm();
-        let shamt = instr.shamt();
         let rm = instr.rm();
 
         let rs1_val = if rs1 == 0 { 0 } else { regs[rs1 as usize] };
@@ -395,7 +391,6 @@ impl TraceRow {
             rs3: rs3,
             rd: rd,
             imm: imm,
-            shamt,
             rm,
             rs1_val,
             rs2_val,

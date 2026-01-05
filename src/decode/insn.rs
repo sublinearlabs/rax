@@ -209,32 +209,115 @@ pub(crate) enum Instruction {
 impl Instruction {
     pub fn rs1(&self) -> u8 {
         match self {
-            Instruction::Add(r) | Instruction::Sub(r) => r.rs1 as u8,
-            Instruction::Addi(i) | Instruction::Lb(i) => i.rs1 as u8,
-            Instruction::Sb(s) | Instruction::Sh(s) => s.rs1 as u8,
-            Instruction::Beq(b) | Instruction::Bne(b) => b.rs1 as u8,
+            Instruction::Add(r)
+            | Instruction::Sub(r)
+            | Instruction::Xor(r)
+            | Instruction::Or(r)
+            | Instruction::And(r)
+            | Instruction::Sll(r)
+            | Instruction::Srl(r)
+            | Instruction::Sra(r)
+            | Instruction::Slt(r)
+            | Instruction::Sltu(r) => r.rs1,
+
+            Instruction::Addi(i)
+            | Instruction::Xori(i)
+            | Instruction::Ori(i)
+            | Instruction::Andi(i)
+            | Instruction::Slti(i)
+            | Instruction::Sltiu(i)
+            | Instruction::Lb(i)
+            | Instruction::Lh(i)
+            | Instruction::Lw(i)
+            | Instruction::Lbu(i)
+            | Instruction::Lhu(i)
+            | Instruction::Jalr(i) => i.rs1,
+
+            Instruction::Slli(sh) | Instruction::Srli(sh) | Instruction::Srai(sh) => sh.rs1,
+
+            Instruction::Sb(s) | Instruction::Sh(s) | Instruction::Sw(s) => s.rs1,
+
+            Instruction::Beq(b)
+            | Instruction::Bne(b)
+            | Instruction::Blt(b)
+            | Instruction::Bge(b)
+            | Instruction::Bltu(b)
+            | Instruction::Bgeu(b) => b.rs1,
+
             _ => 0,
         }
     }
 
     pub fn rs2(&self) -> u8 {
         match self {
-            Instruction::Add(r) | Instruction::Sub(r) => r.rs2 as u8,
-            Instruction::Sb(s) | Instruction::Sh(s) => s.rs2 as u8,
-            Instruction::Beq(b) | Instruction::Bne(b) => b.rs2 as u8,
+            Instruction::Add(r)
+            | Instruction::Sub(r)
+            | Instruction::Xor(r)
+            | Instruction::Or(r)
+            | Instruction::And(r)
+            | Instruction::Sll(r)
+            | Instruction::Srl(r)
+            | Instruction::Sra(r)
+            | Instruction::Slt(r)
+            | Instruction::Sltu(r) => r.rs2,
+
+            Instruction::Sb(s) | Instruction::Sh(s) | Instruction::Sw(s) => s.rs2,
+
+            Instruction::Beq(b)
+            | Instruction::Bne(b)
+            | Instruction::Blt(b)
+            | Instruction::Bge(b)
+            | Instruction::Bltu(b)
+            | Instruction::Bgeu(b) => b.rs2,
+
             _ => 0,
         }
     }
 
     pub fn rs3(&self) -> u8 {
-        todo!()
+        match self {
+            Instruction::FmaddS(r4)
+            | Instruction::FmsubS(r4)
+            | Instruction::FnmsubS(r4)
+            | Instruction::FnmaddS(r4)
+            | Instruction::FmaddD(r4)
+            | Instruction::FmsubD(r4)
+            | Instruction::FnmsubD(r4)
+            | Instruction::FnmaddD(r4) => r4.rs3,
+            _ => 0,
+        }
     }
 
     pub fn rd(&self) -> u8 {
         match self {
-            Instruction::Add(r) | Instruction::Sub(r) => r.rd as u8,
-            Instruction::Addi(i) | Instruction::Lb(i) => i.rd as u8,
+            Instruction::Add(r)
+            | Instruction::Sub(r)
+            | Instruction::Xor(r)
+            | Instruction::Or(r)
+            | Instruction::And(r)
+            | Instruction::Sll(r)
+            | Instruction::Srl(r)
+            | Instruction::Sra(r)
+            | Instruction::Slt(r)
+            | Instruction::Sltu(r) => r.rd as u8,
+
+            Instruction::Addi(i)
+            | Instruction::Xori(i)
+            | Instruction::Ori(i)
+            | Instruction::Andi(i)
+            | Instruction::Slti(i)
+            | Instruction::Sltiu(i)
+            | Instruction::Lb(i)
+            | Instruction::Lh(i)
+            | Instruction::Lw(i)
+            | Instruction::Lbu(i)
+            | Instruction::Lhu(i)
+            | Instruction::Jalr(i) => i.rd as u8,
+
+            Instruction::Slli(sh) | Instruction::Srli(sh) | Instruction::Srai(sh) => sh.rd as u8,
+
             Instruction::Lui(u) | Instruction::Auipc(u) => u.rd as u8,
+
             Instruction::Jal(j) => j.rd as u8,
             _ => 0,
         }
@@ -242,20 +325,103 @@ impl Instruction {
 
     pub fn imm(&self) -> u64 {
         match self {
-            Instruction::Addi(i) | Instruction::Lb(i) => i.imm as u64,
-            Instruction::Sb(s) | Instruction::Sh(s) => s.imm as u64,
-            Instruction::Beq(b) | Instruction::Bne(b) => b.imm as u64,
+            Instruction::Addi(i)
+            | Instruction::Xori(i)
+            | Instruction::Ori(i)
+            | Instruction::Andi(i)
+            | Instruction::Slti(i)
+            | Instruction::Sltiu(i)
+            | Instruction::Lb(i)
+            | Instruction::Lh(i)
+            | Instruction::Lw(i)
+            | Instruction::Lbu(i)
+            | Instruction::Lhu(i)
+            | Instruction::Jalr(i) => i.imm as u64,
+
+            Instruction::Slli(sh) | Instruction::Srli(sh) | Instruction::Srai(sh) => {
+                sh.shamt as u64
+            }
+
+            Instruction::Sb(s) | Instruction::Sh(s) | Instruction::Sw(s) => s.imm as u64,
+
+            Instruction::Beq(b)
+            | Instruction::Bne(b)
+            | Instruction::Blt(b)
+            | Instruction::Bge(b)
+            | Instruction::Bltu(b)
+            | Instruction::Bgeu(b) => b.imm as u64,
+
             Instruction::Lui(u) | Instruction::Auipc(u) => u.imm as u64,
+
             Instruction::Jal(j) => j.imm as u64,
+
             _ => 0,
         }
     }
 
-    pub fn shamt(&self) -> u8 {
-        todo!()
-    }
-
     pub fn rm(&self) -> u8 {
-        todo!()
+        match self {
+            Instruction::FaddS(rf)
+            | Instruction::FsubS(rf)
+            | Instruction::FmulS(rf)
+            | Instruction::FdivS(rf)
+            | Instruction::FaddD(rf)
+            | Instruction::FsubD(rf)
+            | Instruction::FmulD(rf)
+            | Instruction::FdivD(rf)
+            | Instruction::FsqrtS(rf)
+            | Instruction::FsqrtD(rf)
+            | Instruction::FsgnjS(rf)
+            | Instruction::FsgnjnS(rf)
+            | Instruction::FsgnjxS(rf)
+            | Instruction::FsgnjD(rf)
+            | Instruction::FsgnjnD(rf)
+            | Instruction::FsgnjxD(rf)
+            | Instruction::FminS(rf)
+            | Instruction::FmaxS(rf)
+            | Instruction::FminD(rf)
+            | Instruction::FmaxD(rf)
+            | Instruction::FleS(rf)
+            | Instruction::FltS(rf)
+            | Instruction::FeqS(rf)
+            | Instruction::FleD(rf)
+            | Instruction::FltD(rf)
+            | Instruction::FeqD(rf)
+            | Instruction::FcvtWS(rf)
+            | Instruction::FcvtWuS(rf)
+            | Instruction::FcvtLS(rf)
+            | Instruction::FcvtLuS(rf)
+            | Instruction::FcvtWD(rf)
+            | Instruction::FcvtWuD(rf)
+            | Instruction::FcvtLD(rf)
+            | Instruction::FcvtLuD(rf)
+            | Instruction::FcvtSW(rf)
+            | Instruction::FcvtSWu(rf)
+            | Instruction::FcvtSL(rf)
+            | Instruction::FcvtSLu(rf)
+            | Instruction::FcvtDW(rf)
+            | Instruction::FcvtDWu(rf)
+            | Instruction::FcvtDL(rf)
+            | Instruction::FcvtDLu(rf)
+            | Instruction::FcvtSD(rf)
+            | Instruction::FcvtDS(rf)
+            | Instruction::FmvXW(rf)
+            | Instruction::FclassS(rf)
+            | Instruction::FmvWX(rf)
+            | Instruction::FmvXD(rf)
+            | Instruction::FclassD(rf)
+            | Instruction::FmvDX(rf) => rf.rm,
+
+            Instruction::FmaddS(r4)
+            | Instruction::FmsubS(r4)
+            | Instruction::FnmsubS(r4)
+            | Instruction::FnmaddS(r4)
+            | Instruction::FmaddD(r4)
+            | Instruction::FmsubD(r4)
+            | Instruction::FnmsubD(r4)
+            | Instruction::FnmaddD(r4) => r4.rm,
+
+            _ => 0,
+        }
     }
 }
