@@ -106,6 +106,12 @@ pub struct InstrFlags {
     /// Atomic memory operation (AMO*).
     pub is_amo: bool,
 
+    // Zicsr-extension flags(for Control Status Register)
+    /// CSR operations (eg: CSRRW, CSRRS, CSRRC)
+    pub is_csr: bool,
+    /// CSR Immediate operations (eg: CSRRWI, CSRRSI, CSRRCI )
+    pub is_csr_imm: bool,
+
     // System flags
     /// ECALL instruction.
     pub is_ecall: bool,
@@ -242,6 +248,16 @@ impl InstrFlags {
             | Instruction::AmoMinuD(_)
             | Instruction::AmoMaxuD(_) => {
                 flags.is_amo = true;
+            }
+
+            // CSR operations
+            Instruction::Csrrw(_) | Instruction::Csrrs(_) | Instruction::Csrrc(_) => {
+                flags.is_csr = true;
+            }
+
+            // CSR Immediate operations
+            Instruction::Csrrwi(_) | Instruction::Csrrsi(_) | Instruction::Csrrci(_) => {
+                flags.is_csr_imm = true;
             }
 
             // System
@@ -593,6 +609,9 @@ impl ExecutionTrace {
             if f.is_lr || f.is_sc || f.is_amo {
                 stats.atomic += 1;
             }
+            if f.is_csr || f.is_csr_imm {
+                stats.csr += 1;
+            }
             if f.is_ecall || f.is_ebreak {
                 stats.system += 1;
             }
@@ -616,6 +635,7 @@ pub struct InstructionStats {
     pub div: u64,
     pub rem: u64,
     pub atomic: u64,
+    pub csr: u64,
     pub system: u64,
 }
 
@@ -634,6 +654,7 @@ impl InstructionStats {
             + self.rem
             + self.atomic
             + self.system
+            + self.csr
     }
 }
 
