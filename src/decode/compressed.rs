@@ -8,6 +8,17 @@ fn decode_compressed(insn: u16) -> Instruction {
     let funct3 = c_funct3(insn);
 
     match (quad, funct3) {
+        // quadrant 0 (00)
+        (0b00, 0b000) => dec_c_addi4spn(insn),
+        (0b00, 0b001) => dec_c_fld(insn),
+        (0b00, 0b010) => dec_c_lw(insn),
+        (0b00, 0b011) => dec_c_flw_ld(insn),
+        (0b00, 0b100) => todo!(),
+        (0b00, 0b101) => dec_c_fsd(insn),
+        (0b00, 0b110) => dec_c_sw(insn),
+        (0b00, 0b111) => dec_c_fsw_sd(insn),
+
+        // quadrant 1 (01)
         _ => Instruction::Illegal(insn as u32),
     }
 }
