@@ -21,7 +21,7 @@ const INPUT_BASE_ADDR: usize = 0x80000000;
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
     // Read input length from memory (first 8 bytes at INPUT_BASE_ADDR)
-    let input_len = unsafe { core::ptr::read_volatile(INPUT_BASE_ADDR as *const u64) as usize };
+    let input_len = unsafe { core::ptr::read_volatile(INPUT_BASE_ADDR as *const u64) as usize }; // this is not safe: we need to introduce std-io
 
     // Read input data from memory (starts after the length field)
     let input_data_addr = INPUT_BASE_ADDR + 8;

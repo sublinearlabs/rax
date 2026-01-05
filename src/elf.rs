@@ -9,7 +9,7 @@ use crate::memory::Memory;
 
 /// Decodes the elf bytes,
 /// loads segments into memory and return the pc.
-pub(crate) fn decode_elf(bytes: &[u8]) -> (Memory, u64, u64) {
+pub(crate) fn decode_elf(bytes: &[u8]) -> (Memory, u64) {
     let file =
         ElfBytes::<LittleEndian>::minimal_parse(bytes).expect("failed to parse the elf file");
     let ehdr = file.ehdr;
@@ -22,7 +22,6 @@ pub(crate) fn decode_elf(bytes: &[u8]) -> (Memory, u64, u64) {
 
     // load the program headers into memory
     let mut memory = Memory::default();
-    let mut max_addr: u64 = 0;
 
     // iterate over the program headers
     // load header of type `PT_LOAD` to memory
@@ -49,11 +48,7 @@ pub(crate) fn decode_elf(bytes: &[u8]) -> (Memory, u64, u64) {
         if memsz > filesz {
             memory.zero_fill(vaddr + filesz as u64, memsz - filesz);
         }
-        
-        // track highest written address
-        let segment_end = vaddr + memsz as u64;
-        max_addr = max_addr.max(segment_end);
     }
 
-    (memory, entry, max_addr)
+    (memory, entry)
 }
