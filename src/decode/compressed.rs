@@ -1,7 +1,15 @@
-use crate::decode::Instruction;
+use crate::decode::{
+    Instruction,
+    util::{c_funct3, quadrant},
+};
 
 fn decode_compressed(insn: u16) -> Instruction {
-    todo!()
+    let quad = quadrant(insn);
+    let funct3 = c_funct3(insn);
+
+    match (quad, funct3) {
+        _ => Instruction::Illegal(insn as u32),
+    }
 }
 
 #[cfg(test)]

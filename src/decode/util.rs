@@ -48,6 +48,6 @@ pub(crate) fn quadrant(insn: u16) -> u8 {
     (insn & mask16(2)) as u8
 }
 
-pub(crate) fn c_f3(insn: u16) -> u8 {
+pub(crate) fn c_funct3(insn: u16) -> u8 {
     ((insn >> 13) & mask16(3)) as u8
 }

@@ -607,6 +607,16 @@ mod tests {
             .collect::<Vec<_>>();
     }
 
+    #[ignore = "running forever"]
+    #[test]
+    fn test_rv64uc() {
+        let _ = fs::read_dir("test-bin/rv64uc")
+            .expect("Failed to read directory")
+            .filter_map(|entry| entry.ok())
+            .map(|entry| run_test_elf(entry.path().to_str().unwrap().to_string()))
+            .collect::<Vec<_>>();
+    }
+
     #[test]
     fn test_register_read_write() {
         let mut vm = VM::<NoopTracer>::init();
