@@ -1,6 +1,9 @@
-use crate::decode::{
-    Instruction,
-    util::{c_funct3, quadrant},
+use crate::{
+    decode::{
+        Instruction,
+        util::{c_funct3, quadrant},
+    },
+    util::mask16,
 };
 
 fn decode_compressed(insn: u16) -> Instruction {
@@ -24,6 +27,15 @@ fn decode_compressed(insn: u16) -> Instruction {
 }
 
 fn dec_c_addi4spn(insn: u16) -> Instruction {
+    // rd' insn[4:2]
+    // rd = rd' + 8
+    let rd = (((insn >> 2) & mask16(3)) + 8) as u8;
+
+    // extract immediate
+    // this is the only instruction that implements CIW (format)
+    // nzuimm[5:4|9:6|2|3]
+    let mut imm: u32 = 0;
+
     todo!()
 }
 
