@@ -1,6 +1,7 @@
 use crate::{
     decode::{
-        Instruction,
+        I, Instruction,
+        imm::imm_ciw_addi4spn,
         util::{c_funct3, quadrant},
     },
     util::mask16,
@@ -34,9 +35,17 @@ fn dec_c_addi4spn(insn: u16) -> Instruction {
     // extract immediate
     // this is the only instruction that implements CIW (format)
     // nzuimm[5:4|9:6|2|3]
-    let mut imm: u32 = 0;
+    let imm = imm_ciw_addi4spn(insn);
 
-    todo!()
+    if imm == 0 {
+        return Instruction::Illegal(insn as u32);
+    }
+
+    Instruction::Addi(I {
+        rd,
+        rs1: 2, // sp
+        imm,
+    })
 }
 
 fn dec_c_fld(insn: u16) -> Instruction {
