@@ -4,10 +4,8 @@ use crate::elf::decode_elf;
 use crate::memory::Memory;
 use crate::trace::{DefaultTracer, FullTracer, NoopTracer, Tracer};
 use decode::decode;
-// use crate::decode_old::decode_insn;
 
 mod decode;
-// mod decode_old;
 mod elf;
 mod execute;
 mod memory;
