@@ -1,10 +1,10 @@
 use crate::{
     decode::{
-        I, Instruction, J, S, U,
+        B, I, Instruction, J, S, U,
         imm::{
-            imm_addi16sp, imm_ci_signed, imm_ciw_addi4spn, imm_cj, imm_cl_d, imm_cl_w, imm_clui,
+            imm_addi16sp, imm_cb, imm_ci_signed, imm_ciw_addi4spn, imm_cj, imm_cl_d, imm_cl_w,
+            imm_clui,
         },
-        insn,
         util::{c_funct3, quadrant},
     },
     util::mask16,
@@ -231,7 +231,13 @@ fn dec_c_j(insn: u16) -> Instruction {
 }
 
 fn dec_c_beqz(insn: u16) -> Instruction {
-    todo!()
+    // rs1' insn[9:7]
+    // rs1 = rs1' + 8
+    let rs1 = (((insn >> 7) & mask16(3)) + 8) as u8;
+
+    let imm = imm_cb(insn);
+
+    Instruction::Beq(B { rs1, rs2: 0, imm })
 }
 
 fn dec_c_bnez(insn: u16) -> Instruction {
