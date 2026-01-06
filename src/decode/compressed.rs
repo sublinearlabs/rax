@@ -241,12 +241,18 @@ fn dec_c_beqz(insn: u16) -> Instruction {
 }
 
 fn dec_c_bnez(insn: u16) -> Instruction {
-    todo!()
+    // rs1' insn[9:7]
+    // rs1 = rs1' + 8
+    let rs1 = (((insn >> 7) & mask16(3)) + 8) as u8;
+
+    let imm = imm_cb(insn);
+
+    Instruction::Bne(B { rs1, rs2: 0, imm })
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::decode::{I, Instruction, J, S, U, compressed::decode_compressed};
+    use crate::decode::{B, I, Instruction, J, S, U, compressed::decode_compressed};
 
     #[test]
     fn test_decode_compressed() {
@@ -472,6 +478,42 @@ mod tests {
             Instruction::Lui(U {
                 rd: 1,
                 imm: 1 << 12
+            })
+        );
+    }
+
+    #[test]
+    fn test_c_beqz() {
+        let ci = 0xc001;
+        let insn = decode_compressed(ci);
+        assert_eq!(
+            insn,
+            Instruction::Beq(B {
+                rs1: 8,
+                rs2: 0,
+                imm: 0
+            })
+        );
+
+        let ci = 0xc009;
+        let insn = decode_compressed(ci);
+        assert_eq!(
+            insn,
+            Instruction::Beq(B {
+                rs1: 8,
+                rs2: 0,
+                imm: 2
+            })
+        );
+
+        let ci = 0xdc7d;
+        let insn = decode_compressed(ci);
+        assert_eq!(
+            insn,
+            Instruction::Beq(B {
+                rs1: 8,
+                rs2: 0,
+                imm: -2
             })
         );
     }
