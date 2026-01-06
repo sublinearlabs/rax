@@ -120,8 +120,19 @@ fn dec_c_sw(insn: u16) -> Instruction {
     Instruction::Sw(S { rs1, rs2, imm })
 }
 
+// TODO support RV32C
 fn dec_c_fsw_sd(insn: u16) -> Instruction {
-    todo!()
+    // rs1' insn[9:7]
+    // rs1 = rs1' + 8
+    let rs1 = (((insn >> 7) & mask16(3)) + 8) as u8;
+
+    // rs2' insn[4:2]
+    // rs2 = rd' + 8
+    let rs2 = (((insn >> 2) & mask16(3)) + 8) as u8;
+
+    let imm = imm_cl_d(insn);
+
+    Instruction::Sd(S { rs1, rs2, imm })
 }
 
 #[cfg(test)]
@@ -239,6 +250,31 @@ mod tests {
                 rs1: 8,
                 rs2: 8,
                 imm: 4
+            })
+        );
+    }
+
+    #[test]
+    fn test_c_sd() {
+        let ci: u16 = 0xE000;
+        let insn = decode_compressed(ci);
+        assert_eq!(
+            insn,
+            Instruction::Sd(S {
+                rs1: 8,
+                rs2: 8,
+                imm: 0
+            })
+        );
+
+        let ci: u16 = 0xE400;
+        let insn = decode_compressed(ci);
+        assert_eq!(
+            insn,
+            Instruction::Sd(S {
+                rs1: 8,
+                rs2: 8,
+                imm: 8
             })
         );
     }
