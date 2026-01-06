@@ -1,7 +1,9 @@
 use crate::{
     decode::{
-        I, Instruction, S, U,
-        imm::{imm_addi16sp, imm_ci_signed, imm_ciw_addi4spn, imm_cl_d, imm_cl_w, imm_clui},
+        I, Instruction, J, S, U,
+        imm::{
+            imm_addi16sp, imm_ci_signed, imm_ciw_addi4spn, imm_cj, imm_cl_d, imm_cl_w, imm_clui,
+        },
         insn,
         util::{c_funct3, quadrant},
     },
@@ -224,7 +226,8 @@ fn dec_c_alu(insn: u16) -> Instruction {
 }
 
 fn dec_c_j(insn: u16) -> Instruction {
-    todo!()
+    let imm = imm_cj(insn);
+    Instruction::Jal(J { rd: 0, imm })
 }
 
 fn dec_c_beqz(insn: u16) -> Instruction {
@@ -433,7 +436,7 @@ mod tests {
     fn test_c_j() {
         let ci = 0xA001;
         let insn = decode_compressed(ci);
-        assert_eq!(insn, Instruction::Jal(J { rd: 0, imm: 2 }));
+        assert_eq!(insn, Instruction::Jal(J { rd: 0, imm: 0 }));
 
         let ci = 0xBFFD;
         let insn = decode_compressed(ci);
