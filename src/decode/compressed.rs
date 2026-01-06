@@ -2,6 +2,7 @@ use crate::{
     decode::{
         I, Instruction, S,
         imm::{imm_ciw_addi4spn, imm_cl_d, imm_cl_w},
+        insn,
         util::{c_funct3, quadrant},
     },
     util::mask16,
@@ -23,9 +24,21 @@ fn decode_compressed(insn: u16) -> Instruction {
         (0b00, 0b111) => dec_c_sd(insn),
 
         // quadrant 1 (01)
+        (0b01, 0b000) => dec_c_addi_nop(insn),
+        (0b01, 0b001) => dec_c_addiw(insn),
+        (0b01, 0b010) => dec_c_li(insn),
+        (0b01, 0b011) => dec_c_addi16sp_lui(insn),
+        (0b01, 0b100) => dec_c_alu(insn),
+        (0b01, 0b101) => dec_c_j(insn),
+        (0b01, 0b110) => dec_c_beqz(insn),
+        (0b01, 0b111) => dec_c_bnez(insn),
+
+        // quadrant 2 (10)
         _ => Instruction::Illegal(insn as u32),
     }
 }
+
+// Quadrant 0
 
 fn dec_c_addi4spn(insn: u16) -> Instruction {
     // rd' insn[4:2]
@@ -130,6 +143,40 @@ fn dec_c_sd(insn: u16) -> Instruction {
     let imm = imm_cl_d(insn);
 
     Instruction::Sd(S { rs1, rs2, imm })
+}
+
+// Quadrant 1
+
+fn dec_c_addi_nop(insn: u16) -> Instruction {
+    todo!()
+}
+
+fn dec_c_addiw(insn: u16) -> Instruction {
+    todo!()
+}
+
+fn dec_c_li(insn: u16) -> Instruction {
+    todo!()
+}
+
+fn dec_c_addi16sp_lui(insn: u16) -> Instruction {
+    todo!()
+}
+
+fn dec_c_alu(insn: u16) -> Instruction {
+    todo!()
+}
+
+fn dec_c_j(insn: u16) -> Instruction {
+    todo!()
+}
+
+fn dec_c_beqz(insn: u16) -> Instruction {
+    todo!()
+}
+
+fn dec_c_bnez(insn: u16) -> Instruction {
+    todo!()
 }
 
 #[cfg(test)]
