@@ -105,6 +105,20 @@ pub(crate) fn imm_addi16sp(insn: u16) -> i32 {
 }
 
 #[inline]
+pub(crate) fn imm_clui(insn: u16) -> i32 {
+    // insn [12]
+    // imm  [17]
+    //
+    // insn [ 6  5  4  3  2]
+    // imm  [16 15 14 13 12]
+
+    let imm17 = ((insn >> 12) & mask16(1)) << 17;
+    let imm16_12 = ((insn >> 2) & mask16(5)) << 12;
+    let imm = imm17 | imm16_12;
+    ((imm as i32) << 14) >> 14
+}
+
+#[inline]
 pub(crate) fn imm_ci_signed(insn: u16) -> i32 {
     // insn [12]
     // imm  [5]
