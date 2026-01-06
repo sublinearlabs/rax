@@ -1,7 +1,7 @@
 use crate::{
     decode::{
         I, Instruction,
-        imm::imm_ciw_addi4spn,
+        imm::{imm_ciw_addi4spn, imm_cl_d},
         util::{c_funct3, quadrant},
     },
     util::mask16,
@@ -49,7 +49,17 @@ fn dec_c_addi4spn(insn: u16) -> Instruction {
 }
 
 fn dec_c_fld(insn: u16) -> Instruction {
-    todo!()
+    // rd' insn[4:2]
+    // rd = rd' + 8
+    let rd = (((insn >> 2) & mask16(3)) + 8) as u8;
+
+    // rs1' insn[9:7]
+    // rs1 = rs1' + 8
+    let rs1 = (((insn >> 7) & mask16(3)) + 8) as u8;
+
+    let imm = imm_cl_d(insn);
+
+    Instruction::Fld(I { rd, rs1, imm })
 }
 
 fn dec_c_lw(insn: u16) -> Instruction {
@@ -87,6 +97,31 @@ mod tests {
                 rd: 0,
                 rs1: 0,
                 imm: 0
+            })
+        );
+    }
+
+    #[test]
+    fn test_c_fld() {
+        let compressed_instruction = 0x2000;
+        let insn = decode_compressed(compressed_instruction);
+        assert_eq!(
+            insn,
+            Instruction::Fld(I {
+                rd: 8,
+                rs1: 8,
+                imm: 0
+            })
+        );
+
+        let compressed_instruction = 0x2400;
+        let insn = decode_compressed(compressed_instruction);
+        assert_eq!(
+            insn,
+            Instruction::Fld(I {
+                rd: 8,
+                rs1: 8,
+                imm: 8
             })
         );
     }
