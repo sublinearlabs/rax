@@ -112,6 +112,85 @@ pub struct InstrFlags {
     /// CSR Immediate operations (eg: CSRRWI, CSRRSI, CSRRCI )
     pub is_csr_imm: bool,
 
+    // F-extension
+    /// FMA operations(eg: FmaddD, FmsubD, FnmaddD, FnmsubD)
+    pub is_fma: bool,
+
+    /// FMA word operations(eg: FmaddS, FmsubS, FnmsubS, FnmaddS )
+    pub is_fma_word: bool,
+
+    /// F-extension ALU instructions(eg: FaddD, FsubD, FminD, etc)
+    pub is_fp_alu: bool,
+
+    /// F-extension ALU word instructions(eg: FaddS, FsubS, FminS, etc)
+    pub is_fp_alu_word: bool,
+
+    /// F-extension square root instruction(eg: FsqrtD)
+    pub is_fp_sqrt: bool,
+
+    /// F-extension square root word instruction(eg: FsqrtS)
+    pub is_fp_sqrt_word: bool,
+
+    /// F-extension sign instructions(eg: FsgnjD, FsgnjnD, FsgnjxD etc)
+    pub is_fp_sgn: bool,
+
+    /// F-extension sign word instruction(eg:  FsgnjS, FsgnjnS, FsgnjxS)
+    pub is_fp_sgn_word: bool,
+
+    /// F-extension CVT interger word to single precision instructions(eg: FcvtSW, FcvtSWu)
+    pub is_fp_cvt_iw_sp: bool,
+
+    /// F-extension CVT single precision to integer word instructions(eg: FcvtWS, FcvtWuS)
+    pub is_fp_cvt_sp_iw: bool,
+
+    /// F-extension CVT double precision to single precision instruction(eg: FcvtSD)
+    pub is_fp_cvt_dp_sp: bool,
+
+    /// F-extension CVT single precision to double precision instruction(eg: FcvtDS)
+    pub is_fp_cvt_sp_dp: bool,
+
+    /// F-extension CVT double precision to integer word instruction(eg: FcvtWD, FcvtWuD)
+    pub is_fp_cvt_dp_iw: bool,
+
+    /// F-extension CVT integer word to double precision instruction(eg: FcvtDW, FcvtDWu)
+    pub is_fp_cvt_iw_dp: bool,
+
+    /// F-extension MV single precision to integer instruction(eg: FmvXW)
+    pub is_fp_mv_sp_i: bool,
+
+    /// F-extension MV integer to single precision instruction(eg: FmvWX)
+    pub is_fp_mv_i_sp: bool,
+
+    /// F-extension Classify instruction(eg: FclassD)
+    pub is_fp_class: bool,
+
+    /// F-extension Classify word instruction(eg: FclassS)
+    pub is_fp_class_word: bool,
+
+    // F-extension MV from double precision to ineteger(eg: FmvXD)
+    pub is_fp_mv_dp_i: bool,
+
+    // F-extension MV from integer to double precision(eg: FmvDX)
+    pub is_fp_mv_i_dp: bool,
+
+    // F-extension CVT from single precision to integer(eg: FcvtLS, FcvtLuS)
+    pub is_fp_cvt_sp_i: bool,
+
+    // F-extension CVT from integer to single precision(eg: FcvtSL, FcvtSLu)
+    pub is_fp_cvt_i_sp: bool,
+
+    // F-extension CVT from double precision to integer(eg: FcvtLD, FcvtLuD)
+    pub is_fp_cvt_dp_i: bool,
+
+    // F-extension CVT from integer to double precision(eg: FcvtDL, FcvtDLu)
+    pub is_fp_cvt_i_dp: bool,
+
+    /// F-extension load(eg: Flw, Fld)
+    pub is_fp_load: bool,
+
+    /// F-extension store(eg: Fsw, Fsd)
+    pub is_fp_store: bool,
+
     // System flags
     /// ECALL instruction.
     pub is_ecall: bool,
@@ -258,6 +337,159 @@ impl InstrFlags {
             // CSR Immediate operations
             Instruction::Csrrwi(_) | Instruction::Csrrsi(_) | Instruction::Csrrci(_) => {
                 flags.is_csr_imm = true;
+            }
+
+            // F-extension
+            // FMA instructions
+            Instruction::FmaddD(_)
+            | Instruction::FmsubD(_)
+            | Instruction::FnmaddD(_)
+            | Instruction::FnmsubD(_) => {
+                flags.is_fma = true;
+            }
+
+            // FMA word instructions
+            Instruction::FmaddS(_)
+            | Instruction::FmsubS(_)
+            | Instruction::FnmaddS(_)
+            | Instruction::FnmsubS(_) => {
+                flags.is_fma_word = true;
+            }
+
+            // FP ALU word instructions
+            Instruction::FaddS(_)
+            | Instruction::FsubS(_)
+            | Instruction::FmulS(_)
+            | Instruction::FdivS(_)
+            | Instruction::FminS(_)
+            | Instruction::FmaxS(_)
+            | Instruction::FeqS(_)
+            | Instruction::FltS(_)
+            | Instruction::FleS(_) => {
+                flags.is_fp_alu_word = true;
+            }
+
+            // FP ALU instruction
+            Instruction::FaddD(_)
+            | Instruction::FsubD(_)
+            | Instruction::FmulD(_)
+            | Instruction::FdivD(_)
+            | Instruction::FminD(_)
+            | Instruction::FmaxD(_)
+            | Instruction::FeqD(_)
+            | Instruction::FltD(_)
+            | Instruction::FleD(_) => {
+                flags.is_fp_alu = true;
+            }
+
+            // FP sqrt word instruction
+            Instruction::FsqrtS(_) => {
+                flags.is_fp_sqrt_word = true;
+            }
+
+            // FP sqrt instruction
+            Instruction::FsqrtD(_) => {
+                flags.is_fp_sqrt = true;
+            }
+
+            // FP sign word instruction
+            Instruction::FsgnjS(_) | Instruction::FsgnjnS(_) | Instruction::FsgnjxS(_) => {
+                flags.is_fp_sgn_word = true;
+            }
+
+            // FP sign instruction
+            Instruction::FsgnjD(_) | Instruction::FsgnjnD(_) | Instruction::FsgnjxD(_) => {
+                flags.is_fp_sgn = true;
+            }
+
+            // FP cvt from single precision to integer word instruction
+            Instruction::FcvtWS(_) | Instruction::FcvtWuS(_) => {
+                flags.is_fp_cvt_sp_iw = true;
+            }
+
+            // FP cvt from integer word to single precision instruction
+            Instruction::FcvtSW(_) | Instruction::FcvtSWu(_) => {
+                flags.is_fp_cvt_iw_sp = true;
+            }
+
+            // FP cvt double precision to single precision instruction
+            Instruction::FcvtSD(_) => {
+                flags.is_fp_cvt_dp_sp = true;
+            }
+
+            // FP cvt single precision to double precision instruction
+            Instruction::FcvtDS(_) => {
+                flags.is_fp_cvt_sp_dp = true;
+            }
+
+            // FP cvt from double precision to integer word instruction
+            Instruction::FcvtWD(_) | Instruction::FcvtWuD(_) => {
+                flags.is_fp_cvt_dp_iw = true;
+            }
+
+            // FP cvt from integer word to double precision instruction
+            Instruction::FcvtDW(_) | Instruction::FcvtDWu(_) => {
+                flags.is_fp_cvt_iw_dp = true;
+            }
+
+            // FP mv from single precision to integer instruction
+            Instruction::FmvXW(_) => {
+                flags.is_fp_mv_sp_i = true;
+            }
+
+            // FP mv from integer to single precision instruction
+            Instruction::FmvWX(_) => {
+                flags.is_fp_mv_i_sp = true;
+            }
+
+            // FP mv from double precision to ineteger
+            Instruction::FmvXD(_) => {
+                flags.is_fp_mv_dp_i = true;
+            }
+
+            // FP mv from integer to double precision
+            Instruction::FmvDX(_) => {
+                flags.is_fp_mv_i_dp = true;
+            }
+
+            // FP classify word
+            Instruction::FclassS(_) => {
+                flags.is_fp_class_word = true;
+            }
+
+            // FP classify
+            Instruction::FclassD(_) => {
+                flags.is_fp_class = true;
+            }
+
+            // FP load
+            Instruction::Flw(_) | Instruction::Fld(_) => {
+                flags.is_fp_load = true;
+            }
+
+            // FP store
+            Instruction::Fsw(_) | Instruction::Fsd(_) => {
+                flags.is_fp_store = true;
+            }
+
+            // FP cvt from single precision to integer
+            Instruction::FcvtLS(_) | Instruction::FcvtLuS(_) => {
+                flags.is_fp_cvt_sp_i = true;
+            }
+
+            // FP cvt from integer to single precision
+            Instruction::FcvtSL(_) | Instruction::FcvtSLu(_) => {
+                flags.is_fp_cvt_i_sp = true;
+            }
+
+            // FP cvt from double precision to integer
+            Instruction::FcvtLD(_) | Instruction::FcvtLuD(_) => {
+                flags.is_fp_cvt_dp_i = true;
+            }
+
+            // FP cvt from integer to double precision
+            Instruction::FcvtDL(_) | Instruction::FcvtDLu(_) => {
+                flags.is_fp_cvt_i_dp = true;
             }
 
             // System
