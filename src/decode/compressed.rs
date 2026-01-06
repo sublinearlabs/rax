@@ -166,7 +166,16 @@ fn dec_c_addi_nop(insn: u16) -> Instruction {
 }
 
 fn dec_c_addiw(insn: u16) -> Instruction {
-    todo!()
+    // rd = insn[11:7]
+    let rd = ((insn >> 7) & mask16(5)) as u8;
+
+    if rd == 0 {
+        return Instruction::Illegal(insn as u32);
+    }
+
+    let imm = imm_ci_signed(insn);
+
+    Instruction::Addiw(I { rd, rs1: rd, imm })
 }
 
 fn dec_c_li(insn: u16) -> Instruction {
