@@ -192,6 +192,19 @@ fn dec_c_li(insn: u16) -> Instruction {
 }
 
 fn dec_c_addi16sp_lui(insn: u16) -> Instruction {
+    // rd = insn[11:7]
+    let rd = ((insn >> 7) & mask16(5)) as u8;
+
+    if rd == 0 {
+        return Instruction::Illegal(insn as u32);
+    }
+
+    if rd == 2 {
+        // decode addi16sp
+    }
+
+    // decode lui
+
     todo!()
 }
 

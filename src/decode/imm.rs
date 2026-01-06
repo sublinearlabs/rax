@@ -87,6 +87,24 @@ pub(crate) fn imm_ciw_addi4spn(insn: u16) -> i32 {
 }
 
 #[inline]
+pub(crate) fn imm_addi16sp(insn: u16) -> i32 {
+    // insn [12]
+    // imm  [ 9]
+    //
+    // insn [6 | 5 | 4 3 | 2]
+    // imm  [4 | 6 | 8 7 | 5]
+    let imm9 = ((insn >> 12) & mask16(1)) << 9;
+    let imm4 = ((insn >> 6) & mask16(1)) << 4;
+    let imm6 = ((insn >> 5) & mask16(1)) << 6;
+    let imm8_7 = ((insn >> 3) & mask16(2)) << 7;
+    let imm5 = ((insn >> 2) & mask16(1)) << 5;
+
+    let imm = imm9 | imm8_7 | imm6 | imm5 | imm4;
+
+    ((imm as i32) << 22) >> 22
+}
+
+#[inline]
 pub(crate) fn imm_ci_signed(insn: u16) -> i32 {
     // insn [12]
     // imm  [5]
