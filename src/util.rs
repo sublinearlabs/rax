@@ -1,3 +1,12 @@
+/// Mask with the lowest `n` bits set (0–16).
+pub(crate) fn mask16(n: u8) -> u16 {
+    if n == 16 {
+        return u16::MAX;
+    }
+
+    (1u16 << n) - 1
+}
+
 /// Mask with the lowest `n` bits set (0–32).
 pub(crate) fn mask32(n: u8) -> u32 {
     if n == 32 {
