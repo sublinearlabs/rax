@@ -1,7 +1,7 @@
 use crate::{
     decode::{
-        I, Instruction, S,
-        imm::{imm_ci_signed, imm_ciw_addi4spn, imm_cl_d, imm_cl_w},
+        I, Instruction, S, U,
+        imm::{imm_addi16sp, imm_ci_signed, imm_ciw_addi4spn, imm_cl_d, imm_cl_w, imm_clui},
         insn,
         util::{c_funct3, quadrant},
     },
@@ -201,11 +201,22 @@ fn dec_c_addi16sp_lui(insn: u16) -> Instruction {
 
     if rd == 2 {
         // decode addi16sp
+        let imm = imm_addi16sp(insn);
+        if imm == 0 {
+            return Instruction::Illegal(insn as u32);
+        }
+
+        return Instruction::Addi(I { rd: 2, rs1: 2, imm });
     }
 
-    // decode lui
+    let imm = imm_clui(insn);
 
-    todo!()
+    // decode lui
+    if imm == 0 {
+        return Instruction::Illegal(insn as u32);
+    }
+
+    return Instruction::Lui(U { rd, imm });
 }
 
 fn dec_c_alu(insn: u16) -> Instruction {
