@@ -107,7 +107,17 @@ fn dec_c_fsd(insn: u16) -> Instruction {
 }
 
 fn dec_c_sw(insn: u16) -> Instruction {
-    todo!()
+    // rs1' insn[9:7]
+    // rs1 = rs1' + 8
+    let rs1 = (((insn >> 7) & mask16(3)) + 8) as u8;
+
+    // rs2' insn[4:2]
+    // rs2 = rd' + 8
+    let rs2 = (((insn >> 2) & mask16(3)) + 8) as u8;
+
+    let imm = imm_cl_w(insn);
+
+    Instruction::Sw(S { rs1, rs2, imm })
 }
 
 fn dec_c_fsw_sd(insn: u16) -> Instruction {
@@ -204,6 +214,31 @@ mod tests {
                 rs1: 8,
                 rs2: 8,
                 imm: 128
+            })
+        );
+    }
+
+    #[test]
+    fn test_c_sw() {
+        let ci: u16 = 0xC000;
+        let insn = decode_compressed(ci);
+        assert_eq!(
+            insn,
+            Instruction::Sw(S {
+                rs1: 8,
+                rs2: 8,
+                imm: 0
+            })
+        );
+
+        let ci: u16 = 0xC040;
+        let insn = decode_compressed(ci);
+        assert_eq!(
+            insn,
+            Instruction::Sw(S {
+                rs1: 8,
+                rs2: 8,
+                imm: 4
             })
         );
     }
