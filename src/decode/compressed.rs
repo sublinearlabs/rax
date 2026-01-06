@@ -345,4 +345,29 @@ mod tests {
             })
         );
     }
+
+    #[test]
+    fn test_addiw() {
+        let ci = 0x2081;
+        let insn = decode_compressed(ci);
+        assert_eq!(
+            insn,
+            Instruction::Addiw(I {
+                rd: 1,
+                rs1: 1,
+                imm: 0
+            })
+        );
+
+        let ci = 0x2085;
+        let insn = decode_compressed(ci);
+        assert_eq!(
+            insn,
+            Instruction::Addiw(I {
+                rd: 1,
+                rs1: 1,
+                imm: 1
+            })
+        );
+    }
 }
