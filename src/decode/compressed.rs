@@ -517,4 +517,40 @@ mod tests {
             })
         );
     }
+
+    #[test]
+    fn test_c_bnez() {
+        let ci = 0xe001;
+        let insn = decode_compressed(ci);
+        assert_eq!(
+            insn,
+            Instruction::Bne(B {
+                rs1: 8,
+                rs2: 0,
+                imm: 0
+            })
+        );
+
+        let ci = 0xe009;
+        let insn = decode_compressed(ci);
+        assert_eq!(
+            insn,
+            Instruction::Bne(B {
+                rs1: 8,
+                rs2: 0,
+                imm: 2
+            })
+        );
+
+        let ci = 0xfc7d;
+        let insn = decode_compressed(ci);
+        assert_eq!(
+            insn,
+            Instruction::Bne(B {
+                rs1: 8,
+                rs2: 0,
+                imm: -2
+            })
+        );
+    }
 }
