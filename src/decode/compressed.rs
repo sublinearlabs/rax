@@ -222,7 +222,55 @@ fn dec_c_addi16sp_lui(insn: u16) -> Instruction {
 }
 
 fn dec_c_alu(insn: u16) -> Instruction {
-    todo!()
+    let bit11_10 = ((insn >> 10) & mask16(2)) as u8;
+
+    match bit11_10 {
+        0b00 => {
+            // SRLI
+            todo!()
+        }
+        0b01 => {
+            // SRAI
+            todo!()
+        }
+        0b10 => {
+            // ANDI
+            todo!()
+        }
+        0b11 => {
+            let bit12 = ((insn >> 12) & mask16(1)) as u8;
+            let bit6_5 = ((insn >> 5) & mask16(2)) as u8;
+
+            match (bit12, bit6_5) {
+                (0b0, 0b00) => {
+                    // SUB
+                    todo!()
+                }
+                (0b0, 0b01) => {
+                    // XOR
+                    todo!()
+                }
+                (0b0, 0b10) => {
+                    // OR
+                    todo!()
+                }
+                (0b0, 0b11) => {
+                    // AND
+                    todo!()
+                }
+                (0b1, 0b00) => {
+                    // SUBW
+                    todo!()
+                }
+                (0b1, 0b01) => {
+                    // ADDW
+                    todo!()
+                }
+                _ => Instruction::Illegal(insn as u32),
+            }
+        }
+        _ => Instruction::Illegal(insn as u32),
+    }
 }
 
 fn dec_c_j(insn: u16) -> Instruction {
