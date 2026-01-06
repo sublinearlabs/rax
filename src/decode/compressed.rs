@@ -77,7 +77,17 @@ fn dec_c_lw(insn: u16) -> Instruction {
 }
 
 fn dec_c_flw_ld(insn: u16) -> Instruction {
-    todo!()
+    // rd' insn[4:2]
+    // rd = rd' + 8
+    let rd = (((insn >> 2) & mask16(3)) + 8) as u8;
+
+    // rs1' insn[9:7]
+    // rs1 = rs1' + 8
+    let rs1 = (((insn >> 7) & mask16(3)) + 8) as u8;
+
+    let imm = imm_cl_d(insn);
+
+    Instruction::Ld(I { rd, rs1, imm })
 }
 
 fn dec_c_fsd(insn: u16) -> Instruction {
