@@ -237,7 +237,7 @@ fn dec_c_bnez(insn: u16) -> Instruction {
 
 #[cfg(test)]
 mod tests {
-    use crate::decode::{I, Instruction, S, compressed::decode_compressed};
+    use crate::decode::{I, Instruction, J, S, U, compressed::decode_compressed};
 
     #[test]
     fn test_decode_compressed() {
@@ -427,5 +427,43 @@ mod tests {
                 imm: 1
             })
         )
+    }
+
+    #[test]
+    fn test_c_j() {
+        let ci = 0xA001;
+        let insn = decode_compressed(ci);
+        assert_eq!(insn, Instruction::Jal(J { rd: 0, imm: 2 }));
+
+        let ci = 0xBFFD;
+        let insn = decode_compressed(ci);
+        assert_eq!(insn, Instruction::Jal(J { rd: 0, imm: -2 }));
+    }
+
+    #[test]
+    fn test_c_addi16sp() {
+        let ci = 0x6141;
+        let insn = decode_compressed(ci);
+        assert_eq!(
+            insn,
+            Instruction::Addi(I {
+                rd: 2,
+                rs1: 2,
+                imm: 16
+            })
+        );
+    }
+
+    #[test]
+    fn test_c_lui() {
+        let ci = 0x6085;
+        let insn = decode_compressed(ci);
+        assert_eq!(
+            insn,
+            Instruction::Lui(U {
+                rd: 1,
+                imm: 1 << 12
+            })
+        );
     }
 }

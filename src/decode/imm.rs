@@ -112,8 +112,8 @@ pub(crate) fn imm_clui(insn: u16) -> i32 {
     // insn [ 6  5  4  3  2]
     // imm  [16 15 14 13 12]
 
-    let imm17 = ((insn >> 12) & mask16(1)) << 17;
-    let imm16_12 = ((insn >> 2) & mask16(5)) << 12;
+    let imm17 = (((insn >> 12) & mask16(1)) as u32) << 17;
+    let imm16_12 = (((insn >> 2) & mask16(5)) as u32) << 12;
     let imm = imm17 | imm16_12;
     ((imm as i32) << 14) >> 14
 }
@@ -167,6 +167,24 @@ pub(crate) fn imm_cl_d(insn: u16) -> i32 {
 }
 
 #[inline]
+pub(crate) fn imm_cj(insn: u16) -> i32 {
+    // insn [ 12 | 11 | 10 9 |  8 | 7 | 6 | 5 4 3 | 2]
+    // imm  [ 11 |  4 |  9 8 | 10 | 6 | 7 | 3 2 1 | 5]
+
+    let imm11 = ((insn >> 12) & mask16(1)) << 11;
+    let imm4 = ((insn >> 11) & mask16(1)) << 4;
+    let imm9_8 = ((insn >> 9) & mask16(2)) << 8;
+    let imm10 = ((insn >> 8) & mask16(1)) << 10;
+    let imm6 = ((insn >> 7) & mask16(1)) << 6;
+    let imm7 = ((insn >> 6) & mask16(1)) << 7;
+    let imm3_1 = ((insn >> 3) & mask16(3)) << 1;
+    let imm5 = ((insn >> 2) & mask16(1)) << 5;
+
+    let imm = imm11 | imm10 | imm9_8 | imm7 | imm6 | imm5 | imm4 | imm3_1;
+    ((imm as i32) << 20) >> 20
+}
+
+#[inline]
 pub(crate) fn imm_css_w(insn: u16) -> i32 {
     todo!()
 }
@@ -178,10 +196,5 @@ pub(crate) fn imm_css_d(insn: u16) -> i32 {
 
 #[inline]
 pub(crate) fn imm_cb(insn: u16) -> i32 {
-    todo!()
-}
-
-#[inline]
-pub(crate) fn imm_cj(insn: u16) -> i32 {
     todo!()
 }
