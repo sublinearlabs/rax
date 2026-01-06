@@ -1,6 +1,6 @@
 use crate::{
     decode::insn,
-    util::{mask16, mask32},
+    util::{mask, mask16, mask32},
 };
 
 #[inline]
@@ -88,7 +88,16 @@ pub(crate) fn imm_ciw_addi4spn(insn: u16) -> i32 {
 
 #[inline]
 pub(crate) fn imm_ci_signed(insn: u16) -> i32 {
-    todo!()
+    // insn [12]
+    // imm  [5]
+    //
+    // insn [6 5 4 3 2]
+    // imm  [4 3 2 1 0]
+
+    let imm5 = ((insn >> 12) & mask16(1)) << 5;
+    let imm4_0 = (insn >> 2) & mask16(5);
+    let imm = imm5 | imm4_0;
+    ((imm as i32) << 26) >> 26
 }
 
 #[inline]
