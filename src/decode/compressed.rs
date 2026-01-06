@@ -1,6 +1,6 @@
 use crate::{
     decode::{
-        I, Instruction,
+        I, Instruction, S,
         imm::{imm_ciw_addi4spn, imm_cl_d, imm_cl_w},
         util::{c_funct3, quadrant},
     },
@@ -76,6 +76,8 @@ fn dec_c_lw(insn: u16) -> Instruction {
     Instruction::Lw(I { rd, rs1, imm })
 }
 
+// TODO currently assumes only RV64
+// TODO add support for RV32 decompression
 fn dec_c_flw_ld(insn: u16) -> Instruction {
     // rd' insn[4:2]
     // rd = rd' + 8
@@ -91,7 +93,17 @@ fn dec_c_flw_ld(insn: u16) -> Instruction {
 }
 
 fn dec_c_fsd(insn: u16) -> Instruction {
-    todo!()
+    // rs1' insn[9:7]
+    // rs1 = rs1' + 8
+    let rs1 = (((insn >> 7) & mask16(3)) + 8) as u8;
+
+    // rs2' insn[4:2]
+    // rs2 = rd' + 8
+    let rs2 = (((insn >> 2) & mask16(3)) + 8) as u8;
+
+    let imm = imm_cl_d(insn);
+
+    Instruction::Fsd(S { rs1, rs2, imm })
 }
 
 fn dec_c_sw(insn: u16) -> Instruction {
@@ -104,7 +116,7 @@ fn dec_c_fsw_sd(insn: u16) -> Instruction {
 
 #[cfg(test)]
 mod tests {
-    use crate::decode::{I, Instruction, compressed::decode_compressed};
+    use crate::decode::{I, Instruction, S, compressed::decode_compressed};
 
     #[test]
     fn test_decode_compressed() {
@@ -167,6 +179,31 @@ mod tests {
                 rd: 8,
                 rs1: 8,
                 imm: 4
+            })
+        );
+    }
+
+    #[test]
+    fn test_c_fsd() {
+        let ci: u16 = 0xA000;
+        let insn = decode_compressed(ci);
+        assert_eq!(
+            insn,
+            Instruction::Fsd(S {
+                rs1: 8,
+                rs2: 8,
+                imm: 0
+            })
+        );
+
+        let ci: u16 = 0xA040;
+        let insn = decode_compressed(ci);
+        assert_eq!(
+            insn,
+            Instruction::Fsd(S {
+                rs1: 8,
+                rs2: 8,
+                imm: 128
             })
         );
     }
