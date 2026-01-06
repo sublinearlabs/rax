@@ -196,5 +196,15 @@ pub(crate) fn imm_css_d(insn: u16) -> i32 {
 
 #[inline]
 pub(crate) fn imm_cb(insn: u16) -> i32 {
-    todo!()
+    // insn [ 12 | 11 10 | 6 5 | 4 3 | 2]
+    // imm  [  8 |  4  3 | 7 6 | 2 1 | 5]
+
+    let imm8 = ((insn >> 12) & mask16(1)) << 8;
+    let imm4_3 = ((insn >> 10) & mask16(2)) << 3;
+    let imm7_6 = ((insn >> 5) & mask16(2)) << 6;
+    let imm2_1 = ((insn >> 3) & mask16(2)) << 1;
+    let imm5 = ((insn >> 2) & mask16(1)) << 5;
+
+    let imm = imm8 | imm7_6 | imm5 | imm4_3 | imm2_1;
+    ((imm as i32) << 23) >> 23
 }
