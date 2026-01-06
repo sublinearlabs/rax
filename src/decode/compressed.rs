@@ -179,7 +179,16 @@ fn dec_c_addiw(insn: u16) -> Instruction {
 }
 
 fn dec_c_li(insn: u16) -> Instruction {
-    todo!()
+    // rd = insn[11:7]
+    let rd = ((insn >> 7) & mask16(5)) as u8;
+
+    if rd == 0 {
+        return Instruction::Illegal(insn as u32);
+    }
+
+    let imm = imm_ci_signed(insn);
+
+    Instruction::Addi(I { rd, rs1: 0, imm })
 }
 
 fn dec_c_addi16sp_lui(insn: u16) -> Instruction {
@@ -347,7 +356,7 @@ mod tests {
     }
 
     #[test]
-    fn test_addiw() {
+    fn test_c_addiw() {
         let ci = 0x2081;
         let insn = decode_compressed(ci);
         assert_eq!(
@@ -369,5 +378,30 @@ mod tests {
                 imm: 1
             })
         );
+    }
+
+    #[test]
+    fn test_c_li() {
+        let ci = 0x4081;
+        let insn = decode_compressed(ci);
+        assert_eq!(
+            insn,
+            Instruction::Addi(I {
+                rd: 1,
+                rs1: 0,
+                imm: 0
+            })
+        );
+
+        let ci = 0x4085;
+        let insn = decode_compressed(ci);
+        assert_eq!(
+            insn,
+            Instruction::Addi(I {
+                rd: 1,
+                rs1: 0,
+                imm: 1
+            })
+        )
     }
 }
