@@ -1,7 +1,7 @@
 use crate::{
     decode::{
         I, Instruction, S,
-        imm::{imm_ciw_addi4spn, imm_cl_d, imm_cl_w},
+        imm::{imm_ci_signed, imm_ciw_addi4spn, imm_cl_d, imm_cl_w},
         insn,
         util::{c_funct3, quadrant},
     },
@@ -148,7 +148,21 @@ fn dec_c_sd(insn: u16) -> Instruction {
 // Quadrant 1
 
 fn dec_c_addi_nop(insn: u16) -> Instruction {
-    todo!()
+    // rd = insn[11:7]
+    let rd = ((insn >> 7) & mask16(5)) as u8;
+    let imm = imm_ci_signed(insn);
+
+    // if rd == x0 then imm == 0
+    match (rd, imm) {
+        // C.NOP
+        (0, 0) => Instruction::Addi(I {
+            rd: 0,
+            rs1: 0,
+            imm: 0,
+        }),
+        (0, _) => Instruction::Illegal(insn as u32),
+        _ => Instruction::Addi(I { rd, rs1: rd, imm }),
+    }
 }
 
 fn dec_c_addiw(insn: u16) -> Instruction {
