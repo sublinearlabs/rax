@@ -135,4 +135,29 @@ mod tests {
             })
         );
     }
+
+    #[test]
+    fn test_c_lw() {
+        let compressed_instruction = 0x4000;
+        let insn = decode_compressed(compressed_instruction);
+        assert_eq!(
+            insn,
+            Instruction::Lw(I {
+                rd: 8,
+                rs1: 8,
+                imm: 0
+            })
+        );
+
+        let compressed_instruction = 0x4040;
+        let insn = decode_compressed(compressed_instruction);
+        assert_eq!(
+            insn,
+            Instruction::Lw(I {
+                rd: 8,
+                rs1: 8,
+                imm: 4
+            })
+        );
+    }
 }
