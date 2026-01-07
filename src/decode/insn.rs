@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use crate::decode::insn_formats::{B, I, J, R, R4, RF, S, Sh, U};
 
