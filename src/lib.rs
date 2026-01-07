@@ -11,6 +11,7 @@ mod execute;
 mod memory;
 pub mod trace;
 mod util;
+mod ecall;
 
 /// RISC-V Virtual Machine with configurable tracing.
 ///

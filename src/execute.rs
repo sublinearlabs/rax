@@ -1,6 +1,7 @@
 use std::i64;
 
 use crate::decode::{Instruction, decode};
+use crate::ecall::handle_ecall;
 use crate::trace::{MemOp, Tracer};
 use crate::{
     VM, is_snan_f32, is_snan_f64,
@@ -1704,17 +1705,7 @@ impl<T: Tracer> VM<T> {
 
             // System Opcodes
             Instruction::Ecall => {
-                let func = self.reg(17);
-                match func {
-                    93 => {
-                        // halt
-                        self.halted = true;
-                        self.exit_code = self.reg(10);
-                    }
-                    _ => {
-                        panic!("skipping ecall");
-                    }
-                }
+                handle_ecall(self);
             }
 
             // TODO remove the eager check once all opcodes have been implemented
