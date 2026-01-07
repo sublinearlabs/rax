@@ -6,12 +6,12 @@ use crate::trace::{DefaultTracer, FullTracer, NoopTracer, Tracer};
 use decode::decode;
 
 mod decode;
+mod ecall;
 mod elf;
 mod execute;
 mod memory;
 pub mod trace;
 mod util;
-mod ecall;
 
 /// RISC-V Virtual Machine with configurable tracing.
 ///
@@ -30,7 +30,7 @@ pub struct VM<T: Tracer = DefaultTracer> {
     exit_code: u64,
     cycles: u64,
     tracer: T,
-    
+
     // std in
     input_stream: Vec<u8>,
     input_cursor: usize,
@@ -262,7 +262,7 @@ impl<T: Tracer> VM<T> {
     pub(crate) fn write_bytes(&mut self, addr: usize, data: &[u8]) {
         self.memory.write_bytes(addr as u64, data);
     }
-    
+
     /// Read multiple bytes from a given address
     pub(crate) fn read_bytes(&mut self, addr: usize, len: usize) -> Vec<u8> {
         self.memory.read_bytes(addr as u64, len)
@@ -727,5 +727,28 @@ mod tests {
         let vm = FastVM::init();
         assert!(!vm.is_tracing());
         assert!(vm.take_trace().is_none());
+    }
+
+    #[test]
+    fn test_round_std_io() {
+        // Path to the echo guest program built for the test environment.
+        // If the binary is not present, skip the test to avoid failing CI for missing artifacts.
+        let echo_bin = "rust-bin/echo/target/riscv64ima-unknown-none-elf/release/echo".to_string();
+        if fs::metadata(&echo_bin).is_err() {
+            eprintln!("Skipping test_round_std_io: {} not found", echo_bin);
+            return;
+        }
+
+        // Initialize the VM from the echo ELF and provide some stdin.
+        let mut vm = VM::<NoopTracer>::init_from_elf(echo_bin);
+        vm.input_stream = "Hola Riscv, buenos días".as_bytes().to_vec();
+        vm.input_cursor = 0;
+
+        // Run the guest program; it should echo the input and then exit via ecall.
+        vm.run();
+
+        // Verify the VM halted and exited successfully.
+        assert!(vm.halted);
+        assert_eq!(vm.exit_code, 0);
     }
 }
