@@ -1,4 +1,4 @@
-use alloc::{sync::Arc, vec::Vec};
+use alloc::{format, sync::Arc, vec::Vec};
 use reth_chainspec::ChainSpec;
 use reth_evm_ethereum::EthEvmConfig;
 use reth_primitives_traits::Block;
@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use sparsestate::SparseState;
 
-use crate::utils::to_reth_stateless_input;
+use crate::{syscalls::sys_println, utils::to_reth_stateless_input};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RethStatelessValidatorInput {
@@ -22,7 +22,7 @@ pub type RethStatelessValidatorOutput = ([u8; 32], [u8; 32], bool);
 
 pub fn runner(input_raw: &[u8]) -> [u8; 32] {
     let stateless_input = serde_json::from_slice::<StatelessInput>(input_raw).unwrap();
-    let input = to_reth_stateless_input(&stateless_input);
+    let input = to_reth_stateless_input(stateless_input);
     let genesis = Genesis {
         config: input.stateless_input.chain_config.clone(),
         ..Default::default()
@@ -51,6 +51,9 @@ pub fn runner(input_raw: &[u8]) -> [u8; 32] {
     let mut hasher = Sha256::new();
     hasher.update(&output_serialized);
     let output_hash: [u8; 32] = hasher.finalize().into();
-
+    
+    let out_string = format!("VM output: {:?}", output_hash);
+    sys_println(&out_string);
+    
     output_hash
 }

@@ -7,16 +7,15 @@
 //!      cargo run -p riscv --example exec-block --release
 //!
 //! Note: enable the `trace` feature on the `riscv` crate if you want full tracing output.
+use std::fs;
 use std::path::Path;
 
 use riscv::VM;
 use riscv::trace::FullTracer;
 
-include!("exec-block-memory-input.rs");
-
 const EXEC_BLOCK_BINARY: &str =
     "rust-bin/exec-block/target/riscv64ima-unknown-none-elf/release/exec-block";
-const INPUT_BASE_ADDR: usize = 0x80000000;
+
 
 fn main() {
     println!(
@@ -35,8 +34,13 @@ fn main() {
 
     // Construct a VM using the FullTracer tracer implementation (same as original main).
     let mut vm = VM::<FullTracer>::init_from_elf(EXEC_BLOCK_BINARY.to_string());
-
-    vm.write_bytes(INPUT_BASE_ADDR, BLOCK_EXEC_PROGRAM_INPUT.as_bytes());
+    
+    let input_hex_string = fs::read_to_string("examples/exec-block.input").unwrap();
+    let input_hex_string = input_hex_string.trim();
+    let bytes = hex::decode(input_hex_string).unwrap();
+    
+    vm.set_input_stream(bytes);
+    
 
     println!("Running exec-block program...\n");
 

@@ -4,10 +4,10 @@ use reth_ethereum_primitives::TransactionSigned;
 
 use crate::exec::RethStatelessValidatorInput;
 
-pub fn to_reth_stateless_input(s_inout: &StatelessInput) -> RethStatelessValidatorInput {
+pub fn to_reth_stateless_input(s_inout: StatelessInput) -> RethStatelessValidatorInput {
     let signers = recover_signers(&s_inout.block.body.transactions).unwrap();
     RethStatelessValidatorInput {
-        stateless_input: s_inout.clone(),
+        stateless_input: s_inout,
         public_keys: signers,
     }
 }

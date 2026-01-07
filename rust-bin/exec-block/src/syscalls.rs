@@ -1,5 +1,7 @@
 use core::arch::asm;
 
+use alloc::string::String;
+
 const SYS_READ: usize = 63;
 const SYS_WRITE: usize = 64;
 
@@ -27,4 +29,11 @@ pub fn sys_read(fd: usize, buf: &mut [u8]) -> usize {
 
 pub fn sys_write(fd: usize, buf: &[u8]) -> usize {
     unsafe { syscall(SYS_WRITE, fd, buf.as_ptr() as usize, buf.len()) }
+}
+
+pub fn sys_println(msg: &String) {
+    let data = msg.as_bytes();
+    unsafe {
+        syscall(SYS_WRITE, STDOUT, data.as_ptr() as usize, data.len());
+    }
 }
