@@ -119,11 +119,11 @@ pub struct InstrFlags {
     /// FMA word operations(eg: FmaddS, FmsubS, FnmsubS, FnmaddS )
     pub is_fma_word: bool,
 
-    /// F-extension ALU instructions(eg: FaddD, FsubD, FminD, etc)
-    pub is_fp_alu: bool,
+    /// FPU instructions(eg: FaddD, FsubD, FminD, etc)
+    pub is_fpu: bool,
 
-    /// F-extension ALU word instructions(eg: FaddS, FsubS, FminS, etc)
-    pub is_fp_alu_word: bool,
+    /// FPU word instructions(eg: FaddS, FsubS, FminS, etc)
+    pub is_fpu_word: bool,
 
     /// F-extension square root instruction(eg: FsqrtD)
     pub is_fp_sqrt: bool,
@@ -366,7 +366,7 @@ impl InstrFlags {
             | Instruction::FeqS(_)
             | Instruction::FltS(_)
             | Instruction::FleS(_) => {
-                flags.is_fp_alu_word = true;
+                flags.is_fpu_word = true;
             }
 
             // FP ALU instruction
@@ -379,7 +379,7 @@ impl InstrFlags {
             | Instruction::FeqD(_)
             | Instruction::FltD(_)
             | Instruction::FleD(_) => {
-                flags.is_fp_alu = true;
+                flags.is_fpu = true;
             }
 
             // FP sqrt word instruction
@@ -859,6 +859,43 @@ impl ExecutionTrace {
             if f.is_csr || f.is_csr_imm {
                 stats.csr += 1;
             }
+            if f.is_fpu || f.is_fpu_word {
+                stats.fpu += 1;
+            }
+            if f.is_fma || f.is_fma_word {
+                stats.fma += 1;
+            }
+            if f.is_fp_sqrt || f.is_fp_sqrt_word {
+                stats.sqrt += 1;
+            }
+            if f.is_fp_sgn || f.is_fp_sgn_word {
+                stats.sgn += 1;
+            }
+            if f.is_fp_cvt_iw_sp
+                || f.is_fp_cvt_sp_iw
+                || f.is_fp_cvt_dp_sp
+                || f.is_fp_cvt_sp_dp
+                || f.is_fp_cvt_dp_iw
+                || f.is_fp_cvt_iw_dp
+                || f.is_fp_cvt_sp_i
+                || f.is_fp_cvt_i_sp
+                || f.is_fp_cvt_dp_i
+                || f.is_fp_cvt_i_dp
+            {
+                stats.cvt += 1;
+            }
+            if f.is_fp_mv_sp_i || f.is_fp_mv_i_sp || f.is_fp_mv_dp_i || f.is_fp_mv_i_dp {
+                stats.mv += 1;
+            }
+            if f.is_fp_class || f.is_fp_class_word {
+                stats.class += 1;
+            }
+            if f.is_fp_load {
+                stats.fp_load += 1;
+            }
+            if f.is_fp_store {
+                stats.fp_store += 1;
+            }
             if f.is_ecall || f.is_ebreak {
                 stats.system += 1;
             }
@@ -883,6 +920,15 @@ pub struct InstructionStats {
     pub rem: u64,
     pub atomic: u64,
     pub csr: u64,
+    pub fpu: u64,
+    pub fma: u64,
+    pub sqrt: u64,
+    pub sgn: u64,
+    pub cvt: u64,
+    pub mv: u64,
+    pub class: u64,
+    pub fp_load: u64,
+    pub fp_store: u64,
     pub system: u64,
 }
 
@@ -902,6 +948,15 @@ impl InstructionStats {
             + self.atomic
             + self.system
             + self.csr
+            + self.fpu
+            + self.fma
+            + self.sqrt
+            + self.sgn
+            + self.cvt
+            + self.mv
+            + self.class
+            + self.fp_load
+            + self.fp_store
     }
 }
 
