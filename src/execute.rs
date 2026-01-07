@@ -1718,7 +1718,7 @@ impl<T: Tracer> VM<T> {
     /// Write to destination register with tracing.
     /// This helper ensures all register writes are traced.
     #[inline(always)]
-    fn write_rd(&mut self, rd: u8, value: u64) {
+    pub(crate) fn write_rd(&mut self, rd: u8, value: u64) {
         *self.reg_mut(rd) = value;
         self.tracer.record_rd(rd as u8, value);
     }

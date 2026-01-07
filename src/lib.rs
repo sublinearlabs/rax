@@ -30,6 +30,10 @@ pub struct VM<T: Tracer = DefaultTracer> {
     exit_code: u64,
     cycles: u64,
     tracer: T,
+    
+    // std in
+    input_stream: Vec<u8>,
+    input_cursor: usize,
 }
 
 impl<T: Tracer> Default for VM<T> {
@@ -46,6 +50,8 @@ impl<T: Tracer> Default for VM<T> {
             tracer: T::default(),
             f_reg: [0u64; 32],
             fcsr_reg: 0,
+            input_stream: Vec::new(),
+            input_cursor: 0,
         }
     }
 }
@@ -255,6 +261,11 @@ impl<T: Tracer> VM<T> {
     /// Write multiple bytes from a given address
     pub(crate) fn write_bytes(&mut self, addr: usize, data: &[u8]) {
         self.memory.write_bytes(addr as u64, data);
+    }
+    
+    /// Read multiple bytes from a given address
+    pub(crate) fn read_bytes(&mut self, addr: usize, len: usize) -> Vec<u8> {
+        self.memory.read_bytes(addr as u64, len)
     }
 
     fn read_csr(&self, csr: u32) -> u32 {
