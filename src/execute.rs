@@ -1781,6 +1781,7 @@ fn classify64(val: u64) -> u64 {
 #[cfg(test)]
 mod test {
     use crate::VM;
+    use crate::ecall::constants;
     use crate::trace::NoopTracer;
 
     #[test]
@@ -1868,5 +1869,53 @@ mod test {
         vm.execute_instruction(insn);
         assert_eq!(vm.reg(3), 12);
         assert_eq!(vm.pc, 15);
+    }
+    
+    #[test]
+    fn test_ecall_stdin() {
+        let mut vm = VM::<NoopTracer>::init();
+
+        // Prepare an input stream "hello"
+        vm.input_stream = b"hello".to_vec();
+        vm.input_cursor = 0;
+
+        // a0 = fd (stdin), a1 = guest ptr, a2 = len
+        *vm.reg_mut(10) = constants::STDIN_FILENO; // x10 = a0
+        *vm.reg_mut(11) = 0;                       // x11 = a1 -> memory addr 0
+        *vm.reg_mut(12) = 3;                       // x12 = a2 -> read 3 bytes
+
+        // place ecall function (ECALL_STD_INPUT) in x17 (a7)
+        *vm.reg_mut(17) = constants::ECALL_STD_INPUT as u64;
+
+        // execute ecall (standard encoding 0x0000_0073)
+        let insn = 0x0000_0073;
+        vm.execute_instruction(insn);
+
+        // check bytes written to guest memory and return value in a0
+        assert_eq!(vm.read_bytes(0, 3), b"hel".to_vec());
+        assert_eq!(vm.reg(10), 3);
+    }
+
+    #[test]
+    fn test_ecall_stdout() {
+        let mut vm = VM::<NoopTracer>::init();
+
+        // Write "world" into guest memory at address 0
+        vm.write_bytes(0, b"world");
+
+        // a0 = fd (stdout), a1 = guest ptr, a2 = len
+        *vm.reg_mut(10) = constants::STDOUT_FILENO; // x10 = a0
+        *vm.reg_mut(11) = 0;                        // x11 = a1 -> memory addr 0
+        *vm.reg_mut(12) = 5;                        // x12 = a2 -> length
+
+        // place ecall function (ECALL_STD_OUTPUT) in x17 (a7)
+        *vm.reg_mut(17) = constants::ECALL_STD_OUTPUT as u64;
+
+        // execute ecall
+        let insn = 0x0000_0073;
+        vm.execute_instruction(insn);
+
+        // stdout handler returns length read in a0
+        assert_eq!(vm.reg(10), 5);
     }
 }

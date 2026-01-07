@@ -1,7 +1,7 @@
 use crate::{VM, trace::Tracer};
 
 mod halt;
-mod constants;
+pub mod constants;
 mod stdin;
 mod stdout;
 
