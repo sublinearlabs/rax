@@ -1,6 +1,6 @@
 use crate::{
     decode::{
-        B, I, Instruction, J, S, U,
+        B, I, Instruction, J, R, S, U,
         imm::{
             imm_addi16sp, imm_cb, imm_ci_signed, imm_ciw_addi4spn, imm_cj, imm_cl_d, imm_cl_w,
             imm_clui,
@@ -222,6 +222,9 @@ fn dec_c_addi16sp_lui(insn: u16) -> Instruction {
 }
 
 fn dec_c_alu(insn: u16) -> Instruction {
+    let rd_rs1 = (((insn >> 7) & mask16(3)) + 8) as u8;
+    let rs2 = (((insn >> 2) & mask16(3)) + 8) as u8;
+
     let bit11_10 = ((insn >> 10) & mask16(2)) as u8;
 
     match bit11_10 {
@@ -241,31 +244,19 @@ fn dec_c_alu(insn: u16) -> Instruction {
             let bit12 = ((insn >> 12) & mask16(1)) as u8;
             let bit6_5 = ((insn >> 5) & mask16(2)) as u8;
 
+            let r_operand = R {
+                rd: rd_rs1,
+                rs1: rd_rs1,
+                rs2,
+            };
+
             match (bit12, bit6_5) {
-                (0b0, 0b00) => {
-                    // SUB
-                    todo!()
-                }
-                (0b0, 0b01) => {
-                    // XOR
-                    todo!()
-                }
-                (0b0, 0b10) => {
-                    // OR
-                    todo!()
-                }
-                (0b0, 0b11) => {
-                    // AND
-                    todo!()
-                }
-                (0b1, 0b00) => {
-                    // SUBW
-                    todo!()
-                }
-                (0b1, 0b01) => {
-                    // ADDW
-                    todo!()
-                }
+                (0b0, 0b00) => Instruction::Sub(r_operand),
+                (0b0, 0b01) => Instruction::Xor(r_operand),
+                (0b0, 0b10) => Instruction::Or(r_operand),
+                (0b0, 0b11) => Instruction::And(r_operand),
+                (0b1, 0b00) => Instruction::Subw(r_operand),
+                (0b1, 0b01) => Instruction::Addw(r_operand),
                 _ => Instruction::Illegal(insn as u32),
             }
         }
