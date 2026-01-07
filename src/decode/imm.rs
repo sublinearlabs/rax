@@ -1,4 +1,7 @@
-use crate::util::mask32;
+use crate::{
+    decode::insn,
+    util::{mask16, mask32},
+};
 
 #[inline]
 pub(crate) fn imm_i(insn: u32) -> i32 {
@@ -67,4 +70,77 @@ pub(crate) fn shamt5(insn: u32) -> u8 {
 pub(crate) fn shamt6(insn: u32) -> u8 {
     let imm = (insn >> 20) & mask32(6);
     imm as u8
+}
+
+// Compressed Immediate Extraction
+
+#[inline]
+pub(crate) fn imm_ciw_addi4spn(insn: u16) -> i32 {
+    // insn [12 11 | 10 9 8 7 | 6 | 5]
+    // imm  [5   4 |  9 8 7 6 | 2 | 3]
+    let imm5_4 = ((insn >> 11) & mask16(2)) << 4;
+    let imm9_6 = ((insn >> 7) & mask16(4)) << 6;
+    let imm2 = ((insn >> 6) & mask16(1)) << 2;
+    let imm3 = ((insn >> 5) & mask16(1)) << 3;
+    let imm = imm9_6 | imm5_4 | imm3 | imm2;
+    imm as i32
+}
+
+#[inline]
+pub(crate) fn imm_ci_signed(insn: u16) -> i32 {
+    todo!()
+}
+
+#[inline]
+pub(crate) fn shamt_ci(insn: u16) -> u8 {
+    todo!()
+}
+
+#[inline]
+pub(crate) fn imm_cl_w(insn: u16) -> i32 {
+    // insn [12 11 10]
+    // imm  [5   4  3]
+    //
+    // insn [6 | 5]
+    // imm  [2 | 6]
+
+    let imm5_3 = ((insn >> 10) & mask16(3)) << 3;
+    let imm2 = ((insn >> 6) & mask16(1)) << 2;
+    let imm6 = ((insn >> 5) & mask16(1)) << 6;
+    let imm = imm6 | imm5_3 | imm2;
+    imm as i32
+}
+
+#[inline]
+pub(crate) fn imm_cl_d(insn: u16) -> i32 {
+    // insn [12 11 10]
+    // imm  [5   4  3]
+    //
+    // insn [6 5]
+    // imm  [7 6]
+
+    let imm5_3 = ((insn >> 10) & mask16(3)) << 3;
+    let imm7_6 = ((insn >> 5) & mask16(2)) << 6;
+    let imm = imm7_6 | imm5_3;
+    imm as i32
+}
+
+#[inline]
+pub(crate) fn imm_css_w(insn: u16) -> i32 {
+    todo!()
+}
+
+#[inline]
+pub(crate) fn imm_css_d(insn: u16) -> i32 {
+    todo!()
+}
+
+#[inline]
+pub(crate) fn imm_cb(insn: u16) -> i32 {
+    todo!()
+}
+
+#[inline]
+pub(crate) fn imm_cj(insn: u16) -> i32 {
+    todo!()
 }

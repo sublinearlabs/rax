@@ -3,11 +3,14 @@
 
 use core::panic::PanicInfo;
 use core::slice;
+use alloc::vec;
+use crate::syscalls::{sys_read, STDIN};
 
 
 mod exec;
 mod prelude;
 mod utils;
+mod syscalls;
 
 extern crate alloc;
 
@@ -20,15 +23,21 @@ const INPUT_BASE_ADDR: usize = 0x80000000;
 /// Entry point for the RISC-V program
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
-    // Read input length from memory (first 8 bytes at INPUT_BASE_ADDR)
-    let input_len = unsafe { core::ptr::read_volatile(INPUT_BASE_ADDR as *const u64) as usize }; // this is not safe: we need to introduce std-io
-
-    // Read input data from memory (starts after the length field)
-    let input_data_addr = INPUT_BASE_ADDR + 8;
-    let input: &[u8] = unsafe { slice::from_raw_parts(input_data_addr as *const u8, input_len) };
+    // read input using syscall std-in
+    let mut input = vec![];
+    let mut buffer = [0u8; 1024];
+    
+    loop {
+        let n = sys_read(STDIN, &mut buffer);
+        if n == 0 {
+            break;
+        }
+        input.extend_from_slice(&buffer[..n]);
+    }
+    
 
     // Execute block by calling runner()
-    let result: [u8; 32] = exec::runner(input);
+    let result: [u8; 32] = exec::runner(&input);
 
     // Convert the 32-byte result into 4 u64 values for registers a0, a1, a2, a3
     // Each register holds 8 bytes (64 bits) on RV64

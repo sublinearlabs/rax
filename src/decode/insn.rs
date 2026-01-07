@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::decode::insn_formats::{B, I, J, R, R4, RF, S, Sh, U};
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, PartialEq)]
 pub(crate) enum Instruction {
     // RV32I
     // Integer Register Register

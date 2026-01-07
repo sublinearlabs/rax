@@ -1,3 +1,4 @@
+mod compressed;
 mod imm;
 mod insn;
 mod insn_formats;
