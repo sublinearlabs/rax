@@ -59,6 +59,8 @@ fn exit(code: i32) -> ! {
 
 /// Panic handler required for no_std
 #[panic_handler]
-fn panic(_info: &PanicInfo) -> ! {
-    loop {}
+fn panic(info: &PanicInfo) -> ! {
+    let msg = alloc::format!("panic: {:?}", info);
+    crate::syscalls::sys_println(&msg);
+    exit(1);
 }
