@@ -1,23 +1,23 @@
 [package]
-name = "exec-block"
+name = "exec-block-raw"
 version = "0.1.0"
 edition = "2021"
 
-
 [dependencies]
 reth-stateless = { git = "https://github.com/paradigmxyz/reth", rev = "cfde951976bfa9100a6d9f806e06fb539ae25241", default-features = false, features = ["k256"] }
-serde = { version = "1.0", default-features = false, features = ["derive", "alloc"] }
+serde = { version = "1.0", features = ["derive"] }
 reth-chainspec = { git = "https://github.com/paradigmxyz/reth", rev = "cfde951976bfa9100a6d9f806e06fb539ae25241", default-features = false }
 reth-evm-ethereum = { git = "https://github.com/paradigmxyz/reth", rev = "cfde951976bfa9100a6d9f806e06fb539ae25241", default-features = false }
 reth-primitives-traits = { git = "https://github.com/paradigmxyz/reth", rev = "cfde951976bfa9100a6d9f806e06fb539ae25241", default-features = false }
 sparsestate = { git = "https://github.com/eth-act/zkvm-ethereum-mpt.git", tag = "v0.4.0" }
-sha2 = { version = "0.10.9", default-features = false }
-serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
-anyhow = { version = "1.0", default-features = false }
+sha2 = { version = "0.10.9" }
+serde_json = "1.0"
+anyhow = "1.0"
 reth-ethereum-primitives = { git = "https://github.com/paradigmxyz/reth", rev = "cfde951976bfa9100a6d9f806e06fb539ae25241", default-features = false }
+hex = "0.4.3"
 
-
-[profile.release]
-opt-level = "s"
-lto = true
-panic = "abort"
+# Explicitly enable the `std` feature for crates that provide optional
+# no_std/embedded implementations. This ensures the linker gets the
+# platform (std) symbols like __critical_section_1_0_acquire/release on macOS.
+critical-section = { version = "1.2.0", features = ["std"] }
+portable-atomic = { version = "1.13.0", features = ["std"] }

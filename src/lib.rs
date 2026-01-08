@@ -101,6 +101,11 @@ impl<T: Tracer> VM<T> {
         self.tracer = tracer;
         self
     }
+    
+    /// Set input stream
+    pub fn set_input_stream(&mut self, input: Vec<u8>) {
+        self.input_stream = input;
+    }
 
     /// Get a reference to the tracer
     pub fn tracer(&self) -> &T {
@@ -259,7 +264,7 @@ impl<T: Tracer> VM<T> {
     }
 
     /// Write multiple bytes from a given address
-    pub(crate) fn write_bytes(&mut self, addr: usize, data: &[u8]) {
+    pub fn write_bytes(&mut self, addr: usize, data: &[u8]) {
         self.memory.write_bytes(addr as u64, data);
     }
 
