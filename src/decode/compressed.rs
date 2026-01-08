@@ -1,9 +1,9 @@
 use crate::{
     decode::{
-        B, I, Instruction, J, R, S, U,
+        B, I, Instruction, J, R, S, Sh, U,
         imm::{
             imm_addi16sp, imm_cb, imm_ci_signed, imm_ciw_addi4spn, imm_cj, imm_cl_d, imm_cl_w,
-            imm_clui,
+            imm_clui, shamt_ci,
         },
         util::{c_funct3, quadrant},
     },
@@ -229,16 +229,34 @@ fn dec_c_alu(insn: u16) -> Instruction {
 
     match bit11_10 {
         0b00 => {
-            // SRLI
-            todo!()
+            let shamt = shamt_ci(insn);
+            if shamt == 0 {
+                return Instruction::Illegal(insn as u32);
+            }
+            Instruction::Srli(Sh {
+                rd: rd_rs1,
+                rs1: rd_rs1,
+                shamt,
+            })
         }
         0b01 => {
-            // SRAI
-            todo!()
+            let shamt = shamt_ci(insn);
+            if shamt == 0 {
+                return Instruction::Illegal(insn as u32);
+            }
+            Instruction::Srai(Sh {
+                rd: rd_rs1,
+                rs1: rd_rs1,
+                shamt,
+            })
         }
         0b10 => {
-            // ANDI
-            todo!()
+            let imm = imm_ci_signed(insn);
+            Instruction::Andi(I {
+                rd: rd_rs1,
+                rs1: rd_rs1,
+                imm,
+            })
         }
         0b11 => {
             let bit12 = ((insn >> 12) & mask16(1)) as u8;
