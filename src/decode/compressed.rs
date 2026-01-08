@@ -358,7 +358,61 @@ fn dec_c_ldsp(insn: u16) -> Instruction {
 }
 
 fn dec_c_jr_jalr_mv_add(insn: u16) -> Instruction {
-    todo!()
+    let bit12 = ((insn >> 12) & mask16(1)) as u8;
+    let rd_rs1 = ((insn >> 7) & mask16(5)) as u8;
+    let rs2 = ((insn >> 12) & mask16(1)) as u8;
+
+    match (bit12, rs2) {
+        (0, 0) => {
+            if rd_rs1 == 0 {
+                return Instruction::Illegal(insn as u32);
+            }
+
+            Instruction::Jalr(I {
+                rd: 0,
+                rs1: rd_rs1,
+                imm: 0,
+            })
+        }
+
+        (0, __) => {
+            if rd_rs1 == 0 {
+                return Instruction::Illegal(insn as u32);
+            }
+
+            Instruction::Add(R {
+                rd: rd_rs1,
+                rs1: 0,
+                rs2,
+            })
+        }
+
+        (1, 0) => {
+            if rd_rs1 == 0 {
+                return Instruction::Ebreak;
+            }
+
+            Instruction::Jalr(I {
+                rd: 1,
+                rs1: rd_rs1,
+                imm: 0,
+            })
+        }
+
+        (1, _) => {
+            if rd_rs1 != 0 {
+                return Instruction::Illegal(insn as u32);
+            }
+
+            Instruction::Add(R {
+                rd: rd_rs1,
+                rs1: rd_rs1,
+                rs2,
+            })
+        }
+
+        _ => Instruction::Illegal(insn as u32),
+    }
 }
 
 fn dec_c_fsdsp(insn: u16) -> Instruction {
