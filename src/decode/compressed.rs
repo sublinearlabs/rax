@@ -5,7 +5,7 @@ use crate::{
         B, I, Instruction, J, R, S, Sh, U,
         imm::{
             imm_addi16sp, imm_cb, imm_ci_signed, imm_ciw_addi4spn, imm_cj, imm_cl_d, imm_cl_w,
-            imm_clui, imm_csp_d_load, imm_csp_lw, shamt_ci,
+            imm_clui, imm_csp_d_load, imm_csp_lw, imm_css_d, imm_css_w, shamt_ci,
         },
         util::{c_funct3, quadrant},
     },
@@ -364,15 +364,21 @@ fn dec_c_jr_jalr_mv_add(insn: u16) -> Instruction {
 }
 
 fn dec_c_fsdsp(insn: u16) -> Instruction {
-    todo!()
+    let rs2 = ((insn >> 2) & mask16(5)) as u8;
+    let imm = imm_css_d(insn);
+    Instruction::Fsd(S { rs1: 2, rs2, imm })
 }
 
 fn dec_c_swsp(insn: u16) -> Instruction {
-    todo!()
+    let rs2 = ((insn >> 2) & mask16(5)) as u8;
+    let imm = imm_css_w(insn);
+    Instruction::Sw(S { rs1: 2, rs2, imm })
 }
 
 fn dec_c_sdsp(insn: u16) -> Instruction {
-    todo!()
+    let rs2 = ((insn >> 2) & mask16(5)) as u8;
+    let imm = imm_css_d(insn);
+    Instruction::Sd(S { rs1: 2, rs2, imm })
 }
 
 #[cfg(test)]

@@ -210,12 +210,20 @@ pub(crate) fn imm_csp_lw(insn: u16) -> i32 {
 
 #[inline]
 pub(crate) fn imm_css_w(insn: u16) -> i32 {
-    todo!()
+    // insn [12 11 10 9 | 8 7]
+    // imm  [ 5  4  3 2 | 7 6]
+    let imm5_2 = ((insn >> 9) & mask16(4)) << 2;
+    let imm7_6 = ((insn >> 7) & mask16(2)) << 6;
+    (imm7_6 | imm5_2) as i32
 }
 
 #[inline]
 pub(crate) fn imm_css_d(insn: u16) -> i32 {
-    todo!()
+    // insn [12 11 10 | 9 8 7]
+    // imm  [ 5  4  3 | 8 7 6]
+    let imm5_3 = ((insn >> 10) & mask16(3)) << 3;
+    let imm8_6 = ((insn >> 7) & mask16(3)) << 6;
+    (imm8_6 | imm5_3) as i32
 }
 
 #[inline]
