@@ -1,5 +1,3 @@
-use elf::abi::SHF_ARM_PURECODE;
-
 use crate::{
     decode::{
         B, I, Instruction, J, R, S, Sh, U,
