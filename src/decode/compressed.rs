@@ -1,3 +1,5 @@
+use elf::abi::SHF_ARM_PURECODE;
+
 use crate::{
     decode::{
         B, I, Instruction, J, R, S, Sh, U,
@@ -317,7 +319,13 @@ fn dec_c_bnez(insn: u16) -> Instruction {
 }
 
 fn dec_c_slli(insn: u16) -> Instruction {
-    todo!()
+    let rd_rs1 = ((insn >> 7) & mask16(5)) as u8;
+    let shamt = shamt_ci(insn);
+    Instruction::Slli(Sh {
+        rd: rd_rs1,
+        rs1: rd_rs1,
+        shamt,
+    })
 }
 
 fn dec_c_fldsp(insn: u16) -> Instruction {
@@ -684,6 +692,20 @@ mod tests {
                 rd: 8,
                 rs1: 8,
                 imm: -1
+            })
+        );
+    }
+
+    #[test]
+    fn test_slli() {
+        let ci = 0x0086;
+        let insn = decode_compressed(ci);
+        assert_eq!(
+            insn,
+            Instruction::Slli(Sh {
+                rd: 1,
+                rs1: 1,
+                shamt: 1
             })
         );
     }
