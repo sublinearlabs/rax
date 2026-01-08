@@ -14,43 +14,43 @@ impl<T: Tracer> VM<T> {
             // Register Opcodes
             Instruction::Add(insn) => {
                 let result = self.reg(insn.rs1).wrapping_add(self.reg(insn.rs2));
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::Sub(insn) => {
                 let result = self.reg(insn.rs1).wrapping_sub(self.reg(insn.rs2));
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::Xor(insn) => {
                 let result = self.reg(insn.rs1) ^ self.reg(insn.rs2);
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::Or(insn) => {
                 let result = self.reg(insn.rs1) | self.reg(insn.rs2);
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::And(insn) => {
                 let result = self.reg(insn.rs1) & self.reg(insn.rs2);
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::Sll(insn) => {
                 let result = self.reg(insn.rs1) << (self.reg(insn.rs2) & mask(6));
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::Srl(insn) => {
                 let result = self.reg(insn.rs1) >> (self.reg(insn.rs2) & mask(6));
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::Sra(insn) => {
                 let val = self.reg(insn.rs1) as i64;
                 let result = (val >> (self.reg(insn.rs2) & mask(6))) as u64;
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::Slt(insn) => {
@@ -59,7 +59,7 @@ impl<T: Tracer> VM<T> {
                 } else {
                     0
                 };
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::Sltu(insn) => {
@@ -68,45 +68,45 @@ impl<T: Tracer> VM<T> {
                 } else {
                     0
                 };
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             // Immediate Opcodes
             Instruction::Addi(insn) => {
                 let result = self.reg(insn.rs1).wrapping_add(insn.imm as u64);
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::Xori(insn) => {
                 let result = self.reg(insn.rs1) ^ insn.imm as u64;
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::Ori(insn) => {
                 let result = self.reg(insn.rs1) | insn.imm as u64;
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::Andi(insn) => {
                 let result = self.reg(insn.rs1) & insn.imm as u64;
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::Slli(insn) => {
                 let result = self.reg(insn.rs1) << insn.shamt;
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::Srli(insn) => {
                 let result = self.reg(insn.rs1) >> insn.shamt;
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::Srai(insn) => {
                 let shift = insn.shamt;
                 let val = self.reg(insn.rs1) as i64;
                 let result = (val >> shift) as u64;
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::Slti(insn) => {
@@ -115,7 +115,7 @@ impl<T: Tracer> VM<T> {
                 } else {
                     0
                 };
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::Sltiu(insn) => {
@@ -124,7 +124,7 @@ impl<T: Tracer> VM<T> {
                 } else {
                     0
                 };
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             // Load Opcodes
@@ -137,7 +137,7 @@ impl<T: Tracer> VM<T> {
                     value: raw_value as u8,
                     signed: true,
                 });
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::Lbu(insn) => {
@@ -148,7 +148,7 @@ impl<T: Tracer> VM<T> {
                     value: result as u8,
                     signed: false,
                 });
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::Lh(insn) => {
@@ -160,7 +160,7 @@ impl<T: Tracer> VM<T> {
                     value: raw_value as u16,
                     signed: true,
                 });
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::Lhu(insn) => {
@@ -171,7 +171,7 @@ impl<T: Tracer> VM<T> {
                     value: result as u16,
                     signed: false,
                 });
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::Lw(insn) => {
@@ -183,7 +183,7 @@ impl<T: Tracer> VM<T> {
                     value: raw_value as u32,
                     signed: true,
                 });
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::Lwu(insn) => {
@@ -194,7 +194,7 @@ impl<T: Tracer> VM<T> {
                     value: result as u32,
                     signed: false,
                 });
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::Ld(insn) => {
@@ -204,7 +204,7 @@ impl<T: Tracer> VM<T> {
                     addr,
                     value: result,
                 });
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             // Store Opcodes
@@ -298,7 +298,7 @@ impl<T: Tracer> VM<T> {
             // Jump opcodes
             Instruction::Jal(insn) => {
                 let result = self.pc.wrapping_add(4);
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
                 self.pc = self.pc.wrapping_add(insn.imm as u64);
                 return;
             }
@@ -306,44 +306,44 @@ impl<T: Tracer> VM<T> {
             Instruction::Jalr(insn) => {
                 let target = self.reg(insn.rs1).wrapping_add(insn.imm as u64);
                 let result = self.pc.wrapping_add(4);
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
                 self.pc = target;
                 return;
             }
 
             // Lui and Auipc
             Instruction::Lui(insn) => {
-                self.write_rd(insn.rd, insn.imm as u64);
+                self.reg_mut(insn.rd, insn.imm as u64);
             }
 
             Instruction::Auipc(insn) => {
                 let result = self.pc.wrapping_add(insn.imm as u64);
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             // RV64I Instructions
             Instruction::Addiw(insn) => {
                 let res = self.reg(insn.rs1).wrapping_add(insn.imm as u64) & mask(32);
                 let result = sext(res, 32);
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::Slliw(insn) => {
                 let val = self.reg(insn.rs1) << insn.shamt;
                 let result = sext(val & mask(32), 32);
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::Srliw(insn) => {
                 let result = sext((self.reg(insn.rs1) & mask(32)) >> insn.shamt, 32);
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::Sraiw(insn) => {
                 let shift = insn.shamt;
                 let a = (self.reg(insn.rs1) & mask(32)) as i32;
                 let result = (a >> shift) as i64 as u64;
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::Addw(insn) => {
@@ -351,35 +351,35 @@ impl<T: Tracer> VM<T> {
                     self.reg(insn.rs1).wrapping_add(self.reg(insn.rs2)) & mask(32),
                     32,
                 );
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::Subw(insn) => {
                 let a = self.reg(insn.rs1) as i32;
                 let b = self.reg(insn.rs2) as i32;
                 let result = a.wrapping_sub(b) as i64 as u64;
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::Sllw(insn) => {
                 let a = self.reg(insn.rs1);
                 let shift = self.reg(insn.rs2) & mask(5);
                 let result = sext((a << shift) & mask(32), 32);
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::Srlw(insn) => {
                 let a = self.reg(insn.rs1) & mask(32);
                 let shift = self.reg(insn.rs2) & mask(5);
                 let result = sext(a >> shift, 32);
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::Sraw(insn) => {
                 let a = (self.reg(insn.rs1) & mask(32)) as i32;
                 let shift = self.reg(insn.rs2) & mask(5);
                 let result = (a >> shift) as i64 as u64;
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             // M Extension - Multiplication
@@ -389,7 +389,7 @@ impl<T: Tracer> VM<T> {
                 let full = (a as i128).wrapping_mul(b as i128);
                 let result = a.wrapping_mul(b) as u64;
                 self.tracer.record_mul(result, (full >> 64) as u64);
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::Mulh(insn) => {
@@ -399,7 +399,7 @@ impl<T: Tracer> VM<T> {
                 let lo = full as u64;
                 let hi = (full >> 64) as u64;
                 self.tracer.record_mul(lo, hi);
-                self.write_rd(insn.rd, hi);
+                self.reg_mut(insn.rd, hi);
             }
 
             Instruction::Mulhsu(insn) => {
@@ -409,7 +409,7 @@ impl<T: Tracer> VM<T> {
                 let lo = full as u64;
                 let hi = (full >> 64) as u64;
                 self.tracer.record_mul(lo, hi);
-                self.write_rd(insn.rd, hi);
+                self.reg_mut(insn.rd, hi);
             }
 
             Instruction::Mulhu(insn) => {
@@ -419,7 +419,7 @@ impl<T: Tracer> VM<T> {
                 let lo = full as u64;
                 let hi = (full >> 64) as u64;
                 self.tracer.record_mul(lo, hi);
-                self.write_rd(insn.rd, hi);
+                self.reg_mut(insn.rd, hi);
             }
 
             Instruction::Mulw(insn) => {
@@ -428,7 +428,7 @@ impl<T: Tracer> VM<T> {
                 let product = a.wrapping_mul(b);
                 let result = (((product & mask(32)) as i32) as i64) as u64;
                 self.tracer.record_mul(product & mask(32), 0);
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             // M Extension - Division
@@ -442,7 +442,7 @@ impl<T: Tracer> VM<T> {
                 } else {
                     dividend.wrapping_div(divisor) as u64
                 };
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::Divu(insn) => {
@@ -453,7 +453,7 @@ impl<T: Tracer> VM<T> {
                 } else {
                     dividend.wrapping_div(divisor)
                 };
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::Rem(insn) => {
@@ -466,7 +466,7 @@ impl<T: Tracer> VM<T> {
                 } else {
                     dividend.wrapping_rem(divisor) as u64
                 };
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::Remu(insn) => {
@@ -477,7 +477,7 @@ impl<T: Tracer> VM<T> {
                 } else {
                     dividend.wrapping_rem(divisor)
                 };
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::Divw(insn) => {
@@ -490,7 +490,7 @@ impl<T: Tracer> VM<T> {
                 } else {
                     (dividend.wrapping_div(divisor) as i64) as u64
                 };
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::Divuw(insn) => {
@@ -501,7 +501,7 @@ impl<T: Tracer> VM<T> {
                 } else {
                     sext(dividend.wrapping_div(divisor) as u64, 32)
                 };
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::Remw(insn) => {
@@ -514,7 +514,7 @@ impl<T: Tracer> VM<T> {
                 } else {
                     (dividend.wrapping_rem(divisor) as i64) as u64
                 };
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::Remuw(insn) => {
@@ -525,7 +525,7 @@ impl<T: Tracer> VM<T> {
                 } else {
                     sext(dividend.wrapping_rem(divisor) as u64, 32)
                 };
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             // A Extension - Load Reserved / Store Conditional
@@ -539,7 +539,7 @@ impl<T: Tracer> VM<T> {
                     addr,
                     value: value as u32,
                 });
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::LrD(insn) => {
@@ -549,7 +549,7 @@ impl<T: Tracer> VM<T> {
                 self.tracer.record_reservation(addr);
                 self.tracer
                     .record_mem_op(MemOp::LoadReservedDouble { addr, value });
-                self.write_rd(insn.rd, value);
+                self.reg_mut(insn.rd, value);
             }
 
             Instruction::ScW(insn) => {
@@ -568,7 +568,7 @@ impl<T: Tracer> VM<T> {
                     value: value as u32,
                     success,
                 });
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::ScD(insn) => {
@@ -587,7 +587,7 @@ impl<T: Tracer> VM<T> {
                     value,
                     success,
                 });
-                self.write_rd(insn.rd, result);
+                self.reg_mut(insn.rd, result);
             }
 
             // A Extension - Atomic Memory Operations (Word)
@@ -603,7 +603,7 @@ impl<T: Tracer> VM<T> {
                     read_value: read_value as u32,
                     write_value: write_value as u32,
                 });
-                self.write_rd(insn.rd, sext(read_value, 32));
+                self.reg_mut(insn.rd, sext(read_value, 32));
             }
 
             Instruction::AmoAddW(insn) => {
@@ -619,7 +619,7 @@ impl<T: Tracer> VM<T> {
                     read_value: read_value as u32,
                     write_value: write_value as u32,
                 });
-                self.write_rd(insn.rd, (read_value as i64) as u64);
+                self.reg_mut(insn.rd, (read_value as i64) as u64);
             }
 
             Instruction::AmoXorW(insn) => {
@@ -635,7 +635,7 @@ impl<T: Tracer> VM<T> {
                     read_value: read_value as u32,
                     write_value: write_value as u32,
                 });
-                self.write_rd(insn.rd, (read_value as i64) as u64);
+                self.reg_mut(insn.rd, (read_value as i64) as u64);
             }
 
             Instruction::AmoAndW(insn) => {
@@ -651,7 +651,7 @@ impl<T: Tracer> VM<T> {
                     read_value: read_value as u32,
                     write_value: write_value as u32,
                 });
-                self.write_rd(insn.rd, (read_value as i64) as u64);
+                self.reg_mut(insn.rd, (read_value as i64) as u64);
             }
 
             Instruction::AmoOrW(insn) => {
@@ -667,7 +667,7 @@ impl<T: Tracer> VM<T> {
                     read_value: read_value as u32,
                     write_value: write_value as u32,
                 });
-                self.write_rd(insn.rd, (read_value as i64) as u64);
+                self.reg_mut(insn.rd, (read_value as i64) as u64);
             }
 
             Instruction::AmoMinW(insn) => {
@@ -683,7 +683,7 @@ impl<T: Tracer> VM<T> {
                     read_value: read_value as u32,
                     write_value: write_value as u32,
                 });
-                self.write_rd(insn.rd, (read_value as i64) as u64);
+                self.reg_mut(insn.rd, (read_value as i64) as u64);
             }
 
             Instruction::AmoMaxW(insn) => {
@@ -699,7 +699,7 @@ impl<T: Tracer> VM<T> {
                     read_value: read_value as u32,
                     write_value: write_value as u32,
                 });
-                self.write_rd(insn.rd, (read_value as i64) as u64);
+                self.reg_mut(insn.rd, (read_value as i64) as u64);
             }
 
             Instruction::AmoMinuW(insn) => {
@@ -715,7 +715,7 @@ impl<T: Tracer> VM<T> {
                     read_value: read_value as u32,
                     write_value: write_value as u32,
                 });
-                self.write_rd(insn.rd, sext(read_value, 32));
+                self.reg_mut(insn.rd, sext(read_value, 32));
             }
 
             Instruction::AmoMaxuW(insn) => {
@@ -731,7 +731,7 @@ impl<T: Tracer> VM<T> {
                     read_value: read_value as u32,
                     write_value: write_value as u32,
                 });
-                self.write_rd(insn.rd, sext(read_value, 32));
+                self.reg_mut(insn.rd, sext(read_value, 32));
             }
 
             // A Extension - Atomic Memory Operations (Double)
@@ -747,7 +747,7 @@ impl<T: Tracer> VM<T> {
                     read_value,
                     write_value,
                 });
-                self.write_rd(insn.rd, read_value);
+                self.reg_mut(insn.rd, read_value);
             }
 
             Instruction::AmoAddD(insn) => {
@@ -763,7 +763,7 @@ impl<T: Tracer> VM<T> {
                     read_value,
                     write_value,
                 });
-                self.write_rd(insn.rd, read_value);
+                self.reg_mut(insn.rd, read_value);
             }
 
             Instruction::AmoXorD(insn) => {
@@ -779,7 +779,7 @@ impl<T: Tracer> VM<T> {
                     read_value,
                     write_value,
                 });
-                self.write_rd(insn.rd, read_value);
+                self.reg_mut(insn.rd, read_value);
             }
 
             Instruction::AmoAndD(insn) => {
@@ -795,7 +795,7 @@ impl<T: Tracer> VM<T> {
                     read_value,
                     write_value,
                 });
-                self.write_rd(insn.rd, read_value);
+                self.reg_mut(insn.rd, read_value);
             }
 
             Instruction::AmoOrD(insn) => {
@@ -811,7 +811,7 @@ impl<T: Tracer> VM<T> {
                     read_value,
                     write_value,
                 });
-                self.write_rd(insn.rd, read_value);
+                self.reg_mut(insn.rd, read_value);
             }
 
             Instruction::AmoMinD(insn) => {
@@ -827,7 +827,7 @@ impl<T: Tracer> VM<T> {
                     read_value,
                     write_value,
                 });
-                self.write_rd(insn.rd, read_value);
+                self.reg_mut(insn.rd, read_value);
             }
 
             Instruction::AmoMaxD(insn) => {
@@ -843,7 +843,7 @@ impl<T: Tracer> VM<T> {
                     read_value,
                     write_value,
                 });
-                self.write_rd(insn.rd, read_value);
+                self.reg_mut(insn.rd, read_value);
             }
 
             Instruction::AmoMinuD(insn) => {
@@ -859,7 +859,7 @@ impl<T: Tracer> VM<T> {
                     read_value,
                     write_value,
                 });
-                self.write_rd(insn.rd, read_value);
+                self.reg_mut(insn.rd, read_value);
             }
 
             Instruction::AmoMaxuD(insn) => {
@@ -875,7 +875,7 @@ impl<T: Tracer> VM<T> {
                     read_value,
                     write_value,
                 });
-                self.write_rd(insn.rd, read_value);
+                self.reg_mut(insn.rd, read_value);
             }
 
             // F instructions
@@ -1092,7 +1092,7 @@ impl<T: Tracer> VM<T> {
                 };
 
                 self.fcsr_reg |= flags;
-                *self.reg_mut(insn.rd) = (result as i64) as u64;
+                self.reg_mut(insn.rd, result as i64 as u64);
             }
 
             Instruction::FcvtWuS(insn) => {
@@ -1116,14 +1116,14 @@ impl<T: Tracer> VM<T> {
                 };
 
                 self.fcsr_reg |= flags;
-                *self.reg_mut(insn.rd) = (result as i32) as i64 as u64;
+                self.reg_mut(insn.rd, result as i32 as i64 as u64);
             }
 
             Instruction::FmvXW(insn) => {
                 let raw_bits = (self.f_reg[insn.rs1 as usize] & 0xFFFFFFFF) as u32;
                 let result = sext(raw_bits as u64, 32);
 
-                *self.reg_mut(insn.rd) = result;
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::FeqS(insn) => {
@@ -1135,11 +1135,12 @@ impl<T: Tracer> VM<T> {
                     self.fcsr_reg |= 0b10000;
                 }
 
-                *self.reg_mut(insn.rd) = if a.is_nan() || b.is_nan() {
+                let res = if a.is_nan() || b.is_nan() {
                     0
                 } else {
                     (a == b) as u64
                 };
+                self.reg_mut(insn.rd, res);
             }
 
             Instruction::FltS(insn) => {
@@ -1149,9 +1150,9 @@ impl<T: Tracer> VM<T> {
                 // FltS sets NV for ANY NaN (not just signaling)
                 if a.is_nan() || b.is_nan() {
                     self.fcsr_reg |= 0b10000;
-                    *self.reg_mut(insn.rd) = 0;
+                    self.reg_mut(insn.rd, 0);
                 } else {
-                    *self.reg_mut(insn.rd) = (a < b) as u64;
+                    self.reg_mut(insn.rd, (a < b) as u64);
                 }
             }
 
@@ -1162,14 +1163,14 @@ impl<T: Tracer> VM<T> {
                 // FleS sets NV for ANY NaN (not just signaling)
                 if a.is_nan() || b.is_nan() {
                     self.fcsr_reg |= 0b10000;
-                    *self.reg_mut(insn.rd) = 0;
+                    self.reg_mut(insn.rd, 0);
                 } else {
-                    *self.reg_mut(insn.rd) = (a <= b) as u64;
+                    self.reg_mut(insn.rd, (a <= b) as u64);
                 }
             }
             Instruction::FclassS(insn) => {
                 let val = classify32(self.read_f32(insn.rs1).to_bits());
-                *self.reg_mut(insn.rd) = val;
+                self.reg_mut(insn.rd, val);
             }
 
             Instruction::FcvtSW(insn) => {
@@ -1402,11 +1403,13 @@ impl<T: Tracer> VM<T> {
                     self.fcsr_reg |= 0b10000;
                 }
 
-                *self.reg_mut(insn.rd) = if a.is_nan() || b.is_nan() {
+                let res = if a.is_nan() || b.is_nan() {
                     0
                 } else {
                     (a == b) as u64
                 };
+
+                self.reg_mut(insn.rd, res);
             }
 
             Instruction::FltD(insn) => {
@@ -1415,9 +1418,9 @@ impl<T: Tracer> VM<T> {
 
                 if a.is_nan() || b.is_nan() {
                     self.fcsr_reg |= 0b10000;
-                    *self.reg_mut(insn.rd) = 0;
+                    self.reg_mut(insn.rd, 0);
                 } else {
-                    *self.reg_mut(insn.rd) = (a < b) as u64;
+                    self.reg_mut(insn.rd, (a < b) as u64);
                 }
             }
 
@@ -1427,15 +1430,15 @@ impl<T: Tracer> VM<T> {
 
                 if a.is_nan() || b.is_nan() {
                     self.fcsr_reg |= 0b10000;
-                    *self.reg_mut(insn.rd) = 0;
+                    self.reg_mut(insn.rd, 0);
                 } else {
-                    *self.reg_mut(insn.rd) = (a <= b) as u64;
+                    self.reg_mut(insn.rd, (a <= b) as u64);
                 }
             }
 
             Instruction::FclassD(insn) => {
                 let val = classify64(self.read_f64(insn.rs1).to_bits());
-                *self.reg_mut(insn.rd) = val;
+                self.reg_mut(insn.rd, val);
             }
 
             Instruction::FcvtWD(insn) => {
@@ -1455,7 +1458,7 @@ impl<T: Tracer> VM<T> {
                 };
 
                 self.fcsr_reg |= flags;
-                *self.reg_mut(insn.rd) = (result as i64) as u64;
+                self.reg_mut(insn.rd, result as i64 as u64);
             }
 
             Instruction::FcvtWuD(insn) => {
@@ -1477,7 +1480,7 @@ impl<T: Tracer> VM<T> {
                 };
 
                 self.fcsr_reg |= flags;
-                *self.reg_mut(insn.rd) = (result as i32) as i64 as u64;
+                self.reg_mut(insn.rd, result as i32 as i64 as u64);
             }
 
             Instruction::FcvtDW(insn) => {
@@ -1531,7 +1534,7 @@ impl<T: Tracer> VM<T> {
                 };
 
                 self.fcsr_reg |= flags;
-                *self.reg_mut(insn.rd) = result as u64;
+                self.reg_mut(insn.rd, result as u64);
             }
 
             Instruction::FcvtLuS(insn) => {
@@ -1553,7 +1556,7 @@ impl<T: Tracer> VM<T> {
                 };
 
                 self.fcsr_reg |= flags;
-                *self.reg_mut(insn.rd) = result;
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::FcvtSL(insn) => {
@@ -1583,7 +1586,7 @@ impl<T: Tracer> VM<T> {
                 };
 
                 self.fcsr_reg |= flags;
-                *self.reg_mut(insn.rd) = result as u64;
+                self.reg_mut(insn.rd, result as u64);
             }
 
             Instruction::FcvtLuD(insn) => {
@@ -1605,12 +1608,12 @@ impl<T: Tracer> VM<T> {
                 };
 
                 self.fcsr_reg |= flags;
-                *self.reg_mut(insn.rd) = result;
+                self.reg_mut(insn.rd, result);
             }
 
             Instruction::FmvXD(insn) => {
-                let val = self.read_f64(insn.rs1);
-                *self.reg_mut(insn.rd) = val.to_bits();
+                let val = self.read_f64(insn.rs1).to_bits();
+                self.reg_mut(insn.rd, val);
             }
 
             Instruction::FcvtDL(insn) => {
@@ -1636,7 +1639,7 @@ impl<T: Tracer> VM<T> {
 
                 self.set_csr(csr_addr, val);
                 if insn.rd != 0 {
-                    *self.reg_mut(insn.rd) = old;
+                    self.reg_mut(insn.rd, old);
                 }
             }
 
@@ -1649,7 +1652,7 @@ impl<T: Tracer> VM<T> {
                     self.set_csr(csr_addr, new_val);
                 }
                 if insn.rd != 0 {
-                    *self.reg_mut(insn.rd) = old;
+                    self.reg_mut(insn.rd, old);
                 }
             }
 
@@ -1662,7 +1665,7 @@ impl<T: Tracer> VM<T> {
                     self.set_csr(csr_addr, new_val);
                 }
                 if insn.rd != 0 {
-                    *self.reg_mut(insn.rd) = old;
+                    self.reg_mut(insn.rd, old);
                 }
             }
 
@@ -1672,7 +1675,7 @@ impl<T: Tracer> VM<T> {
                 let val = (insn.rs1 as u32) & 0x1F;
                 self.set_csr(csr_addr, val);
                 if insn.rd != 0 {
-                    *self.reg_mut(insn.rd) = old;
+                    self.reg_mut(insn.rd, old);
                 }
             }
 
@@ -1685,7 +1688,7 @@ impl<T: Tracer> VM<T> {
                     self.set_csr(csr_addr, new_val);
                 }
                 if insn.rd != 0 {
-                    *self.reg_mut(insn.rd) = old;
+                    self.reg_mut(insn.rd, old);
                 }
             }
 
@@ -1698,7 +1701,7 @@ impl<T: Tracer> VM<T> {
                     self.set_csr(csr_addr, new_val);
                 }
                 if insn.rd != 0 {
-                    *self.reg_mut(insn.rd) = old;
+                    self.reg_mut(insn.rd, old);
                 }
             }
 
@@ -1722,14 +1725,6 @@ impl<T: Tracer> VM<T> {
         }
 
         self.pc += 4;
-    }
-
-    /// Write to destination register with tracing.
-    /// This helper ensures all register writes are traced.
-    #[inline(always)]
-    fn write_rd(&mut self, rd: u8, value: u64) {
-        *self.reg_mut(rd) = value;
-        self.tracer.record_rd(rd as u8, value);
     }
 }
 
@@ -1795,8 +1790,8 @@ mod test {
     #[test]
     fn test_add_instruction() {
         let mut vm = VM::<NoopTracer>::init();
-        *vm.reg_mut(3) = 12;
-        *vm.reg_mut(5) = 32;
+        vm.reg_mut(3, 12);
+        vm.reg_mut(5, 32);
         // r8 = r3 + r5
         // 0x518433 = Instruction::Add(R { rd: 8, rs1: 3, rs2: 5 });
         let insn = 0x518433;
@@ -1807,8 +1802,8 @@ mod test {
     #[test]
     fn test_store_byte() {
         let mut vm = VM::<NoopTracer>::init();
-        *vm.reg_mut(3) = 12;
-        *vm.reg_mut(2) = 5;
+        vm.reg_mut(3, 12);
+        vm.reg_mut(2, 5);
         // 0x310123 = Instruction::Sb(S {rs1: 2, rs2: 3, imm: 2});
         let insn = 0x310123;
         vm.execute_instruction(insn);
@@ -1818,8 +1813,8 @@ mod test {
     #[test]
     fn test_store_half_word() {
         let mut vm = VM::<NoopTracer>::init();
-        *vm.reg_mut(3) = 64008;
-        *vm.reg_mut(2) = 5;
+        vm.reg_mut(3, 64008);
+        vm.reg_mut(2, 5);
         // 0x311123 = Instruction::Sh(S {rs1: 2, rs2: 3, imm: 2});
         let insn = 0x311123;
         vm.execute_instruction(insn);
@@ -1830,8 +1825,8 @@ mod test {
     #[test]
     fn test_store_word() {
         let mut vm = VM::<NoopTracer>::init();
-        *vm.reg_mut(3) = 2299561908;
-        *vm.reg_mut(2) = 5;
+        vm.reg_mut(3, 2299561908);
+        vm.reg_mut(2, 5);
         // 0x312123 = Instruction::Sw(S { rs1: 2, rs2: 3, imm: 2 });
         let insn = 0x312123;
         vm.execute_instruction(insn);
@@ -1843,8 +1838,8 @@ mod test {
     #[test]
     fn test_store_double_word() {
         let mut vm = VM::<NoopTracer>::init();
-        *vm.reg_mut(3) = 1234567898765432123;
-        *vm.reg_mut(2) = 5;
+        vm.reg_mut(3, 1234567898765432123);
+        vm.reg_mut(2, 5);
         // 0x313123 = Instruction::Sd(S { rs1: 2, rs2: 3, imm: 2 });
         let insn = 0x313123;
         vm.execute_instruction(insn);
@@ -1871,7 +1866,7 @@ mod test {
     fn test_jalr_opcode() {
         let mut vm = VM::<NoopTracer>::init();
         vm.pc = 8;
-        *vm.reg_mut(5) = 6;
+        vm.reg_mut(5, 6);
         // 0x9281E7 = Instruction::Jalr(I {rs1: 5, rd: 3, imm: 9});
         let insn = 0x9281E7;
         vm.execute_instruction(insn);

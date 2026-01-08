@@ -14,7 +14,14 @@ pub trait Tracer: Default + Sized {
     /// Begin tracing a new instruction.
     ///
     /// Called at the start of instruction execution with the current CPU state.
-    fn begin_instruction(&mut self, clk: u64, pc: u64, regs: &[u64; 32], raw_instr: u32);
+    fn begin_instruction(
+        &mut self,
+        clk: u64,
+        pc: u64,
+        x_regs: &[u64; 32],
+        f_regs: &[u64; 32],
+        raw_instr: u32,
+    );
 
     /// Record destination register write.
     fn record_rd(&mut self, rd: u8, value: u64);
@@ -43,7 +50,12 @@ pub trait Tracer: Default + Sized {
     ///
     /// Consumes the tracer and returns the complete execution trace,
     /// or `None` if tracing was not enabled.
-    fn finalize(self, final_regs: [u64; 32], final_pc: u64) -> Option<ExecutionTrace>;
+    fn finalize(
+        self,
+        final_x_regs: [u64; 32],
+        final_f_regs: [u64; 32],
+        final_pc: u64,
+    ) -> Option<ExecutionTrace>;
 
     /// Check if this tracer actually records traces.
     ///
@@ -58,7 +70,15 @@ pub struct NoopTracer;
 
 impl Tracer for NoopTracer {
     #[inline(always)]
-    fn begin_instruction(&mut self, _clk: u64, _pc: u64, _regs: &[u64; 32], _raw_instr: u32) {}
+    fn begin_instruction(
+        &mut self,
+        _clk: u64,
+        _pc: u64,
+        _regs: &[u64; 32],
+        _f_regs: &[u64; 32],
+        _raw_instr: u32,
+    ) {
+    }
 
     #[inline(always)]
     fn record_rd(&mut self, _rd: u8, _value: u64) {}
@@ -82,7 +102,12 @@ impl Tracer for NoopTracer {
     fn commit(&mut self) {}
 
     #[inline(always)]
-    fn finalize(self, _final_regs: [u64; 32], _final_pc: u64) -> Option<ExecutionTrace> {
+    fn finalize(
+        self,
+        _final_x_regs: [u64; 32],
+        _final_f_regs: [u64; 32],
+        _final_pc: u64,
+    ) -> Option<ExecutionTrace> {
         None
     }
 
@@ -106,9 +131,9 @@ pub struct FullTracer {
 
 impl FullTracer {
     /// Create a new full tracer with initial state.
-    pub fn new(initial_pc: u64, initial_regs: [u64; 32]) -> Self {
+    pub fn new(initial_pc: u64, initial_x_regs: [u64; 32], initial_f_regs: [u64; 32]) -> Self {
         Self {
-            trace: ExecutionTrace::new(initial_pc, initial_regs),
+            trace: ExecutionTrace::new(initial_pc, initial_x_regs, initial_f_regs),
             current: None,
         }
     }
@@ -130,24 +155,51 @@ impl FullTracer {
 }
 
 impl Tracer for FullTracer {
-    fn begin_instruction(&mut self, clk: u64, pc: u64, regs: &[u64; 32], raw_instr: u32) {
+    fn begin_instruction(
+        &mut self,
+        clk: u64,
+        pc: u64,
+        regs: &[u64; 32],
+        f_regs: &[u64; 32],
+        raw_instr: u32,
+    ) {
         let instr = decode(raw_instr);
 
-        let rs1_val = if instr.rs1() == 0 {
-            0
+        // Check if instruction is integer or floating point instruction
+        let rs1_val = if instr.is_integer_insn() {
+            if instr.rs1() == 0 {
+                0
+            } else {
+                regs[instr.rs1() as usize]
+            }
+        } else if instr.is_fp_insn() {
+            f_regs[instr.rs1() as usize]
         } else {
-            regs[instr.rs1() as usize]
-        };
-        let rs2_val = if instr.rs2() == 0 {
-            0
-        } else {
-            regs[instr.rs2() as usize]
+            panic!("Instruction not accounted for: {:?}", instr);
         };
 
-        let rs3_val = if instr.rs3() == 0 {
-            0
+        let rs2_val = if instr.is_integer_insn() {
+            if instr.rs2() == 0 {
+                0
+            } else {
+                regs[instr.rs2() as usize]
+            }
+        } else if instr.is_fp_insn() {
+            f_regs[instr.rs2() as usize]
         } else {
-            regs[instr.rs3() as usize]
+            panic!("Instruction not accounted for: {:?}", instr);
+        };
+
+        let rs3_val = if instr.is_integer_insn() {
+            if instr.rs3() == 0 {
+                0
+            } else {
+                regs[instr.rs3() as usize]
+            }
+        } else if instr.is_fp_insn() {
+            f_regs[instr.rs3() as usize]
+        } else {
+            panic!("Instruction not accounted for: {:?}", instr);
         };
 
         self.current = Some(TraceRow {
@@ -244,8 +296,14 @@ impl Tracer for FullTracer {
         }
     }
 
-    fn finalize(mut self, final_regs: [u64; 32], final_pc: u64) -> Option<ExecutionTrace> {
-        self.trace.final_regs = final_regs;
+    fn finalize(
+        mut self,
+        final_x_regs: [u64; 32],
+        final_f_regs: [u64; 32],
+        final_pc: u64,
+    ) -> Option<ExecutionTrace> {
+        self.trace.final_x_regs = final_x_regs;
+        self.trace.final_f_regs = final_f_regs;
         self.trace.final_pc = final_pc;
         Some(self.trace)
     }
@@ -274,25 +332,27 @@ mod tests {
     fn test_noop_tracer_is_zero_cost() {
         let mut tracer = NoopTracer;
         let regs = [0u64; 32];
+        let f_regs = [0u64; 32];
 
         // These should all compile to nothing
-        tracer.begin_instruction(0, 0x1000, &regs, 0x00000033);
+        tracer.begin_instruction(0, 0x1000, &regs, &f_regs, 0x00000033);
         tracer.record_rd(3, 42);
         tracer.record_next_pc(0x1004);
         tracer.commit();
 
         assert!(!tracer.is_active());
-        assert!(tracer.finalize([0; 32], 0).is_none());
+        assert!(tracer.finalize([0; 32], [0; 32], 0).is_none());
     }
 
     #[test]
     fn test_full_tracer_captures_state() {
-        let mut tracer = FullTracer::new(0x1000, [0u64; 32]);
+        let mut tracer = FullTracer::new(0x1000, [0u64; 32], [0u64; 32]);
         let mut regs = [0u64; 32];
+        let f_regs = [0u64; 32];
         regs[1] = 10;
         regs[2] = 20;
 
-        tracer.begin_instruction(0, 0x1000, &regs, 0x002080b3);
+        tracer.begin_instruction(0, 0x1000, &regs, &f_regs, 0x002080b3);
         tracer.record_rd(3, 30);
         tracer.record_next_pc(0x1004);
         tracer.commit();
@@ -300,7 +360,7 @@ mod tests {
         assert!(tracer.is_active());
         assert_eq!(tracer.len(), 1);
 
-        let trace = tracer.finalize([0; 32], 0x1004).unwrap();
+        let trace = tracer.finalize([0; 32], [0; 32], 0x1004).unwrap();
         assert_eq!(trace.rows.len(), 1);
 
         let row = &trace.rows[0];
@@ -314,10 +374,11 @@ mod tests {
 
     #[test]
     fn test_full_tracer_memory_op() {
-        let mut tracer = FullTracer::new(0x1000, [0u64; 32]);
+        let mut tracer = FullTracer::new(0x1000, [0u64; 32], [0u64; 32]);
         let regs = [0u64; 32];
+        let f_regs = [0u64; 32];
 
-        tracer.begin_instruction(0, 0x1000, &regs, 0x00000003);
+        tracer.begin_instruction(0, 0x1000, &regs, &f_regs, 0x00000003);
         tracer.record_mem_op(MemOp::LoadWord {
             addr: 0x2000,
             value: 0x12345678,
@@ -326,7 +387,7 @@ mod tests {
         tracer.record_rd(2, 0x12345678);
         tracer.commit();
 
-        let trace = tracer.finalize([0; 32], 0x1004).unwrap();
+        let trace = tracer.finalize([0; 32], [0; 32], 0x1004).unwrap();
         let row = &trace.rows[0];
 
         match row.mem_op {
@@ -345,27 +406,29 @@ mod tests {
 
     #[test]
     fn test_full_tracer_halt() {
-        let mut tracer = FullTracer::new(0x1000, [0u64; 32]);
+        let mut tracer = FullTracer::new(0x1000, [0u64; 32], [0u64; 32]);
         let regs = [0u64; 32];
+        let f_regs = [0u64; 32];
 
-        tracer.begin_instruction(0, 0x1000, &regs, 0x00000073);
+        tracer.begin_instruction(0, 0x1000, &regs, &f_regs, 0x00000073);
         tracer.record_halt();
         tracer.commit();
 
-        let trace = tracer.finalize([0; 32], 0x1000).unwrap();
+        let trace = tracer.finalize([0; 32], [0; 32], 0x1000).unwrap();
         assert!(trace.rows[0].halted);
     }
 
     #[test]
     fn test_full_tracer_mul_intermediate() {
-        let mut tracer = FullTracer::new(0x1000, [0u64; 32]);
+        let mut tracer = FullTracer::new(0x1000, [0u64; 32], [0u64; 32]);
         let regs = [0u64; 32];
+        let f_regs = [0u64; 32];
 
-        tracer.begin_instruction(0, 0x1000, &regs, 0x00000033);
+        tracer.begin_instruction(0, 0x1000, &regs, &f_regs, 0x00000033);
         tracer.record_mul(0xDEADBEEF, 0xCAFEBABE);
         tracer.commit();
 
-        let trace = tracer.finalize([0; 32], 0x1004).unwrap();
+        let trace = tracer.finalize([0; 32], [0; 32], 0x1004).unwrap();
         let row = &trace.rows[0];
         assert_eq!(row.mul_lo, 0xDEADBEEF);
         assert_eq!(row.mul_hi, 0xCAFEBABE);
@@ -373,18 +436,19 @@ mod tests {
 
     #[test]
     fn test_multiple_instructions() {
-        let mut tracer = FullTracer::new(0x1000, [0u64; 32]);
+        let mut tracer = FullTracer::new(0x1000, [0u64; 32], [0u64; 32]);
         let regs = [0u64; 32];
+        let f_regs = [0u64; 32];
 
         for i in 0..5 {
-            tracer.begin_instruction(i, 0x1000 + (i * 4), &regs, 0x00000033);
+            tracer.begin_instruction(i, 0x1000 + (i * 4), &regs, &f_regs, 0x00000033);
             tracer.record_next_pc(0x1000 + ((i + 1) * 4));
             tracer.commit();
         }
 
         assert_eq!(tracer.len(), 5);
 
-        let trace = tracer.finalize([0; 32], 0x1014).unwrap();
+        let trace = tracer.finalize([0; 32], [0; 32], 0x1014).unwrap();
         assert_eq!(trace.total_cycles, 5);
     }
 }

@@ -679,12 +679,16 @@ impl TraceRow {
 pub struct ExecutionTrace {
     /// All trace rows.
     pub rows: Vec<TraceRow>,
-    /// Initial register state.
-    pub initial_regs: [u64; 32],
+    /// Initial integer register state.
+    pub initial_x_regs: [u64; 32],
+    /// Initial floating point register state
+    pub initial_f_regs: [u64; 32],
     /// Initial PC.
     pub initial_pc: u64,
-    /// Final register state.
-    pub final_regs: [u64; 32],
+    /// Final integer register state.
+    pub final_x_regs: [u64; 32],
+    /// Final floating point register state
+    pub final_f_regs: [u64; 32],
     /// Final PC.
     pub final_pc: u64,
     /// Total cycles executed.
@@ -697,12 +701,14 @@ pub struct ExecutionTrace {
 
 impl ExecutionTrace {
     /// Create a new empty trace with initial state.
-    pub fn new(initial_pc: u64, initial_regs: [u64; 32]) -> Self {
+    pub fn new(initial_pc: u64, initial_x_regs: [u64; 32], initial_f_regs: [u64; 32]) -> Self {
         Self {
             rows: Vec::new(),
-            initial_regs,
+            initial_x_regs,
+            initial_f_regs,
             initial_pc,
-            final_regs: initial_regs,
+            final_x_regs: initial_x_regs,
+            final_f_regs: initial_f_regs,
             final_pc: initial_pc,
             total_cycles: 0,
             exit_code: 0,
@@ -715,13 +721,21 @@ impl ExecutionTrace {
         self.total_cycles = row.clk + 1;
         self.final_pc = row.next_pc;
 
-        // Update final register state
-        if row.rd != 0 {
-            self.final_regs[row.rd as usize] = row.rd_val;
+        // Update final integer register state
+        if row.opcode.is_integer_insn() {
+            if row.rd != 0 {
+                self.final_x_regs[row.rd as usize] = row.rd_val;
+            }
+        }
+
+        // Update final floating point register state
+        // First floating point register is not a zero register
+        if row.opcode.is_fp_insn() {
+            self.final_f_regs[row.rd as usize] = row.rd_val;
         }
 
         if row.halted {
-            self.exit_code = self.final_regs[10]; // a0 register
+            self.exit_code = self.final_x_regs[10]; // a0 register
         }
 
         self.rows.push(row);
@@ -977,7 +991,7 @@ mod tests {
 
     #[test]
     fn test_execution_trace() {
-        let mut trace = ExecutionTrace::new(0x1000, [0u64; 32]);
+        let mut trace = ExecutionTrace::new(0x1000, [0u64; 32], [0u64; 32]);
         assert!(trace.is_empty());
 
         let row = TraceRow::new(0, 0x1000, [0u64; 32]);
