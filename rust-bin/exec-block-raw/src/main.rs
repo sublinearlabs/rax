@@ -26,10 +26,10 @@ pub struct RethStatelessValidatorInput {
 }
 pub type RethStatelessValidatorOutput = ([u8; 32], [u8; 32], bool);
 
-fn to_reth_stateless_input(s_inout: StatelessInput) -> RethStatelessValidatorInput {
+fn to_reth_stateless_input(s_input: StatelessInput) -> RethStatelessValidatorInput {
     let signers = recover_signers(&s_inout.block.body.transactions).unwrap();
     RethStatelessValidatorInput {
-        stateless_input: s_inout,
+        stateless_input: s_input,
         public_keys: signers,
     }
 }
