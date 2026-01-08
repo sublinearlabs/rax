@@ -1,7 +1,4 @@
-use crate::{
-    decode::insn,
-    util::{mask, mask16, mask32},
-};
+use crate::util::{mask16, mask32};
 
 #[inline]
 pub(crate) fn imm_i(insn: u32) -> i32 {
