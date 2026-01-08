@@ -10,7 +10,7 @@ use crate::{
 
 // TODO consider cleaning up sext logic
 impl<T: Tracer> VM<T> {
-    pub(crate) fn execute_instruction(&mut self, insn: Instruction) {
+    pub(crate) fn execute_instruction(&mut self, insn: Instruction, is_compressed: bool) {
         match insn {
             // Register Opcodes
             Instruction::Add(insn) => {
@@ -306,7 +306,7 @@ impl<T: Tracer> VM<T> {
 
             Instruction::Jalr(insn) => {
                 let target = self.reg(insn.rs1).wrapping_add(insn.imm as u64);
-                let result = self.pc.wrapping_add(4);
+                let result = self.pc.wrapping_add(if is_compressed { 2 } else { 4 });
                 self.write_rd(insn.rd, result);
                 self.pc = target;
                 return;
@@ -1712,7 +1712,11 @@ impl<T: Tracer> VM<T> {
             _ => {}
         }
 
-        self.pc += 4;
+        if is_compressed {
+            self.pc += 2;
+        } else {
+            self.pc += 4;
+        }
     }
 
     /// Write to destination register with tracing.
@@ -1792,7 +1796,7 @@ mod test {
         // r8 = r3 + r5
         // 0x518433 = Instruction::Add(R { rd: 8, rs1: 3, rs2: 5 });
         let insn = 0x518433;
-        vm.execute_instruction(decode(insn));
+        vm.execute_instruction(decode(insn), false);
         assert_eq!(vm.reg(8), 12 + 32);
     }
 
@@ -1803,7 +1807,7 @@ mod test {
         *vm.reg_mut(2) = 5;
         // 0x310123 = Instruction::Sb(S {rs1: 2, rs2: 3, imm: 2});
         let insn = 0x310123;
-        vm.execute_instruction(decode(insn));
+        vm.execute_instruction(decode(insn), false);
         assert_eq!(vm.mem(7), 12);
     }
 
@@ -1814,7 +1818,7 @@ mod test {
         *vm.reg_mut(2) = 5;
         // 0x311123 = Instruction::Sh(S {rs1: 2, rs2: 3, imm: 2});
         let insn = 0x311123;
-        vm.execute_instruction(decode(insn));
+        vm.execute_instruction(decode(insn), false);
         assert_eq!(vm.mem(7), 64008);
         assert_eq!(vm.mem(8), 250);
     }
@@ -1826,7 +1830,7 @@ mod test {
         *vm.reg_mut(2) = 5;
         // 0x312123 = Instruction::Sw(S { rs1: 2, rs2: 3, imm: 2 });
         let insn = 0x312123;
-        vm.execute_instruction(decode(insn));
+        vm.execute_instruction(decode(insn), false);
         assert_eq!(vm.mem(7), 2299561908);
         assert_eq!(vm.mem(8), 8982663);
         assert_eq!(vm.mem(9), 35088);
@@ -1839,7 +1843,7 @@ mod test {
         *vm.reg_mut(2) = 5;
         // 0x313123 = Instruction::Sd(S { rs1: 2, rs2: 3, imm: 2 });
         let insn = 0x313123;
-        vm.execute_instruction(decode(insn));
+        vm.execute_instruction(decode(insn), false);
         assert_eq!(vm.mem(7), 1234567898765432123);
         assert_eq!(vm.mem(8), 4822530854552469);
         assert_eq!(vm.mem(9), 18838011150595);
@@ -1854,7 +1858,7 @@ mod test {
         vm.pc = 8;
         // 0xC001EF = Instruction::Jal(J { rd: 3, imm: 12 });
         let insn = 0xC001EF;
-        vm.execute_instruction(decode(insn));
+        vm.execute_instruction(decode(insn), false);
         assert_eq!(vm.reg(3), 12);
         assert_eq!(vm.pc, 20);
     }
@@ -1866,7 +1870,7 @@ mod test {
         *vm.reg_mut(5) = 6;
         // 0x9281E7 = Instruction::Jalr(I {rs1: 5, rd: 3, imm: 9});
         let insn = 0x9281E7;
-        vm.execute_instruction(decode(insn));
+        vm.execute_instruction(decode(insn), false);
         assert_eq!(vm.reg(3), 12);
         assert_eq!(vm.pc, 15);
     }
@@ -1889,7 +1893,7 @@ mod test {
 
         // execute ecall (standard encoding 0x0000_0073)
         let insn = 0x0000_0073;
-        vm.execute_instruction(decode(insn));
+        vm.execute_instruction(decode(insn), false);
 
         // check bytes written to guest memory and return value in a0
         assert_eq!(vm.read_bytes(0, 3), b"hel".to_vec());
@@ -1913,7 +1917,7 @@ mod test {
 
         // execute ecall
         let insn = 0x0000_0073;
-        vm.execute_instruction(decode(insn));
+        vm.execute_instruction(decode(insn), false);
 
         // stdout handler returns length read in a0
         assert_eq!(vm.reg(10), 5);

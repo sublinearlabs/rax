@@ -135,7 +135,10 @@ impl<T: Tracer> VM<T> {
     /// Perform one cycle with tracing
     pub fn step(&mut self) {
         let insn = self.mem16(self.pc as usize);
-        let (insn, insn_bytes) = if insn & mask16(2) != 0b11 {
+        let is_compressed = insn & mask16(2) != 0b11;
+
+        println!("{:x}", self.pc);
+        let (insn, insn_bytes) = if is_compressed {
             // compressed
             (decode_compressed(insn), insn as u32)
         } else {
@@ -149,7 +152,7 @@ impl<T: Tracer> VM<T> {
             .begin_instruction(self.cycles, self.pc, &self.registers, insn_bytes);
 
         // Execute the instruction (this will update PC)
-        self.execute_instruction(insn);
+        self.execute_instruction(insn, is_compressed);
 
         // Record next PC (set during execute_instruction or default to pc+4)
         self.tracer.record_next_pc(self.pc);
