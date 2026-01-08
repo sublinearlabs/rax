@@ -137,9 +137,7 @@ impl<T: Tracer> VM<T> {
         let insn = self.mem16(self.pc as usize);
         let is_compressed = insn & mask16(2) != 0b11;
 
-        println!("{:x}", self.pc);
         let (insn, insn_bytes) = if is_compressed {
-            // compressed
             (decode_compressed(insn), insn as u32)
         } else {
             let insn_upper = self.mem16((self.pc + 2) as usize);
