@@ -11,7 +11,7 @@ use std::fs;
 use std::path::Path;
 
 use riscv::VM;
-use riscv::trace::FullTracer;
+use riscv::trace::NoopTracer;
 
 const EXEC_BLOCK_BINARY: &str =
     "rust-bin/exec-block/target/riscv64ima-unknown-none-elf/release/exec-block";
@@ -33,7 +33,7 @@ fn main() {
     }
 
     // Construct a VM using the FullTracer tracer implementation (same as original main).
-    let mut vm = VM::<FullTracer>::init_from_elf(EXEC_BLOCK_BINARY.to_string());
+    let mut vm = VM::<NoopTracer>::init_from_elf(EXEC_BLOCK_BINARY.to_string());
     
     let input_hex_string = fs::read_to_string("examples/exec-block.input").unwrap();
     let input_hex_string = input_hex_string.trim();
