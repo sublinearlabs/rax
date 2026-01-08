@@ -766,5 +766,16 @@ mod tests {
                 imm: 0
             })
         );
+
+        let ci = 0x60A2;
+        let insn = decode_compressed(ci);
+        assert_eq!(
+            insn,
+            Instruction::Ld(I {
+                rd: 1,
+                rs1: 2,
+                imm: 8
+            })
+        );
     }
 }
