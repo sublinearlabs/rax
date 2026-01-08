@@ -753,4 +753,18 @@ mod tests {
             })
         );
     }
+
+    #[test]
+    fn test_ldsp() {
+        let ci = 0x6082;
+        let insn = decode_compressed(ci);
+        assert_eq!(
+            insn,
+            Instruction::Ld(I {
+                rd: 1,
+                rs1: 2,
+                imm: 0
+            })
+        );
+    }
 }
