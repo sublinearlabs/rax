@@ -189,6 +189,26 @@ pub(crate) fn imm_cj(insn: u16) -> i32 {
 }
 
 #[inline]
+pub(crate) fn imm_csp_d_load(insn: u16) -> i32 {
+    // insn [12 | 6 5 | 4 3 2]
+    // imm  [5  | 4 3 | 8 7 6]
+    let imm5 = ((insn >> 12) & mask16(1)) << 5;
+    let imm4_3 = ((insn >> 5) & mask16(2)) << 3;
+    let imm8_6 = ((insn >> 2) & mask16(3)) << 6;
+    (imm8_6 | imm5 | imm4_3) as i32
+}
+
+#[inline]
+pub(crate) fn imm_csp_lw(insn: u16) -> i32 {
+    // insn [12 | 6 5 4 | 3 2]
+    // imm  [5  | 4 3 2 | 7 6]
+    let imm5 = ((insn >> 12) & mask16(1)) << 5;
+    let imm4_2 = ((insn >> 4) & mask16(3)) << 2;
+    let imm7_6 = ((insn >> 2) & mask16(2)) << 6;
+    (imm7_6 | imm5 | imm4_2) as i32
+}
+
+#[inline]
 pub(crate) fn imm_css_w(insn: u16) -> i32 {
     todo!()
 }

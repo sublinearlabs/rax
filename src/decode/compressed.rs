@@ -5,7 +5,7 @@ use crate::{
         B, I, Instruction, J, R, S, Sh, U,
         imm::{
             imm_addi16sp, imm_cb, imm_ci_signed, imm_ciw_addi4spn, imm_cj, imm_cl_d, imm_cl_w,
-            imm_clui, shamt_ci,
+            imm_clui, imm_csp_d_load, imm_csp_lw, shamt_ci,
         },
         util::{c_funct3, quadrant},
     },
@@ -321,6 +321,11 @@ fn dec_c_bnez(insn: u16) -> Instruction {
 fn dec_c_slli(insn: u16) -> Instruction {
     let rd_rs1 = ((insn >> 7) & mask16(5)) as u8;
     let shamt = shamt_ci(insn);
+
+    if shamt == 0 {
+        return Instruction::Illegal(insn as u32);
+    }
+
     Instruction::Slli(Sh {
         rd: rd_rs1,
         rs1: rd_rs1,
@@ -329,11 +334,20 @@ fn dec_c_slli(insn: u16) -> Instruction {
 }
 
 fn dec_c_fldsp(insn: u16) -> Instruction {
-    todo!()
+    let rd = ((insn >> 7) & mask16(5)) as u8;
+    let imm = imm_csp_d_load(insn);
+    Instruction::Fld(I { rd, rs1: 2, imm })
 }
 
 fn dec_c_lwsp(insn: u16) -> Instruction {
-    todo!()
+    let rd = ((insn >> 7) & mask16(5)) as u8;
+
+    if rd == 0 {
+        return Instruction::Illegal(insn as u32);
+    }
+
+    let imm = imm_csp_lw(insn);
+    Instruction::Lw(I { rd, rs1: 2, imm })
 }
 
 fn dec_c_ldsp(insn: u16) -> Instruction {
@@ -706,6 +720,31 @@ mod tests {
                 rd: 1,
                 rs1: 1,
                 shamt: 1
+            })
+        );
+    }
+
+    #[test]
+    fn test_lwsp() {
+        let ci = 0x4082;
+        let insn = decode_compressed(ci);
+        assert_eq!(
+            insn,
+            Instruction::Lw(I {
+                rd: 1,
+                rs1: 2,
+                imm: 0
+            })
+        );
+
+        let ci = 0x4092;
+        let insn = decode_compressed(ci);
+        assert_eq!(
+            insn,
+            Instruction::Lw(I {
+                rd: 1,
+                rs1: 2,
+                imm: 4
             })
         );
     }
