@@ -134,7 +134,14 @@ pub(crate) fn imm_ci_signed(insn: u16) -> i32 {
 
 #[inline]
 pub(crate) fn shamt_ci(insn: u16) -> u8 {
-    todo!()
+    // insn [12 | 6 5 4 3 2]
+    // imm  [5  | 4 3 2 1 0]
+
+    let imm5 = ((insn >> 12) & mask16(1)) << 5;
+    let imm4_0 = (insn >> 2) & mask16(5);
+    let imm = imm5 | imm4_0;
+
+    imm as u8
 }
 
 #[inline]
