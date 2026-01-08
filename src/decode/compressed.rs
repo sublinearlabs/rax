@@ -36,6 +36,15 @@ fn decode_compressed(insn: u16) -> Instruction {
         (0b01, 0b111) => dec_c_bnez(insn),
 
         // quadrant 2 (10)
+        (0b10, 0b000) => dec_c_slli(insn),
+        (0b10, 0b001) => dec_c_fldsp(insn),
+        (0b10, 0b010) => dec_c_lwsp(insn),
+        (0b10, 0b011) => dec_c_ldsp(insn),
+        (0b10, 0b100) => dec_c_jr_jalr_mv_add(insn),
+        (0b10, 0b101) => dec_c_fsdsp(insn),
+        (0b10, 0b110) => dec_c_swsp(insn),
+        (0b10, 0b111) => dec_c_sdsp(insn),
+
         _ => Instruction::Illegal(insn as u32),
     }
 }
@@ -305,6 +314,38 @@ fn dec_c_bnez(insn: u16) -> Instruction {
     let imm = imm_cb(insn);
 
     Instruction::Bne(B { rs1, rs2: 0, imm })
+}
+
+fn dec_c_slli(insn: u16) -> Instruction {
+    todo!()
+}
+
+fn dec_c_fldsp(insn: u16) -> Instruction {
+    todo!()
+}
+
+fn dec_c_lwsp(insn: u16) -> Instruction {
+    todo!()
+}
+
+fn dec_c_ldsp(insn: u16) -> Instruction {
+    todo!()
+}
+
+fn dec_c_jr_jalr_mv_add(insn: u16) -> Instruction {
+    todo!()
+}
+
+fn dec_c_fsdsp(insn: u16) -> Instruction {
+    todo!()
+}
+
+fn dec_c_swsp(insn: u16) -> Instruction {
+    todo!()
+}
+
+fn dec_c_sdsp(insn: u16) -> Instruction {
+    todo!()
 }
 
 #[cfg(test)]
