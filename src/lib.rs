@@ -1,8 +1,10 @@
 use std::fs;
 
+use crate::decode::compressed::decode_compressed;
 use crate::elf::decode_elf;
 use crate::memory::Memory;
 use crate::trace::{DefaultTracer, FullTracer, NoopTracer, Tracer};
+use crate::util::mask16;
 use decode::decode;
 
 mod decode;
@@ -132,11 +134,19 @@ impl<T: Tracer> VM<T> {
 
     /// Perform one cycle with tracing
     pub fn step(&mut self) {
-        let insn = self.mem32(self.pc as usize);
+        let insn = self.mem16(self.pc as usize);
+        let (insn, insn_bytes) = if insn & mask16(2) != 0b11 {
+            // compressed
+            (decode_compressed(insn), insn as u32)
+        } else {
+            let insn_upper = self.mem16((self.pc + 2) as usize);
+            let insn = (insn_upper as u32) << 16 | insn as u32;
+            (decode(insn), insn)
+        };
 
         // Begin tracing this instruction
         self.tracer
-            .begin_instruction(self.cycles, self.pc, &self.registers, insn);
+            .begin_instruction(self.cycles, self.pc, &self.registers, insn_bytes);
 
         // Execute the instruction (this will update PC)
         self.execute_instruction(insn);
@@ -248,6 +258,17 @@ impl<T: Tracer> VM<T> {
         for i in 0..4 {
             let byte = self.memory.read((addr + i) as u64);
             result |= (byte as u32) << (i * 8);
+        }
+        result
+    }
+
+    /// Read 16 bytes from memory at the given addr
+    /// assumes value at memory address is the LSB
+    pub(crate) fn mem16(&self, addr: usize) -> u16 {
+        let mut result = 0_u16;
+        for i in 0..2 {
+            let byte = self.memory.read((addr + i) as u64);
+            result |= (byte as u16) << (i * 8);
         }
         result
     }

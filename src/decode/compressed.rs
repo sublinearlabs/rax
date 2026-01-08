@@ -10,7 +10,7 @@ use crate::{
     util::mask16,
 };
 
-fn decode_compressed(insn: u16) -> Instruction {
+pub(crate) fn decode_compressed(insn: u16) -> Instruction {
     let quad = quadrant(insn);
     let funct3 = c_funct3(insn);
 
@@ -360,7 +360,7 @@ fn dec_c_ldsp(insn: u16) -> Instruction {
 fn dec_c_jr_jalr_mv_add(insn: u16) -> Instruction {
     let bit12 = ((insn >> 12) & mask16(1)) as u8;
     let rd_rs1 = ((insn >> 7) & mask16(5)) as u8;
-    let rs2 = ((insn >> 12) & mask16(1)) as u8;
+    let rs2 = ((insn >> 2) & mask16(5)) as u8;
 
     match (bit12, rs2) {
         (0, 0) => {
@@ -400,7 +400,7 @@ fn dec_c_jr_jalr_mv_add(insn: u16) -> Instruction {
         }
 
         (1, _) => {
-            if rd_rs1 != 0 {
+            if rd_rs1 == 0 {
                 return Instruction::Illegal(insn as u32);
             }
 
