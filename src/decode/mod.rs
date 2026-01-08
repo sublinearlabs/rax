@@ -1,4 +1,4 @@
-mod compressed;
+pub(crate) mod compressed;
 mod imm;
 mod insn;
 mod insn_formats;

@@ -3,14 +3,14 @@ use crate::{
         B, I, Instruction, J, R, S, Sh, U,
         imm::{
             imm_addi16sp, imm_cb, imm_ci_signed, imm_ciw_addi4spn, imm_cj, imm_cl_d, imm_cl_w,
-            imm_clui, shamt_ci,
+            imm_clui, imm_csp_d_load, imm_csp_lw, imm_css_d, imm_css_w, shamt_ci,
         },
         util::{c_funct3, quadrant},
     },
     util::mask16,
 };
 
-fn decode_compressed(insn: u16) -> Instruction {
+pub(crate) fn decode_compressed(insn: u16) -> Instruction {
     let quad = quadrant(insn);
     let funct3 = c_funct3(insn);
 
@@ -36,6 +36,15 @@ fn decode_compressed(insn: u16) -> Instruction {
         (0b01, 0b111) => dec_c_bnez(insn),
 
         // quadrant 2 (10)
+        (0b10, 0b000) => dec_c_slli(insn),
+        (0b10, 0b001) => dec_c_fldsp(insn),
+        (0b10, 0b010) => dec_c_lwsp(insn),
+        (0b10, 0b011) => dec_c_ldsp(insn),
+        (0b10, 0b100) => dec_c_jr_jalr_mv_add(insn),
+        (0b10, 0b101) => dec_c_fsdsp(insn),
+        (0b10, 0b110) => dec_c_swsp(insn),
+        (0b10, 0b111) => dec_c_sdsp(insn),
+
         _ => Instruction::Illegal(insn as u32),
     }
 }
@@ -305,6 +314,123 @@ fn dec_c_bnez(insn: u16) -> Instruction {
     let imm = imm_cb(insn);
 
     Instruction::Bne(B { rs1, rs2: 0, imm })
+}
+
+fn dec_c_slli(insn: u16) -> Instruction {
+    let rd_rs1 = ((insn >> 7) & mask16(5)) as u8;
+    let shamt = shamt_ci(insn);
+
+    if shamt == 0 {
+        return Instruction::Illegal(insn as u32);
+    }
+
+    Instruction::Slli(Sh {
+        rd: rd_rs1,
+        rs1: rd_rs1,
+        shamt,
+    })
+}
+
+fn dec_c_fldsp(insn: u16) -> Instruction {
+    let rd = ((insn >> 7) & mask16(5)) as u8;
+    let imm = imm_csp_d_load(insn);
+    Instruction::Fld(I { rd, rs1: 2, imm })
+}
+
+fn dec_c_lwsp(insn: u16) -> Instruction {
+    let rd = ((insn >> 7) & mask16(5)) as u8;
+
+    if rd == 0 {
+        return Instruction::Illegal(insn as u32);
+    }
+
+    let imm = imm_csp_lw(insn);
+    Instruction::Lw(I { rd, rs1: 2, imm })
+}
+
+fn dec_c_ldsp(insn: u16) -> Instruction {
+    let rd = ((insn >> 7) & mask16(5)) as u8;
+    if rd == 0 {
+        return Instruction::Illegal(insn as u32);
+    }
+    let imm = imm_csp_d_load(insn);
+    Instruction::Ld(I { rd, rs1: 2, imm })
+}
+
+fn dec_c_jr_jalr_mv_add(insn: u16) -> Instruction {
+    let bit12 = ((insn >> 12) & mask16(1)) as u8;
+    let rd_rs1 = ((insn >> 7) & mask16(5)) as u8;
+    let rs2 = ((insn >> 2) & mask16(5)) as u8;
+
+    match (bit12, rs2) {
+        (0, 0) => {
+            if rd_rs1 == 0 {
+                return Instruction::Illegal(insn as u32);
+            }
+
+            Instruction::Jalr(I {
+                rd: 0,
+                rs1: rd_rs1,
+                imm: 0,
+            })
+        }
+
+        (0, __) => {
+            if rd_rs1 == 0 {
+                return Instruction::Illegal(insn as u32);
+            }
+
+            Instruction::Add(R {
+                rd: rd_rs1,
+                rs1: 0,
+                rs2,
+            })
+        }
+
+        (1, 0) => {
+            if rd_rs1 == 0 {
+                return Instruction::Ebreak;
+            }
+
+            Instruction::Jalr(I {
+                rd: 1,
+                rs1: rd_rs1,
+                imm: 0,
+            })
+        }
+
+        (1, _) => {
+            if rd_rs1 == 0 {
+                return Instruction::Illegal(insn as u32);
+            }
+
+            Instruction::Add(R {
+                rd: rd_rs1,
+                rs1: rd_rs1,
+                rs2,
+            })
+        }
+
+        _ => Instruction::Illegal(insn as u32),
+    }
+}
+
+fn dec_c_fsdsp(insn: u16) -> Instruction {
+    let rs2 = ((insn >> 2) & mask16(5)) as u8;
+    let imm = imm_css_d(insn);
+    Instruction::Fsd(S { rs1: 2, rs2, imm })
+}
+
+fn dec_c_swsp(insn: u16) -> Instruction {
+    let rs2 = ((insn >> 2) & mask16(5)) as u8;
+    let imm = imm_css_w(insn);
+    Instruction::Sw(S { rs1: 2, rs2, imm })
+}
+
+fn dec_c_sdsp(insn: u16) -> Instruction {
+    let rs2 = ((insn >> 2) & mask16(5)) as u8;
+    let imm = imm_css_d(insn);
+    Instruction::Sd(S { rs1: 2, rs2, imm })
 }
 
 #[cfg(test)]
@@ -643,6 +769,70 @@ mod tests {
                 rd: 8,
                 rs1: 8,
                 imm: -1
+            })
+        );
+    }
+
+    #[test]
+    fn test_slli() {
+        let ci = 0x0086;
+        let insn = decode_compressed(ci);
+        assert_eq!(
+            insn,
+            Instruction::Slli(Sh {
+                rd: 1,
+                rs1: 1,
+                shamt: 1
+            })
+        );
+    }
+
+    #[test]
+    fn test_lwsp() {
+        let ci = 0x4082;
+        let insn = decode_compressed(ci);
+        assert_eq!(
+            insn,
+            Instruction::Lw(I {
+                rd: 1,
+                rs1: 2,
+                imm: 0
+            })
+        );
+
+        let ci = 0x4092;
+        let insn = decode_compressed(ci);
+        assert_eq!(
+            insn,
+            Instruction::Lw(I {
+                rd: 1,
+                rs1: 2,
+                imm: 4
+            })
+        );
+    }
+
+    #[test]
+    fn test_ldsp() {
+        let ci = 0x6082;
+        let insn = decode_compressed(ci);
+        assert_eq!(
+            insn,
+            Instruction::Ld(I {
+                rd: 1,
+                rs1: 2,
+                imm: 0
+            })
+        );
+
+        let ci = 0x60A2;
+        let insn = decode_compressed(ci);
+        assert_eq!(
+            insn,
+            Instruction::Ld(I {
+                rd: 1,
+                rs1: 2,
+                imm: 8
             })
         );
     }
