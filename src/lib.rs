@@ -621,7 +621,6 @@ mod tests {
             .collect::<Vec<_>>();
     }
 
-    #[ignore = "running forever"]
     #[test]
     fn test_rv64uc() {
         let _ = fs::read_dir("test-bin/rv64uc")
