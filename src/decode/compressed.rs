@@ -351,7 +351,12 @@ fn dec_c_lwsp(insn: u16) -> Instruction {
 }
 
 fn dec_c_ldsp(insn: u16) -> Instruction {
-    todo!()
+    let rd = ((insn >> 7) & mask16(5)) as u8;
+    if rd == 0 {
+        return Instruction::Illegal(insn as u32);
+    }
+    let imm = imm_csp_d_load(insn);
+    Instruction::Ld(I { rd, rs1: 2, imm })
 }
 
 fn dec_c_jr_jalr_mv_add(insn: u16) -> Instruction {
