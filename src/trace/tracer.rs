@@ -1,6 +1,6 @@
 //! Zero-cost abstraction for execution tracing.
 use super::primitives::{ExecutionTrace, InstrFlags, MemOp, TraceRow};
-use crate::decode::decode;
+use crate::decode::{Instruction, decode};
 
 /// Trait for instruction execution tracing.
 ///
@@ -21,6 +21,7 @@ pub trait Tracer: Default + Sized {
         x_regs: &[u64; 32],
         f_regs: &[u64; 32],
         raw_instr: u32,
+        instr: &Instruction,
     );
 
     /// Record destination register write.
@@ -77,6 +78,7 @@ impl Tracer for NoopTracer {
         _regs: &[u64; 32],
         _f_regs: &[u64; 32],
         _raw_instr: u32,
+        _instr: &Instruction,
     ) {
     }
 
@@ -162,9 +164,8 @@ impl Tracer for FullTracer {
         regs: &[u64; 32],
         f_regs: &[u64; 32],
         raw_instr: u32,
+        instr: &Instruction,
     ) {
-        let instr = decode(raw_instr);
-
         // Check if instruction is integer or floating point instruction
         let rs1_val = if instr.is_integer_insn() {
             if instr.rs1() == 0 {
@@ -333,9 +334,11 @@ mod tests {
         let mut tracer = NoopTracer;
         let regs = [0u64; 32];
         let f_regs = [0u64; 32];
+        let raw_instr = 0x00000033;
+        let insn = decode(raw_instr);
 
         // These should all compile to nothing
-        tracer.begin_instruction(0, 0x1000, &regs, &f_regs, 0x00000033);
+        tracer.begin_instruction(0, 0x1000, &regs, &f_regs, raw_instr, &insn);
         tracer.record_rd(3, 42);
         tracer.record_next_pc(0x1004);
         tracer.commit();
@@ -349,10 +352,12 @@ mod tests {
         let mut tracer = FullTracer::new(0x1000, [0u64; 32], [0u64; 32]);
         let mut regs = [0u64; 32];
         let f_regs = [0u64; 32];
+        let raw_instr = 0x002080b3;
+        let insn = decode(raw_instr);
         regs[1] = 10;
         regs[2] = 20;
 
-        tracer.begin_instruction(0, 0x1000, &regs, &f_regs, 0x002080b3);
+        tracer.begin_instruction(0, 0x1000, &regs, &f_regs, raw_instr, &insn);
         tracer.record_rd(3, 30);
         tracer.record_next_pc(0x1004);
         tracer.commit();
@@ -377,8 +382,10 @@ mod tests {
         let mut tracer = FullTracer::new(0x1000, [0u64; 32], [0u64; 32]);
         let regs = [0u64; 32];
         let f_regs = [0u64; 32];
+        let raw_instr = 0x00000003;
+        let insn = decode(raw_instr);
 
-        tracer.begin_instruction(0, 0x1000, &regs, &f_regs, 0x00000003);
+        tracer.begin_instruction(0, 0x1000, &regs, &f_regs, raw_instr, &insn);
         tracer.record_mem_op(MemOp::LoadWord {
             addr: 0x2000,
             value: 0x12345678,
@@ -409,8 +416,10 @@ mod tests {
         let mut tracer = FullTracer::new(0x1000, [0u64; 32], [0u64; 32]);
         let regs = [0u64; 32];
         let f_regs = [0u64; 32];
+        let raw_instr = 0x00000073;
+        let insn = decode(raw_instr);
 
-        tracer.begin_instruction(0, 0x1000, &regs, &f_regs, 0x00000073);
+        tracer.begin_instruction(0, 0x1000, &regs, &f_regs, raw_instr, &insn);
         tracer.record_halt();
         tracer.commit();
 
@@ -423,8 +432,10 @@ mod tests {
         let mut tracer = FullTracer::new(0x1000, [0u64; 32], [0u64; 32]);
         let regs = [0u64; 32];
         let f_regs = [0u64; 32];
+        let raw_instr = 0x00000033;
+        let insn = decode(raw_instr);
 
-        tracer.begin_instruction(0, 0x1000, &regs, &f_regs, 0x00000033);
+        tracer.begin_instruction(0, 0x1000, &regs, &f_regs, raw_instr, &insn);
         tracer.record_mul(0xDEADBEEF, 0xCAFEBABE);
         tracer.commit();
 
@@ -439,9 +450,11 @@ mod tests {
         let mut tracer = FullTracer::new(0x1000, [0u64; 32], [0u64; 32]);
         let regs = [0u64; 32];
         let f_regs = [0u64; 32];
+        let raw_instr = 0x00000033;
+        let insn = decode(raw_instr);
 
         for i in 0..5 {
-            tracer.begin_instruction(i, 0x1000 + (i * 4), &regs, &f_regs, 0x00000033);
+            tracer.begin_instruction(i, 0x1000 + (i * 4), &regs, &f_regs, raw_instr, &insn);
             tracer.record_next_pc(0x1000 + ((i + 1) * 4));
             tracer.commit();
         }

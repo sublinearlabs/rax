@@ -1,4 +1,4 @@
-use crate::util::mask32;
+use crate::util::{mask16, mask32};
 
 /// Extracts the opcode value from a 32 bit insn
 #[inline]
@@ -39,4 +39,25 @@ pub(crate) fn rs2(insn: u32) -> u8 {
 #[inline]
 pub(crate) fn rs3(insn: u32) -> u8 {
     ((insn >> 27) & mask32(5)) as u8
+}
+
+// Compressed Instruction Utils
+
+#[inline]
+pub(crate) fn quadrant(insn: u16) -> u8 {
+    (insn & mask16(2)) as u8
+}
+
+pub(crate) fn c_funct3(insn: u16) -> u8 {
+    ((insn >> 13) & mask16(3)) as u8
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_opcode() {
+        assert_eq!(opcode(0x03a5d593), 0b0010011);
+    }
 }

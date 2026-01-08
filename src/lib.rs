@@ -1,11 +1,14 @@
 use std::fs;
 
+use crate::decode::compressed::decode_compressed;
 use crate::elf::decode_elf;
 use crate::memory::Memory;
 use crate::trace::{DefaultTracer, FullTracer, NoopTracer, Tracer};
+use crate::util::mask16;
 use decode::decode;
 
 mod decode;
+mod ecall;
 mod elf;
 mod execute;
 mod memory;
@@ -29,6 +32,10 @@ pub struct VM<T: Tracer = DefaultTracer> {
     exit_code: u64,
     cycles: u64,
     tracer: T,
+
+    // std in
+    input_stream: Vec<u8>,
+    input_cursor: usize,
 }
 
 impl<T: Tracer> Default for VM<T> {
@@ -45,6 +52,8 @@ impl<T: Tracer> Default for VM<T> {
             tracer: T::default(),
             f_reg: [0u64; 32],
             fcsr_reg: 0,
+            input_stream: Vec::new(),
+            input_cursor: 0,
         }
     }
 }
@@ -95,6 +104,11 @@ impl<T: Tracer> VM<T> {
         self
     }
 
+    /// Set input stream
+    pub fn set_input_stream(&mut self, input: Vec<u8>) {
+        self.input_stream = input;
+    }
+
     /// Get a reference to the tracer
     pub fn tracer(&self) -> &T {
         &self.tracer
@@ -125,14 +139,29 @@ impl<T: Tracer> VM<T> {
 
     /// Perform one cycle with tracing
     pub fn step(&mut self) {
-        let insn = self.mem32(self.pc as usize);
+        let insn = self.mem16(self.pc as usize);
+        let is_compressed = insn & mask16(2) != 0b11;
+
+        let (insn, insn_bytes) = if is_compressed {
+            (decode_compressed(insn), insn as u32)
+        } else {
+            let insn_upper = self.mem16((self.pc + 2) as usize);
+            let insn = (insn_upper as u32) << 16 | insn as u32;
+            (decode(insn), insn)
+        };
 
         // Begin tracing this instruction
-        self.tracer
-            .begin_instruction(self.cycles, self.pc, &self.registers, &self.f_reg, insn);
+        self.tracer.begin_instruction(
+            self.cycles,
+            self.pc,
+            &self.registers,
+            &self.f_reg,
+            insn_bytes,
+            &insn,
+        );
 
         // Execute the instruction (this will update PC)
-        self.execute_instruction(insn);
+        self.execute_instruction(insn, is_compressed);
 
         // Record next PC (set during execute_instruction or default to pc+4)
         self.tracer.record_next_pc(self.pc);
@@ -250,6 +279,17 @@ impl<T: Tracer> VM<T> {
         result
     }
 
+    /// Read 16 bytes from memory at the given addr
+    /// assumes value at memory address is the LSB
+    pub(crate) fn mem16(&self, addr: usize) -> u16 {
+        let mut result = 0_u16;
+        for i in 0..2 {
+            let byte = self.memory.read((addr + i) as u64);
+            result |= (byte as u16) << (i * 8);
+        }
+        result
+    }
+
     /// Returns a mutable reference to a single byte at the given
     /// memory addr
     pub(crate) fn mem_mut(&mut self, addr: usize) -> &mut u8 {
@@ -257,8 +297,13 @@ impl<T: Tracer> VM<T> {
     }
 
     /// Write multiple bytes from a given address
-    pub(crate) fn write_bytes(&mut self, addr: usize, data: &[u8]) {
+    pub fn write_bytes(&mut self, addr: usize, data: &[u8]) {
         self.memory.write_bytes(addr as u64, data);
+    }
+
+    /// Read multiple bytes from a given address
+    pub(crate) fn read_bytes(&mut self, addr: usize, len: usize) -> Vec<u8> {
+        self.memory.read_bytes(addr as u64, len)
     }
 
     fn read_csr(&self, csr: u32) -> u32 {
@@ -594,6 +639,15 @@ mod tests {
     }
 
     #[test]
+    fn test_rv64uc() {
+        let _ = fs::read_dir("test-bin/rv64uc")
+            .expect("Failed to read directory")
+            .filter_map(|entry| entry.ok())
+            .map(|entry| run_test_elf(entry.path().to_str().unwrap().to_string()))
+            .collect::<Vec<_>>();
+    }
+
+    #[test]
     fn test_register_read_write() {
         let mut vm = VM::<NoopTracer>::init();
 
@@ -710,5 +764,28 @@ mod tests {
         let vm = FastVM::init();
         assert!(!vm.is_tracing());
         assert!(vm.take_trace().is_none());
+    }
+
+    #[test]
+    fn test_round_std_io() {
+        // Path to the echo guest program built for the test environment.
+        // If the binary is not present, skip the test to avoid failing CI for missing artifacts.
+        let echo_bin = "rust-bin/echo/target/riscv64ima-unknown-none-elf/release/echo".to_string();
+        if fs::metadata(&echo_bin).is_err() {
+            eprintln!("Skipping test_round_std_io: {} not found", echo_bin);
+            return;
+        }
+
+        // Initialize the VM from the echo ELF and provide some stdin.
+        let mut vm = VM::<NoopTracer>::init_from_elf(echo_bin);
+        vm.input_stream = "Hola Riscv, buenos días".as_bytes().to_vec();
+        vm.input_cursor = 0;
+
+        // Run the guest program; it should echo the input and then exit via ecall.
+        vm.run();
+
+        // Verify the VM halted and exited successfully.
+        assert!(vm.halted);
+        assert_eq!(vm.exit_code, 0);
     }
 }

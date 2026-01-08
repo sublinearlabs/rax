@@ -77,6 +77,15 @@ impl Memory {
         }
     }
 
+    /// Read multiple bytes from a given address
+    pub(crate) fn read_bytes(&mut self, addr: u64, len: usize) -> Vec<u8> {
+        let mut data = Vec::with_capacity(len);
+        for i in 0..len {
+            data.push(self.read(addr + i as u64));
+        }
+        data
+    }
+
     /// This is a NO-OP
     /// everytime a new page is created it is prefilled with zero
     /// reading from a page that doesn't exist also returns a 0

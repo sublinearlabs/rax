@@ -1,3 +1,4 @@
+pub(crate) mod compressed;
 mod imm;
 mod insn;
 mod insn_formats;
@@ -98,9 +99,9 @@ fn decode_op_imm(insn: u32) -> Instruction {
         0x2 => Instruction::Slti(i_operands),
         0x3 => Instruction::Sltiu(i_operands),
         0x1 | 0x5 => match (funct3(insn), funct7(insn), funct6(insn)) {
+            (0x5, _, 0x00) => Instruction::Srli(s_operands),
             (0x1, _, 0x00) => Instruction::Slli(s_operands),
-            (0x5, 0x00, _) => Instruction::Srli(s_operands),
-            (0x5, 0x20, _) => Instruction::Srai(s_operands),
+            (0x5, _, 0x10) => Instruction::Srai(s_operands),
             _ => Instruction::Illegal(insn),
         },
         _ => Instruction::Illegal(insn),
@@ -466,5 +467,22 @@ fn decode_fp_op(insn: u32) -> Instruction {
         (0x79, 0x0) if rs2 == 0 => Instruction::FmvDX(operand),
 
         _ => Instruction::Illegal(insn),
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_decode_ts() {
+        assert_eq!(
+            decode(0x03a5d593),
+            Instruction::Srli(Sh {
+                rd: 11,
+                rs1: 11,
+                shamt: 58
+            })
+        );
     }
 }
