@@ -20,6 +20,12 @@ No Tracing
 let mut vm = VM::<NoopTracer>::init_from_elf(<path-to-elf>);
 vm.run_with_timing();
 ```
+
+To run the Ethereum stateless block execution program, use this;
+```
+cargo run -p riscv --example exec-block --release
+```
+
 ## Benchmarks
 ## Resources
 - https://www.cs.sfu.ca/~ashriram/Courses/CS295/assets/notebooks/RISCV/RISCV_CARD.pdf
