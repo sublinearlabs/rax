@@ -413,6 +413,7 @@ impl<T: Tracer> VM<T> {
         }
 
         self.fcsr_reg |= flags;
+        self.tracer.record_csr_reg(self.fcsr_reg);
     }
 
     fn raise_fflags_f64(&mut self, a: f64, b: f64, res: f64, op: char) {
@@ -460,6 +461,7 @@ impl<T: Tracer> VM<T> {
         }
 
         self.fcsr_reg |= flags;
+        self.tracer.record_csr_reg(self.fcsr_reg);
     }
 
     fn raise_fflags_fma_f32(&mut self, a: f32, b: f32, c: f32, res: f32) {
@@ -511,6 +513,7 @@ impl<T: Tracer> VM<T> {
         }
 
         self.fcsr_reg |= flags;
+        self.tracer.record_csr_reg(self.fcsr_reg);
     }
 
     fn raise_fflags_fma_f64(&mut self, a: f64, b: f64, c: f64, res: f64) {
@@ -546,6 +549,7 @@ impl<T: Tracer> VM<T> {
         }
 
         self.fcsr_reg |= flags;
+        self.tracer.record_csr_reg(self.fcsr_reg);
     }
 }
 

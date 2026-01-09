@@ -40,7 +40,7 @@ pub trait Tracer: Default + Sized {
     fn record_reservation(&mut self, addr: u64);
 
     /// Record Control Status Register for F-extension
-    fn record_csr_reg(&mut self, flag: u64);
+    fn record_csr_reg(&mut self, flag: u32);
 
     /// Mark instruction as causing halt.
     fn record_halt(&mut self);
@@ -101,7 +101,7 @@ impl Tracer for NoopTracer {
     fn record_reservation(&mut self, _addr: u64) {}
 
     #[inline(always)]
-    fn record_csr_reg(&mut self, flag: u64) {}
+    fn record_csr_reg(&mut self, flag: u32) {}
 
     #[inline(always)]
     fn record_halt(&mut self) {}
@@ -269,7 +269,7 @@ impl Tracer for FullTracer {
         }
     }
 
-    fn record_csr_reg(&mut self, flag: u64) {
+    fn record_csr_reg(&mut self, flag: u32) {
         if let Some(ref mut row) = self.current {
             row.csr_reg = flag;
         }

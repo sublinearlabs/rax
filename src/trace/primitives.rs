@@ -557,7 +557,7 @@ pub(crate) struct TraceRow {
     /// For A-extension: reservation set address (for LR/SC verification).
     pub reservation_addr: u64,
     /// For F-extension: control status register
-    pub csr_reg: u64,
+    pub csr_reg: u32,
     /// Whether the instruction caused a halt.
     pub halted: bool,
 }
