@@ -39,6 +39,9 @@ pub trait Tracer: Default + Sized {
     /// Record reservation address for LR/SC atomic operations.
     fn record_reservation(&mut self, addr: u64);
 
+    /// Record Control Status Register for F-extension
+    fn record_csr_reg(&mut self, flag: u64);
+
     /// Mark instruction as causing halt.
     fn record_halt(&mut self);
 
@@ -96,6 +99,9 @@ impl Tracer for NoopTracer {
 
     #[inline(always)]
     fn record_reservation(&mut self, _addr: u64) {}
+
+    #[inline(always)]
+    fn record_csr_reg(&mut self, flag: u64) {}
 
     #[inline(always)]
     fn record_halt(&mut self) {}
@@ -208,6 +214,7 @@ impl Tracer for FullTracer {
             pc,
             next_pc: pc.wrapping_add(4), // Default: sequential execution, use record_next_pc should the instruction be non-sequential liek branch or jump
             regs: *regs,
+            f_regs: *f_regs,
             raw_instr,
             opcode: instr.clone(),
             flags: InstrFlags::from_opcode(&instr),
@@ -225,6 +232,7 @@ impl Tracer for FullTracer {
             mul_lo: 0,
             mul_hi: 0,
             reservation_addr: 0,
+            csr_reg: 0,
             halted: false,
         });
     }
@@ -261,6 +269,12 @@ impl Tracer for FullTracer {
         }
     }
 
+    fn record_csr_reg(&mut self, flag: u64) {
+        if let Some(ref mut row) = self.current {
+            row.csr_reg = flag;
+        }
+    }
+
     fn record_halt(&mut self) {
         if let Some(ref mut row) = self.current {
             row.halted = true;
@@ -277,6 +291,7 @@ impl Tracer for FullTracer {
                 opcode: row.opcode,
                 flags: row.flags,
                 regs: row.regs,
+                f_regs: row.f_regs,
                 rs1: row.rs1,
                 rs2: row.rs2,
                 rs3: row.rs3,
@@ -291,6 +306,7 @@ impl Tracer for FullTracer {
                 mul_lo: row.mul_lo,
                 mul_hi: row.mul_hi,
                 reservation_addr: row.reservation_addr,
+                csr_reg: row.csr_reg,
                 halted: row.halted,
             };
             self.trace.push(trace_row);

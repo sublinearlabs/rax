@@ -524,8 +524,10 @@ pub(crate) struct TraceRow {
     pub opcode: Instruction,
     /// Instruction classification flags.
     pub flags: InstrFlags,
-    /// Register values BEFORE this instruction (x0..x31).
+    /// Integer Register values BEFORE this instruction (x0..x31).
     pub regs: [u64; 32],
+    /// Floating point Register values before this instruction
+    pub f_regs: [u64; 32],
     /// Source register 1 index.
     pub rs1: u8,
     /// Source register 2 index.
@@ -554,13 +556,15 @@ pub(crate) struct TraceRow {
     pub mul_hi: u64,
     /// For A-extension: reservation set address (for LR/SC verification).
     pub reservation_addr: u64,
+    /// For F-extension: control status register
+    pub csr_reg: u64,
     /// Whether the instruction caused a halt.
     pub halted: bool,
 }
 
 impl TraceRow {
     /// Create a new trace row with default values.
-    pub fn new(clk: u64, pc: u64, regs: [u64; 32]) -> Self {
+    pub fn new(clk: u64, pc: u64, regs: [u64; 32], f_regs: [u64; 32]) -> Self {
         Self {
             clk,
             pc,
@@ -573,6 +577,7 @@ impl TraceRow {
             }),
             flags: InstrFlags::default(),
             regs,
+            f_regs,
             rs1: 0,
             rs2: 0,
             rs3: 0,
@@ -587,6 +592,7 @@ impl TraceRow {
             mul_lo: 0,
             mul_hi: 0,
             reservation_addr: 0,
+            csr_reg: 0,
             halted: false,
         }
     }
@@ -598,6 +604,7 @@ impl TraceRow {
         raw_instr: u32,
         instr: &Instruction,
         regs: [u64; 32],
+        f_regs: [u64; 32],
     ) -> Self {
         let flags = InstrFlags::from_opcode(&instr);
         let rs1 = instr.rs1();
@@ -619,6 +626,7 @@ impl TraceRow {
             opcode: instr.clone(),
             flags,
             regs,
+            f_regs,
             rs1: rs1,
             rs2: rs2,
             rs3: rs3,
@@ -633,6 +641,7 @@ impl TraceRow {
             mul_lo: 0,
             mul_hi: 0,
             reservation_addr: 0,
+            csr_reg: 0,
             halted: false,
         }
     }
@@ -984,7 +993,8 @@ mod tests {
     #[test]
     fn test_trace_row_creation() {
         let regs = [0u64; 32];
-        let row = TraceRow::new(0, 0x1000, regs);
+        let f_reg = [0u64; 32];
+        let row = TraceRow::new(0, 0x1000, regs, f_reg);
         assert_eq!(row.clk, 0);
         assert_eq!(row.pc, 0x1000);
         assert_eq!(row.next_pc, 0x1004);
@@ -995,7 +1005,7 @@ mod tests {
         let mut trace = ExecutionTrace::new(0x1000, [0u64; 32], [0u64; 32]);
         assert!(trace.is_empty());
 
-        let row = TraceRow::new(0, 0x1000, [0u64; 32]);
+        let row = TraceRow::new(0, 0x1000, [0u64; 32], [0u64; 32]);
         trace.push(row);
 
         assert_eq!(trace.len(), 1);

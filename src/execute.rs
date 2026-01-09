@@ -1008,7 +1008,9 @@ impl<T: Tracer> VM<T> {
                 let sign = rs2_bits & (1 << 31);
                 let val = rs1_bits & mask32(31);
                 let result = sign | val;
-                self.f_reg[insn.rd as usize] = 0xFFFF_FFFF_0000_0000 | (result as u64);
+                let res = 0xFFFF_FFFF_0000_0000 | (result as u64);
+                self.f_reg[insn.rd as usize] = res;
+                self.tracer.record_rd(insn.rd, res);
             }
 
             Instruction::FsgnjnS(insn) => {
@@ -1017,7 +1019,9 @@ impl<T: Tracer> VM<T> {
                 let sign = (rs2_bits ^ (1 << 31)) & (1 << 31);
                 let val = rs1_bits & mask32(31);
                 let result = sign | val;
-                self.f_reg[insn.rd as usize] = 0xFFFF_FFFF_0000_0000 | (result as u64);
+                let res = 0xFFFF_FFFF_0000_0000 | (result as u64);
+                self.f_reg[insn.rd as usize] = res;
+                self.tracer.record_rd(insn.rd, res);
             }
 
             Instruction::FsgnjxS(insn) => {
@@ -1026,7 +1030,9 @@ impl<T: Tracer> VM<T> {
                 let sign = (rs1_bits & (1 << 31)) ^ (rs2_bits & (1 << 31));
                 let val = rs1_bits & mask32(31);
                 let result = sign | val;
-                self.f_reg[insn.rd as usize] = 0xFFFF_FFFF_0000_0000 | (result as u64);
+                let res = 0xFFFF_FFFF_0000_0000 | (result as u64);
+                self.f_reg[insn.rd as usize] = res;
+                self.tracer.record_rd(insn.rd, res);
             }
 
             Instruction::FminS(insn) => {
