@@ -372,7 +372,6 @@ mod tests {
         let insn = decode(raw_instr);
         regs[1] = 10;
         regs[2] = 20;
-
         tracer.begin_instruction(0, 0x1000, &regs, &f_regs, raw_instr, &insn);
         tracer.record_rd(3, 30);
         tracer.record_next_pc(0x1004);
@@ -479,5 +478,35 @@ mod tests {
 
         let trace = tracer.finalize([0; 32], [0; 32], 0x1014).unwrap();
         assert_eq!(trace.total_cycles, 5);
+    }
+
+    #[test]
+    fn test_full_tracer_for_f_extension() {
+        let mut tracer = FullTracer::new(0x1000, [0u64; 32], [0u64; 32]);
+        let regs = [0u64; 32];
+        let mut f_regs = [0u64; 32];
+        let raw_instr = 0x0020f1d3;
+        let insn = decode(raw_instr);
+        f_regs[1] = u64::from_le_bytes(10_f64.to_le_bytes());
+        f_regs[2] = u64::from_le_bytes(20_f64.to_le_bytes());
+
+        tracer.begin_instruction(0, 0x1000, &regs, &f_regs, raw_instr, &insn);
+        tracer.record_rd(3, u64::from_le_bytes(30_f64.to_le_bytes()));
+        tracer.record_next_pc(0x1004);
+        tracer.commit();
+
+        assert!(tracer.is_active());
+        assert_eq!(tracer.len(), 1);
+
+        let trace = tracer.finalize([0; 32], [0; 32], 0x1004).unwrap();
+        assert_eq!(trace.rows.len(), 1);
+
+        let row = &trace.rows[0];
+        assert_eq!(row.clk, 0);
+        assert_eq!(row.pc, 0x1000);
+        assert_eq!(row.next_pc, 0x1004);
+        assert_eq!(f64::from_le_bytes(row.rs1_val.to_le_bytes()), 10_f64);
+        assert_eq!(f64::from_le_bytes(row.rs2_val.to_le_bytes()), 20_f64);
+        assert_eq!(f64::from_le_bytes(row.rd_val.to_le_bytes()), 30_f64);
     }
 }
