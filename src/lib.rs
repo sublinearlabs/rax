@@ -337,6 +337,7 @@ impl<T: Tracer> VM<T> {
             }
             _ => {}
         }
+        self.tracer.record_csr_reg(self.fcsr_reg);
     }
 
     fn raise_fflags_f32(&mut self, a: f32, b: f32, res: f32, op: char) {

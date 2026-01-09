@@ -996,6 +996,7 @@ impl<T: Tracer> VM<T> {
                     let exact = (a as f64).sqrt();
                     if exact != (res as f64) {
                         self.fcsr_reg |= 0b00001;
+                        self.tracer.record_csr_reg(self.fcsr_reg);
                     }
                 }
 
@@ -1042,6 +1043,7 @@ impl<T: Tracer> VM<T> {
                 // Set NV flag for signaling NaN
                 if is_snan_f32(a) || is_snan_f32(b) {
                     self.fcsr_reg |= 0b10000;
+                    self.tracer.record_csr_reg(self.fcsr_reg);
                 }
 
                 let res = if a.is_nan() && b.is_nan() {
@@ -1066,6 +1068,7 @@ impl<T: Tracer> VM<T> {
                 // Set NV flag for signaling NaN
                 if is_snan_f32(a) || is_snan_f32(b) {
                     self.fcsr_reg |= 0b10000;
+                    self.tracer.record_csr_reg(self.fcsr_reg);
                 }
 
                 let res = if a.is_nan() && b.is_nan() {
@@ -1100,6 +1103,7 @@ impl<T: Tracer> VM<T> {
 
                 self.fcsr_reg |= flags;
                 self.reg_mut(insn.rd, result as i64 as u64);
+                self.tracer.record_csr_reg(self.fcsr_reg);
             }
 
             Instruction::FcvtWuS(insn) => {
@@ -1124,6 +1128,7 @@ impl<T: Tracer> VM<T> {
 
                 self.fcsr_reg |= flags;
                 self.reg_mut(insn.rd, result as i32 as i64 as u64);
+                self.tracer.record_csr_reg(self.fcsr_reg);
             }
 
             Instruction::FmvXW(insn) => {
@@ -1140,6 +1145,7 @@ impl<T: Tracer> VM<T> {
                 // FeqS only sets NV for signaling NaN
                 if is_snan_f32(a) || is_snan_f32(b) {
                     self.fcsr_reg |= 0b10000;
+                    self.tracer.record_csr_reg(self.fcsr_reg);
                 }
 
                 let res = if a.is_nan() || b.is_nan() {
@@ -1157,6 +1163,7 @@ impl<T: Tracer> VM<T> {
                 // FltS sets NV for ANY NaN (not just signaling)
                 if a.is_nan() || b.is_nan() {
                     self.fcsr_reg |= 0b10000;
+                    self.tracer.record_csr_reg(self.fcsr_reg);
                     self.reg_mut(insn.rd, 0);
                 } else {
                     self.reg_mut(insn.rd, (a < b) as u64);
@@ -1170,6 +1177,7 @@ impl<T: Tracer> VM<T> {
                 // FleS sets NV for ANY NaN (not just signaling)
                 if a.is_nan() || b.is_nan() {
                     self.fcsr_reg |= 0b10000;
+                    self.tracer.record_csr_reg(self.fcsr_reg);
                     self.reg_mut(insn.rd, 0);
                 } else {
                     self.reg_mut(insn.rd, (a <= b) as u64);
@@ -1288,6 +1296,7 @@ impl<T: Tracer> VM<T> {
 
                 if is_snan_f64(a) || (a < 0.0 && !a.is_nan()) {
                     self.fcsr_reg |= 0b10000;
+                    self.tracer.record_csr_reg(self.fcsr_reg);
                 }
 
                 let mut res = a.sqrt();
@@ -1327,6 +1336,7 @@ impl<T: Tracer> VM<T> {
 
                 if is_snan_f64(a) || is_snan_f64(b) {
                     self.fcsr_reg |= 0b10000;
+                    self.tracer.record_csr_reg(self.fcsr_reg);
                 }
 
                 let res = if a.is_nan() && b.is_nan() {
@@ -1353,6 +1363,7 @@ impl<T: Tracer> VM<T> {
 
                 if is_snan_f64(a) || is_snan_f64(b) {
                     self.fcsr_reg |= 0b10000;
+                    self.tracer.record_csr_reg(self.fcsr_reg);
                 }
 
                 let res = if a.is_nan() && b.is_nan() {
@@ -1380,11 +1391,13 @@ impl<T: Tracer> VM<T> {
                 // Set NX if precision was lost
                 if !a.is_nan() && !a.is_infinite() && (res as f64) != a {
                     self.fcsr_reg |= 0b00001;
+                    self.tracer.record_csr_reg(self.fcsr_reg);
                 }
 
                 // Set NV for sNaN
                 if is_snan_f64(a) {
                     self.fcsr_reg |= 0b10000;
+                    self.tracer.record_csr_reg(self.fcsr_reg);
                 }
 
                 self.write_f32(insn.rd, res);
@@ -1396,6 +1409,7 @@ impl<T: Tracer> VM<T> {
                 // Set NV for sNaN
                 if is_snan_f32(a) {
                     self.fcsr_reg |= 0b10000;
+                    self.tracer.record_csr_reg(self.fcsr_reg);
                 }
 
                 let res = a as f64;
@@ -1408,6 +1422,7 @@ impl<T: Tracer> VM<T> {
 
                 if is_snan_f64(a) || is_snan_f64(b) {
                     self.fcsr_reg |= 0b10000;
+                    self.tracer.record_csr_reg(self.fcsr_reg);
                 }
 
                 let res = if a.is_nan() || b.is_nan() {
@@ -1425,6 +1440,7 @@ impl<T: Tracer> VM<T> {
 
                 if a.is_nan() || b.is_nan() {
                     self.fcsr_reg |= 0b10000;
+                    self.tracer.record_csr_reg(self.fcsr_reg);
                     self.reg_mut(insn.rd, 0);
                 } else {
                     self.reg_mut(insn.rd, (a < b) as u64);
@@ -1437,6 +1453,7 @@ impl<T: Tracer> VM<T> {
 
                 if a.is_nan() || b.is_nan() {
                     self.fcsr_reg |= 0b10000;
+                    self.tracer.record_csr_reg(self.fcsr_reg);
                     self.reg_mut(insn.rd, 0);
                 } else {
                     self.reg_mut(insn.rd, (a <= b) as u64);
@@ -1466,6 +1483,7 @@ impl<T: Tracer> VM<T> {
 
                 self.fcsr_reg |= flags;
                 self.reg_mut(insn.rd, result as i64 as u64);
+                self.tracer.record_csr_reg(self.fcsr_reg);
             }
 
             Instruction::FcvtWuD(insn) => {
@@ -1488,6 +1506,7 @@ impl<T: Tracer> VM<T> {
 
                 self.fcsr_reg |= flags;
                 self.reg_mut(insn.rd, result as i32 as i64 as u64);
+                self.tracer.record_csr_reg(self.fcsr_reg);
             }
 
             Instruction::FcvtDW(insn) => {
@@ -1510,6 +1529,10 @@ impl<T: Tracer> VM<T> {
                 let addr = (self.reg(insn.rs1).wrapping_add(insn.imm as u64)) as usize;
                 let data = self.read_f32(insn.rs2).to_bits().to_le_bytes();
                 self.write_bytes(addr, &data);
+                self.tracer.record_mem_op(MemOp::StoreWord {
+                    addr: addr as u64,
+                    value: u32::from_le_bytes(data),
+                });
             }
 
             Instruction::Fld(insn) => {
@@ -1522,6 +1545,10 @@ impl<T: Tracer> VM<T> {
                 let data = self.read_f64(insn.rs2).to_le_bytes();
                 let addr = (self.reg(insn.rs1).wrapping_add(insn.imm as u64)) as usize;
                 self.write_bytes(addr, &data);
+                self.tracer.record_mem_op(MemOp::StoreDouble {
+                    addr: addr as u64,
+                    value: u64::from_le_bytes(data),
+                });
             }
 
             Instruction::FcvtLS(insn) => {
@@ -1542,6 +1569,7 @@ impl<T: Tracer> VM<T> {
 
                 self.fcsr_reg |= flags;
                 self.reg_mut(insn.rd, result as u64);
+                self.tracer.record_csr_reg(self.fcsr_reg);
             }
 
             Instruction::FcvtLuS(insn) => {
@@ -1564,6 +1592,7 @@ impl<T: Tracer> VM<T> {
 
                 self.fcsr_reg |= flags;
                 self.reg_mut(insn.rd, result);
+                self.tracer.record_csr_reg(self.fcsr_reg);
             }
 
             Instruction::FcvtSL(insn) => {
@@ -1594,6 +1623,7 @@ impl<T: Tracer> VM<T> {
 
                 self.fcsr_reg |= flags;
                 self.reg_mut(insn.rd, result as u64);
+                self.tracer.record_csr_reg(self.fcsr_reg);
             }
 
             Instruction::FcvtLuD(insn) => {
@@ -1616,6 +1646,7 @@ impl<T: Tracer> VM<T> {
 
                 self.fcsr_reg |= flags;
                 self.reg_mut(insn.rd, result);
+                self.tracer.record_csr_reg(self.fcsr_reg);
             }
 
             Instruction::FmvXD(insn) => {
