@@ -9,9 +9,9 @@ pub fn handle_stdout<T: Tracer>(vm: &mut VM<T>) {
     let fd = vm.reg(10);
     let guest_ptr = vm.reg(11);
     let len = vm.reg(12);
-    
+
     let output_slice = vm.read_bytes(guest_ptr as usize, len as usize);
-    
+
     match fd {
         constants::STDOUT_FILENO => {
             let s = String::from_utf8_lossy(&output_slice);
@@ -23,10 +23,10 @@ pub fn handle_stdout<T: Tracer>(vm: &mut VM<T>) {
         }
         _ => {
             // Return -1 (error) in a0
-            vm.write_rd(10, (-1i64) as u64); 
+            vm.reg_mut(10, (-1i64) as u64);
             return;
         }
     }
-      
-    vm.write_rd(10, len);
+
+    vm.reg_mut(10, len);
 }

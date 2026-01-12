@@ -470,13 +470,19 @@ fn decode_fp_op(insn: u32) -> Instruction {
     }
 }
 
-
 #[cfg(test)]
 mod test {
     use super::*;
 
     #[test]
     fn test_decode_ts() {
-        assert_eq!(decode(0x03a5d593), Instruction::Srli(Sh { rd: 11, rs1: 11, shamt: 58 }));
+        assert_eq!(
+            decode(0x03a5d593),
+            Instruction::Srli(Sh {
+                rd: 11,
+                rs1: 11,
+                shamt: 58
+            })
+        );
     }
 }
