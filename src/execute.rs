@@ -131,7 +131,7 @@ impl<T: Tracer> VM<T> {
             // Load Opcodes
             Instruction::Lb(insn) => {
                 let addr = self.reg(insn.rs1).wrapping_add(insn.imm as u64);
-                let raw_value = self.mem(addr as usize) & mask(8);
+                let raw_value = self.load_u64(addr as usize) & mask(8);
                 let result = sext(raw_value, 8);
                 self.tracer.record_mem_op(MemOp::LoadByte {
                     addr,

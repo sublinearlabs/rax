@@ -141,13 +141,13 @@ impl<T: Tracer> VM<T> {
 
     /// Perform one cycle with tracing
     pub fn step(&mut self) {
-        let insn = self.mem16(self.pc as usize);
+        let insn = self.load_u16(self.pc as usize);
         let is_compressed = insn & mask16(2) != 0b11;
 
         let (insn, insn_bytes) = if is_compressed {
             (decode_compressed(insn), insn as u32)
         } else {
-            let insn_upper = self.mem16((self.pc + 2) as usize);
+            let insn_upper = self.load_u16((self.pc + 2) as usize);
             let insn = (insn_upper as u32) << 16 | insn as u32;
             (decode(insn), insn)
         };
@@ -259,9 +259,9 @@ impl<T: Tracer> VM<T> {
         self.tracer.record_rd(idx, res);
     }
 
-    /// Reads 64 bytes from memory at the given addr
+    /// Load 8 bytes from memory at the given addr
     /// assumes value at memory address is the LSB
-    pub(crate) fn mem(&self, addr: usize) -> u64 {
+    pub(crate) fn load_u64(&self, addr: usize) -> u64 {
         let mut result = 0_u64;
         for i in 0..8 {
             let byte = self.memory.read((addr + i) as u64);
@@ -270,9 +270,9 @@ impl<T: Tracer> VM<T> {
         result
     }
 
-    /// Reads 32 bytes from memory at the given addr
+    /// Load 4 bytes from memory at the given addr
     /// assumes value at memory address is the LSB
-    pub(crate) fn mem32(&self, addr: usize) -> u32 {
+    pub(crate) fn load_u32(&self, addr: usize) -> u32 {
         let mut result = 0_u32;
         for i in 0..4 {
             let byte = self.memory.read((addr + i) as u64);
@@ -281,15 +281,35 @@ impl<T: Tracer> VM<T> {
         result
     }
 
-    /// Read 16 bytes from memory at the given addr
+    /// Load 2 bytes from memory at the given addr
     /// assumes value at memory address is the LSB
-    pub(crate) fn mem16(&self, addr: usize) -> u16 {
+    pub(crate) fn load_u16(&self, addr: usize) -> u16 {
         let mut result = 0_u16;
         for i in 0..2 {
             let byte = self.memory.read((addr + i) as u64);
             result |= (byte as u16) << (i * 8);
         }
         result
+    }
+
+    /// Load 1 byte from memory at the given addr
+    pub(crate) fn load_u8(&self, addr: usize) -> u8 {
+        self.memory.read(addr as u64)
+    }
+
+    /// Write 64 butes to memory at the given addr
+    pub(crate) fn write_u64(&mut self, addr: usize, value: u64) {
+        todo!()
+    }
+
+    /// Write 32 bytes to memory at the given addr
+    pub(crate) fn write_u32(&mut self, addr: usize, value: u32) {
+        todo!()
+    }
+
+    /// Write 16 bytes to memory at the given addr
+    pub(crate) fn write_u16(&mut self, addr: usize, value: u16) {
+        todo!()
     }
 
     /// Returns a mutable reference to a single byte at the given
@@ -634,8 +654,8 @@ mod tests {
         vm.write_bytes(0, &bytes);
 
         // read from memory
-        assert_eq!(vm.mem(0), 4);
-        assert_eq!(vm.mem(8), 10);
+        assert_eq!(vm.load_u64(0), 4);
+        assert_eq!(vm.load_u64(8), 10);
     }
 
     #[test]
