@@ -213,7 +213,7 @@ impl<T: Tracer> VM<T> {
                 let addr = self.reg(insn.rs1).wrapping_add(insn.imm as u64);
                 // TODO: do we need the mask(8)
                 let value = self.reg(insn.rs2) & mask(8);
-                self.write_u8(addr as usize, value as u8);
+                self.store_u8(addr as usize, value as u8);
                 self.tracer.record_mem_op(MemOp::StoreByte {
                     addr,
                     value: value as u8,
@@ -223,7 +223,7 @@ impl<T: Tracer> VM<T> {
             Instruction::Sh(insn) => {
                 let addr = self.reg(insn.rs1).wrapping_add(insn.imm as u64);
                 let value = self.reg(insn.rs2) & mask(16);
-                self.write_u16(addr as usize, value as u16);
+                self.store_u16(addr as usize, value as u16);
                 self.tracer.record_mem_op(MemOp::StoreHalf {
                     addr,
                     value: value as u16,
@@ -233,7 +233,7 @@ impl<T: Tracer> VM<T> {
             Instruction::Sw(insn) => {
                 let addr = self.reg(insn.rs1).wrapping_add(insn.imm as u64);
                 let value = self.reg(insn.rs2) & mask(32);
-                self.write_u32(addr as usize, value as u32);
+                self.store_u32(addr as usize, value as u32);
                 self.tracer.record_mem_op(MemOp::StoreWord {
                     addr,
                     value: value as u32,
@@ -243,7 +243,7 @@ impl<T: Tracer> VM<T> {
             Instruction::Sd(insn) => {
                 let addr = self.reg(insn.rs1).wrapping_add(insn.imm as u64);
                 let value = self.reg(insn.rs2);
-                self.write_u64(addr as usize, value);
+                self.store_u64(addr as usize, value);
                 self.tracer
                     .record_mem_op(MemOp::StoreDouble { addr, value });
             }
@@ -553,7 +553,7 @@ impl<T: Tracer> VM<T> {
                 let value = self.reg(insn.rs2) & mask(32);
                 let success = addr == self.reservation_set;
                 if success {
-                    self.write_u32(addr as usize, value as u32);
+                    self.store_u32(addr as usize, value as u32);
                 }
                 let result = if success { 0 } else { 1 };
                 self.reservation_set = 0;
@@ -570,7 +570,7 @@ impl<T: Tracer> VM<T> {
                 let value = self.reg(insn.rs2);
                 let success = addr == self.reservation_set;
                 if success {
-                    self.write_u64(addr as usize, value);
+                    self.store_u64(addr as usize, value);
                 }
                 let result = if success { 0 } else { 1 };
                 self.reservation_set = 0;
@@ -587,7 +587,7 @@ impl<T: Tracer> VM<T> {
                 let addr = self.reg(insn.rs1);
                 let read_value = self.load_u32(addr as usize) as u64;
                 let write_value = self.reg(insn.rs2) & mask(32);
-                self.write_u32(addr as usize, write_value as u32);
+                self.store_u32(addr as usize, write_value as u32);
                 self.tracer.record_mem_op(MemOp::AtomicWord {
                     addr,
                     read_value: read_value as u32,
@@ -601,7 +601,7 @@ impl<T: Tracer> VM<T> {
                 let read_value = self.load_u32(addr as usize) as i32;
                 let rs2_val = (self.reg(insn.rs2) & mask(32)) as i32;
                 let write_value = (read_value.wrapping_add(rs2_val) as i64) as u64 & mask(32);
-                self.write_u32(addr as usize, write_value as u32);
+                self.store_u32(addr as usize, write_value as u32);
                 self.tracer.record_mem_op(MemOp::AtomicWord {
                     addr,
                     read_value: read_value as u32,
@@ -615,7 +615,7 @@ impl<T: Tracer> VM<T> {
                 let read_value = self.load_u32(addr as usize) as i32;
                 let rs2_val = (self.reg(insn.rs2) & mask(32)) as i32;
                 let write_value = ((read_value ^ rs2_val) as i64) as u64 & mask(32);
-                self.write_u32(addr as usize, write_value as u32);
+                self.store_u32(addr as usize, write_value as u32);
                 self.tracer.record_mem_op(MemOp::AtomicWord {
                     addr,
                     read_value: read_value as u32,
@@ -629,7 +629,7 @@ impl<T: Tracer> VM<T> {
                 let read_value = self.load_u32(addr as usize) as i32;
                 let rs2_val = (self.reg(insn.rs2) & mask(32)) as i32;
                 let write_value = ((read_value & rs2_val) as i64) as u64 & mask(32);
-                self.write_u32(addr as usize, write_value as u32);
+                self.store_u32(addr as usize, write_value as u32);
                 self.tracer.record_mem_op(MemOp::AtomicWord {
                     addr,
                     read_value: read_value as u32,
@@ -643,7 +643,7 @@ impl<T: Tracer> VM<T> {
                 let read_value = self.load_u32(addr as usize) as i32;
                 let rs2_val = (self.reg(insn.rs2) & mask(32)) as i32;
                 let write_value = ((read_value | rs2_val) as i64) as u64 & mask(32);
-                self.write_u32(addr as usize, write_value as u32);
+                self.store_u32(addr as usize, write_value as u32);
                 self.tracer.record_mem_op(MemOp::AtomicWord {
                     addr,
                     read_value: read_value as u32,
@@ -657,7 +657,7 @@ impl<T: Tracer> VM<T> {
                 let read_value = self.load_u32(addr as usize) as i32;
                 let rs2_val = (self.reg(insn.rs2) & mask(32)) as i32;
                 let write_value = (read_value.min(rs2_val) as i64) as u64 & mask(32);
-                self.write_u32(addr as usize, write_value as u32);
+                self.store_u32(addr as usize, write_value as u32);
                 self.tracer.record_mem_op(MemOp::AtomicWord {
                     addr,
                     read_value: read_value as u32,
@@ -671,7 +671,7 @@ impl<T: Tracer> VM<T> {
                 let read_value = self.load_u32(addr as usize) as i32;
                 let rs2_val = (self.reg(insn.rs2) & mask(32)) as i32;
                 let write_value = (read_value.max(rs2_val) as i64) as u64 & mask(32);
-                self.write_u32(addr as usize, write_value as u32);
+                self.store_u32(addr as usize, write_value as u32);
                 self.tracer.record_mem_op(MemOp::AtomicWord {
                     addr,
                     read_value: read_value as u32,
@@ -685,7 +685,7 @@ impl<T: Tracer> VM<T> {
                 let read_value = self.load_u32(addr as usize) as u64;
                 let rs2_val = self.reg(insn.rs2) & mask(32);
                 let write_value = read_value.min(rs2_val);
-                self.write_u32(addr as usize, write_value as u32);
+                self.store_u32(addr as usize, write_value as u32);
                 self.tracer.record_mem_op(MemOp::AtomicWord {
                     addr,
                     read_value: read_value as u32,
@@ -699,7 +699,7 @@ impl<T: Tracer> VM<T> {
                 let read_value = self.load_u32(addr as usize) as u64;
                 let rs2_val = self.reg(insn.rs2) & mask(32);
                 let write_value = read_value.max(rs2_val);
-                self.write_u32(addr as usize, write_value as u32);
+                self.store_u32(addr as usize, write_value as u32);
                 self.tracer.record_mem_op(MemOp::AtomicWord {
                     addr,
                     read_value: read_value as u32,
@@ -713,7 +713,7 @@ impl<T: Tracer> VM<T> {
                 let addr = self.reg(insn.rs1);
                 let read_value = self.load_u64(addr as usize);
                 let write_value = self.reg(insn.rs2);
-                self.write_u64(addr as usize, write_value);
+                self.store_u64(addr as usize, write_value);
                 self.tracer.record_mem_op(MemOp::AtomicDouble {
                     addr,
                     read_value,
@@ -727,7 +727,7 @@ impl<T: Tracer> VM<T> {
                 let read_value = self.load_u64(addr as usize);
                 let rs2_val = self.reg(insn.rs2);
                 let write_value = read_value.wrapping_add(rs2_val);
-                self.write_u64(addr as usize, write_value);
+                self.store_u64(addr as usize, write_value);
                 self.tracer.record_mem_op(MemOp::AtomicDouble {
                     addr,
                     read_value,
@@ -741,7 +741,7 @@ impl<T: Tracer> VM<T> {
                 let read_value = self.load_u64(addr as usize);
                 let rs2_val = self.reg(insn.rs2);
                 let write_value = read_value ^ rs2_val;
-                self.write_u64(addr as usize, write_value);
+                self.store_u64(addr as usize, write_value);
                 self.tracer.record_mem_op(MemOp::AtomicDouble {
                     addr,
                     read_value,
@@ -755,7 +755,7 @@ impl<T: Tracer> VM<T> {
                 let read_value = self.load_u64(addr as usize);
                 let rs2_val = self.reg(insn.rs2);
                 let write_value = read_value & rs2_val;
-                self.write_u64(addr as usize, write_value);
+                self.store_u64(addr as usize, write_value);
                 self.tracer.record_mem_op(MemOp::AtomicDouble {
                     addr,
                     read_value,
@@ -769,7 +769,7 @@ impl<T: Tracer> VM<T> {
                 let read_value = self.load_u64(addr as usize);
                 let rs2_val = self.reg(insn.rs2);
                 let write_value = read_value | rs2_val;
-                self.write_u64(addr as usize, write_value);
+                self.store_u64(addr as usize, write_value);
                 self.tracer.record_mem_op(MemOp::AtomicDouble {
                     addr,
                     read_value,
@@ -783,7 +783,7 @@ impl<T: Tracer> VM<T> {
                 let read_value = self.load_u64(addr as usize);
                 let rs2_val = self.reg(insn.rs2) as i64;
                 let write_value = (read_value as i64).min(rs2_val) as u64;
-                self.write_u64(addr as usize, write_value);
+                self.store_u64(addr as usize, write_value);
                 self.tracer.record_mem_op(MemOp::AtomicDouble {
                     addr,
                     read_value,
@@ -797,7 +797,7 @@ impl<T: Tracer> VM<T> {
                 let read_value = self.load_u64(addr as usize);
                 let rs2_val = self.reg(insn.rs2) as i64;
                 let write_value = (read_value as i64).max(rs2_val) as u64;
-                self.write_u64(addr as usize, write_value);
+                self.store_u64(addr as usize, write_value);
                 self.tracer.record_mem_op(MemOp::AtomicDouble {
                     addr,
                     read_value,
@@ -811,7 +811,7 @@ impl<T: Tracer> VM<T> {
                 let read_value = self.load_u64(addr as usize);
                 let rs2_val = self.reg(insn.rs2);
                 let write_value = read_value.min(rs2_val);
-                self.write_u64(addr as usize, write_value);
+                self.store_u64(addr as usize, write_value);
                 self.tracer.record_mem_op(MemOp::AtomicDouble {
                     addr,
                     read_value,
@@ -825,7 +825,7 @@ impl<T: Tracer> VM<T> {
                 let read_value = self.load_u64(addr as usize);
                 let rs2_val = self.reg(insn.rs2);
                 let write_value = read_value.max(rs2_val);
-                self.write_u64(addr as usize, write_value);
+                self.store_u64(addr as usize, write_value);
                 self.tracer.record_mem_op(MemOp::AtomicDouble {
                     addr,
                     read_value,
@@ -1483,7 +1483,7 @@ impl<T: Tracer> VM<T> {
             Instruction::Fsw(insn) => {
                 let addr = (self.reg(insn.rs1).wrapping_add(insn.imm as u64)) as usize;
                 let data = self.read_f32(insn.rs2).to_bits().to_le_bytes();
-                self.write_u32(addr, u32::from_le_bytes(data));
+                self.store_u32(addr, u32::from_le_bytes(data));
                 self.tracer.record_mem_op(MemOp::StoreWord {
                     addr: addr as u64,
                     value: u32::from_le_bytes(data),
@@ -1499,7 +1499,7 @@ impl<T: Tracer> VM<T> {
             Instruction::Fsd(insn) => {
                 let data = self.read_f64(insn.rs2).to_le_bytes();
                 let addr = (self.reg(insn.rs1).wrapping_add(insn.imm as u64)) as usize;
-                self.write_u64(addr, u64::from_le_bytes(data));
+                self.store_u64(addr, u64::from_le_bytes(data));
                 self.tracer.record_mem_op(MemOp::StoreDouble {
                     addr: addr as u64,
                     value: u64::from_le_bytes(data),
