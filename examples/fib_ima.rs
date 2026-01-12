@@ -9,11 +9,10 @@
 use std::path::Path;
 
 use riscv::VM;
-use riscv::trace::FullTracer;
+use riscv::trace::NoopTracer;
 
 /// Path to the prebuilt guest ELF produced by the `rust-bin/fib` crate.
 const FIB_BINARY: &str = "test-bin/rust-bin/fib/fib-ima";
-
 
 fn main() {
     println!("RISC-V fib example: loading ELF: {}", FIB_BINARY);
@@ -27,8 +26,8 @@ fn main() {
         return;
     }
 
-    // Construct a VM using the FullTracer tracer implementation (same as original main).
-    let mut vm = VM::<FullTracer>::init_from_elf(FIB_BINARY.to_string());
+    // Construct a VM using the NoopTracer tracer implementation (same as original main).
+    let mut vm = VM::<NoopTracer>::init_from_elf(FIB_BINARY.to_string());
 
     println!("Running fibonacci program IMA...\n");
 
