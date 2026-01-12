@@ -211,8 +211,7 @@ impl<T: Tracer> VM<T> {
             // Store Opcodes
             Instruction::Sb(insn) => {
                 let addr = self.reg(insn.rs1).wrapping_add(insn.imm as u64);
-                // TODO: do we need the mask(8)
-                let value = self.reg(insn.rs2) & mask(8);
+                let value = self.reg(insn.rs2);
                 self.store_u8(addr as usize, value as u8);
                 self.tracer.record_mem_op(MemOp::StoreByte {
                     addr,
@@ -222,7 +221,7 @@ impl<T: Tracer> VM<T> {
 
             Instruction::Sh(insn) => {
                 let addr = self.reg(insn.rs1).wrapping_add(insn.imm as u64);
-                let value = self.reg(insn.rs2) & mask(16);
+                let value = self.reg(insn.rs2);
                 self.store_u16(addr as usize, value as u16);
                 self.tracer.record_mem_op(MemOp::StoreHalf {
                     addr,
@@ -232,7 +231,7 @@ impl<T: Tracer> VM<T> {
 
             Instruction::Sw(insn) => {
                 let addr = self.reg(insn.rs1).wrapping_add(insn.imm as u64);
-                let value = self.reg(insn.rs2) & mask(32);
+                let value = self.reg(insn.rs2);
                 self.store_u32(addr as usize, value as u32);
                 self.tracer.record_mem_op(MemOp::StoreWord {
                     addr,
