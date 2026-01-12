@@ -103,7 +103,7 @@ impl<T: Tracer> VM<T> {
         self.tracer = tracer;
         self
     }
-    
+
     /// Set input stream
     pub fn set_input_stream(&mut self, input: Vec<u8>) {
         self.input_stream = input;
@@ -151,8 +151,14 @@ impl<T: Tracer> VM<T> {
         };
 
         // Begin tracing this instruction
-        self.tracer
-            .begin_instruction(self.cycles, self.pc, &self.registers, insn_bytes);
+        self.tracer.begin_instruction(
+            self.cycles,
+            self.pc,
+            &self.registers,
+            &self.f_reg,
+            insn_bytes,
+            &insn,
+        );
 
         // Execute the instruction (this will update PC)
         self.execute_instruction(insn, is_compressed);
@@ -175,7 +181,7 @@ impl<T: Tracer> VM<T> {
     ///
     /// Returns `Some(ExecutionTrace)` if tracing was enabled, `None` otherwise.
     pub fn take_trace(self) -> Option<crate::trace::ExecutionTrace> {
-        self.tracer.finalize(self.registers, self.pc)
+        self.tracer.finalize(self.registers, self.f_reg, self.pc)
     }
 
     /// Check if tracing is active
@@ -213,12 +219,13 @@ impl<T: Tracer> VM<T> {
     }
 
     /// Returns a mutable reference to the idx register
-    pub(crate) fn reg_mut(&mut self, idx: u8) -> &mut u64 {
+    pub(crate) fn reg_mut(&mut self, idx: u8, value: u64) {
         if idx == 0 {
-            &mut self.x0_sink
+            self.registers[idx as usize] = 0;
         } else {
-            &mut self.registers[idx as usize]
+            self.registers[idx as usize] = value;
         }
+        self.tracer.record_rd(idx, value);
     }
 
     /// Returns the current value at the idx floating point register
@@ -228,7 +235,9 @@ impl<T: Tracer> VM<T> {
 
     /// Updates idx floating point register to value
     fn write_f64(&mut self, idx: u8, value: f64) {
-        self.f_reg[idx as usize] = value.to_bits();
+        let res = value.to_bits();
+        self.f_reg[idx as usize] = res;
+        self.tracer.record_rd(idx, res);
     }
 
     // Read f32
@@ -243,7 +252,9 @@ impl<T: Tracer> VM<T> {
 
     // Write f32
     fn write_f32(&mut self, idx: u8, val: f32) {
-        self.f_reg[idx as usize] = 0xffff_ffff_0000_0000 | (val.to_bits() as u64);
+        let res = 0xffff_ffff_0000_0000 | (val.to_bits() as u64);
+        self.f_reg[idx as usize] = res;
+        self.tracer.record_rd(idx, res);
     }
 
     /// Reads 64 bytes from memory at the given addr
@@ -326,6 +337,7 @@ impl<T: Tracer> VM<T> {
             }
             _ => {}
         }
+        self.tracer.record_csr_reg(self.fcsr_reg);
     }
 
     fn raise_fflags_f32(&mut self, a: f32, b: f32, res: f32, op: char) {
@@ -402,6 +414,7 @@ impl<T: Tracer> VM<T> {
         }
 
         self.fcsr_reg |= flags;
+        self.tracer.record_csr_reg(self.fcsr_reg);
     }
 
     fn raise_fflags_f64(&mut self, a: f64, b: f64, res: f64, op: char) {
@@ -449,6 +462,7 @@ impl<T: Tracer> VM<T> {
         }
 
         self.fcsr_reg |= flags;
+        self.tracer.record_csr_reg(self.fcsr_reg);
     }
 
     fn raise_fflags_fma_f32(&mut self, a: f32, b: f32, c: f32, res: f32) {
@@ -500,6 +514,7 @@ impl<T: Tracer> VM<T> {
         }
 
         self.fcsr_reg |= flags;
+        self.tracer.record_csr_reg(self.fcsr_reg);
     }
 
     fn raise_fflags_fma_f64(&mut self, a: f64, b: f64, c: f64, res: f64) {
@@ -535,6 +550,7 @@ impl<T: Tracer> VM<T> {
         }
 
         self.fcsr_reg |= flags;
+        self.tracer.record_csr_reg(self.fcsr_reg);
     }
 }
 
@@ -588,10 +604,10 @@ mod tests {
         // read
         assert_eq!(vm.reg(5), 0);
         // write
-        *vm.reg_mut(5) = 10;
+        vm.reg_mut(5, 10);
         assert_eq!(vm.reg(5), 10);
         // write
-        *vm.reg_mut(5) = 20;
+        vm.reg_mut(5, 20);
         assert_eq!(vm.reg(5), 20);
     }
 
@@ -601,7 +617,7 @@ mod tests {
         // read register 0
         assert_eq!(vm.reg(0), 0);
         // write to register 0
-        *vm.reg_mut(0) = 20;
+        vm.reg_mut(0, 20);
         assert_eq!(vm.reg(0), 0);
     }
 
@@ -641,8 +657,8 @@ mod tests {
 
         let mut vm = VM::<NoopTracer>::init();
         vm.write_bytes(0, &fib_prog);
-        *vm.reg_mut(1) = 1;
-        *vm.reg_mut(2) = 1;
+        vm.reg_mut(1, 1);
+        vm.reg_mut(2, 1);
 
         vm.step();
         vm.step();
@@ -678,8 +694,8 @@ mod tests {
 
         let mut vm = TracingVM::init();
         vm.write_bytes(0, &fib_prog);
-        *vm.reg_mut(1) = 1;
-        *vm.reg_mut(2) = 1;
+        vm.reg_mut(1, 1);
+        vm.reg_mut(2, 1);
 
         assert!(vm.is_tracing());
 

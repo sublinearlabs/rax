@@ -85,7 +85,7 @@ impl Memory {
         }
         data
     }
-    
+
     /// This is a NO-OP
     /// everytime a new page is created it is prefilled with zero
     /// reading from a page that doesn't exist also returns a 0

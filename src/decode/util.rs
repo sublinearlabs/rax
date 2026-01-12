@@ -52,7 +52,6 @@ pub(crate) fn c_funct3(insn: u16) -> u8 {
     ((insn >> 13) & mask16(3)) as u8
 }
 
-
 #[cfg(test)]
 mod test {
     use super::*;
