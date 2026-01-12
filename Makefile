@@ -47,7 +47,6 @@ compare-%:
 	cargo run -p riscv --example echo_$* --release > compare.txt
 	cargo run -p riscv --example fib_$* --release >> compare.txt
 	cargo run -p riscv --example exec_block_$* --release >> compare.txt
-	cat baseline.txt
 	cat compare.txt
 
 clean:
