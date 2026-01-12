@@ -4,7 +4,7 @@ use crate::decode::compressed::decode_compressed;
 use crate::elf::decode_elf;
 use crate::memory::Memory;
 use crate::trace::{DefaultTracer, Tracer};
-use crate::util::mask16;
+use crate::util::{mask, mask16};
 use decode::decode;
 
 mod decode;
@@ -299,29 +299,29 @@ impl<T: Tracer> VM<T> {
 
     /// Write 8 butes to memory at the given addr
     pub(crate) fn write_u64(&mut self, addr: usize, value: u64) {
-        todo!()
+        for i in 0..8 {
+            *self.memory.mem_mut((addr + i) as u64) = ((value >> (8 * i)) & mask(8)) as u8;
+        }
     }
 
     /// Write 4 bytes to memory at the given addr
     pub(crate) fn write_u32(&mut self, addr: usize, value: u32) {
-        todo!()
+        for i in 0..4 {
+            *self.memory.mem_mut((addr + i) as u64) = ((value as u64 >> (8 * i)) & mask(8)) as u8;
+        }
     }
 
     /// Write 2 bytes to memory at the given addr
     pub(crate) fn write_u16(&mut self, addr: usize, value: u16) {
-        todo!()
+        for i in 0..2 {
+            *self.memory.mem_mut((addr + i) as u64) = ((value as u64 >> (8 * i)) & mask(8)) as u8;
+        }
     }
 
     /// Write 1 byte to memory at the given addr
     pub(crate) fn write_u8(&mut self, addr: usize, value: u8) {
-        todo!()
+        *self.memory.mem_mut(addr as u64) = value;
     }
-
-    // /// Returns a mutable reference to a single byte at the given
-    // /// memory addr
-    // pub(crate) fn mem_mut(&mut self, addr: usize) -> &mut u8 {
-    //     self.memory.mem_mut(addr as u64)
-    // }
 
     /// Write multiple bytes from a given address
     pub fn write_bytes(&mut self, addr: usize, data: &[u8]) {
