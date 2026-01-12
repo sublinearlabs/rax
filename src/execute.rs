@@ -1483,7 +1483,7 @@ impl<T: Tracer> VM<T> {
             Instruction::Fsw(insn) => {
                 let addr = (self.reg(insn.rs1).wrapping_add(insn.imm as u64)) as usize;
                 let data = self.read_f32(insn.rs2).to_bits().to_le_bytes();
-                self.write_bytes(addr, &data);
+                self.write_u32(addr, u32::from_le_bytes(data));
                 self.tracer.record_mem_op(MemOp::StoreWord {
                     addr: addr as u64,
                     value: u32::from_le_bytes(data),
@@ -1499,7 +1499,7 @@ impl<T: Tracer> VM<T> {
             Instruction::Fsd(insn) => {
                 let data = self.read_f64(insn.rs2).to_le_bytes();
                 let addr = (self.reg(insn.rs1).wrapping_add(insn.imm as u64)) as usize;
-                self.write_bytes(addr, &data);
+                self.write_u64(addr, u64::from_le_bytes(data));
                 self.tracer.record_mem_op(MemOp::StoreDouble {
                     addr: addr as u64,
                     value: u64::from_le_bytes(data),
