@@ -11,6 +11,10 @@ panic = "abort"
 [features]
 default = []
 trace = []
+# Enables binary logging of memory read/write operations to a file.
+# Intended for performance analysis.
+mem_trace_io = []
+
 
 [dependencies]
 elf = "0.8.0"
