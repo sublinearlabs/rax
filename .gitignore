@@ -3,3 +3,5 @@ target
 exec-block-input-cli
 baseline.txt
 compare.txt
+perf.data
+perf.data.*
