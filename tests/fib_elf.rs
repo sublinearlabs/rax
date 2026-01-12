@@ -1,0 +1,26 @@
+use std::fs;
+
+use riscv::{VM, trace::NoopTracer};
+
+fn run_test_fib_elf(path: String) {
+    println!("running test: {path}");
+
+    let mut vm = VM::<NoopTracer>::init_from_elf(path);
+    vm.run();
+
+    println!("exit_code {}", vm.exit_code);
+    assert!(vm.halted);
+    if vm.exit_code != 0 {
+        println!("failing test {}", vm.exit_code >> 1);
+    }
+    assert_eq!(vm.exit_code, 0);
+}
+#[test]
+#[ignore]
+fn test_rv64_fib() {
+    let _ = fs::read_dir("test-bin/rust-bin/fib")
+        .expect("Failed to read directory")
+        .filter_map(|entry| entry.ok())
+        .map(|entry| run_test_fib_elf(entry.path().to_str().unwrap().to_string()))
+        .collect::<Vec<_>>();
+}
