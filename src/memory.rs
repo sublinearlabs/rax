@@ -94,6 +94,13 @@ impl Memory {
     pub(crate) fn zero_fill(&self, _addr: u64, _size: usize) {}
 }
 
+// the first thing I need to do is define the storage format
+// what information do I need
+// (op_type, addr, val)
+// op_type can be represented with a single bit
+// addr is a u64
+// val is a u8
+
 #[cfg(test)]
 mod tests {
     use super::*;
