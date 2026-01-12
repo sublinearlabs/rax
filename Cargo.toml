@@ -3,6 +3,11 @@ name = "riscv"
 version = "0.1.0"
 edition = "2024"
 
+[profile.release]
+debug = true
+lto = "fat"
+panic = "abort"
+
 [features]
 default = []
 trace = []

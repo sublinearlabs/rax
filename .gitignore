@@ -1,3 +1,5 @@
 target
 .DS_Store
 exec-block-input-cli
+baseline.txt
+compare.txt

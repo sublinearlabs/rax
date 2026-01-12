@@ -132,6 +132,8 @@ impl<T: Tracer> VM<T> {
         self.run();
         let end = start.elapsed();
         println!("run took: {:?}ms", end.as_micros());
+        println!("run took: {:?}s", end.as_secs_f64());
+
         println!("cycles: {}", self.cycles);
         // cycles / microseconds = Mhz
         println!("{:.2} Mhz", self.cycles as f64 / end.as_micros() as f64)
@@ -594,8 +596,6 @@ mod tests {
 
     /// VM with full execution tracing
     pub type TracingVM = VM<FullTracer>;
-
-    
 
     #[test]
     fn test_register_read_write() {
