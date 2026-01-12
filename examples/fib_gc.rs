@@ -14,7 +14,6 @@ use riscv::trace::NoopTracer;
 /// Path to the prebuilt guest ELF produced by the `rust-bin/fib` crate.
 const FIB_BINARY: &str = "test-bin/rust-bin/fib/fib-gc";
 
-
 fn main() {
     println!("RISC-V fib example: loading ELF: {}", FIB_BINARY);
 
@@ -32,7 +31,7 @@ fn main() {
 
     println!("Running fibonacci program GC...\n");
 
-    vm.run();
+    vm.run_with_timing();
 
     println!("\nexit_code: {}", vm.exit_code());
 }

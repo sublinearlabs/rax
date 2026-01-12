@@ -14,7 +14,6 @@ use riscv::trace::NoopTracer;
 /// Path to the prebuilt guest ELF produced by the `rust-bin/echo` crate.
 const ECHO_BINARY: &str = "test-bin/rust-bin/echo/echo-gc";
 
-
 fn main() {
     println!("RISC-V echo example: loading ELF: {}", ECHO_BINARY);
 
@@ -22,7 +21,7 @@ fn main() {
         eprintln!(
             "guest binary not found: {}\n\
              build the guest first (see README or run the rust-bin/echo build target).",
-             ECHO_BINARY
+            ECHO_BINARY
         );
         return;
     }
@@ -34,7 +33,7 @@ fn main() {
 
     println!("Running echo program GC...\n");
 
-    vm.run();
+    vm.run_with_timing();
 
     println!("\nexit_code: {}", vm.exit_code());
 }
