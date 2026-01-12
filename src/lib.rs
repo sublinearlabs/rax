@@ -297,26 +297,31 @@ impl<T: Tracer> VM<T> {
         self.memory.read(addr as u64)
     }
 
-    /// Write 64 butes to memory at the given addr
+    /// Write 8 butes to memory at the given addr
     pub(crate) fn write_u64(&mut self, addr: usize, value: u64) {
         todo!()
     }
 
-    /// Write 32 bytes to memory at the given addr
+    /// Write 4 bytes to memory at the given addr
     pub(crate) fn write_u32(&mut self, addr: usize, value: u32) {
         todo!()
     }
 
-    /// Write 16 bytes to memory at the given addr
+    /// Write 2 bytes to memory at the given addr
     pub(crate) fn write_u16(&mut self, addr: usize, value: u16) {
         todo!()
     }
 
-    /// Returns a mutable reference to a single byte at the given
-    /// memory addr
-    pub(crate) fn mem_mut(&mut self, addr: usize) -> &mut u8 {
-        self.memory.mem_mut(addr as u64)
+    /// Write 1 byte to memory at the given addr
+    pub(crate) fn write_u8(&mut self, addr: usize, value: u8) {
+        todo!()
     }
+
+    // /// Returns a mutable reference to a single byte at the given
+    // /// memory addr
+    // pub(crate) fn mem_mut(&mut self, addr: usize) -> &mut u8 {
+    //     self.memory.mem_mut(addr as u64)
+    // }
 
     /// Write multiple bytes from a given address
     pub fn write_bytes(&mut self, addr: usize, data: &[u8]) {
