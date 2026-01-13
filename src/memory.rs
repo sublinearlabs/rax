@@ -1,4 +1,3 @@
-use core::panic;
 use std::collections::HashMap;
 
 /// Number of bits to describe entries in a page
@@ -8,7 +7,7 @@ const PAGE_SIZE: usize = 1 << PAGE_SHIFT;
 /// Mask to get the last `PAGE_SHIFT` bits of an address
 const PAGE_MASK: u64 = (PAGE_SIZE as u64) - 1;
 /// Max memory address
-const MAX_ADDR: u64 = u64::MAX - 1;
+const MAX_ADDR: u64 = u64::MAX;
 
 type Page = Box<[u8; PAGE_SIZE]>;
 
@@ -88,16 +87,16 @@ impl Memory {
         out
     }
 
-    // TODO: assumes that out was already zeroed
-    pub(crate) fn read_into(&self, addr: u64, out: &mut [u8]) {
+    /// Read n contiguous bytes from memory
+    /// assumes that out is zeroed out
+    fn read_into(&self, addr: u64, out: &mut [u8]) {
         let len = out.len();
         if len == 0 {
             return;
         }
 
-        // TODO: verify the check done here
         let end = addr
-            .checked_add(len as u64)
+            .checked_add(len as u64 - 1)
             .unwrap_or_else(|| panic!("read out of range: 0x{:x}", addr));
 
         if end > MAX_ADDR {
@@ -132,7 +131,7 @@ impl Memory {
         }
 
         let end = addr
-            .checked_add(bytes.len() as u64)
+            .checked_add(bytes.len() as u64 - 1)
             .unwrap_or_else(|| panic!("write out of range: 0x{:x}", addr));
 
         if addr > MAX_ADDR || end > MAX_ADDR {
