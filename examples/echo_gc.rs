@@ -36,4 +36,8 @@ fn main() {
     vm.run_with_timing();
 
     println!("\nexit_code: {}", vm.exit_code());
+
+    if std::env::var("PERF").as_deref() == Ok("1") {
+        println!("printing perf values again");
+    }
 }
