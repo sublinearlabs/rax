@@ -299,33 +299,27 @@ impl<T: Tracer> VM<T> {
 
     /// Write 8 butes to memory at the given addr
     pub(crate) fn store_u64(&mut self, addr: usize, value: u64) {
-        for i in 0..8 {
-            *self.memory.mem_mut((addr + i) as u64) = ((value >> (8 * i)) & mask(8)) as u8;
-        }
+        self.memory.write_u64(addr as u64, value);
     }
 
     /// Write 4 bytes to memory at the given addr
     pub(crate) fn store_u32(&mut self, addr: usize, value: u32) {
-        for i in 0..4 {
-            *self.memory.mem_mut((addr + i) as u64) = ((value as u64 >> (8 * i)) & mask(8)) as u8;
-        }
+        self.memory.write_u32(addr as u64, value);
     }
 
     /// Write 2 bytes to memory at the given addr
     pub(crate) fn store_u16(&mut self, addr: usize, value: u16) {
-        for i in 0..2 {
-            *self.memory.mem_mut((addr + i) as u64) = ((value as u64 >> (8 * i)) & mask(8)) as u8;
-        }
+        self.memory.write_u16(addr as u64, value);
     }
 
     /// Write 1 byte to memory at the given addr
     pub(crate) fn store_u8(&mut self, addr: usize, value: u8) {
-        *self.memory.mem_mut(addr as u64) = value;
+        self.memory.write_u8(addr as u64, value);
     }
 
     /// Write multiple bytes from a given address
     pub fn write_bytes(&mut self, addr: usize, data: &[u8]) {
-        self.memory.write_bytes(addr as u64, data);
+        self.memory.write_n_bytes(addr as u64, data);
     }
 
     /// Read multiple bytes from a given address

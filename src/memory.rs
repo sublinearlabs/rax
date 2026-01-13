@@ -1,3 +1,4 @@
+use core::panic;
 use std::collections::HashMap;
 
 /// Number of bits to describe entries in a page
@@ -50,30 +51,56 @@ impl Memory {
         self.pages.get(&idx).map(|p| p[offset]).unwrap_or(0)
     }
 
-    /// Returns a mutable reference to a single byte at the given
-    /// memory addr
-    pub(crate) fn mem_mut(&mut self, addr: u64) -> &mut u8 {
-        if addr > MAX_ADDR {
-            panic!("write out of range: 0x{:x}", addr);
-        }
-        let idx = Self::page_idx(addr);
-        let offset = Self::page_offset(addr);
-        &mut self.ensure_page(idx)[offset]
+    /// TODO: add documentation
+    pub(crate) fn write_u64(&mut self, addr: u64, value: u64) {
+        self.write_n_bytes(addr, &value.to_le_bytes());
     }
 
-    pub(crate) fn write_byte(&mut self, addr: u64, value: u8) {
-        if addr > MAX_ADDR {
-            panic!("write out of range: 0x{:x}", addr);
-        }
-        let idx = Self::page_idx(addr);
-        let offset = Self::page_offset(addr);
-        self.ensure_page(idx)[offset] = value;
+    /// TODO: add documentation
+    pub(crate) fn write_u32(&mut self, addr: u64, value: u32) {
+        self.write_n_bytes(addr, &value.to_le_bytes());
     }
 
-    /// Write multiple bytes from a given address
-    pub(crate) fn write_bytes(&mut self, addr: u64, data: &[u8]) {
-        for (i, val) in data.iter().enumerate() {
-            self.write_byte(addr + i as u64, *val);
+    /// TODO: add documentation
+    pub(crate) fn write_u16(&mut self, addr: u64, value: u16) {
+        self.write_n_bytes(addr, &value.to_le_bytes());
+    }
+
+    /// TODO: add documentation
+    pub(crate) fn write_u8(&mut self, addr: u64, value: u8) {
+        self.write_n_bytes(addr, &value.to_le_bytes());
+    }
+
+    // TODO add documentation
+    pub(crate) fn write_n_bytes(&mut self, addr: u64, bytes: &[u8]) {
+        if bytes.is_empty() {
+            return;
+        }
+
+        let end = addr
+            .checked_add(bytes.len() as u64)
+            .unwrap_or_else(|| panic!("write out of range: 0x{:x}", addr));
+
+        if addr > MAX_ADDR || end > MAX_ADDR {
+            panic!("write out of range: 0x{:x}", addr);
+        }
+
+        let mut curr_addr = addr;
+        let mut bytes_left = bytes.len();
+        let mut src_off = 0;
+
+        while bytes_left > 0 {
+            let idx = Self::page_idx(curr_addr);
+            let offset = Self::page_offset(curr_addr);
+
+            let chunk = bytes_left.min(PAGE_SIZE - offset);
+
+            let page = self.ensure_page(idx);
+            page[offset..(offset + chunk)].copy_from_slice(&bytes[src_off..(src_off + chunk)]);
+
+            curr_addr += chunk as u64;
+            src_off += chunk;
+            bytes_left -= chunk;
         }
     }
 
@@ -96,6 +123,8 @@ impl Memory {
 
 #[cfg(test)]
 mod tests {
+    use std::u64;
+
     use super::*;
 
     #[test]
@@ -103,8 +132,8 @@ mod tests {
         let mut mem = Memory::default();
 
         // write
-        *mem.mem_mut(0x1000) = 0xAB;
-        *mem.mem_mut(0x1001) = 0xCD;
+        mem.write_u8(0x1000, 0xAB);
+        mem.write_u8(0x1001, 0xCD);
         assert_eq!(mem.pages.len(), 1);
 
         // read
@@ -126,7 +155,7 @@ mod tests {
     #[should_panic]
     fn test_write_out_of_range() {
         let mut mem = Memory::default();
-        *mem.mem_mut(u64::MAX) = 0;
+        mem.write_u8(u64::MAX, 0);
     }
 
     #[test]
@@ -136,9 +165,10 @@ mod tests {
         // force boundary cross
         // (PAGE_SIZE - 4)..(PAGE_SIZE + 4)
         let start = PAGE_SIZE as u64 - 4;
-        for i in 0..8 {
-            *mem.mem_mut(start + i) = i as u8;
-        }
+
+        let value = u64::from_le_bytes([0, 1, 2, 3, 4, 5, 6, 7]);
+        mem.write_u64(start, value);
+
         assert_eq!(mem.pages.len(), 2);
 
         // verify

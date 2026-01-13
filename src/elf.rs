@@ -42,7 +42,7 @@ pub(crate) fn decode_elf(bytes: &[u8]) -> (Memory, u64) {
 
         if filesz > 0 {
             let data = &bytes[offset..offset + filesz];
-            memory.write_bytes(vaddr, data);
+            memory.write_n_bytes(vaddr, data);
         }
 
         if memsz > filesz {
