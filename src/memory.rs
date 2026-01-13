@@ -41,23 +41,23 @@ impl Memory {
             .or_insert_with(|| Box::new([0; PAGE_SIZE]))
     }
 
-    /// Read a single byte. Defaults to 0 if page doesn't exist
-    pub(crate) fn read(&self, addr: u64) -> u8 {
-        if addr > MAX_ADDR {
-            panic!("read out of range: 0x{:x}", addr);
-        }
-        let idx = Self::page_idx(addr);
-        let offset = Self::page_offset(addr);
-        self.pages.get(&idx).map(|p| p[offset]).unwrap_or(0)
+    pub(crate) fn read_u64(&self, addr: u64) -> u64 {
+        let bytes = self.read_n_bytes_const::<8>(addr);
+        u64::from_le_bytes(bytes)
     }
-    ///
-    /// Read multiple bytes from a given address
-    pub(crate) fn read_bytes(&mut self, addr: u64, len: usize) -> Vec<u8> {
-        let mut data = Vec::with_capacity(len);
-        for i in 0..len {
-            data.push(self.read(addr + i as u64));
-        }
-        data
+
+    pub(crate) fn read_u32(&self, addr: u64) -> u32 {
+        let bytes = self.read_n_bytes_const::<4>(addr);
+        u32::from_le_bytes(bytes)
+    }
+
+    pub(crate) fn read_u16(&self, addr: u64) -> u16 {
+        let bytes = self.read_n_bytes_const::<2>(addr);
+        u16::from_le_bytes(bytes)
+    }
+
+    pub(crate) fn read_u8(&self, addr: u64) -> u8 {
+        self.read_n_bytes_const::<1>(addr)[0]
     }
 
     pub(crate) fn write_u64(&mut self, addr: u64, value: u64) {
@@ -74,6 +74,54 @@ impl Memory {
 
     pub(crate) fn write_u8(&mut self, addr: u64, value: u8) {
         self.write_n_bytes(addr, &value.to_le_bytes());
+    }
+
+    pub(crate) fn read_n_bytes_const<const N: usize>(&self, addr: u64) -> [u8; N] {
+        let mut out = [0u8; N];
+        self.read_into(addr, &mut out);
+        out
+    }
+
+    pub(crate) fn read_n_bytes(&self, addr: u64, len: usize) -> Vec<u8> {
+        let mut out = vec![0u8; len];
+        self.read_into(addr, &mut out);
+        out
+    }
+
+    // TODO: assumes that out was already zeroed
+    pub(crate) fn read_into(&self, addr: u64, out: &mut [u8]) {
+        let len = out.len();
+        if len == 0 {
+            return;
+        }
+
+        // TODO: verify the check done here
+        let end = addr
+            .checked_add(len as u64)
+            .unwrap_or_else(|| panic!("read out of range: 0x{:x}", addr));
+
+        if end > MAX_ADDR {
+            panic!("write out of range: 0x{:x}", addr);
+        }
+
+        let mut curr_addr = addr;
+        let mut bytes_left = len;
+        let mut dst_off = 0;
+
+        while bytes_left > 0 {
+            let idx = Self::page_idx(curr_addr);
+            let offset = Self::page_offset(curr_addr);
+
+            let chunk = bytes_left.min(PAGE_SIZE - offset);
+
+            if let Some(page) = self.pages.get(&idx) {
+                out[dst_off..dst_off + chunk].copy_from_slice(&page[offset..offset + chunk]);
+            } // else leave as zeros
+
+            curr_addr += chunk as u64;
+            dst_off += chunk;
+            bytes_left -= chunk
+        }
     }
 
     /// Write n contiguous bytes into memory
@@ -134,18 +182,18 @@ mod tests {
         assert_eq!(mem.pages.len(), 1);
 
         // read
-        assert_eq!(mem.read(0x1000), 0xAB);
-        assert_eq!(mem.read(0x1001), 0xCD);
+        assert_eq!(mem.read_u8(0x1000), 0xAB);
+        assert_eq!(mem.read_u8(0x1001), 0xCD);
 
         // read unmapped
-        assert_eq!(mem.read(0x7F3A_9C02_B47D_E610), 0);
+        assert_eq!(mem.read_u8(0x7F3A_9C02_B47D_E610), 0);
     }
 
     #[test]
     #[should_panic]
     fn test_read_out_of_range() {
         let mem = Memory::default();
-        mem.read(u64::MAX);
+        mem.read_u8(u64::MAX);
     }
 
     #[test]
@@ -169,8 +217,6 @@ mod tests {
         assert_eq!(mem.pages.len(), 2);
 
         // verify
-        for i in 0..8 {
-            assert_eq!(mem.read(start + i), i as u8);
-        }
+        assert_eq!(mem.read_u64(start), value);
     }
 }
