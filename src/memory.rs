@@ -51,27 +51,24 @@ impl Memory {
         self.pages.get(&idx).map(|p| p[offset]).unwrap_or(0)
     }
 
-    /// TODO: add documentation
     pub(crate) fn write_u64(&mut self, addr: u64, value: u64) {
         self.write_n_bytes(addr, &value.to_le_bytes());
     }
 
-    /// TODO: add documentation
     pub(crate) fn write_u32(&mut self, addr: u64, value: u32) {
         self.write_n_bytes(addr, &value.to_le_bytes());
     }
 
-    /// TODO: add documentation
     pub(crate) fn write_u16(&mut self, addr: u64, value: u16) {
         self.write_n_bytes(addr, &value.to_le_bytes());
     }
 
-    /// TODO: add documentation
     pub(crate) fn write_u8(&mut self, addr: u64, value: u8) {
         self.write_n_bytes(addr, &value.to_le_bytes());
     }
 
-    // TODO add documentation
+    /// Write n contiguous bytes into memory
+    /// Handles cross page writing
     pub(crate) fn write_n_bytes(&mut self, addr: u64, bytes: &[u8]) {
         if bytes.is_empty() {
             return;
