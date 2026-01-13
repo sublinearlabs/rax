@@ -50,6 +50,15 @@ impl Memory {
         let offset = Self::page_offset(addr);
         self.pages.get(&idx).map(|p| p[offset]).unwrap_or(0)
     }
+    ///
+    /// Read multiple bytes from a given address
+    pub(crate) fn read_bytes(&mut self, addr: u64, len: usize) -> Vec<u8> {
+        let mut data = Vec::with_capacity(len);
+        for i in 0..len {
+            data.push(self.read(addr + i as u64));
+        }
+        data
+    }
 
     pub(crate) fn write_u64(&mut self, addr: u64, value: u64) {
         self.write_n_bytes(addr, &value.to_le_bytes());
@@ -99,15 +108,6 @@ impl Memory {
             src_off += chunk;
             bytes_left -= chunk;
         }
-    }
-
-    /// Read multiple bytes from a given address
-    pub(crate) fn read_bytes(&mut self, addr: u64, len: usize) -> Vec<u8> {
-        let mut data = Vec::with_capacity(len);
-        for i in 0..len {
-            data.push(self.read(addr + i as u64));
-        }
-        data
     }
 
     /// This is a NO-OP
