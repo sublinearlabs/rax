@@ -11,9 +11,10 @@ use std::path::Path;
 use riscv::VM;
 use riscv::trace::NoopTracer;
 
-const EXEC_BLOCK_BINARY: &str =
-    "test-bin/rust-bin/exec-block/exec-block-ima";
+#[path = "perf_stat.rs"]
+mod perf_stat;
 
+const EXEC_BLOCK_BINARY: &str = "test-bin/rust-bin/exec-block/exec-block-ima";
 
 fn main() {
     println!(
@@ -32,13 +33,12 @@ fn main() {
 
     // Construct a VM using the FullTracer tracer implementation (same as original main).
     let mut vm = VM::<NoopTracer>::init_from_elf(EXEC_BLOCK_BINARY.to_string());
-    
+
     let input_hex_string = fs::read_to_string("examples/exec-block.input").unwrap();
     let input_hex_string = input_hex_string.trim();
     let bytes = hex::decode(input_hex_string).unwrap();
-    
+
     vm.set_input_stream(bytes);
-    
 
     println!("Running exec-block program IMA...\n");
 
@@ -47,4 +47,6 @@ fn main() {
     vm.run_with_timing();
 
     println!("\nexit_code: {}", vm.exit_code());
+
+    perf_stat::print_perf_stat(&vm, "exec_block_ima");
 }
