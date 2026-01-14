@@ -11,6 +11,9 @@ use std::path::Path;
 use riscv::VM;
 use riscv::trace::NoopTracer;
 
+#[path = "perf_stat.rs"]
+mod perf_stat;
+
 /// Path to the prebuilt guest ELF produced by the `rust-bin/echo` crate.
 const ECHO_BINARY: &str = "test-bin/rust-bin/echo/echo-gc";
 
@@ -37,7 +40,5 @@ fn main() {
 
     println!("\nexit_code: {}", vm.exit_code());
 
-    if std::env::var("PERF").as_deref() == Ok("1") {
-        println!("printing perf values again");
-    }
+    perf_stat::print_perf_stat(&vm, "echo_gc");
 }

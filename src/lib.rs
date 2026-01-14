@@ -29,8 +29,8 @@ pub struct VM<T: Tracer = DefaultTracer> {
     pc: u64,
     pub halted: bool,
     pub exit_code: u64,
-    cycles: u64,
-    elapsed: std::time::Duration,
+    pub cycles: u64,
+    pub elapsed: std::time::Duration,
     tracer: T,
 
     // std in
