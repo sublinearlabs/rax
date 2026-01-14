@@ -8,7 +8,7 @@ fn sh(cmd: &str) {
         .expect("failed to spawn shell")
         .success();
     if !ok {
-        panic!("failed: {cmd}");
+        panic!("failed: {}", cmd);
     }
 }
 
@@ -18,8 +18,8 @@ fn out(cmd: &str) -> String {
         .args(["-lc", cmd])
         .output()
         .expect("failed to spawn shell");
-    if !o.status.success() {
-        panic!("failed: {cmd}");
+    if !output.status.success() {
+        panic!("failed: {}", cmd);
     }
     String::from_utf8_lossy(&output.stdout).trim().to_string()
 }
@@ -28,7 +28,7 @@ fn out(cmd: &str) -> String {
 /// if we encounter a panic at any point during the program
 /// we take advantage of the `Drop` implementation to restore
 /// the branch
-/// only works if panic != abort
+/// relies on unwind panics (panic != abort)
 struct Restore(String);
 impl Drop for Restore {
     fn drop(&mut self) {
@@ -54,4 +54,26 @@ fn main() {
     if branch == "main" {
         panic!("cannot generate report on main, no baseline");
     }
+
+    // ensure that the branch is clean (nothing to commit)
+    // this signals that it is safe to change branches
+    // git status --porcelain
+    //  returns nothing if the branch is clean
+    let branch_clean = out("git status --porcelain");
+    if !branch_clean.is_empty() {
+        panic!("\n\n working tree is not clean: please commit first\n\n");
+    }
+
+    // ensures that we go back to the current branch in the event
+    // of a failure
+    let _restore = Restore(branch.clone());
+
+    sh("git checkout -q main");
+    sh("make baseline");
+
+    sh(&format!("git checkout -q {}", branch));
+    sh("make compare");
+    sh("make report");
 }
+
+// TODO: determine test process

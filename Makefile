@@ -52,5 +52,8 @@ compare-%:
 report:
 	rustc perf/report.rs -o perf/report && ./perf/report > report.txt && rm ./perf/report && cat report.txt
 
+perfe:
+	rustc perf/driver.rs -o perf/driver && ./perf/driver && rm ./perf/driver
+
 clean:
 	cargo clean
