@@ -76,8 +76,6 @@ fn main() {
     sh(&format!("make baseline-{}", ext));
 
     sh(&format!("git checkout -q {}", branch));
-    sh("make compare");
-    sh("make report");
+    sh(&format!("make compare-{}", ext));
+    sh("make gen_report");
 }
-
-// TODO: determine test process
