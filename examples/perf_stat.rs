@@ -8,3 +8,7 @@ pub fn print_perf_stat(vm: &VM, name: &'static str) {
         println!("perf: exit_code | {}", vm.exit_code);
     }
 }
+
+fn main() {
+    println!("shared code not an executable");
+}
