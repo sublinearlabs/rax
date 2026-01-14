@@ -73,7 +73,7 @@ fn main() {
     let _restore = Restore(branch.clone());
 
     sh("git checkout -q main");
-    // sh(&format!("make baseline-{}", ext));
+    sh(&format!("make baseline-{}", ext));
 
     sh(&format!("git checkout -q {}", branch));
     sh(&format!("make compare-{}", ext));
