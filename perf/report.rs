@@ -11,7 +11,6 @@ const COMPARE_FILE: &'static str = "compare.txt";
 struct RunStat {
     name: String,
     elapsed: std::time::Duration,
-    cycles: u64,
     frequency: f64, // MHz
     exit_code: u8,
 }
@@ -26,7 +25,16 @@ fn main() {
     let compare_stat = process_stat_file(compare_content);
 
     for (base, compare) in baseline_stat.iter().zip(compare_stat.iter()) {
-        println!("{}", base.name);
+        print!("{}", base.name);
+
+        if base.exit_code != 0 || compare.exit_code != 0 {
+            print!(
+                " [FAIL baseline={} now={}]",
+                base.exit_code, compare.exit_code
+            );
+        }
+
+        println!();
 
         // baseline
         println!(
@@ -74,7 +82,7 @@ fn process_stat_file(content: String) -> Vec<RunStat> {
         let sub_ns = (nanos % 1_000_000_000) as u32;
         let elapsed = std::time::Duration::new(secs, sub_ns);
 
-        let cycles = chunk[2].parse().expect("failed to parse cycles");
+        let cycles: u64 = chunk[2].parse().expect("failed to parse cycles");
         let exit_code = chunk[3].parse().expect("failed to parse exit code");
 
         let mhz = cycles as f64 * 1000.0 / nanos as f64;
@@ -82,7 +90,6 @@ fn process_stat_file(content: String) -> Vec<RunStat> {
         stats.push(RunStat {
             name,
             elapsed,
-            cycles,
             frequency: mhz,
             exit_code,
         });
