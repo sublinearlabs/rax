@@ -37,7 +37,6 @@ baseline-%:
 	PERF=1 cargo run -p riscv --example echo_$* --release | grep perf > baseline.txt
 	PERF=1 cargo run -p riscv --example fib_$* --release | grep perf >> baseline.txt
 	PERF=1 cargo run -p riscv --example exec_block_$* --release | grep perf >> baseline.txt
-	cat baseline.txt
 
 # usage:
 # 	make compare-gc
@@ -47,7 +46,6 @@ compare-%:
 	PERF=1 cargo run -p riscv --example echo_$* --release | grep perf > compare.txt
 	PERF=1 cargo run -p riscv --example fib_$* --release | grep perf >> compare.txt
 	PERF=1 cargo run -p riscv --example exec_block_$* --release | grep perf >> compare.txt
-	cat compare.txt
 
 gen_report:
 	rustc perf/report.rs -o perf/report && ./perf/report > report.txt && rm ./perf/report && cat report.txt
