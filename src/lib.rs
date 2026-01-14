@@ -25,12 +25,12 @@ pub struct VM<T: Tracer = DefaultTracer> {
     f_reg: [u64; 32],
     memory: Memory,
     fcsr_reg: u32,
-    x0_sink: u64, // blackhole for writes to x0
     reservation_set: u64,
     pc: u64,
     pub halted: bool,
     pub exit_code: u64,
-    cycles: u64,
+    pub cycles: u64,
+    pub elapsed: std::time::Duration,
     tracer: T,
 
     // std in
@@ -43,12 +43,12 @@ impl<T: Tracer> Default for VM<T> {
         Self {
             registers: [0u64; 32],
             memory: Memory::default(),
-            x0_sink: 0,
             reservation_set: 0,
             pc: 0,
             halted: false,
             exit_code: 0,
             cycles: 0,
+            elapsed: std::time::Duration::default(),
             tracer: T::default(),
             f_reg: [0u64; 32],
             fcsr_reg: 0,
@@ -121,22 +121,25 @@ impl<T: Tracer> VM<T> {
 
     /// Execute the VM until halted
     pub fn run(&mut self) {
+        let start = std::time::Instant::now();
         while !self.halted {
             self.step();
         }
+        self.elapsed = start.elapsed();
     }
 
     /// Execute with timing information
     pub fn run_with_timing(&mut self) {
-        let start = std::time::Instant::now();
         self.run();
-        let end = start.elapsed();
-        println!("run took: {:?}ms", end.as_micros());
-        println!("run took: {:?}s", end.as_secs_f64());
+        println!("run took: {:?}ms", self.elapsed.as_micros());
+        println!("run took: {:?}s", self.elapsed.as_secs_f64());
 
         println!("cycles: {}", self.cycles);
         // cycles / microseconds = Mhz
-        println!("{:.2} Mhz", self.cycles as f64 / end.as_micros() as f64)
+        println!(
+            "{:.2} Mhz",
+            self.cycles as f64 / self.elapsed.as_micros() as f64
+        )
     }
 
     /// Perform one cycle with tracing

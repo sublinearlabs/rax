@@ -34,20 +34,24 @@ exec_block_imac:
 # 	make baseline-ima
 # 	make baseline-imac
 baseline-%:
-	cargo run -p riscv --example echo_$* --release > baseline.txt
-	cargo run -p riscv --example fib_$* --release >> baseline.txt
-	cargo run -p riscv --example exec_block_$* --release >> baseline.txt
-	cat baseline.txt
+	PERF=1 cargo run -p riscv --example echo_$* --release | grep perf > baseline.txt
+	PERF=1 cargo run -p riscv --example fib_$* --release | grep perf >> baseline.txt
+	PERF=1 cargo run -p riscv --example exec_block_$* --release | grep perf >> baseline.txt
 
 # usage:
 # 	make compare-gc
 # 	make compare-ima
 # 	make compare-imac
 compare-%:
-	cargo run -p riscv --example echo_$* --release > compare.txt
-	cargo run -p riscv --example fib_$* --release >> compare.txt
-	cargo run -p riscv --example exec_block_$* --release >> compare.txt
-	cat compare.txt
+	PERF=1 cargo run -p riscv --example echo_$* --release | grep perf > compare.txt
+	PERF=1 cargo run -p riscv --example fib_$* --release | grep perf >> compare.txt
+	PERF=1 cargo run -p riscv --example exec_block_$* --release | grep perf >> compare.txt
+
+gen_report:
+	rustc perf/report.rs -o perf/report && ./perf/report > report.txt && rm ./perf/report && cat report.txt
+
+report-%:
+	rustc perf/driver.rs -o perf/driver && ./perf/driver $* && rm ./perf/driver
 
 clean:
 	cargo clean
