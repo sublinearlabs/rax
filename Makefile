@@ -34,9 +34,9 @@ exec_block_imac:
 # 	make baseline-ima
 # 	make baseline-imac
 baseline-%:
-	cargo run -p riscv --example echo_$* --release > baseline.txt
-	cargo run -p riscv --example fib_$* --release >> baseline.txt
-	cargo run -p riscv --example exec_block_$* --release >> baseline.txt
+	PERF=1 cargo run -p riscv --example echo_$* --release | grep perf > baseline.txt
+	PERF=1 cargo run -p riscv --example fib_$* --release | grep perf >> baseline.txt
+	PERF=1 cargo run -p riscv --example exec_block_$* --release | grep perf >> baseline.txt
 	cat baseline.txt
 
 # usage:
@@ -44,9 +44,9 @@ baseline-%:
 # 	make compare-ima
 # 	make compare-imac
 compare-%:
-	cargo run -p riscv --example echo_$* --release > compare.txt
-	cargo run -p riscv --example fib_$* --release >> compare.txt
-	cargo run -p riscv --example exec_block_$* --release >> compare.txt
+	PERF=1 cargo run -p riscv --example echo_$* --release | grep perf > compare.txt
+	PERF=1 cargo run -p riscv --example fib_$* --release | grep perf >> compare.txt
+	PERF=1 cargo run -p riscv --example exec_block_$* --release | grep perf >> compare.txt
 	cat compare.txt
 
 clean:
