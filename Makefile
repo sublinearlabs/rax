@@ -49,11 +49,11 @@ compare-%:
 	PERF=1 cargo run -p riscv --example exec_block_$* --release | grep perf >> compare.txt
 	cat compare.txt
 
-report:
+gen_report:
 	rustc perf/report.rs -o perf/report && ./perf/report > report.txt && rm ./perf/report && cat report.txt
 
-perfe:
-	rustc perf/driver.rs -o perf/driver && ./perf/driver && rm ./perf/driver
+report-%:
+	rustc perf/driver.rs -o perf/driver && ./perf/driver $* && rm ./perf/driver
 
 clean:
 	cargo clean

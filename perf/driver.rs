@@ -49,6 +49,10 @@ fn main() {
     // - run make compare
     // - run make report
 
+    let ext = std::env::args()
+        .nth(1)
+        .expect("missing variant: report-gc, report-imac, report-ima");
+
     // returns the branch name
     let branch = out("git rev-parse --abbrev-ref HEAD");
     if branch == "main" {
@@ -69,7 +73,7 @@ fn main() {
     let _restore = Restore(branch.clone());
 
     sh("git checkout -q main");
-    sh("make baseline");
+    sh(&format!("make baseline-{}", ext));
 
     sh(&format!("git checkout -q {}", branch));
     sh("make compare");
