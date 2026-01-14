@@ -25,10 +25,29 @@ fn main() {
     let baseline_stat = process_stat_file(baseline_content);
     let compare_stat = process_stat_file(compare_content);
 
-    dbg!(baseline_stat);
-    dbg!(compare_stat);
+    for (base, compare) in baseline_stat.iter().zip(compare_stat.iter()) {
+        println!("{}", base.name);
 
-    // now that I have this data, what do I want to do with it?
+        // baseline
+        println!(
+            "{}",
+            line("baseline", format_duration(base.elapsed), base.frequency)
+        );
+
+        // compare
+        println!(
+            "{}",
+            line("now", format_duration(compare.elapsed), compare.frequency)
+        );
+
+        // time delta
+        println!(
+            "delta    {}",
+            time_delta(base.elapsed.as_nanos(), compare.elapsed.as_nanos())
+        );
+
+        println!();
+    }
 }
 
 fn process_stat_file(content: String) -> Vec<RunStat> {
@@ -47,12 +66,14 @@ fn process_stat_file(content: String) -> Vec<RunStat> {
         })
         .collect::<Vec<_>>();
 
-    // TODO: handle the exit code
-
     for chunk in lines.chunks_exact(4) {
         let name = chunk[0].to_string();
-        let nanos: u64 = chunk[1].parse().expect("failed to parse elapsed time");
-        let elapsed = std::time::Duration::from_nanos(nanos);
+
+        let nanos: u128 = chunk[1].parse().expect("failed to parse elapsed time");
+        let secs = (nanos / 1_000_000_000) as u64;
+        let sub_ns = (nanos % 1_000_000_000) as u32;
+        let elapsed = std::time::Duration::new(secs, sub_ns);
+
         let cycles = chunk[2].parse().expect("failed to parse cycles");
         let exit_code = chunk[3].parse().expect("failed to parse exit code");
 
@@ -68,4 +89,31 @@ fn process_stat_file(content: String) -> Vec<RunStat> {
     }
 
     stats
+}
+
+fn line(label: &str, time: String, frequency: f64) -> String {
+    format!("{label:<8} time: {time:<10} freq: {frequency:>6.2} MHz")
+}
+
+fn format_duration(d: std::time::Duration) -> String {
+    let ns = d.as_nanos();
+
+    if ns >= 1_000_000_000 {
+        format!("{:.3}s", d.as_secs_f64())
+    } else if ns >= 1_000_000 {
+        format!("{:.3}ms", ns as f64 / 1_000_000.0)
+    } else if ns >= 1_000 {
+        format!("{:.3}µs", ns as f64 / 1_000.0)
+    } else {
+        format!("{ns}ns")
+    }
+}
+
+fn time_delta(base_ns: u128, now_ns: u128) -> String {
+    let b = base_ns as f64;
+    let n = now_ns as f64;
+    let factor = b / n;
+    let percent = (factor - 1.0) * 100.0;
+    let word = if factor >= 1.0 { "faster" } else { "slower" };
+    format!("{:+.1}% ({:.2}x {})", percent, factor, word)
 }
