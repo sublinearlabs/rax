@@ -1,6 +1,6 @@
 use std::{
     fs::File,
-    io::{self, BufWriter, Write},
+    io::{BufWriter, Write},
 };
 
 #[repr(u8)]
