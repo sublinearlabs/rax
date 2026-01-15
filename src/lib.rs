@@ -270,6 +270,7 @@ impl<T: Tracer> VM<T> {
     /// Load 8 bytes from memory at the given addr
     /// assumes value at memory address is the LSB
     pub(crate) fn load_u64(&mut self, addr: usize) -> u64 {
+        #[cfg(feature = "mem_trace_io")]
         self.mem_recorder.load_u64(addr as u64);
         self.memory.read_u64(addr as u64)
     }
@@ -277,6 +278,7 @@ impl<T: Tracer> VM<T> {
     /// Load 4 bytes from memory at the given addr
     /// assumes value at memory address is the LSB
     pub(crate) fn load_u32(&mut self, addr: usize) -> u32 {
+        #[cfg(feature = "mem_trace_io")]
         self.mem_recorder.load_u32(addr as u64);
         self.memory.read_u32(addr as u64)
     }
@@ -284,36 +286,42 @@ impl<T: Tracer> VM<T> {
     /// Load 2 bytes from memory at the given addr
     /// assumes value at memory address is the LSB
     pub(crate) fn load_u16(&mut self, addr: usize) -> u16 {
+        #[cfg(feature = "mem_trace_io")]
         self.mem_recorder.load_u16(addr as u64);
         self.memory.read_u16(addr as u64)
     }
 
     /// Load 1 byte from memory at the given addr
     pub(crate) fn load_u8(&mut self, addr: usize) -> u8 {
+        #[cfg(feature = "mem_trace_io")]
         self.mem_recorder.load_u8(addr as u64);
         self.memory.read_u8(addr as u64)
     }
 
     /// Write 8 butes to memory at the given addr
     pub(crate) fn store_u64(&mut self, addr: usize, value: u64) {
+        #[cfg(feature = "mem_trace_io")]
         self.mem_recorder.store_u64(addr as u64, value);
         self.memory.write_u64(addr as u64, value);
     }
 
     /// Write 4 bytes to memory at the given addr
     pub(crate) fn store_u32(&mut self, addr: usize, value: u32) {
+        #[cfg(feature = "mem_trace_io")]
         self.mem_recorder.store_u32(addr as u64, value);
         self.memory.write_u32(addr as u64, value);
     }
 
     /// Write 2 bytes to memory at the given addr
     pub(crate) fn store_u16(&mut self, addr: usize, value: u16) {
+        #[cfg(feature = "mem_trace_io")]
         self.mem_recorder.store_u16(addr as u64, value);
         self.memory.write_u16(addr as u64, value);
     }
 
     /// Write 1 byte to memory at the given addr
     pub(crate) fn store_u8(&mut self, addr: usize, value: u8) {
+        #[cfg(feature = "mem_trace_io")]
         self.mem_recorder.store_u8(addr as u64, value);
         self.memory.write_u8(addr as u64, value);
     }
