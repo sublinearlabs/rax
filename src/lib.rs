@@ -2,15 +2,17 @@ use std::fs;
 
 use crate::decode::compressed::decode_compressed;
 use crate::elf::decode_elf;
+use crate::mem_recorder::MemRecorder;
 use crate::memory::Memory;
 use crate::trace::{DefaultTracer, Tracer};
-use crate::util::{mask, mask16};
+use crate::util::mask16;
 use decode::decode;
 
 mod decode;
 mod ecall;
 mod elf;
 mod execute;
+mod mem_recorder;
 mod memory;
 pub mod trace;
 mod util;
@@ -36,6 +38,8 @@ pub struct VM<T: Tracer = DefaultTracer> {
     // std in
     pub input_stream: Vec<u8>,
     pub input_cursor: usize,
+
+    mem_recorder: MemRecorder,
 }
 
 impl<T: Tracer> Default for VM<T> {
@@ -54,6 +58,7 @@ impl<T: Tracer> Default for VM<T> {
             fcsr_reg: 0,
             input_stream: Vec::new(),
             input_cursor: 0,
+            mem_recorder: MemRecorder::new(),
         }
     }
 }
@@ -264,44 +269,52 @@ impl<T: Tracer> VM<T> {
 
     /// Load 8 bytes from memory at the given addr
     /// assumes value at memory address is the LSB
-    pub(crate) fn load_u64(&self, addr: usize) -> u64 {
+    pub(crate) fn load_u64(&mut self, addr: usize) -> u64 {
+        self.mem_recorder.load_u64(addr as u64);
         self.memory.read_u64(addr as u64)
     }
 
     /// Load 4 bytes from memory at the given addr
     /// assumes value at memory address is the LSB
-    pub(crate) fn load_u32(&self, addr: usize) -> u32 {
+    pub(crate) fn load_u32(&mut self, addr: usize) -> u32 {
+        self.mem_recorder.load_u32(addr as u64);
         self.memory.read_u32(addr as u64)
     }
 
     /// Load 2 bytes from memory at the given addr
     /// assumes value at memory address is the LSB
-    pub(crate) fn load_u16(&self, addr: usize) -> u16 {
+    pub(crate) fn load_u16(&mut self, addr: usize) -> u16 {
+        self.mem_recorder.load_u16(addr as u64);
         self.memory.read_u16(addr as u64)
     }
 
     /// Load 1 byte from memory at the given addr
-    pub(crate) fn load_u8(&self, addr: usize) -> u8 {
+    pub(crate) fn load_u8(&mut self, addr: usize) -> u8 {
+        self.mem_recorder.load_u8(addr as u64);
         self.memory.read_u8(addr as u64)
     }
 
     /// Write 8 butes to memory at the given addr
     pub(crate) fn store_u64(&mut self, addr: usize, value: u64) {
+        self.mem_recorder.store_u64(addr as u64, value);
         self.memory.write_u64(addr as u64, value);
     }
 
     /// Write 4 bytes to memory at the given addr
     pub(crate) fn store_u32(&mut self, addr: usize, value: u32) {
+        self.mem_recorder.store_u32(addr as u64, value);
         self.memory.write_u32(addr as u64, value);
     }
 
     /// Write 2 bytes to memory at the given addr
     pub(crate) fn store_u16(&mut self, addr: usize, value: u16) {
+        self.mem_recorder.store_u16(addr as u64, value);
         self.memory.write_u16(addr as u64, value);
     }
 
     /// Write 1 byte to memory at the given addr
     pub(crate) fn store_u8(&mut self, addr: usize, value: u8) {
+        self.mem_recorder.store_u8(addr as u64, value);
         self.memory.write_u8(addr as u64, value);
     }
 
