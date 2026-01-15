@@ -607,6 +607,19 @@ impl Instruction {
         }
     }
 
+    pub fn shamt(&self) -> u8 {
+        match self {
+            Instruction::Slli(sh)
+            | Instruction::Srli(sh)
+            | Instruction::Srai(sh)
+            | Instruction::Slliw(sh)
+            | Instruction::Srliw(sh)
+            | Instruction::Sraiw(sh) => sh.shamt,
+
+            _ => 0,
+        }
+    }
+
     pub fn is_integer_insn(&self) -> bool {
         match self {
             Instruction::Add(_)

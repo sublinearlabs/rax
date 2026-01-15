@@ -9,9 +9,9 @@ fn run_test_exec_block_elf(path: String) {
     let input_hex_string = fs::read_to_string("examples/exec-block.input").unwrap();
     let input_hex_string = input_hex_string.trim();
     let bytes = hex::decode(input_hex_string).unwrap();
-    
+
     vm.set_input_stream(bytes);
-    
+
     vm.run();
 
     println!("exit_code {}", vm.exit_code);

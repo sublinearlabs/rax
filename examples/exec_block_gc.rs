@@ -11,8 +11,7 @@ use std::path::Path;
 use riscv::VM;
 use riscv::trace::NoopTracer;
 
-const EXEC_BLOCK_BINARY: &str =
-    "test-bin/rust-bin/exec-block/exec-block-imac";
+const EXEC_BLOCK_BINARY: &str = "test-bin/rust-bin/exec-block/exec-block-imac";
 
 fn main() {
     println!(
