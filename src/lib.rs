@@ -12,7 +12,7 @@ mod decode;
 mod ecall;
 mod elf;
 mod execute;
-mod mem_recorder;
+pub mod mem_recorder;
 mod memory;
 pub mod trace;
 mod util;
@@ -39,7 +39,7 @@ pub struct VM<T: Tracer = DefaultTracer> {
     pub input_stream: Vec<u8>,
     pub input_cursor: usize,
 
-    mem_recorder: MemRecorder,
+    pub mem_recorder: MemRecorder,
 }
 
 impl<T: Tracer> Default for VM<T> {

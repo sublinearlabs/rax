@@ -8,4 +8,4 @@ perf.data
 perf.data.*
 driver
 report
-mem.bin
+mem*.bin

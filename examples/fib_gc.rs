@@ -9,6 +9,7 @@
 use std::path::Path;
 
 use riscv::VM;
+use riscv::mem_recorder::MemRecorder;
 use riscv::trace::NoopTracer;
 
 #[path = "perf_stat.rs"]
@@ -31,6 +32,7 @@ fn main() {
 
     // Construct a VM using the FullTracer tracer implementation (same as original main).
     let mut vm = VM::<NoopTracer>::init_from_elf(FIB_BINARY.to_string());
+    vm.mem_recorder = MemRecorder::new("mem-fib-gc.bin".to_string());
 
     println!("Running fibonacci program GC...\n");
 

@@ -9,12 +9,12 @@ enum OpKind {
     Load = 2,
 }
 
-pub(crate) struct MemRecorder {
+pub struct MemRecorder {
     out: BufWriter<File>,
 }
 
 impl MemRecorder {
-    pub(crate) fn new(path: String) -> Self {
+    pub fn new(path: String) -> Self {
         let file = File::create(path).unwrap();
         let out = BufWriter::new(file);
         Self { out }
@@ -45,37 +45,37 @@ impl MemRecorder {
         self.out.write_all(&header).unwrap();
     }
 
-    pub(crate) fn store_u8(&mut self, addr: u64, value: u8) {
+    pub fn store_u8(&mut self, addr: u64, value: u8) {
         self.write_store(addr, 1, &[value]);
     }
 
-    pub(crate) fn store_u16(&mut self, addr: u64, value: u16) {
+    pub fn store_u16(&mut self, addr: u64, value: u16) {
         let val_bytes = value.to_le_bytes();
         self.write_store(addr, val_bytes.len() as u8, &val_bytes);
     }
 
-    pub(crate) fn store_u32(&mut self, addr: u64, value: u32) {
+    pub fn store_u32(&mut self, addr: u64, value: u32) {
         let val_bytes = value.to_le_bytes();
         self.write_store(addr, val_bytes.len() as u8, &val_bytes);
     }
 
-    pub(crate) fn store_u64(&mut self, addr: u64, value: u64) {
+    pub fn store_u64(&mut self, addr: u64, value: u64) {
         let val_bytes = value.to_le_bytes();
         self.write_store(addr, val_bytes.len() as u8, &val_bytes);
     }
 
-    pub(crate) fn load_u8(&mut self, addr: u64) {
+    pub fn load_u8(&mut self, addr: u64) {
         self.write_load(addr, 1);
     }
 
-    pub(crate) fn load_u16(&mut self, addr: u64) {
+    pub fn load_u16(&mut self, addr: u64) {
         self.write_load(addr, 2);
     }
-    pub(crate) fn load_u32(&mut self, addr: u64) {
+    pub fn load_u32(&mut self, addr: u64) {
         self.write_load(addr, 4);
     }
 
-    pub(crate) fn load_u64(&mut self, addr: u64) {
+    pub fn load_u64(&mut self, addr: u64) {
         self.write_load(addr, 8);
     }
 }
