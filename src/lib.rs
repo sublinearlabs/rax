@@ -58,12 +58,18 @@ impl<T: Tracer> Default for VM<T> {
             fcsr_reg: 0,
             input_stream: Vec::new(),
             input_cursor: 0,
-            mem_recorder: MemRecorder::new(),
+            mem_recorder: MemRecorder::new("mem.bin".to_string()),
         }
     }
 }
 
 impl<T: Tracer> VM<T> {
+    pub fn new(mem_path: String) -> Self {
+        let mut default_vm = VM::default();
+        default_vm.mem_recorder = MemRecorder::new(mem_path);
+        default_vm
+    }
+
     /// Returns a VM with empty state
     pub fn init() -> Self {
         Self::default()

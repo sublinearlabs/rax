@@ -1,4 +1,7 @@
-use std::io::{self, Write};
+use std::{
+    fs::File,
+    io::{self, BufWriter, Write},
+};
 
 #[repr(u8)]
 enum OpKind {
@@ -7,13 +10,13 @@ enum OpKind {
 }
 
 pub(crate) struct MemRecorder {
-    out: io::StdoutLock<'static>,
+    out: BufWriter<File>,
 }
 
 impl MemRecorder {
-    pub(crate) fn new() -> Self {
-        let stdout = Box::leak(Box::new(io::stdout()));
-        let out = stdout.lock();
+    pub(crate) fn new(path: String) -> Self {
+        let file = File::create(path).unwrap();
+        let out = BufWriter::new(file);
         Self { out }
     }
 
@@ -28,8 +31,8 @@ impl MemRecorder {
         header[2..10].copy_from_slice(&addr.to_le_bytes());
 
         // Write the header + value bytes
-        let _ = self.out.write_all(&header);
-        let _ = self.out.write_all(&value_le);
+        self.out.write_all(&header).unwrap();
+        self.out.write_all(value_le).unwrap();
     }
 
     #[inline]
@@ -39,7 +42,7 @@ impl MemRecorder {
         header[1] = width;
         header[2..10].copy_from_slice(&addr.to_le_bytes());
 
-        let _ = self.out.write_all(&header);
+        self.out.write_all(&header).unwrap();
     }
 
     pub(crate) fn store_u8(&mut self, addr: u64, value: u8) {
