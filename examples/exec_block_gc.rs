@@ -11,6 +11,9 @@ use std::path::Path;
 use riscv::VM;
 use riscv::trace::NoopTracer;
 
+#[path = "perf_stat.rs"]
+mod perf_stat;
+
 const EXEC_BLOCK_BINARY: &str = "test-bin/rust-bin/exec-block/exec-block-imac";
 
 fn main() {
@@ -44,4 +47,6 @@ fn main() {
     vm.run_with_timing();
 
     println!("\nexit_code: {}", vm.exit_code());
+
+    perf_stat::print_perf_stat(&vm, "exec_block_gc");
 }

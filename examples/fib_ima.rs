@@ -11,6 +11,9 @@ use std::path::Path;
 use riscv::VM;
 use riscv::trace::NoopTracer;
 
+#[path = "perf_stat.rs"]
+mod perf_stat;
+
 /// Path to the prebuilt guest ELF produced by the `rust-bin/fib` crate.
 const FIB_BINARY: &str = "test-bin/rust-bin/fib/fib-ima";
 
@@ -34,4 +37,6 @@ fn main() {
     vm.run_with_timing();
 
     println!("\nexit_code: {}", vm.exit_code());
+
+    perf_stat::print_perf_stat(&vm, "fib_ima");
 }
