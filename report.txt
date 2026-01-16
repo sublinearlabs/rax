@@ -1,15 +1,15 @@
-echo_ima
-baseline time: 9.076µs    freq:  12.34 MHz
-now      time: 14.931µs   freq:   7.50 MHz
-delta    -39.2% (0.61x slower)
+echo_gc
+baseline time: 14.668µs   freq:   6.68 MHz
+now      time: 15.848µs   freq:   6.18 MHz
+delta    -7.4% (0.93x slower)
 
-fib_ima
-baseline time: 2.125s     freq:  33.89 MHz
-now      time: 2.541s     freq:  28.33 MHz
-delta    -16.4% (0.84x slower)
+fib_gc
+baseline time: 1.700s     freq:  42.36 MHz
+now      time: 2.075s     freq:  34.69 MHz
+delta    -18.1% (0.82x slower)
 
-exec_block_ima
-baseline time: 79.179s    freq:  27.35 MHz
-now      time: 86.096s    freq:  25.15 MHz
-delta    -8.0% (0.92x slower)
+exec_block_gc
+baseline time: 70.593s    freq:  31.38 MHz
+now      time: 84.924s    freq:  26.08 MHz
+delta    -16.9% (0.83x slower)
 
