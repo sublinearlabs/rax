@@ -1,9 +1,9 @@
 use std::fs;
 
-use riscv::{VM, trace::{FullTracer, NoopTracer}};
-
-
-
+use riscv::{
+    VM,
+    trace::{FullTracer, NoopTracer},
+};
 
 /// VM with no tracing (zero overhead)
 pub type FastVM = VM<NoopTracer>;

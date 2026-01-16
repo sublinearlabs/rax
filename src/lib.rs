@@ -4,13 +4,14 @@ use crate::decode::compressed::decode_compressed;
 use crate::elf::decode_elf;
 use crate::memory::Memory;
 use crate::trace::{DefaultTracer, Tracer};
-use crate::util::{mask, mask16};
+use crate::util::{is_snan_f32, is_snan_f64, is_subnormal_f32, is_subnormal_f64, mask, mask16};
 use decode::decode;
 
 mod decode;
 mod ecall;
 mod elf;
 mod execute;
+mod instr_execute;
 mod memory;
 pub mod trace;
 mod util;
@@ -561,35 +562,6 @@ impl<T: Tracer> VM<T> {
         self.fcsr_reg |= flags;
         self.tracer.record_csr_reg(self.fcsr_reg);
     }
-}
-
-fn is_snan_f32(val: f32) -> bool {
-    let bits = val.to_bits();
-    let exp = (bits >> 23) & 0xFF;
-    let frac = bits & 0x7FFFFF;
-    exp == 0xFF && frac != 0 && (frac & 0x400000) == 0
-}
-
-fn is_subnormal_f32(val: f32) -> bool {
-    let bits = val.to_bits();
-    let exp = (bits >> 23) & 0xFF;
-    let frac = bits & 0x7FFFFF;
-    exp == 0 && frac != 0
-}
-
-fn is_snan_f64(val: f64) -> bool {
-    let bits = val.to_bits();
-    let exp = (bits >> 52) & 0x7FF;
-    let frac = bits & 0xFFFFFFFFFFFFF;
-    // Signaling NaN: exponent all 1s, fraction non-zero, quiet bit (bit 51) is 0
-    exp == 0x7FF && frac != 0 && (frac & 0x8000000000000) == 0
-}
-
-fn is_subnormal_f64(val: f64) -> bool {
-    let bits = val.to_bits();
-    let exp = (bits >> 52) & 0x7FF;
-    let frac = bits & 0xFFFFFFFFFFFFF;
-    exp == 0 && frac != 0
 }
 
 #[cfg(test)]

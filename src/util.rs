@@ -62,6 +62,89 @@ pub(crate) fn map_range(src: u32, dest: u32, src_start: u8, dest_start: u8, len:
     dest | src_slice << (dest_start + 1 - len)
 }
 
+pub(crate) fn is_snan_f32(val: f32) -> bool {
+    let bits = val.to_bits();
+    let exp = (bits >> 23) & 0xFF;
+    let frac = bits & 0x7FFFFF;
+    exp == 0xFF && frac != 0 && (frac & 0x400000) == 0
+}
+
+pub(crate) fn is_subnormal_f32(val: f32) -> bool {
+    let bits = val.to_bits();
+    let exp = (bits >> 23) & 0xFF;
+    let frac = bits & 0x7FFFFF;
+    exp == 0 && frac != 0
+}
+
+pub(crate) fn is_snan_f64(val: f64) -> bool {
+    let bits = val.to_bits();
+    let exp = (bits >> 52) & 0x7FF;
+    let frac = bits & 0xFFFFFFFFFFFFF;
+    // Signaling NaN: exponent all 1s, fraction non-zero, quiet bit (bit 51) is 0
+    exp == 0x7FF && frac != 0 && (frac & 0x8000000000000) == 0
+}
+
+pub(crate) fn is_subnormal_f64(val: f64) -> bool {
+    let bits = val.to_bits();
+    let exp = (bits >> 52) & 0x7FF;
+    let frac = bits & 0xFFFFFFFFFFFFF;
+    exp == 0 && frac != 0
+}
+
+pub(crate) fn classify32(val: u32) -> u64 {
+    let sign = val >> 31;
+    let exponent = (val >> 23) & mask32(8);
+    let frac = val & mask32(23);
+
+    match (sign, exponent, frac) {
+        (1, 0xff, 0) => 1,
+        (0, 0xff, 0) => 1 << 7,
+
+        (_, 0xff, frac) => {
+            let quiet_bit = (frac >> 22) & 1;
+            if quiet_bit == 0 { 1 << 8 } else { 1 << 9 }
+        }
+
+        (1, 0, 0) => 1 << 3,
+        (0, 0, 0) => 1 << 4,
+
+        (1, 0, _) => 1 << 2,
+        (0, 0, _) => 1 << 5,
+
+        (1, _, _) => 1 << 1,
+        (0, _, _) => 1 << 6,
+
+        (_, _, _) => 0,
+    }
+}
+
+pub(crate) fn classify64(val: u64) -> u64 {
+    let sign = val >> 63;
+    let exponent = (val >> 52) & mask(11);
+    let frac = val & mask(52);
+
+    match (sign, exponent, frac) {
+        (1, 0x7ff, 0) => 1,
+        (0, 0x7ff, 0) => 1 << 7,
+
+        (_, 0x7ff, frac) => {
+            let quiet_bit = (frac >> 51) & 1;
+            if quiet_bit == 0 { 1 << 8 } else { 1 << 9 }
+        }
+
+        (1, 0, 0) => 1 << 3,
+        (0, 0, 0) => 1 << 4,
+
+        (1, 0, _) => 1 << 2,
+        (0, 0, _) => 1 << 5,
+
+        (1, _, _) => 1 << 1,
+        (0, _, _) => 1 << 6,
+
+        (_, _, _) => 0,
+    }
+}
+
 #[cfg(test)]
 mod test {
     use crate::util::{map_range, mask, sext};

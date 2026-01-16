@@ -1,11 +1,51 @@
-use std::i64;
-
 use crate::decode::Instruction;
 use crate::ecall::handle_ecall;
+use crate::instr_execute::a_instr::{
+    execute_AmoAddD, execute_AmoAddW, execute_AmoAndD, execute_AmoAndW, execute_AmoMaxD,
+    execute_AmoMaxW, execute_AmoMaxuD, execute_AmoMaxuW, execute_AmoMinD, execute_AmoMinW,
+    execute_AmoMinuD, execute_AmoMinuW, execute_AmoOrD, execute_AmoOrW, execute_AmoSwapD,
+    execute_AmoSwapW, execute_AmoXorD, execute_AmoXorW, execute_LrD, execute_LrW, execute_ScD,
+    execute_ScW,
+};
+use crate::instr_execute::csr_instr::{
+    execute_Csrrc, execute_Csrrci, execute_Csrrs, execute_Csrrsi, execute_Csrrw, execute_Csrrwi,
+};
+use crate::instr_execute::d_instr::{
+    execute_FaddD, execute_FclassD, execute_FcvtDL, execute_FcvtDLu, execute_FcvtDS,
+    execute_FcvtDW, execute_FcvtDWu, execute_FcvtLD, execute_FcvtLS, execute_FcvtLuD,
+    execute_FcvtLuS, execute_FcvtSD, execute_FcvtSL, execute_FcvtSLu, execute_FcvtWD,
+    execute_FcvtWuD, execute_FdivD, execute_FeqD, execute_Fld, execute_FleD, execute_FltD,
+    execute_Flw, execute_FmaddD, execute_FmaxD, execute_FminD, execute_FmsubD, execute_FmulD,
+    execute_FmvDX, execute_FmvXD, execute_FnmaddD, execute_FnmsubD, execute_Fsd, execute_FsgnjD,
+    execute_FsgnjnD, execute_FsgnjxD, execute_FsqrtD, execute_FsubD, execute_Fsw,
+};
+use crate::instr_execute::f_instr::{
+    execute_FaddS, execute_FclassS, execute_FcvtSW, execute_FcvtSWu, execute_FcvtWS,
+    execute_FcvtWuS, execute_FdivS, execute_FeqS, execute_FleS, execute_FltS, execute_FmaddS,
+    execute_FmaxS, execute_FminS, execute_FmsubS, execute_FmulS, execute_FmvWX, execute_FmvXW,
+    execute_FnmaddS, execute_FnmsubS, execute_FsgnjS, execute_FsgnjnS, execute_FsgnjxS,
+    execute_FsqrtS, execute_FsubS,
+};
+use crate::instr_execute::i_instr::{
+    execute_Add, execute_Addi, execute_Addiw, execute_Addw, execute_And, execute_Andi,
+    execute_Auipc, execute_Beq, execute_Bge, execute_Bgeu, execute_Blt, execute_Bltu, execute_Bne,
+    execute_Jal, execute_Jalr, execute_Lb, execute_Lbu, execute_Ld, execute_Lh, execute_Lhu,
+    execute_Lui, execute_Lw, execute_Lwu, execute_Or, execute_Ori, execute_Sb, execute_Sd,
+    execute_Sh, execute_Sll, execute_Slli, execute_Slliw, execute_Sllw, execute_Slt, execute_Slti,
+    execute_Sltiu, execute_Sltu, execute_Sra, execute_Srai, execute_Sraiw, execute_Sraw,
+    execute_Srl, execute_Srli, execute_Srliw, execute_Srlw, execute_Sub, execute_Subw, execute_Sw,
+    execute_Xor, execute_Xori,
+};
+use crate::instr_execute::m_instr::{
+    execute_Div, execute_Divu, execute_Divuw, execute_Divw, execute_Mul, execute_Mulh,
+    execute_Mulhsu, execute_Mulhu, execute_Mulw, execute_Rem, execute_Remu, execute_Remuw,
+    execute_Remw,
+};
+use crate::instr_execute::*;
 use crate::trace::{MemOp, Tracer};
 use crate::{
     VM, is_snan_f32, is_snan_f64,
-    util::{mask, mask32, sext},
+    util::{classify32, classify64, mask, mask32, sext},
 };
 
 // TODO consider cleaning up sext logic
@@ -13,1689 +53,353 @@ impl<T: Tracer> VM<T> {
     pub(crate) fn execute_instruction(&mut self, insn: Instruction, is_compressed: bool) {
         match insn {
             // Register Opcodes
-            Instruction::Add(insn) => {
-                let result = self.reg(insn.rs1).wrapping_add(self.reg(insn.rs2));
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Add(insn) => execute_Add(self, insn),
 
-            Instruction::Sub(insn) => {
-                let result = self.reg(insn.rs1).wrapping_sub(self.reg(insn.rs2));
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Sub(insn) => execute_Sub(self, insn),
 
-            Instruction::Xor(insn) => {
-                let result = self.reg(insn.rs1) ^ self.reg(insn.rs2);
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Xor(insn) => execute_Xor(self, insn),
 
-            Instruction::Or(insn) => {
-                let result = self.reg(insn.rs1) | self.reg(insn.rs2);
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Or(insn) => execute_Or(self, insn),
 
-            Instruction::And(insn) => {
-                let result = self.reg(insn.rs1) & self.reg(insn.rs2);
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::And(insn) => execute_And(self, insn),
 
-            Instruction::Sll(insn) => {
-                let result = self.reg(insn.rs1) << (self.reg(insn.rs2) & mask(6));
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Sll(insn) => execute_Sll(self, insn),
 
-            Instruction::Srl(insn) => {
-                let result = self.reg(insn.rs1) >> (self.reg(insn.rs2) & mask(6));
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Srl(insn) => execute_Srl(self, insn),
 
-            Instruction::Sra(insn) => {
-                let val = self.reg(insn.rs1) as i64;
-                let result = (val >> (self.reg(insn.rs2) & mask(6))) as u64;
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Sra(insn) => execute_Sra(self, insn),
 
-            Instruction::Slt(insn) => {
-                let result = if (self.reg(insn.rs1) as i64) < (self.reg(insn.rs2) as i64) {
-                    1
-                } else {
-                    0
-                };
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Slt(insn) => execute_Slt(self, insn),
 
-            Instruction::Sltu(insn) => {
-                let result = if self.reg(insn.rs1) < self.reg(insn.rs2) {
-                    1
-                } else {
-                    0
-                };
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Sltu(insn) => execute_Sltu(self, insn),
 
             // Immediate Opcodes
-            Instruction::Addi(insn) => {
-                let result = self.reg(insn.rs1).wrapping_add(insn.imm as u64);
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Addi(insn) => execute_Addi(self, insn),
 
-            Instruction::Xori(insn) => {
-                let result = self.reg(insn.rs1) ^ insn.imm as u64;
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Xori(insn) => execute_Xori(self, insn),
 
-            Instruction::Ori(insn) => {
-                let result = self.reg(insn.rs1) | insn.imm as u64;
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Ori(insn) => execute_Ori(self, insn),
 
-            Instruction::Andi(insn) => {
-                let result = self.reg(insn.rs1) & insn.imm as u64;
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Andi(insn) => execute_Andi(self, insn),
 
-            Instruction::Slli(insn) => {
-                let result = self.reg(insn.rs1) << insn.shamt;
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Slli(insn) => execute_Slli(self, insn),
 
-            Instruction::Srli(insn) => {
-                let result = self.reg(insn.rs1) >> insn.shamt;
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Srli(insn) => execute_Srli(self, insn),
 
-            Instruction::Srai(insn) => {
-                let shift = insn.shamt;
-                let val = self.reg(insn.rs1) as i64;
-                let result = (val >> shift) as u64;
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Srai(insn) => execute_Srai(self, insn),
 
-            Instruction::Slti(insn) => {
-                let result = if (self.reg(insn.rs1) as i64) < (insn.imm as i64) {
-                    1
-                } else {
-                    0
-                };
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Slti(insn) => execute_Slti(self, insn),
 
-            Instruction::Sltiu(insn) => {
-                let result = if self.reg(insn.rs1) < insn.imm as u64 {
-                    1
-                } else {
-                    0
-                };
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Sltiu(insn) => execute_Sltiu(self, insn),
 
             // Load Opcodes
-            Instruction::Lb(insn) => {
-                let addr = self.reg(insn.rs1).wrapping_add(insn.imm as u64);
-                let raw_value = self.load_u8(addr as usize) as u64;
-                let result = sext(raw_value, 8);
-                self.tracer.record_mem_op(MemOp::LoadByte {
-                    addr,
-                    value: raw_value as u8,
-                    signed: true,
-                });
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Lb(insn) => execute_Lb(self, insn),
 
-            Instruction::Lbu(insn) => {
-                let addr = self.reg(insn.rs1).wrapping_add(insn.imm as u64);
-                let result = self.load_u8(addr as usize) as u64;
-                self.tracer.record_mem_op(MemOp::LoadByte {
-                    addr,
-                    value: result as u8,
-                    signed: false,
-                });
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Lbu(insn) => execute_Lbu(self, insn),
 
-            Instruction::Lh(insn) => {
-                let addr = self.reg(insn.rs1).wrapping_add(insn.imm as u64);
-                let raw_value = self.load_u16(addr as usize) as u64;
-                let result = sext(raw_value, 16);
-                self.tracer.record_mem_op(MemOp::LoadHalf {
-                    addr,
-                    value: raw_value as u16,
-                    signed: true,
-                });
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Lh(insn) => execute_Lh(self, insn),
 
-            Instruction::Lhu(insn) => {
-                let addr = self.reg(insn.rs1).wrapping_add(insn.imm as u64);
-                let result = self.load_u16(addr as usize) as u64;
-                self.tracer.record_mem_op(MemOp::LoadHalf {
-                    addr,
-                    value: result as u16,
-                    signed: false,
-                });
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Lhu(insn) => execute_Lhu(self, insn),
 
-            Instruction::Lw(insn) => {
-                let addr = self.reg(insn.rs1).wrapping_add(insn.imm as u64);
-                let raw_value = self.load_u32(addr as usize) as u64;
-                let result = sext(raw_value, 32);
-                self.tracer.record_mem_op(MemOp::LoadWord {
-                    addr,
-                    value: raw_value as u32,
-                    signed: true,
-                });
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Lw(insn) => execute_Lw(self, insn),
 
-            Instruction::Lwu(insn) => {
-                let addr = self.reg(insn.rs1).wrapping_add(insn.imm as u64);
-                let result = self.load_u32(addr as usize) as u64;
-                self.tracer.record_mem_op(MemOp::LoadWord {
-                    addr,
-                    value: result as u32,
-                    signed: false,
-                });
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Lwu(insn) => execute_Lwu(self, insn),
 
-            Instruction::Ld(insn) => {
-                let addr = self.reg(insn.rs1).wrapping_add(insn.imm as u64);
-                let result = self.load_u64(addr as usize);
-                self.tracer.record_mem_op(MemOp::LoadDouble {
-                    addr,
-                    value: result,
-                });
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Ld(insn) => execute_Ld(self, insn),
 
             // Store Opcodes
-            Instruction::Sb(insn) => {
-                let addr = self.reg(insn.rs1).wrapping_add(insn.imm as u64);
-                let value = self.reg(insn.rs2);
-                self.store_u8(addr as usize, value as u8);
-                self.tracer.record_mem_op(MemOp::StoreByte {
-                    addr,
-                    value: value as u8,
-                });
-            }
+            Instruction::Sb(insn) => execute_Sb(self, insn),
 
-            Instruction::Sh(insn) => {
-                let addr = self.reg(insn.rs1).wrapping_add(insn.imm as u64);
-                let value = self.reg(insn.rs2);
-                self.store_u16(addr as usize, value as u16);
-                self.tracer.record_mem_op(MemOp::StoreHalf {
-                    addr,
-                    value: value as u16,
-                });
-            }
+            Instruction::Sh(insn) => execute_Sh(self, insn),
 
-            Instruction::Sw(insn) => {
-                let addr = self.reg(insn.rs1).wrapping_add(insn.imm as u64);
-                let value = self.reg(insn.rs2);
-                self.store_u32(addr as usize, value as u32);
-                self.tracer.record_mem_op(MemOp::StoreWord {
-                    addr,
-                    value: value as u32,
-                });
-            }
+            Instruction::Sw(insn) => execute_Sw(self, insn),
 
-            Instruction::Sd(insn) => {
-                let addr = self.reg(insn.rs1).wrapping_add(insn.imm as u64);
-                let value = self.reg(insn.rs2);
-                self.store_u64(addr as usize, value);
-                self.tracer
-                    .record_mem_op(MemOp::StoreDouble { addr, value });
-            }
+            Instruction::Sd(insn) => execute_Sd(self, insn),
 
             // Branch Opcodes
             Instruction::Beq(insn) => {
-                if self.reg(insn.rs1) == self.reg(insn.rs2) {
-                    self.pc = self.pc.wrapping_add(insn.imm as u64);
+                if execute_Beq(self, insn) {
                     return;
+                } else {
                 }
             }
 
             Instruction::Bne(insn) => {
-                if self.reg(insn.rs1) != self.reg(insn.rs2) {
-                    self.pc = self.pc.wrapping_add(insn.imm as u64);
+                if execute_Bne(self, insn) {
                     return;
+                } else {
                 }
             }
 
             Instruction::Blt(insn) => {
-                if (self.reg(insn.rs1) as i64) < (self.reg(insn.rs2) as i64) {
-                    self.pc = self.pc.wrapping_add(insn.imm as u64);
+                if execute_Blt(self, insn) {
                     return;
+                } else {
                 }
             }
 
             Instruction::Bltu(insn) => {
-                if self.reg(insn.rs1) < self.reg(insn.rs2) {
-                    self.pc = self.pc.wrapping_add(insn.imm as u64);
+                if execute_Bltu(self, insn) {
                     return;
+                } else {
                 }
             }
 
             Instruction::Bge(insn) => {
-                if (self.reg(insn.rs1) as i64) >= (self.reg(insn.rs2) as i64) {
-                    self.pc = self.pc.wrapping_add(insn.imm as u64);
+                if execute_Bge(self, insn) {
                     return;
+                } else {
                 }
             }
 
             Instruction::Bgeu(insn) => {
-                if self.reg(insn.rs1) >= self.reg(insn.rs2) {
-                    self.pc = self.pc.wrapping_add(insn.imm as u64);
+                if execute_Bgeu(self, insn) {
                     return;
-                };
+                } else {
+                }
             }
 
             // Jump opcodes
-            Instruction::Jal(insn) => {
-                let result = self.pc.wrapping_add(4);
-                self.reg_mut(insn.rd, result);
-                self.pc = self.pc.wrapping_add(insn.imm as u64);
-                return;
-            }
+            Instruction::Jal(insn) => return execute_Jal(self, insn),
 
-            Instruction::Jalr(insn) => {
-                let target = self.reg(insn.rs1).wrapping_add(insn.imm as u64);
-                let result = self.pc.wrapping_add(if is_compressed { 2 } else { 4 });
-                self.reg_mut(insn.rd, result);
-                self.pc = target;
-                return;
-            }
+            Instruction::Jalr(insn) => return execute_Jalr(self, insn, is_compressed),
 
             // Lui and Auipc
-            Instruction::Lui(insn) => {
-                self.reg_mut(insn.rd, insn.imm as u64);
-            }
+            Instruction::Lui(insn) => execute_Lui(self, insn),
 
-            Instruction::Auipc(insn) => {
-                let result = self.pc.wrapping_add(insn.imm as u64);
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Auipc(insn) => execute_Auipc(self, insn),
 
             // RV64I Instructions
-            Instruction::Addiw(insn) => {
-                let res = self.reg(insn.rs1).wrapping_add(insn.imm as u64) & mask(32);
-                let result = sext(res, 32);
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Addiw(insn) => execute_Addiw(self, insn),
 
-            Instruction::Slliw(insn) => {
-                let val = self.reg(insn.rs1) << insn.shamt;
-                let result = sext(val & mask(32), 32);
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Slliw(insn) => execute_Slliw(self, insn),
 
-            Instruction::Srliw(insn) => {
-                let result = sext((self.reg(insn.rs1) & mask(32)) >> insn.shamt, 32);
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Srliw(insn) => execute_Srliw(self, insn),
 
-            Instruction::Sraiw(insn) => {
-                let shift = insn.shamt;
-                let a = (self.reg(insn.rs1) & mask(32)) as i32;
-                let result = (a >> shift) as i64 as u64;
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Sraiw(insn) => execute_Sraiw(self, insn),
 
-            Instruction::Addw(insn) => {
-                let result = sext(
-                    self.reg(insn.rs1).wrapping_add(self.reg(insn.rs2)) & mask(32),
-                    32,
-                );
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Addw(insn) => execute_Addw(self, insn),
 
-            Instruction::Subw(insn) => {
-                let a = self.reg(insn.rs1) as i32;
-                let b = self.reg(insn.rs2) as i32;
-                let result = a.wrapping_sub(b) as i64 as u64;
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Subw(insn) => execute_Subw(self, insn),
 
-            Instruction::Sllw(insn) => {
-                let a = self.reg(insn.rs1);
-                let shift = self.reg(insn.rs2) & mask(5);
-                let result = sext((a << shift) & mask(32), 32);
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Sllw(insn) => execute_Sllw(self, insn),
 
-            Instruction::Srlw(insn) => {
-                let a = self.reg(insn.rs1) & mask(32);
-                let shift = self.reg(insn.rs2) & mask(5);
-                let result = sext(a >> shift, 32);
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Srlw(insn) => execute_Srlw(self, insn),
 
-            Instruction::Sraw(insn) => {
-                let a = (self.reg(insn.rs1) & mask(32)) as i32;
-                let shift = self.reg(insn.rs2) & mask(5);
-                let result = (a >> shift) as i64 as u64;
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Sraw(insn) => execute_Sraw(self, insn),
 
             // M Extension - Multiplication
-            Instruction::Mul(insn) => {
-                let a = self.reg(insn.rs1) as i64;
-                let b = self.reg(insn.rs2) as i64;
-                let full = (a as i128).wrapping_mul(b as i128);
-                let result = a.wrapping_mul(b) as u64;
-                self.tracer.record_mul(result, (full >> 64) as u64);
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Mul(insn) => execute_Mul(self, insn),
 
-            Instruction::Mulh(insn) => {
-                let a = (self.reg(insn.rs1) as i64) as i128;
-                let b = (self.reg(insn.rs2) as i64) as i128;
-                let full = a.wrapping_mul(b);
-                let lo = full as u64;
-                let hi = (full >> 64) as u64;
-                self.tracer.record_mul(lo, hi);
-                self.reg_mut(insn.rd, hi);
-            }
+            Instruction::Mulh(insn) => execute_Mulh(self, insn),
 
-            Instruction::Mulhsu(insn) => {
-                let a = (self.reg(insn.rs1) as i64) as i128;
-                let b = (self.reg(insn.rs2) as u128) as i128;
-                let full = a.wrapping_mul(b);
-                let lo = full as u64;
-                let hi = (full >> 64) as u64;
-                self.tracer.record_mul(lo, hi);
-                self.reg_mut(insn.rd, hi);
-            }
+            Instruction::Mulhsu(insn) => execute_Mulhsu(self, insn),
 
-            Instruction::Mulhu(insn) => {
-                let a = self.reg(insn.rs1) as u128;
-                let b = self.reg(insn.rs2) as u128;
-                let full = a.wrapping_mul(b);
-                let lo = full as u64;
-                let hi = (full >> 64) as u64;
-                self.tracer.record_mul(lo, hi);
-                self.reg_mut(insn.rd, hi);
-            }
+            Instruction::Mulhu(insn) => execute_Mulhu(self, insn),
 
-            Instruction::Mulw(insn) => {
-                let a = self.reg(insn.rs1);
-                let b = self.reg(insn.rs2);
-                let product = a.wrapping_mul(b);
-                let result = (((product & mask(32)) as i32) as i64) as u64;
-                self.tracer.record_mul(product & mask(32), 0);
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Mulw(insn) => execute_Mulw(self, insn),
 
             // M Extension - Division
-            Instruction::Div(insn) => {
-                let dividend = self.reg(insn.rs1) as i64;
-                let divisor = self.reg(insn.rs2) as i64;
-                let result = if divisor == 0 {
-                    u64::MAX
-                } else if dividend == i64::MIN && divisor == -1 {
-                    dividend as u64
-                } else {
-                    dividend.wrapping_div(divisor) as u64
-                };
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Div(insn) => execute_Div(self, insn),
 
-            Instruction::Divu(insn) => {
-                let dividend = self.reg(insn.rs1);
-                let divisor = self.reg(insn.rs2);
-                let result = if divisor == 0 {
-                    u64::MAX
-                } else {
-                    dividend.wrapping_div(divisor)
-                };
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Divu(insn) => execute_Divu(self, insn),
 
-            Instruction::Rem(insn) => {
-                let dividend = self.reg(insn.rs1) as i64;
-                let divisor = self.reg(insn.rs2) as i64;
-                let result = if divisor == 0 {
-                    dividend as u64
-                } else if dividend == i64::MIN && divisor == -1 {
-                    0
-                } else {
-                    dividend.wrapping_rem(divisor) as u64
-                };
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Rem(insn) => execute_Rem(self, insn),
 
-            Instruction::Remu(insn) => {
-                let dividend = self.reg(insn.rs1);
-                let divisor = self.reg(insn.rs2);
-                let result = if divisor == 0 {
-                    dividend
-                } else {
-                    dividend.wrapping_rem(divisor)
-                };
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Remu(insn) => execute_Remu(self, insn),
 
-            Instruction::Divw(insn) => {
-                let dividend = (self.reg(insn.rs1) & mask(32)) as i32;
-                let divisor = (self.reg(insn.rs2) & mask(32)) as i32;
-                let result = if divisor == 0 {
-                    u64::MAX
-                } else if dividend == i32::MIN && divisor == -1 {
-                    (dividend as i64) as u64
-                } else {
-                    (dividend.wrapping_div(divisor) as i64) as u64
-                };
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Divw(insn) => execute_Divw(self, insn),
 
-            Instruction::Divuw(insn) => {
-                let dividend = (self.reg(insn.rs1) & mask(32)) as u32;
-                let divisor = (self.reg(insn.rs2) & mask(32)) as u32;
-                let result = if divisor == 0 {
-                    u64::MAX
-                } else {
-                    sext(dividend.wrapping_div(divisor) as u64, 32)
-                };
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Divuw(insn) => execute_Divuw(self, insn),
 
-            Instruction::Remw(insn) => {
-                let dividend = (self.reg(insn.rs1) & mask(32)) as i32;
-                let divisor = (self.reg(insn.rs2) & mask(32)) as i32;
-                let result = if divisor == 0 {
-                    (dividend as i64) as u64
-                } else if dividend == i32::MIN && divisor == -1 {
-                    0
-                } else {
-                    (dividend.wrapping_rem(divisor) as i64) as u64
-                };
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Remw(insn) => execute_Remw(self, insn),
 
-            Instruction::Remuw(insn) => {
-                let dividend = (self.reg(insn.rs1) & mask(32)) as u32;
-                let divisor = (self.reg(insn.rs2) & mask(32)) as u32;
-                let result = if divisor == 0 {
-                    sext(dividend as u64, 32)
-                } else {
-                    sext(dividend.wrapping_rem(divisor) as u64, 32)
-                };
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::Remuw(insn) => execute_Remuw(self, insn),
 
             // A Extension - Load Reserved / Store Conditional
-            Instruction::LrW(insn) => {
-                let addr = self.reg(insn.rs1);
-                let value = self.load_u32(addr as usize) as u64;
-                let result = sext(value, 32);
-                self.reservation_set = addr;
-                self.tracer.record_reservation(addr);
-                self.tracer.record_mem_op(MemOp::LoadReservedWord {
-                    addr,
-                    value: value as u32,
-                });
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::LrW(insn) => execute_LrW(self, insn),
 
-            Instruction::LrD(insn) => {
-                let addr = self.reg(insn.rs1);
-                let value = self.load_u64(addr as usize);
-                self.reservation_set = addr;
-                self.tracer.record_reservation(addr);
-                self.tracer
-                    .record_mem_op(MemOp::LoadReservedDouble { addr, value });
-                self.reg_mut(insn.rd, value);
-            }
+            Instruction::LrD(insn) => execute_LrD(self, insn),
 
-            Instruction::ScW(insn) => {
-                let addr = self.reg(insn.rs1);
-                let value = self.reg(insn.rs2) & mask(32);
-                let success = addr == self.reservation_set;
-                if success {
-                    self.store_u32(addr as usize, value as u32);
-                }
-                let result = if success { 0 } else { 1 };
-                self.reservation_set = 0;
-                self.tracer.record_mem_op(MemOp::StoreConditionalWord {
-                    addr,
-                    value: value as u32,
-                    success,
-                });
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::ScW(insn) => execute_ScW(self, insn),
 
-            Instruction::ScD(insn) => {
-                let addr = self.reg(insn.rs1);
-                let value = self.reg(insn.rs2);
-                let success = addr == self.reservation_set;
-                if success {
-                    self.store_u64(addr as usize, value);
-                }
-                let result = if success { 0 } else { 1 };
-                self.reservation_set = 0;
-                self.tracer.record_mem_op(MemOp::StoreConditionalDouble {
-                    addr,
-                    value,
-                    success,
-                });
-                self.reg_mut(insn.rd, result);
-            }
+            Instruction::ScD(insn) => execute_ScD(self, insn),
 
             // A Extension - Atomic Memory Operations (Word)
-            Instruction::AmoSwapW(insn) => {
-                let addr = self.reg(insn.rs1);
-                let read_value = self.load_u32(addr as usize) as u64;
-                let write_value = self.reg(insn.rs2) & mask(32);
-                self.store_u32(addr as usize, write_value as u32);
-                self.tracer.record_mem_op(MemOp::AtomicWord {
-                    addr,
-                    read_value: read_value as u32,
-                    write_value: write_value as u32,
-                });
-                self.reg_mut(insn.rd, sext(read_value, 32));
-            }
+            Instruction::AmoSwapW(insn) => execute_AmoSwapW(self, insn),
 
-            Instruction::AmoAddW(insn) => {
-                let addr = self.reg(insn.rs1);
-                let read_value = self.load_u32(addr as usize) as i32;
-                let rs2_val = (self.reg(insn.rs2) & mask(32)) as i32;
-                let write_value = (read_value.wrapping_add(rs2_val) as i64) as u64 & mask(32);
-                self.store_u32(addr as usize, write_value as u32);
-                self.tracer.record_mem_op(MemOp::AtomicWord {
-                    addr,
-                    read_value: read_value as u32,
-                    write_value: write_value as u32,
-                });
-                self.reg_mut(insn.rd, (read_value as i64) as u64);
-            }
+            Instruction::AmoAddW(insn) => execute_AmoAddW(self, insn),
 
-            Instruction::AmoXorW(insn) => {
-                let addr = self.reg(insn.rs1);
-                let read_value = self.load_u32(addr as usize) as i32;
-                let rs2_val = (self.reg(insn.rs2) & mask(32)) as i32;
-                let write_value = ((read_value ^ rs2_val) as i64) as u64 & mask(32);
-                self.store_u32(addr as usize, write_value as u32);
-                self.tracer.record_mem_op(MemOp::AtomicWord {
-                    addr,
-                    read_value: read_value as u32,
-                    write_value: write_value as u32,
-                });
-                self.reg_mut(insn.rd, (read_value as i64) as u64);
-            }
+            Instruction::AmoXorW(insn) => execute_AmoXorW(self, insn),
 
-            Instruction::AmoAndW(insn) => {
-                let addr = self.reg(insn.rs1);
-                let read_value = self.load_u32(addr as usize) as i32;
-                let rs2_val = (self.reg(insn.rs2) & mask(32)) as i32;
-                let write_value = ((read_value & rs2_val) as i64) as u64 & mask(32);
-                self.store_u32(addr as usize, write_value as u32);
-                self.tracer.record_mem_op(MemOp::AtomicWord {
-                    addr,
-                    read_value: read_value as u32,
-                    write_value: write_value as u32,
-                });
-                self.reg_mut(insn.rd, (read_value as i64) as u64);
-            }
+            Instruction::AmoAndW(insn) => execute_AmoAndW(self, insn),
 
-            Instruction::AmoOrW(insn) => {
-                let addr = self.reg(insn.rs1);
-                let read_value = self.load_u32(addr as usize) as i32;
-                let rs2_val = (self.reg(insn.rs2) & mask(32)) as i32;
-                let write_value = ((read_value | rs2_val) as i64) as u64 & mask(32);
-                self.store_u32(addr as usize, write_value as u32);
-                self.tracer.record_mem_op(MemOp::AtomicWord {
-                    addr,
-                    read_value: read_value as u32,
-                    write_value: write_value as u32,
-                });
-                self.reg_mut(insn.rd, (read_value as i64) as u64);
-            }
+            Instruction::AmoOrW(insn) => execute_AmoOrW(self, insn),
 
-            Instruction::AmoMinW(insn) => {
-                let addr = self.reg(insn.rs1);
-                let read_value = self.load_u32(addr as usize) as i32;
-                let rs2_val = (self.reg(insn.rs2) & mask(32)) as i32;
-                let write_value = (read_value.min(rs2_val) as i64) as u64 & mask(32);
-                self.store_u32(addr as usize, write_value as u32);
-                self.tracer.record_mem_op(MemOp::AtomicWord {
-                    addr,
-                    read_value: read_value as u32,
-                    write_value: write_value as u32,
-                });
-                self.reg_mut(insn.rd, (read_value as i64) as u64);
-            }
+            Instruction::AmoMinW(insn) => execute_AmoMinW(self, insn),
 
-            Instruction::AmoMaxW(insn) => {
-                let addr = self.reg(insn.rs1);
-                let read_value = self.load_u32(addr as usize) as i32;
-                let rs2_val = (self.reg(insn.rs2) & mask(32)) as i32;
-                let write_value = (read_value.max(rs2_val) as i64) as u64 & mask(32);
-                self.store_u32(addr as usize, write_value as u32);
-                self.tracer.record_mem_op(MemOp::AtomicWord {
-                    addr,
-                    read_value: read_value as u32,
-                    write_value: write_value as u32,
-                });
-                self.reg_mut(insn.rd, (read_value as i64) as u64);
-            }
+            Instruction::AmoMaxW(insn) => execute_AmoMaxW(self, insn),
 
-            Instruction::AmoMinuW(insn) => {
-                let addr = self.reg(insn.rs1);
-                let read_value = self.load_u32(addr as usize) as u64;
-                let rs2_val = self.reg(insn.rs2) & mask(32);
-                let write_value = read_value.min(rs2_val);
-                self.store_u32(addr as usize, write_value as u32);
-                self.tracer.record_mem_op(MemOp::AtomicWord {
-                    addr,
-                    read_value: read_value as u32,
-                    write_value: write_value as u32,
-                });
-                self.reg_mut(insn.rd, sext(read_value, 32));
-            }
+            Instruction::AmoMinuW(insn) => execute_AmoMinuW(self, insn),
 
-            Instruction::AmoMaxuW(insn) => {
-                let addr = self.reg(insn.rs1);
-                let read_value = self.load_u32(addr as usize) as u64;
-                let rs2_val = self.reg(insn.rs2) & mask(32);
-                let write_value = read_value.max(rs2_val);
-                self.store_u32(addr as usize, write_value as u32);
-                self.tracer.record_mem_op(MemOp::AtomicWord {
-                    addr,
-                    read_value: read_value as u32,
-                    write_value: write_value as u32,
-                });
-                self.reg_mut(insn.rd, sext(read_value, 32));
-            }
+            Instruction::AmoMaxuW(insn) => execute_AmoMaxuW(self, insn),
 
             // A Extension - Atomic Memory Operations (Double)
-            Instruction::AmoSwapD(insn) => {
-                let addr = self.reg(insn.rs1);
-                let read_value = self.load_u64(addr as usize);
-                let write_value = self.reg(insn.rs2);
-                self.store_u64(addr as usize, write_value);
-                self.tracer.record_mem_op(MemOp::AtomicDouble {
-                    addr,
-                    read_value,
-                    write_value,
-                });
-                self.reg_mut(insn.rd, read_value);
-            }
+            Instruction::AmoSwapD(insn) => execute_AmoSwapD(self, insn),
 
-            Instruction::AmoAddD(insn) => {
-                let addr = self.reg(insn.rs1);
-                let read_value = self.load_u64(addr as usize);
-                let rs2_val = self.reg(insn.rs2);
-                let write_value = read_value.wrapping_add(rs2_val);
-                self.store_u64(addr as usize, write_value);
-                self.tracer.record_mem_op(MemOp::AtomicDouble {
-                    addr,
-                    read_value,
-                    write_value,
-                });
-                self.reg_mut(insn.rd, read_value);
-            }
+            Instruction::AmoAddD(insn) => execute_AmoAddD(self, insn),
 
-            Instruction::AmoXorD(insn) => {
-                let addr = self.reg(insn.rs1);
-                let read_value = self.load_u64(addr as usize);
-                let rs2_val = self.reg(insn.rs2);
-                let write_value = read_value ^ rs2_val;
-                self.store_u64(addr as usize, write_value);
-                self.tracer.record_mem_op(MemOp::AtomicDouble {
-                    addr,
-                    read_value,
-                    write_value,
-                });
-                self.reg_mut(insn.rd, read_value);
-            }
+            Instruction::AmoXorD(insn) => execute_AmoXorD(self, insn),
 
-            Instruction::AmoAndD(insn) => {
-                let addr = self.reg(insn.rs1);
-                let read_value = self.load_u64(addr as usize);
-                let rs2_val = self.reg(insn.rs2);
-                let write_value = read_value & rs2_val;
-                self.store_u64(addr as usize, write_value);
-                self.tracer.record_mem_op(MemOp::AtomicDouble {
-                    addr,
-                    read_value,
-                    write_value,
-                });
-                self.reg_mut(insn.rd, read_value);
-            }
+            Instruction::AmoAndD(insn) => execute_AmoAndD(self, insn),
 
-            Instruction::AmoOrD(insn) => {
-                let addr = self.reg(insn.rs1);
-                let read_value = self.load_u64(addr as usize);
-                let rs2_val = self.reg(insn.rs2);
-                let write_value = read_value | rs2_val;
-                self.store_u64(addr as usize, write_value);
-                self.tracer.record_mem_op(MemOp::AtomicDouble {
-                    addr,
-                    read_value,
-                    write_value,
-                });
-                self.reg_mut(insn.rd, read_value);
-            }
+            Instruction::AmoOrD(insn) => execute_AmoOrD(self, insn),
 
-            Instruction::AmoMinD(insn) => {
-                let addr = self.reg(insn.rs1);
-                let read_value = self.load_u64(addr as usize);
-                let rs2_val = self.reg(insn.rs2) as i64;
-                let write_value = (read_value as i64).min(rs2_val) as u64;
-                self.store_u64(addr as usize, write_value);
-                self.tracer.record_mem_op(MemOp::AtomicDouble {
-                    addr,
-                    read_value,
-                    write_value,
-                });
-                self.reg_mut(insn.rd, read_value);
-            }
+            Instruction::AmoMinD(insn) => execute_AmoMinD(self, insn),
 
-            Instruction::AmoMaxD(insn) => {
-                let addr = self.reg(insn.rs1);
-                let read_value = self.load_u64(addr as usize);
-                let rs2_val = self.reg(insn.rs2) as i64;
-                let write_value = (read_value as i64).max(rs2_val) as u64;
-                self.store_u64(addr as usize, write_value);
-                self.tracer.record_mem_op(MemOp::AtomicDouble {
-                    addr,
-                    read_value,
-                    write_value,
-                });
-                self.reg_mut(insn.rd, read_value);
-            }
+            Instruction::AmoMaxD(insn) => execute_AmoMaxD(self, insn),
 
-            Instruction::AmoMinuD(insn) => {
-                let addr = self.reg(insn.rs1);
-                let read_value = self.load_u64(addr as usize);
-                let rs2_val = self.reg(insn.rs2);
-                let write_value = read_value.min(rs2_val);
-                self.store_u64(addr as usize, write_value);
-                self.tracer.record_mem_op(MemOp::AtomicDouble {
-                    addr,
-                    read_value,
-                    write_value,
-                });
-                self.reg_mut(insn.rd, read_value);
-            }
+            Instruction::AmoMinuD(insn) => execute_AmoMinuD(self, insn),
 
-            Instruction::AmoMaxuD(insn) => {
-                let addr = self.reg(insn.rs1);
-                let read_value = self.load_u64(addr as usize);
-                let rs2_val = self.reg(insn.rs2);
-                let write_value = read_value.max(rs2_val);
-                self.store_u64(addr as usize, write_value);
-                self.tracer.record_mem_op(MemOp::AtomicDouble {
-                    addr,
-                    read_value,
-                    write_value,
-                });
-                self.reg_mut(insn.rd, read_value);
-            }
+            Instruction::AmoMaxuD(insn) => execute_AmoMaxuD(self, insn),
 
             // F instructions
-            Instruction::FmaddS(insn) => {
-                let a = self.read_f32(insn.rs1);
-                let b = self.read_f32(insn.rs2);
-                let c = self.read_f32(insn.rs3);
-                let mut res = a.mul_add(b, c);
-
-                // Canonicalize NaN
-                if res.is_nan() && !a.is_nan() && !b.is_nan() && !c.is_nan() {
-                    res = f32::from_bits(0x7FC00000);
-                }
-
-                self.write_f32(insn.rd, res);
-                self.raise_fflags_fma_f32(a, b, c, res);
-            }
-
-            Instruction::FmsubS(insn) => {
-                let a = self.read_f32(insn.rs1);
-                let b = self.read_f32(insn.rs2);
-                let c = self.read_f32(insn.rs3);
-                let res = a.mul_add(b, -c);
-                self.write_f32(insn.rd, res);
-                self.raise_fflags_fma_f32(a, b, -c, res);
-            }
-
-            Instruction::FnmsubS(insn) => {
-                let a = self.read_f32(insn.rs1);
-                let b = self.read_f32(insn.rs2);
-                let c = self.read_f32(insn.rs3);
-                let res = (-a).mul_add(b, c);
-                self.write_f32(insn.rd, res);
-                self.raise_fflags_fma_f32(-a, b, c, res);
-            }
-
-            Instruction::FnmaddS(insn) => {
-                let a = self.read_f32(insn.rs1);
-                let b = self.read_f32(insn.rs2);
-                let c = self.read_f32(insn.rs3);
-                let res = (-a).mul_add(b, -c);
-                self.write_f32(insn.rd, res);
-                self.raise_fflags_fma_f32(-a, b, -c, res);
-            }
-
-            Instruction::FaddS(insn) => {
-                let a = self.read_f32(insn.rs1);
-                let b = self.read_f32(insn.rs2);
-                let mut res = a + b;
-
-                // Canonicalize NaN
-                if res.is_nan() && !a.is_nan() && !b.is_nan() {
-                    res = f32::from_bits(0x7FC00000);
-                }
-
-                self.write_f32(insn.rd, res);
-                self.raise_fflags_f32(a, b, res, '+');
-            }
-
-            Instruction::FsubS(insn) => {
-                let a = self.read_f32(insn.rs1);
-                let b = self.read_f32(insn.rs2);
-                let mut res = a - b;
-
-                // Canonicalize NaN: RISC-V requires positive quiet NaN
-                if res.is_nan() && !a.is_nan() && !b.is_nan() {
-                    res = f32::from_bits(0x7FC00000); // Canonical positive qNaN
-                }
-
-                self.write_f32(insn.rd, res);
-                self.raise_fflags_f32(a, b, res, '-');
-            }
-
-            Instruction::FmulS(insn) => {
-                let a = self.read_f32(insn.rs1);
-                let b = self.read_f32(insn.rs2);
-                let mut res = a * b;
-
-                // Canonicalize NaN
-                if res.is_nan() && !a.is_nan() && !b.is_nan() {
-                    res = f32::from_bits(0x7FC00000);
-                }
-
-                self.write_f32(insn.rd, res);
-                self.raise_fflags_f32(a, b, res, '*');
-            }
-
-            Instruction::FdivS(insn) => {
-                let a = self.read_f32(insn.rs1);
-                let b = self.read_f32(insn.rs2);
-                let mut res = a / b;
-
-                // Canonicalize NaN
-                if res.is_nan() && !a.is_nan() && !b.is_nan() {
-                    res = f32::from_bits(0x7FC00000);
-                }
-
-                self.write_f32(insn.rd, res);
-                self.raise_fflags_f32(a, b, res, '/');
-            }
-
-            Instruction::FsqrtS(insn) => {
-                let a = self.read_f32(insn.rs1);
-
-                if is_snan_f32(a) || (a < 0.0 && !a.is_nan()) {
-                    self.fcsr_reg |= 0b10000;
-                }
-
-                let mut res = a.sqrt();
-
-                // Canonicalize NaN for sqrt of negative
-                if res.is_nan() && !a.is_nan() {
-                    res = f32::from_bits(0x7FC00000);
-                }
-
-                if !res.is_nan() && a >= 0.0 {
-                    let exact = (a as f64).sqrt();
-                    if exact != (res as f64) {
-                        self.fcsr_reg |= 0b00001;
-                        self.tracer.record_csr_reg(self.fcsr_reg);
-                    }
-                }
-
-                self.write_f32(insn.rd, res);
-            }
-
-            Instruction::FsgnjS(insn) => {
-                let rs1_bits = (self.f_reg[insn.rs1 as usize] & 0xFFFFFFFF) as u32;
-                let rs2_bits = (self.f_reg[insn.rs2 as usize] & 0xFFFFFFFF) as u32;
-                let sign = rs2_bits & (1 << 31);
-                let val = rs1_bits & mask32(31);
-                let result = sign | val;
-                let res = 0xFFFF_FFFF_0000_0000 | (result as u64);
-                self.f_reg[insn.rd as usize] = res;
-                self.tracer.record_rd(insn.rd, res);
-            }
-
-            Instruction::FsgnjnS(insn) => {
-                let rs1_bits = (self.f_reg[insn.rs1 as usize] & 0xFFFFFFFF) as u32;
-                let rs2_bits = (self.f_reg[insn.rs2 as usize] & 0xFFFFFFFF) as u32;
-                let sign = (rs2_bits ^ (1 << 31)) & (1 << 31);
-                let val = rs1_bits & mask32(31);
-                let result = sign | val;
-                let res = 0xFFFF_FFFF_0000_0000 | (result as u64);
-                self.f_reg[insn.rd as usize] = res;
-                self.tracer.record_rd(insn.rd, res);
-            }
-
-            Instruction::FsgnjxS(insn) => {
-                let rs1_bits = (self.f_reg[insn.rs1 as usize] & 0xFFFFFFFF) as u32;
-                let rs2_bits = (self.f_reg[insn.rs2 as usize] & 0xFFFFFFFF) as u32;
-                let sign = (rs1_bits & (1 << 31)) ^ (rs2_bits & (1 << 31));
-                let val = rs1_bits & mask32(31);
-                let result = sign | val;
-                let res = 0xFFFF_FFFF_0000_0000 | (result as u64);
-                self.f_reg[insn.rd as usize] = res;
-                self.tracer.record_rd(insn.rd, res);
-            }
-
-            Instruction::FminS(insn) => {
-                let a = self.read_f32(insn.rs1);
-                let b = self.read_f32(insn.rs2);
-
-                // Set NV flag for signaling NaN
-                if is_snan_f32(a) || is_snan_f32(b) {
-                    self.fcsr_reg |= 0b10000;
-                    self.tracer.record_csr_reg(self.fcsr_reg);
-                }
-
-                let res = if a.is_nan() && b.is_nan() {
-                    f32::from_bits(0x7FC00000) // Canonical NaN
-                } else if a.is_nan() {
-                    b
-                } else if b.is_nan() {
-                    a
-                } else if a == 0.0 && b == 0.0 {
-                    // -0.0 is less than +0.0
-                    if a.to_bits() & 0x80000000 != 0 { a } else { b }
-                } else {
-                    a.min(b)
-                };
-                self.write_f32(insn.rd, res);
-            }
-
-            Instruction::FmaxS(insn) => {
-                let a = self.read_f32(insn.rs1);
-                let b = self.read_f32(insn.rs2);
-
-                // Set NV flag for signaling NaN
-                if is_snan_f32(a) || is_snan_f32(b) {
-                    self.fcsr_reg |= 0b10000;
-                    self.tracer.record_csr_reg(self.fcsr_reg);
-                }
-
-                let res = if a.is_nan() && b.is_nan() {
-                    f32::from_bits(0x7FC00000) // Canonical NaN
-                } else if a.is_nan() {
-                    b
-                } else if b.is_nan() {
-                    a
-                } else if a == 0.0 && b == 0.0 {
-                    // +0.0 is greater than -0.0
-                    if a.to_bits() & 0x80000000 == 0 { a } else { b }
-                } else {
-                    a.max(b)
-                };
-                self.write_f32(insn.rd, res);
-            }
-
-            Instruction::FcvtWS(insn) => {
-                let val = self.read_f32(insn.rs1);
-
-                let (result, flags): (i32, u32) = if val.is_nan() {
-                    (i32::MAX, 0b10000)
-                } else if val >= 2147483648.0_f32 {
-                    (i32::MAX, 0b10000)
-                } else if val < -2147483648.0_f32 {
-                    (i32::MIN, 0b10000)
-                } else {
-                    let int_val = val.trunc() as i32;
-                    let inexact = if val != val.trunc() { 0b00001 } else { 0 };
-                    (int_val, inexact)
-                };
-
-                self.fcsr_reg |= flags;
-                self.reg_mut(insn.rd, result as i64 as u64);
-                self.tracer.record_csr_reg(self.fcsr_reg);
-            }
-
-            Instruction::FcvtWuS(insn) => {
-                let val = self.read_f32(insn.rs1);
-
-                let (result, flags): (u32, u32) = if val.is_nan() {
-                    (u32::MAX, 0b10000) // NV
-                } else if val <= -1.0 {
-                    // -1.0 or less cannot be represented as unsigned - invalid
-                    (0_u32, 0b10000) // NV
-                } else if val < 0.0 {
-                    // Between -1.0 (exclusive) and 0.0 - truncates to 0, inexact
-                    (0_u32, 0b00001) // NX only
-                } else if val >= 4294967296.0_f32 {
-                    (u32::MAX, 0b10000) // NV
-                } else {
-                    let truncated = val.trunc();
-                    let int_val = truncated as u32;
-                    let inexact = if val != truncated { 0b00001 } else { 0 };
-                    (int_val, inexact)
-                };
-
-                self.fcsr_reg |= flags;
-                self.reg_mut(insn.rd, result as i32 as i64 as u64);
-                self.tracer.record_csr_reg(self.fcsr_reg);
-            }
-
-            Instruction::FmvXW(insn) => {
-                let raw_bits = (self.f_reg[insn.rs1 as usize] & 0xFFFFFFFF) as u32;
-                let result = sext(raw_bits as u64, 32);
-
-                self.reg_mut(insn.rd, result);
-            }
-
-            Instruction::FeqS(insn) => {
-                let a = self.read_f32(insn.rs1);
-                let b = self.read_f32(insn.rs2);
-
-                // FeqS only sets NV for signaling NaN
-                if is_snan_f32(a) || is_snan_f32(b) {
-                    self.fcsr_reg |= 0b10000;
-                    self.tracer.record_csr_reg(self.fcsr_reg);
-                }
-
-                let res = if a.is_nan() || b.is_nan() {
-                    0
-                } else {
-                    (a == b) as u64
-                };
-                self.reg_mut(insn.rd, res);
-            }
-
-            Instruction::FltS(insn) => {
-                let a = self.read_f32(insn.rs1);
-                let b = self.read_f32(insn.rs2);
-
-                // FltS sets NV for ANY NaN (not just signaling)
-                if a.is_nan() || b.is_nan() {
-                    self.fcsr_reg |= 0b10000;
-                    self.tracer.record_csr_reg(self.fcsr_reg);
-                    self.reg_mut(insn.rd, 0);
-                } else {
-                    self.reg_mut(insn.rd, (a < b) as u64);
-                }
-            }
-
-            Instruction::FleS(insn) => {
-                let a = self.read_f32(insn.rs1);
-                let b = self.read_f32(insn.rs2);
-
-                // FleS sets NV for ANY NaN (not just signaling)
-                if a.is_nan() || b.is_nan() {
-                    self.fcsr_reg |= 0b10000;
-                    self.tracer.record_csr_reg(self.fcsr_reg);
-                    self.reg_mut(insn.rd, 0);
-                } else {
-                    self.reg_mut(insn.rd, (a <= b) as u64);
-                }
-            }
-            Instruction::FclassS(insn) => {
-                let val = classify32(self.read_f32(insn.rs1).to_bits());
-                self.reg_mut(insn.rd, val);
-            }
-
-            Instruction::FcvtSW(insn) => {
-                let a = (self.reg(insn.rs1) as i32) as f32;
-                self.write_f32(insn.rd, a);
-            }
-
-            Instruction::FcvtSWu(insn) => {
-                let a = (self.reg(insn.rs1) as u32) as f32;
-                self.write_f32(insn.rd, a);
-            }
-
-            Instruction::FmvWX(insn) => {
-                let a = f32::from_bits(self.reg(insn.rs1) as u32);
-                self.write_f32(insn.rd, a);
-            }
-
-            Instruction::FmaddD(insn) => {
-                let a = self.read_f64(insn.rs1);
-                let b = self.read_f64(insn.rs2);
-                let c = self.read_f64(insn.rs3);
-                let res = a.mul_add(b, c);
-                self.write_f64(insn.rd, res);
-                self.raise_fflags_fma_f64(a, b, c, res);
-            }
-
-            Instruction::FmsubD(insn) => {
-                let a = self.read_f64(insn.rs1);
-                let b = self.read_f64(insn.rs2);
-                let c = self.read_f64(insn.rs3);
-                let res = a.mul_add(b, -c);
-                self.write_f64(insn.rd, res);
-                self.raise_fflags_fma_f64(a, b, -c, res);
-            }
-
-            Instruction::FnmsubD(insn) => {
-                let a = self.read_f64(insn.rs1);
-                let b = self.read_f64(insn.rs2);
-                let c = self.read_f64(insn.rs3);
-                let res = (-a).mul_add(b, c);
-                self.write_f64(insn.rd, res);
-                self.raise_fflags_fma_f64(-a, b, c, res);
-            }
-
-            Instruction::FnmaddD(insn) => {
-                let a = self.read_f64(insn.rs1);
-                let b = self.read_f64(insn.rs2);
-                let c = self.read_f64(insn.rs3);
-                let res = (-a).mul_add(b, -c);
-                self.write_f64(insn.rd, res);
-                self.raise_fflags_fma_f64(-a, b, -c, res);
-            }
-
-            Instruction::FaddD(insn) => {
-                let a = self.read_f64(insn.rs1);
-                let b = self.read_f64(insn.rs2);
-                let mut res = a + b;
-
-                if res.is_nan() && !a.is_nan() && !b.is_nan() {
-                    res = f64::from_bits(0x7FF8000000000000); // Canonical positive qNaN
-                }
-
-                self.write_f64(insn.rd, res);
-                self.raise_fflags_f64(a, b, res, '+');
-            }
-
-            Instruction::FsubD(insn) => {
-                let a = self.read_f64(insn.rs1);
-                let b = self.read_f64(insn.rs2);
-                let mut res = a - b;
-
-                if res.is_nan() && !a.is_nan() && !b.is_nan() {
-                    res = f64::from_bits(0x7FF8000000000000);
-                }
-
-                self.write_f64(insn.rd, res);
-                self.raise_fflags_f64(a, b, res, '-');
-            }
-
-            Instruction::FmulD(insn) => {
-                let a = self.read_f64(insn.rs1);
-                let b = self.read_f64(insn.rs2);
-                let mut res = a * b;
-
-                if res.is_nan() && !a.is_nan() && !b.is_nan() {
-                    res = f64::from_bits(0x7FF8000000000000);
-                }
-
-                self.write_f64(insn.rd, res);
-                self.raise_fflags_f64(a, b, res, '*');
-            }
-
-            Instruction::FdivD(insn) => {
-                let a = self.read_f64(insn.rs1);
-                let b = self.read_f64(insn.rs2);
-                let mut res = a / b;
-
-                if res.is_nan() && !a.is_nan() && !b.is_nan() {
-                    res = f64::from_bits(0x7FF8000000000000);
-                }
-
-                self.write_f64(insn.rd, res);
-                self.raise_fflags_f64(a, b, res, '/');
-            }
-
-            Instruction::FsqrtD(insn) => {
-                let a = self.read_f64(insn.rs1);
-
-                if is_snan_f64(a) || (a < 0.0 && !a.is_nan()) {
-                    self.fcsr_reg |= 0b10000;
-                    self.tracer.record_csr_reg(self.fcsr_reg);
-                }
-
-                let mut res = a.sqrt();
-
-                if res.is_nan() && !a.is_nan() {
-                    res = f64::from_bits(0x7FF8000000000000);
-                }
-
-                self.write_f64(insn.rd, res);
-            }
-
-            Instruction::FsgnjD(insn) => {
-                let sign = self.read_f64(insn.rs2).to_bits() & (1 << 63);
-                let val = self.read_f64(insn.rs1).to_bits() & mask(63);
-                let res = f64::from_bits(sign | val);
-                self.write_f64(insn.rd, res);
-            }
-
-            Instruction::FsgnjnD(insn) => {
-                let sign = (self.read_f64(insn.rs2).to_bits() ^ (1 << 63)) & (1 << 63);
-                let val = self.read_f64(insn.rs1).to_bits() & mask(63);
-                let res = f64::from_bits(sign | val);
-                self.write_f64(insn.rd, res);
-            }
-
-            Instruction::FsgnjxD(insn) => {
-                let sign = (self.read_f64(insn.rs1).to_bits() & (1 << 63))
-                    ^ (self.read_f64(insn.rs2).to_bits() & (1 << 63));
-                let val = self.read_f64(insn.rs1).to_bits() & mask(63);
-                let res = f64::from_bits(sign | val);
-                self.write_f64(insn.rd, res);
-            }
-
-            Instruction::FminD(insn) => {
-                let a = self.read_f64(insn.rs1);
-                let b = self.read_f64(insn.rs2);
-
-                if is_snan_f64(a) || is_snan_f64(b) {
-                    self.fcsr_reg |= 0b10000;
-                    self.tracer.record_csr_reg(self.fcsr_reg);
-                }
-
-                let res = if a.is_nan() && b.is_nan() {
-                    f64::from_bits(0x7FF8000000000000) // Canonical NaN
-                } else if a.is_nan() {
-                    b
-                } else if b.is_nan() {
-                    a
-                } else if a == 0.0 && b == 0.0 {
-                    if a.to_bits() & 0x8000000000000000 != 0 {
-                        a
-                    } else {
-                        b
-                    }
-                } else {
-                    a.min(b)
-                };
-                self.write_f64(insn.rd, res);
-            }
-
-            Instruction::FmaxD(insn) => {
-                let a = self.read_f64(insn.rs1);
-                let b = self.read_f64(insn.rs2);
-
-                if is_snan_f64(a) || is_snan_f64(b) {
-                    self.fcsr_reg |= 0b10000;
-                    self.tracer.record_csr_reg(self.fcsr_reg);
-                }
-
-                let res = if a.is_nan() && b.is_nan() {
-                    f64::from_bits(0x7FF8000000000000)
-                } else if a.is_nan() {
-                    b
-                } else if b.is_nan() {
-                    a
-                } else if a == 0.0 && b == 0.0 {
-                    if a.to_bits() & 0x8000000000000000 == 0 {
-                        a
-                    } else {
-                        b
-                    }
-                } else {
-                    a.max(b)
-                };
-                self.write_f64(insn.rd, res);
-            }
-
-            Instruction::FcvtSD(insn) => {
-                let a = self.read_f64(insn.rs1);
-                let res = a as f32;
-
-                // Set NX if precision was lost
-                if !a.is_nan() && !a.is_infinite() && (res as f64) != a {
-                    self.fcsr_reg |= 0b00001;
-                    self.tracer.record_csr_reg(self.fcsr_reg);
-                }
-
-                // Set NV for sNaN
-                if is_snan_f64(a) {
-                    self.fcsr_reg |= 0b10000;
-                    self.tracer.record_csr_reg(self.fcsr_reg);
-                }
-
-                self.write_f32(insn.rd, res);
-            }
-
-            Instruction::FcvtDS(insn) => {
-                let a = self.read_f32(insn.rs1);
-
-                // Set NV for sNaN
-                if is_snan_f32(a) {
-                    self.fcsr_reg |= 0b10000;
-                    self.tracer.record_csr_reg(self.fcsr_reg);
-                }
-
-                let res = a as f64;
-                self.write_f64(insn.rd, res);
-            }
-
-            Instruction::FeqD(insn) => {
-                let a = self.read_f64(insn.rs1);
-                let b = self.read_f64(insn.rs2);
-
-                if is_snan_f64(a) || is_snan_f64(b) {
-                    self.fcsr_reg |= 0b10000;
-                    self.tracer.record_csr_reg(self.fcsr_reg);
-                }
-
-                let res = if a.is_nan() || b.is_nan() {
-                    0
-                } else {
-                    (a == b) as u64
-                };
-
-                self.reg_mut(insn.rd, res);
-            }
-
-            Instruction::FltD(insn) => {
-                let a = self.read_f64(insn.rs1);
-                let b = self.read_f64(insn.rs2);
-
-                if a.is_nan() || b.is_nan() {
-                    self.fcsr_reg |= 0b10000;
-                    self.tracer.record_csr_reg(self.fcsr_reg);
-                    self.reg_mut(insn.rd, 0);
-                } else {
-                    self.reg_mut(insn.rd, (a < b) as u64);
-                }
-            }
-
-            Instruction::FleD(insn) => {
-                let a = self.read_f64(insn.rs1);
-                let b = self.read_f64(insn.rs2);
-
-                if a.is_nan() || b.is_nan() {
-                    self.fcsr_reg |= 0b10000;
-                    self.tracer.record_csr_reg(self.fcsr_reg);
-                    self.reg_mut(insn.rd, 0);
-                } else {
-                    self.reg_mut(insn.rd, (a <= b) as u64);
-                }
-            }
-
-            Instruction::FclassD(insn) => {
-                let val = classify64(self.read_f64(insn.rs1).to_bits());
-                self.reg_mut(insn.rd, val);
-            }
-
-            Instruction::FcvtWD(insn) => {
-                let val = self.read_f64(insn.rs1);
-
-                let (result, flags): (i32, u32) = if val.is_nan() {
-                    (i32::MAX, 0b10000)
-                } else if val >= (i32::MAX as f64) + 1.0 {
-                    (i32::MAX, 0b10000)
-                } else if val < (i32::MIN as f64) {
-                    (i32::MIN, 0b10000)
-                } else {
-                    let truncated = val.trunc();
-                    let int_val = val as i32;
-                    let inexact = if val != truncated { 0b00001 } else { 0 };
-                    (int_val, inexact)
-                };
-
-                self.fcsr_reg |= flags;
-                self.reg_mut(insn.rd, result as i64 as u64);
-                self.tracer.record_csr_reg(self.fcsr_reg);
-            }
-
-            Instruction::FcvtWuD(insn) => {
-                let val = self.read_f64(insn.rs1);
-
-                let (result, flags): (u32, u32) = if val.is_nan() {
-                    (u32::MAX, 0b10000)
-                } else if val <= -1.0 {
-                    (0_u32, 0b10000) // NV - changed from < to <=
-                } else if val < 0.0 {
-                    (0_u32, 0b00001) // NX only
-                } else if val >= (u32::MAX as f64) + 1.0 {
-                    (u32::MAX, 0b10000)
-                } else {
-                    let truncated = val.trunc();
-                    let int_val = truncated as u32;
-                    let inexact = if val != truncated { 0b00001 } else { 0 };
-                    (int_val, inexact)
-                };
-
-                self.fcsr_reg |= flags;
-                self.reg_mut(insn.rd, result as i32 as i64 as u64);
-                self.tracer.record_csr_reg(self.fcsr_reg);
-            }
-
-            Instruction::FcvtDW(insn) => {
-                let a = (self.reg(insn.rs1) as i32) as f64;
-                self.write_f64(insn.rd, a);
-            }
-
-            Instruction::FcvtDWu(insn) => {
-                let a = (self.reg(insn.rs1) as u32) as f64;
-                self.write_f64(insn.rd, a);
-            }
-
-            Instruction::Flw(insn) => {
-                let addr = (self.reg(insn.rs1).wrapping_add(insn.imm as u64)) as usize;
-                let data = f32::from_bits(self.load_u32(addr));
-                self.write_f32(insn.rd, data);
-            }
-
-            Instruction::Fsw(insn) => {
-                let addr = (self.reg(insn.rs1).wrapping_add(insn.imm as u64)) as usize;
-                let data = self.read_f32(insn.rs2).to_bits().to_le_bytes();
-                self.store_u32(addr, u32::from_le_bytes(data));
-                self.tracer.record_mem_op(MemOp::StoreWord {
-                    addr: addr as u64,
-                    value: u32::from_le_bytes(data),
-                });
-            }
-
-            Instruction::Fld(insn) => {
-                let addr = (self.reg(insn.rs1).wrapping_add(insn.imm as u64)) as usize;
-                let val = f64::from_bits(self.load_u64(addr));
-                self.write_f64(insn.rd, val);
-            }
-
-            Instruction::Fsd(insn) => {
-                let data = self.read_f64(insn.rs2).to_le_bytes();
-                let addr = (self.reg(insn.rs1).wrapping_add(insn.imm as u64)) as usize;
-                self.store_u64(addr, u64::from_le_bytes(data));
-                self.tracer.record_mem_op(MemOp::StoreDouble {
-                    addr: addr as u64,
-                    value: u64::from_le_bytes(data),
-                });
-            }
-
-            Instruction::FcvtLS(insn) => {
-                let val = self.read_f32(insn.rs1);
-
-                let (result, flags): (i64, u32) = if val.is_nan() {
-                    (i64::MAX, 0b10000)
-                } else if val >= (i64::MAX as f32) {
-                    (i64::MAX, 0b10000)
-                } else if val < (i64::MIN as f32) {
-                    (i64::MIN, 0b10000)
-                } else {
-                    let truncated = val.trunc();
-                    let int_val = val as i64;
-                    let inexact = if val != truncated { 0b00001 } else { 0 };
-                    (int_val, inexact)
-                };
-
-                self.fcsr_reg |= flags;
-                self.reg_mut(insn.rd, result as u64);
-                self.tracer.record_csr_reg(self.fcsr_reg);
-            }
-
-            Instruction::FcvtLuS(insn) => {
-                let val = self.read_f32(insn.rs1);
-
-                let (result, flags): (u64, u32) = if val.is_nan() {
-                    (u64::MAX, 0b10000)
-                } else if val <= -1.0 {
-                    (0_u64, 0b10000) // NV - changed from < to <=
-                } else if val < 0.0 {
-                    (0_u64, 0b00001) // NX only
-                } else if val >= (u64::MAX as f32) {
-                    (u64::MAX, 0b10000)
-                } else {
-                    let truncated = val.trunc();
-                    let int_val = truncated as u64;
-                    let inexact = if val != truncated { 0b00001 } else { 0 };
-                    (int_val, inexact)
-                };
-
-                self.fcsr_reg |= flags;
-                self.reg_mut(insn.rd, result);
-                self.tracer.record_csr_reg(self.fcsr_reg);
-            }
-
-            Instruction::FcvtSL(insn) => {
-                let val = (self.reg(insn.rs1) as i64) as f32;
-                self.write_f32(insn.rd, val);
-            }
-
-            Instruction::FcvtSLu(insn) => {
-                let val = self.reg(insn.rs1) as f32;
-                self.write_f32(insn.rd, val);
-            }
-
-            Instruction::FcvtLD(insn) => {
-                let val = self.read_f64(insn.rs1);
-
-                let (result, flags): (i64, u32) = if val.is_nan() {
-                    (i64::MAX, 0b10000)
-                } else if val >= (i64::MAX as f64) {
-                    (i64::MAX, 0b10000)
-                } else if val < (i64::MIN as f64) {
-                    (i64::MIN, 0b10000)
-                } else {
-                    let truncated = val.trunc();
-                    let int_val = val as i64;
-                    let inexact = if val != truncated { 0b00001 } else { 0 };
-                    (int_val, inexact)
-                };
-
-                self.fcsr_reg |= flags;
-                self.reg_mut(insn.rd, result as u64);
-                self.tracer.record_csr_reg(self.fcsr_reg);
-            }
-
-            Instruction::FcvtLuD(insn) => {
-                let val = self.read_f64(insn.rs1);
-
-                let (result, flags): (u64, u32) = if val.is_nan() {
-                    (u64::MAX, 0b10000)
-                } else if val <= -1.0 {
-                    (0_u64, 0b10000) // NV - changed from < to <=
-                } else if val < 0.0 {
-                    (0_u64, 0b00001) // NX only
-                } else if val >= (u64::MAX as f64) {
-                    (u64::MAX, 0b10000)
-                } else {
-                    let truncated = val.trunc();
-                    let int_val = truncated as u64;
-                    let inexact = if val != truncated { 0b00001 } else { 0 };
-                    (int_val, inexact)
-                };
-
-                self.fcsr_reg |= flags;
-                self.reg_mut(insn.rd, result);
-                self.tracer.record_csr_reg(self.fcsr_reg);
-            }
-
-            Instruction::FmvXD(insn) => {
-                let val = self.read_f64(insn.rs1).to_bits();
-                self.reg_mut(insn.rd, val);
-            }
-
-            Instruction::FcvtDL(insn) => {
-                let val = (self.reg(insn.rs1) as i64) as f64;
-                self.write_f64(insn.rd, val);
-            }
-
-            Instruction::FcvtDLu(insn) => {
-                let val = self.reg(insn.rs1) as f64;
-                self.write_f64(insn.rd, val);
-            }
-
-            Instruction::FmvDX(insn) => {
-                let val = f64::from_bits(self.reg(insn.rs1));
-                self.write_f64(insn.rd, val);
-            }
+            Instruction::FmaddS(insn) => execute_FmaddS(self, insn),
+
+            Instruction::FmsubS(insn) => execute_FmsubS(self, insn),
+
+            Instruction::FnmsubS(insn) => execute_FnmsubS(self, insn),
+
+            Instruction::FnmaddS(insn) => execute_FnmaddS(self, insn),
+
+            Instruction::FaddS(insn) => execute_FaddS(self, insn),
+
+            Instruction::FsubS(insn) => execute_FsubS(self, insn),
+
+            Instruction::FmulS(insn) => execute_FmulS(self, insn),
+
+            Instruction::FdivS(insn) => execute_FdivS(self, insn),
+
+            Instruction::FsqrtS(insn) => execute_FsqrtS(self, insn),
+
+            Instruction::FsgnjS(insn) => execute_FsgnjS(self, insn),
+
+            Instruction::FsgnjnS(insn) => execute_FsgnjnS(self, insn),
+
+            Instruction::FsgnjxS(insn) => execute_FsgnjxS(self, insn),
+
+            Instruction::FminS(insn) => execute_FminS(self, insn),
+
+            Instruction::FmaxS(insn) => execute_FmaxS(self, insn),
+
+            Instruction::FcvtWS(insn) => execute_FcvtWS(self, insn),
+
+            Instruction::FcvtWuS(insn) => execute_FcvtWuS(self, insn),
+
+            Instruction::FmvXW(insn) => execute_FmvXW(self, insn),
+
+            Instruction::FeqS(insn) => execute_FeqS(self, insn),
+
+            Instruction::FltS(insn) => execute_FltS(self, insn),
+
+            Instruction::FleS(insn) => execute_FleS(self, insn),
+
+            Instruction::FclassS(insn) => execute_FclassS(self, insn),
+
+            Instruction::FcvtSW(insn) => execute_FcvtSW(self, insn),
+
+            Instruction::FcvtSWu(insn) => execute_FcvtSWu(self, insn),
+
+            Instruction::FmvWX(insn) => execute_FmvWX(self, insn),
+
+            Instruction::FmaddD(insn) => execute_FmaddD(self, insn),
+
+            Instruction::FmsubD(insn) => execute_FmsubD(self, insn),
+
+            Instruction::FnmsubD(insn) => execute_FnmsubD(self, insn),
+
+            Instruction::FnmaddD(insn) => execute_FnmaddD(self, insn),
+
+            Instruction::FaddD(insn) => execute_FaddD(self, insn),
+
+            Instruction::FsubD(insn) => execute_FsubD(self, insn),
+
+            Instruction::FmulD(insn) => execute_FmulD(self, insn),
+
+            Instruction::FdivD(insn) => execute_FdivD(self, insn),
+
+            Instruction::FsqrtD(insn) => execute_FsqrtD(self, insn),
+
+            Instruction::FsgnjD(insn) => execute_FsgnjD(self, insn),
+
+            Instruction::FsgnjnD(insn) => execute_FsgnjnD(self, insn),
+
+            Instruction::FsgnjxD(insn) => execute_FsgnjxD(self, insn),
+
+            Instruction::FminD(insn) => execute_FminD(self, insn),
+
+            Instruction::FmaxD(insn) => execute_FmaxD(self, insn),
+
+            Instruction::FcvtSD(insn) => execute_FcvtSD(self, insn),
+
+            Instruction::FcvtDS(insn) => execute_FcvtDS(self, insn),
+
+            Instruction::FeqD(insn) => execute_FeqD(self, insn),
+
+            Instruction::FltD(insn) => execute_FltD(self, insn),
+
+            Instruction::FleD(insn) => execute_FleD(self, insn),
+
+            Instruction::FclassD(insn) => execute_FclassD(self, insn),
+
+            Instruction::FcvtWD(insn) => execute_FcvtWD(self, insn),
+
+            Instruction::FcvtWuD(insn) => execute_FcvtWuD(self, insn),
+
+            Instruction::FcvtDW(insn) => execute_FcvtDW(self, insn),
+
+            Instruction::FcvtDWu(insn) => execute_FcvtDWu(self, insn),
+
+            Instruction::Flw(insn) => execute_Flw(self, insn),
+
+            Instruction::Fsw(insn) => execute_Fsw(self, insn),
+
+            Instruction::Fld(insn) => execute_Fld(self, insn),
+
+            Instruction::Fsd(insn) => execute_Fsd(self, insn),
+
+            Instruction::FcvtLS(insn) => execute_FcvtLS(self, insn),
+
+            Instruction::FcvtLuS(insn) => execute_FcvtLuS(self, insn),
+
+            Instruction::FcvtSL(insn) => execute_FcvtSL(self, insn),
+
+            Instruction::FcvtSLu(insn) => execute_FcvtSLu(self, insn),
+
+            Instruction::FcvtLD(insn) => execute_FcvtLD(self, insn),
+
+            Instruction::FcvtLuD(insn) => execute_FcvtLuD(self, insn),
+
+            Instruction::FmvXD(insn) => execute_FmvXD(self, insn),
+
+            Instruction::FcvtDL(insn) => execute_FcvtDL(self, insn),
+
+            Instruction::FcvtDLu(insn) => execute_FcvtDLu(self, insn),
+
+            Instruction::FmvDX(insn) => execute_FmvDX(self, insn),
 
             // CSR instructions
-            Instruction::Csrrw(insn) => {
-                let csr_addr = (insn.imm as u32) & 0xFFF; // Mask to 12 bits
-                let old = self.read_csr(csr_addr) as u64;
-                let val = self.reg(insn.rs1) as u32;
+            Instruction::Csrrw(insn) => execute_Csrrw(self, insn),
 
-                self.set_csr(csr_addr, val);
-                if insn.rd != 0 {
-                    self.reg_mut(insn.rd, old);
-                }
-            }
+            Instruction::Csrrs(insn) => execute_Csrrs(self, insn),
 
-            Instruction::Csrrs(insn) => {
-                let csr_addr = (insn.imm as u32) & 0xFFF;
-                let old = self.read_csr(csr_addr) as u64;
-                if insn.rs1 != 0 {
-                    let val = self.reg(insn.rs1) as u32;
-                    let new_val = old as u32 | val;
-                    self.set_csr(csr_addr, new_val);
-                }
-                if insn.rd != 0 {
-                    self.reg_mut(insn.rd, old);
-                }
-            }
+            Instruction::Csrrc(insn) => execute_Csrrc(self, insn),
 
-            Instruction::Csrrc(insn) => {
-                let csr_addr = (insn.imm as u32) & 0xFFF;
-                let old = self.read_csr(csr_addr) as u64;
-                if insn.rs1 != 0 {
-                    let val = self.reg(insn.rs1) as u32;
-                    let new_val = old as u32 & !val;
-                    self.set_csr(csr_addr, new_val);
-                }
-                if insn.rd != 0 {
-                    self.reg_mut(insn.rd, old);
-                }
-            }
+            Instruction::Csrrwi(insn) => execute_Csrrwi(self, insn),
 
-            Instruction::Csrrwi(insn) => {
-                let csr_addr = (insn.imm as u32) & 0xFFF;
-                let old = self.read_csr(csr_addr) as u64;
-                let val = (insn.rs1 as u32) & 0x1F;
-                self.set_csr(csr_addr, val);
-                if insn.rd != 0 {
-                    self.reg_mut(insn.rd, old);
-                }
-            }
+            Instruction::Csrrsi(insn) => execute_Csrrsi(self, insn),
 
-            Instruction::Csrrsi(insn) => {
-                let csr_addr = (insn.imm as u32) & 0xFFF;
-                let old = self.read_csr(csr_addr) as u64;
-                let val = (insn.rs1 as u32) & 0x1F;
-                if val != 0 {
-                    let new_val = old as u32 | val;
-                    self.set_csr(csr_addr, new_val);
-                }
-                if insn.rd != 0 {
-                    self.reg_mut(insn.rd, old);
-                }
-            }
-
-            Instruction::Csrrci(insn) => {
-                let csr_addr = (insn.imm as u32) & 0xFFF;
-                let old = self.read_csr(csr_addr) as u64;
-                let val = (insn.rs1 as u32) & 0x1F;
-                if val != 0 {
-                    let new_val = old as u32 & !val;
-                    self.set_csr(csr_addr, new_val);
-                }
-                if insn.rd != 0 {
-                    self.reg_mut(insn.rd, old);
-                }
-            }
+            Instruction::Csrrci(insn) => execute_Csrrci(self, insn),
 
             // System Opcodes
             Instruction::Ecall => {
@@ -1711,60 +415,6 @@ impl<T: Tracer> VM<T> {
         } else {
             self.pc += 4;
         }
-    }
-}
-
-fn classify32(val: u32) -> u64 {
-    let sign = val >> 31;
-    let exponent = (val >> 23) & mask32(8);
-    let frac = val & mask32(23);
-
-    match (sign, exponent, frac) {
-        (1, 0xff, 0) => 1,
-        (0, 0xff, 0) => 1 << 7,
-
-        (_, 0xff, frac) => {
-            let quiet_bit = (frac >> 22) & 1;
-            if quiet_bit == 0 { 1 << 8 } else { 1 << 9 }
-        }
-
-        (1, 0, 0) => 1 << 3,
-        (0, 0, 0) => 1 << 4,
-
-        (1, 0, _) => 1 << 2,
-        (0, 0, _) => 1 << 5,
-
-        (1, _, _) => 1 << 1,
-        (0, _, _) => 1 << 6,
-
-        (_, _, _) => 0,
-    }
-}
-
-fn classify64(val: u64) -> u64 {
-    let sign = val >> 63;
-    let exponent = (val >> 52) & mask(11);
-    let frac = val & mask(52);
-
-    match (sign, exponent, frac) {
-        (1, 0x7ff, 0) => 1,
-        (0, 0x7ff, 0) => 1 << 7,
-
-        (_, 0x7ff, frac) => {
-            let quiet_bit = (frac >> 51) & 1;
-            if quiet_bit == 0 { 1 << 8 } else { 1 << 9 }
-        }
-
-        (1, 0, 0) => 1 << 3,
-        (0, 0, 0) => 1 << 4,
-
-        (1, 0, _) => 1 << 2,
-        (0, 0, _) => 1 << 5,
-
-        (1, _, _) => 1 << 1,
-        (0, _, _) => 1 << 6,
-
-        (_, _, _) => 0,
     }
 }
 
