@@ -5,7 +5,7 @@ use crate::VM;
 use crate::decode::{R4, RF};
 use crate::util::{classify32, is_snan_f32, mask32, sext};
 
-#[inline]
+#[inline(always)]
 pub(crate) fn execute_FmaddS<T: Tracer>(vm: &mut VM<T>, insn: R4) {
     let a = vm.read_f32(insn.rs1);
     let b = vm.read_f32(insn.rs2);
@@ -21,7 +21,7 @@ pub(crate) fn execute_FmaddS<T: Tracer>(vm: &mut VM<T>, insn: R4) {
     vm.raise_fflags_fma_f32(a, b, c, res);
 }
 
-#[inline]
+#[inline(always)]
 pub(crate) fn execute_FmsubS<T: Tracer>(vm: &mut VM<T>, insn: R4) {
     let a = vm.read_f32(insn.rs1);
     let b = vm.read_f32(insn.rs2);
@@ -31,7 +31,7 @@ pub(crate) fn execute_FmsubS<T: Tracer>(vm: &mut VM<T>, insn: R4) {
     vm.raise_fflags_fma_f32(a, b, -c, res);
 }
 
-#[inline]
+#[inline(always)]
 pub(crate) fn execute_FnmsubS<T: Tracer>(vm: &mut VM<T>, insn: R4) {
     let a = vm.read_f32(insn.rs1);
     let b = vm.read_f32(insn.rs2);
@@ -41,7 +41,7 @@ pub(crate) fn execute_FnmsubS<T: Tracer>(vm: &mut VM<T>, insn: R4) {
     vm.raise_fflags_fma_f32(-a, b, c, res);
 }
 
-#[inline]
+#[inline(always)]
 pub(crate) fn execute_FnmaddS<T: Tracer>(vm: &mut VM<T>, insn: R4) {
     let a = vm.read_f32(insn.rs1);
     let b = vm.read_f32(insn.rs2);
@@ -51,7 +51,7 @@ pub(crate) fn execute_FnmaddS<T: Tracer>(vm: &mut VM<T>, insn: R4) {
     vm.raise_fflags_fma_f32(-a, b, -c, res);
 }
 
-#[inline]
+#[inline(always)]
 pub(crate) fn execute_FaddS<T: Tracer>(vm: &mut VM<T>, insn: RF) {
     let a = vm.read_f32(insn.rs1);
     let b = vm.read_f32(insn.rs2);
@@ -66,7 +66,7 @@ pub(crate) fn execute_FaddS<T: Tracer>(vm: &mut VM<T>, insn: RF) {
     vm.raise_fflags_f32(a, b, res, '+');
 }
 
-#[inline]
+#[inline(always)]
 pub(crate) fn execute_FsubS<T: Tracer>(vm: &mut VM<T>, insn: RF) {
     let a = vm.read_f32(insn.rs1);
     let b = vm.read_f32(insn.rs2);
@@ -81,7 +81,7 @@ pub(crate) fn execute_FsubS<T: Tracer>(vm: &mut VM<T>, insn: RF) {
     vm.raise_fflags_f32(a, b, res, '-');
 }
 
-#[inline]
+#[inline(always)]
 pub(crate) fn execute_FmulS<T: Tracer>(vm: &mut VM<T>, insn: RF) {
     let a = vm.read_f32(insn.rs1);
     let b = vm.read_f32(insn.rs2);
@@ -96,7 +96,7 @@ pub(crate) fn execute_FmulS<T: Tracer>(vm: &mut VM<T>, insn: RF) {
     vm.raise_fflags_f32(a, b, res, '*');
 }
 
-#[inline]
+#[inline(always)]
 pub(crate) fn execute_FdivS<T: Tracer>(vm: &mut VM<T>, insn: RF) {
     let a = vm.read_f32(insn.rs1);
     let b = vm.read_f32(insn.rs2);
@@ -111,7 +111,7 @@ pub(crate) fn execute_FdivS<T: Tracer>(vm: &mut VM<T>, insn: RF) {
     vm.raise_fflags_f32(a, b, res, '/');
 }
 
-#[inline]
+#[inline(always)]
 pub(crate) fn execute_FsqrtS<T: Tracer>(vm: &mut VM<T>, insn: RF) {
     let a = vm.read_f32(insn.rs1);
 
@@ -137,7 +137,7 @@ pub(crate) fn execute_FsqrtS<T: Tracer>(vm: &mut VM<T>, insn: RF) {
     vm.write_f32(insn.rd, res);
 }
 
-#[inline]
+#[inline(always)]
 pub(crate) fn execute_FsgnjS<T: Tracer>(vm: &mut VM<T>, insn: RF) {
     let rs1_bits = (vm.f_reg[insn.rs1 as usize] & 0xFFFFFFFF) as u32;
     let rs2_bits = (vm.f_reg[insn.rs2 as usize] & 0xFFFFFFFF) as u32;
@@ -149,7 +149,7 @@ pub(crate) fn execute_FsgnjS<T: Tracer>(vm: &mut VM<T>, insn: RF) {
     vm.tracer.record_rd(insn.rd, res);
 }
 
-#[inline]
+#[inline(always)]
 pub(crate) fn execute_FsgnjnS<T: Tracer>(vm: &mut VM<T>, insn: RF) {
     let rs1_bits = (vm.f_reg[insn.rs1 as usize] & 0xFFFFFFFF) as u32;
     let rs2_bits = (vm.f_reg[insn.rs2 as usize] & 0xFFFFFFFF) as u32;
@@ -161,7 +161,7 @@ pub(crate) fn execute_FsgnjnS<T: Tracer>(vm: &mut VM<T>, insn: RF) {
     vm.tracer.record_rd(insn.rd, res);
 }
 
-#[inline]
+#[inline(always)]
 pub(crate) fn execute_FsgnjxS<T: Tracer>(vm: &mut VM<T>, insn: RF) {
     let rs1_bits = (vm.f_reg[insn.rs1 as usize] & 0xFFFFFFFF) as u32;
     let rs2_bits = (vm.f_reg[insn.rs2 as usize] & 0xFFFFFFFF) as u32;
@@ -173,7 +173,7 @@ pub(crate) fn execute_FsgnjxS<T: Tracer>(vm: &mut VM<T>, insn: RF) {
     vm.tracer.record_rd(insn.rd, res);
 }
 
-#[inline]
+#[inline(always)]
 pub(crate) fn execute_FminS<T: Tracer>(vm: &mut VM<T>, insn: RF) {
     let a = vm.read_f32(insn.rs1);
     let b = vm.read_f32(insn.rs2);
@@ -199,7 +199,7 @@ pub(crate) fn execute_FminS<T: Tracer>(vm: &mut VM<T>, insn: RF) {
     vm.write_f32(insn.rd, res);
 }
 
-#[inline]
+#[inline(always)]
 pub(crate) fn execute_FmaxS<T: Tracer>(vm: &mut VM<T>, insn: RF) {
     let a = vm.read_f32(insn.rs1);
     let b = vm.read_f32(insn.rs2);
@@ -225,7 +225,7 @@ pub(crate) fn execute_FmaxS<T: Tracer>(vm: &mut VM<T>, insn: RF) {
     vm.write_f32(insn.rd, res);
 }
 
-#[inline]
+#[inline(always)]
 pub(crate) fn execute_FcvtWS<T: Tracer>(vm: &mut VM<T>, insn: RF) {
     let val = vm.read_f32(insn.rs1);
 
@@ -246,7 +246,7 @@ pub(crate) fn execute_FcvtWS<T: Tracer>(vm: &mut VM<T>, insn: RF) {
     vm.tracer.record_csr_reg(vm.fcsr_reg);
 }
 
-#[inline]
+#[inline(always)]
 pub(crate) fn execute_FcvtWuS<T: Tracer>(vm: &mut VM<T>, insn: RF) {
     let val = vm.read_f32(insn.rs1);
 
@@ -272,7 +272,7 @@ pub(crate) fn execute_FcvtWuS<T: Tracer>(vm: &mut VM<T>, insn: RF) {
     vm.tracer.record_csr_reg(vm.fcsr_reg);
 }
 
-#[inline]
+#[inline(always)]
 pub(crate) fn execute_FmvXW<T: Tracer>(vm: &mut VM<T>, insn: RF) {
     let raw_bits = (vm.f_reg[insn.rs1 as usize] & 0xFFFFFFFF) as u32;
     let result = sext(raw_bits as u64, 32);
@@ -280,7 +280,7 @@ pub(crate) fn execute_FmvXW<T: Tracer>(vm: &mut VM<T>, insn: RF) {
     vm.reg_mut(insn.rd, result);
 }
 
-#[inline]
+#[inline(always)]
 pub(crate) fn execute_FeqS<T: Tracer>(vm: &mut VM<T>, insn: RF) {
     let a = vm.read_f32(insn.rs1);
     let b = vm.read_f32(insn.rs2);
@@ -299,7 +299,7 @@ pub(crate) fn execute_FeqS<T: Tracer>(vm: &mut VM<T>, insn: RF) {
     vm.reg_mut(insn.rd, res);
 }
 
-#[inline]
+#[inline(always)]
 pub(crate) fn execute_FltS<T: Tracer>(vm: &mut VM<T>, insn: RF) {
     let a = vm.read_f32(insn.rs1);
     let b = vm.read_f32(insn.rs2);
@@ -314,7 +314,7 @@ pub(crate) fn execute_FltS<T: Tracer>(vm: &mut VM<T>, insn: RF) {
     }
 }
 
-#[inline]
+#[inline(always)]
 pub(crate) fn execute_FleS<T: Tracer>(vm: &mut VM<T>, insn: RF) {
     let a = vm.read_f32(insn.rs1);
     let b = vm.read_f32(insn.rs2);
@@ -329,25 +329,25 @@ pub(crate) fn execute_FleS<T: Tracer>(vm: &mut VM<T>, insn: RF) {
     }
 }
 
-#[inline]
+#[inline(always)]
 pub(crate) fn execute_FclassS<T: Tracer>(vm: &mut VM<T>, insn: RF) {
     let val = classify32(vm.read_f32(insn.rs1).to_bits());
     vm.reg_mut(insn.rd, val);
 }
 
-#[inline]
+#[inline(always)]
 pub(crate) fn execute_FcvtSW<T: Tracer>(vm: &mut VM<T>, insn: RF) {
     let a = (vm.reg(insn.rs1) as i32) as f32;
     vm.write_f32(insn.rd, a);
 }
 
-#[inline]
+#[inline(always)]
 pub(crate) fn execute_FcvtSWu<T: Tracer>(vm: &mut VM<T>, insn: RF) {
     let a = (vm.reg(insn.rs1) as u32) as f32;
     vm.write_f32(insn.rd, a);
 }
 
-#[inline]
+#[inline(always)]
 pub(crate) fn execute_FmvWX<T: Tracer>(vm: &mut VM<T>, insn: RF) {
     let a = f32::from_bits(vm.reg(insn.rs1) as u32);
     vm.write_f32(insn.rd, a);

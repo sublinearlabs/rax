@@ -39,7 +39,6 @@ fn main() {
     let bytes = hex::decode(input_hex_string).unwrap();
 
     vm.set_input_stream(bytes);
-    
 
     println!("Running exec-block program IMAC...\n");
 
