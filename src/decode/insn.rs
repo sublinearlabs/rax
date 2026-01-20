@@ -784,4 +784,18 @@ impl Instruction {
             _ => false,
         }
     }
+
+    pub fn is_branch_or_jmp(&self) -> bool {
+        match self {
+            Instruction::Beq(_)
+            | Instruction::Bne(_)
+            | Instruction::Blt(_)
+            | Instruction::Bltu(_)
+            | Instruction::Bge(_)
+            | Instruction::Bgeu(_)
+            | Instruction::Jal(_)
+            | Instruction::Jalr(_) => true,
+            _ => false,
+        }
+    }
 }

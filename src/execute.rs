@@ -1,52 +1,13 @@
+use crate::VM;
 use crate::decode::Instruction;
 use crate::ecall::handle_ecall;
-use crate::instr_execute::a_instr::{
-    execute_AmoAddD, execute_AmoAddW, execute_AmoAndD, execute_AmoAndW, execute_AmoMaxD,
-    execute_AmoMaxW, execute_AmoMaxuD, execute_AmoMaxuW, execute_AmoMinD, execute_AmoMinW,
-    execute_AmoMinuD, execute_AmoMinuW, execute_AmoOrD, execute_AmoOrW, execute_AmoSwapD,
-    execute_AmoSwapW, execute_AmoXorD, execute_AmoXorW, execute_LrD, execute_LrW, execute_ScD,
-    execute_ScW,
-};
-use crate::instr_execute::csr_instr::{
-    execute_Csrrc, execute_Csrrci, execute_Csrrs, execute_Csrrsi, execute_Csrrw, execute_Csrrwi,
-};
-use crate::instr_execute::d_instr::{
-    execute_FaddD, execute_FclassD, execute_FcvtDL, execute_FcvtDLu, execute_FcvtDS,
-    execute_FcvtDW, execute_FcvtDWu, execute_FcvtLD, execute_FcvtLS, execute_FcvtLuD,
-    execute_FcvtLuS, execute_FcvtSD, execute_FcvtSL, execute_FcvtSLu, execute_FcvtWD,
-    execute_FcvtWuD, execute_FdivD, execute_FeqD, execute_Fld, execute_FleD, execute_FltD,
-    execute_Flw, execute_FmaddD, execute_FmaxD, execute_FminD, execute_FmsubD, execute_FmulD,
-    execute_FmvDX, execute_FmvXD, execute_FnmaddD, execute_FnmsubD, execute_Fsd, execute_FsgnjD,
-    execute_FsgnjnD, execute_FsgnjxD, execute_FsqrtD, execute_FsubD, execute_Fsw,
-};
-use crate::instr_execute::f_instr::{
-    execute_FaddS, execute_FclassS, execute_FcvtSW, execute_FcvtSWu, execute_FcvtWS,
-    execute_FcvtWuS, execute_FdivS, execute_FeqS, execute_FleS, execute_FltS, execute_FmaddS,
-    execute_FmaxS, execute_FminS, execute_FmsubS, execute_FmulS, execute_FmvWX, execute_FmvXW,
-    execute_FnmaddS, execute_FnmsubS, execute_FsgnjS, execute_FsgnjnS, execute_FsgnjxS,
-    execute_FsqrtS, execute_FsubS,
-};
-use crate::instr_execute::i_instr::{
-    execute_Add, execute_Addi, execute_Addiw, execute_Addw, execute_And, execute_Andi,
-    execute_Auipc, execute_Beq, execute_Bge, execute_Bgeu, execute_Blt, execute_Bltu, execute_Bne,
-    execute_Jal, execute_Jalr, execute_Lb, execute_Lbu, execute_Ld, execute_Lh, execute_Lhu,
-    execute_Lui, execute_Lw, execute_Lwu, execute_Or, execute_Ori, execute_Sb, execute_Sd,
-    execute_Sh, execute_Sll, execute_Slli, execute_Slliw, execute_Sllw, execute_Slt, execute_Slti,
-    execute_Sltiu, execute_Sltu, execute_Sra, execute_Srai, execute_Sraiw, execute_Sraw,
-    execute_Srl, execute_Srli, execute_Srliw, execute_Srlw, execute_Sub, execute_Subw, execute_Sw,
-    execute_Xor, execute_Xori,
-};
-use crate::instr_execute::m_instr::{
-    execute_Div, execute_Divu, execute_Divuw, execute_Divw, execute_Mul, execute_Mulh,
-    execute_Mulhsu, execute_Mulhu, execute_Mulw, execute_Rem, execute_Remu, execute_Remuw,
-    execute_Remw,
-};
-use crate::instr_execute::*;
-use crate::trace::{MemOp, Tracer};
-use crate::{
-    VM, is_snan_f32, is_snan_f64,
-    util::{classify32, classify64, mask, mask32, sext},
-};
+use crate::instr_execute::a_instr::*;
+use crate::instr_execute::csr_instr::*;
+use crate::instr_execute::d_instr::*;
+use crate::instr_execute::f_instr::*;
+use crate::instr_execute::i_instr::*;
+use crate::instr_execute::m_instr::*;
+use crate::trace::Tracer;
 
 // TODO consider cleaning up sext logic
 impl<T: Tracer> VM<T> {
@@ -120,42 +81,36 @@ impl<T: Tracer> VM<T> {
             Instruction::Beq(insn) => {
                 if execute_Beq(self, insn) {
                     return;
-                } else {
                 }
             }
 
             Instruction::Bne(insn) => {
                 if execute_Bne(self, insn) {
                     return;
-                } else {
                 }
             }
 
             Instruction::Blt(insn) => {
                 if execute_Blt(self, insn) {
                     return;
-                } else {
                 }
             }
 
             Instruction::Bltu(insn) => {
                 if execute_Bltu(self, insn) {
                     return;
-                } else {
                 }
             }
 
             Instruction::Bge(insn) => {
                 if execute_Bge(self, insn) {
                     return;
-                } else {
                 }
             }
 
             Instruction::Bgeu(insn) => {
                 if execute_Bgeu(self, insn) {
                     return;
-                } else {
                 }
             }
 
