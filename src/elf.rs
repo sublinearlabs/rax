@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use elf::{
     ElfBytes,
     abi::{EM_RISCV, ET_EXEC, PT_LOAD},
@@ -5,11 +7,11 @@ use elf::{
     file::Class,
 };
 
-use crate::memory::Memory;
+use crate::{InstructionSegment, memory::Memory};
 
 /// Decodes the elf bytes,
 /// loads segments into memory and return the pc.
-pub(crate) fn decode_elf(bytes: &[u8]) -> (Memory, u64) {
+pub(crate) fn decode_elf(bytes: &[u8]) -> (Memory, u64, HashMap<u64, InstructionSegment>) {
     let file =
         ElfBytes::<LittleEndian>::minimal_parse(bytes).expect("failed to parse the elf file");
     let ehdr = file.ehdr;
@@ -22,6 +24,9 @@ pub(crate) fn decode_elf(bytes: &[u8]) -> (Memory, u64) {
 
     // load the program headers into memory
     let mut memory = Memory::default();
+
+    // Holds the instructions for the program
+    let mut insn_segments = HashMap::<u64, InstructionSegment>::new();
 
     // iterate over the program headers
     // load header of type `PT_LOAD` to memory
@@ -36,19 +41,39 @@ pub(crate) fn decode_elf(bytes: &[u8]) -> (Memory, u64) {
         let vaddr = ph.p_vaddr;
         let memsz = ph.p_memsz as usize;
 
-        if memsz < filesz {
-            panic!("malformed elf file");
-        }
+        // check if segment has execute permission
+        if ph.p_flags & 1 != 0 {
+            // if execute, load into memory as well
+            if filesz > 0 {
+                let data = &&bytes[offset..offset + filesz];
+                memory.write_n_bytes(vaddr, data);
+            }
 
-        if filesz > 0 {
-            let data = &bytes[offset..offset + filesz];
-            memory.write_n_bytes(vaddr, data);
-        }
+            if memsz > filesz {
+                memory.zero_fill(vaddr + filesz as u64, memsz - filesz);
+            }
 
-        if memsz > filesz {
-            memory.zero_fill(vaddr + filesz as u64, memsz - filesz);
+            // and add to instruction segment
+            let mut insn = InstructionSegment::new();
+            insn.start = vaddr;
+            insn.end = vaddr + filesz as u64;
+            insn.data = bytes[offset..offset + filesz].to_vec();
+            insn_segments.insert(vaddr, insn);
+        } else {
+            if memsz < filesz {
+                panic!("malformed elf file");
+            }
+
+            if filesz > 0 {
+                let data = &&bytes[offset..offset + filesz];
+                memory.write_n_bytes(vaddr, data);
+            }
+
+            if memsz > filesz {
+                memory.zero_fill(vaddr + filesz as u64, memsz - filesz);
+            }
         }
     }
 
-    (memory, entry)
+    (memory, entry, insn_segments)
 }

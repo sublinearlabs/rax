@@ -4,7 +4,7 @@ use crate::decode::I;
 use crate::trace::Tracer;
 
 #[inline(always)]
-pub(crate) fn execute_Csrrw<T: Tracer>(vm: &mut VM<T>, insn: I) {
+pub(crate) fn execute_Csrrw<T: Tracer>(vm: &mut VM<T>, insn: &I) {
     let csr_addr = (insn.imm as u32) & 0xFFF; // Mask to 12 bits
     let old = vm.read_csr(csr_addr) as u64;
     let val = vm.reg(insn.rs1) as u32;
@@ -16,7 +16,7 @@ pub(crate) fn execute_Csrrw<T: Tracer>(vm: &mut VM<T>, insn: I) {
 }
 
 #[inline(always)]
-pub(crate) fn execute_Csrrs<T: Tracer>(vm: &mut VM<T>, insn: I) {
+pub(crate) fn execute_Csrrs<T: Tracer>(vm: &mut VM<T>, insn: &I) {
     let csr_addr = (insn.imm as u32) & 0xFFF;
     let old = vm.read_csr(csr_addr) as u64;
     if insn.rs1 != 0 {
@@ -30,7 +30,7 @@ pub(crate) fn execute_Csrrs<T: Tracer>(vm: &mut VM<T>, insn: I) {
 }
 
 #[inline(always)]
-pub(crate) fn execute_Csrrc<T: Tracer>(vm: &mut VM<T>, insn: I) {
+pub(crate) fn execute_Csrrc<T: Tracer>(vm: &mut VM<T>, insn: &I) {
     let csr_addr = (insn.imm as u32) & 0xFFF;
     let old = vm.read_csr(csr_addr) as u64;
     if insn.rs1 != 0 {
@@ -44,7 +44,7 @@ pub(crate) fn execute_Csrrc<T: Tracer>(vm: &mut VM<T>, insn: I) {
 }
 
 #[inline(always)]
-pub(crate) fn execute_Csrrwi<T: Tracer>(vm: &mut VM<T>, insn: I) {
+pub(crate) fn execute_Csrrwi<T: Tracer>(vm: &mut VM<T>, insn: &I) {
     let csr_addr = (insn.imm as u32) & 0xFFF;
     let old = vm.read_csr(csr_addr) as u64;
     let val = (insn.rs1 as u32) & 0x1F;
@@ -55,7 +55,7 @@ pub(crate) fn execute_Csrrwi<T: Tracer>(vm: &mut VM<T>, insn: I) {
 }
 
 #[inline(always)]
-pub(crate) fn execute_Csrrsi<T: Tracer>(vm: &mut VM<T>, insn: I) {
+pub(crate) fn execute_Csrrsi<T: Tracer>(vm: &mut VM<T>, insn: &I) {
     let csr_addr = (insn.imm as u32) & 0xFFF;
     let old = vm.read_csr(csr_addr) as u64;
     let val = (insn.rs1 as u32) & 0x1F;
@@ -69,7 +69,7 @@ pub(crate) fn execute_Csrrsi<T: Tracer>(vm: &mut VM<T>, insn: I) {
 }
 
 #[inline(always)]
-pub(crate) fn execute_Csrrci<T: Tracer>(vm: &mut VM<T>, insn: I) {
+pub(crate) fn execute_Csrrci<T: Tracer>(vm: &mut VM<T>, insn: &I) {
     let csr_addr = (insn.imm as u32) & 0xFFF;
     let old = vm.read_csr(csr_addr) as u64;
     let val = (insn.rs1 as u32) & 0x1F;

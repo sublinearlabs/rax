@@ -798,4 +798,20 @@ impl Instruction {
             _ => false,
         }
     }
+
+    /// Returns the static jump target offset if the instruction has a static target.
+    /// For dynamic jumps (Jalr), returns None.
+    pub fn jump_target(&self) -> Option<i64> {
+        match self {
+            Instruction::Jal(j) => Some(j.imm as i64),
+            Instruction::Jalr(_) => None, // Dynamic target
+            Instruction::Beq(b) => Some(b.imm as i64),
+            Instruction::Bne(b) => Some(b.imm as i64),
+            Instruction::Blt(b) => Some(b.imm as i64),
+            Instruction::Bge(b) => Some(b.imm as i64),
+            Instruction::Bltu(b) => Some(b.imm as i64),
+            Instruction::Bgeu(b) => Some(b.imm as i64),
+            _ => None,
+        }
+    }
 }

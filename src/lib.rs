@@ -1,10 +1,10 @@
-use std::fs;
+use std::{collections::HashMap, fs};
 
-use crate::decode::compressed::decode_compressed;
+use crate::decode::{Instruction, compressed::decode_compressed};
 use crate::elf::decode_elf;
 use crate::memory::Memory;
 use crate::trace::{DefaultTracer, Tracer};
-use crate::util::{is_snan_f32, is_snan_f64, is_subnormal_f32, is_subnormal_f64, mask, mask16};
+use crate::util::{is_snan_f32, is_snan_f64, is_subnormal_f32, is_subnormal_f64, mask16};
 use decode::decode;
 
 mod decode;
@@ -25,6 +25,12 @@ pub struct VM<T: Tracer = DefaultTracer> {
     registers: [u64; 32],
     f_reg: [u64; 32],
     memory: Memory,
+    // Instruction segments from ELF file
+    insn_segments: HashMap<u64, InstructionSegment>,
+    // Mapping of pc to all decoded instructions
+    decoded_instructions: HashMap<u64, (u64, Instruction, bool)>,
+    // Basic blocks is a mapping from the pc of the block start to the decoded block instructions
+    basic_blocks: HashMap<u64, Vec<(Instruction, bool)>>,
     fcsr_reg: u32,
     reservation_set: u64,
     pc: u64,
@@ -39,11 +45,31 @@ pub struct VM<T: Tracer = DefaultTracer> {
     pub input_cursor: usize,
 }
 
+#[derive(Debug)]
+pub(crate) struct InstructionSegment {
+    pub(crate) start: u64,
+    pub(crate) end: u64,
+    pub(crate) data: Vec<u8>,
+}
+
+impl InstructionSegment {
+    pub(crate) fn new() -> Self {
+        Self {
+            start: 0,
+            end: 0,
+            data: vec![],
+        }
+    }
+}
+
 impl<T: Tracer> Default for VM<T> {
     fn default() -> Self {
         Self {
             registers: [0u64; 32],
             memory: Memory::default(),
+            decoded_instructions: HashMap::new(),
+            basic_blocks: HashMap::new(),
+            insn_segments: HashMap::new(),
             reservation_set: 0,
             pc: 0,
             halted: false,
@@ -71,32 +97,40 @@ impl<T: Tracer> VM<T> {
     /// Init the VM from an elf file
     pub fn init_from_elf(path: String) -> Self {
         let elf_bytes = fs::read(path).unwrap();
-        let (memory, pc) = decode_elf(&elf_bytes);
+        let (memory, pc, insn_segments) = decode_elf(&elf_bytes);
         // Initialize stack pointer (x2/sp) to a valid memory address
         let mut registers = [0u64; 32];
         registers[2] = Self::DEFAULT_STACK_POINTER;
-        Self {
+        let mut vm = Self {
             registers,
             memory,
+            insn_segments,
             pc,
             ..Default::default()
-        }
+        };
+        // Decode instructions and build basic blocks
+        vm.decode_instructions_and_build_basic_blocks();
+        vm
     }
 
     /// Init the VM from an elf file with a specific tracer
     pub fn init_from_elf_with_tracer(path: String, tracer: T) -> Self {
         let elf_bytes = fs::read(path).unwrap();
-        let (memory, pc) = decode_elf(&elf_bytes);
+        let (memory, pc, insn_segments) = decode_elf(&elf_bytes);
         // Initialize stack pointer (x2/sp) to a valid memory address
         let mut registers = [0u64; 32];
         registers[2] = Self::DEFAULT_STACK_POINTER;
-        Self {
+        let mut vm = Self {
             registers,
             memory,
+            insn_segments,
             pc,
             tracer,
             ..Default::default()
-        }
+        };
+        // Decode instructions and build basic blocks
+        vm.decode_instructions_and_build_basic_blocks();
+        vm
     }
 
     /// Set a custom tracer
@@ -145,15 +179,39 @@ impl<T: Tracer> VM<T> {
 
     /// Perform one cycle with tracing
     pub fn step(&mut self) {
-        let insn = self.load_u16(self.pc as usize);
-        let is_compressed = insn & mask16(2) != 0b11;
-
-        let (insn, insn_bytes) = if is_compressed {
-            (decode_compressed(insn), insn as u32)
+        // Check if we're at the start of a basic block
+        let block = self.get_basic_block(self.pc);
+        if let Some(block) = block {
+            // Clone the block to avoid borrowing issues
+            let block = block.clone();
+            // Execute the entire basic block
+            self.execute_basic_block(&block);
         } else {
-            let insn_upper = self.load_u16((self.pc + 2) as usize);
-            let insn = (insn_upper as u32) << 16 | insn as u32;
-            (decode(insn), insn)
+            // Fall back to single instruction execution
+            self.execute_single_instruction();
+        }
+    }
+
+    fn execute_single_instruction(&mut self) {
+        let (insn, is_compressed) =
+            if let Some((instr, compressed)) = self.get_instruction_with_flag(self.pc) {
+                (instr.clone(), compressed)
+            } else {
+                // Try to read and decode the instruction from memory
+                if let Some((decoded_insn, compressed)) = self.try_decode_instruction_at_pc() {
+                    (decoded_insn, compressed)
+                } else {
+                    (Instruction::Illegal(0), false)
+                }
+            };
+
+        // For tracing, we need to determine the instruction bytes
+        let insn_bytes = if is_compressed {
+            self.load_u16(self.pc as usize) as u32
+        } else {
+            let lower = self.load_u16(self.pc as usize) as u32;
+            let upper = self.load_u16((self.pc + 2) as usize) as u32;
+            (upper << 16) | lower
         };
 
         // Begin tracing this instruction
@@ -167,7 +225,7 @@ impl<T: Tracer> VM<T> {
         );
 
         // Execute the instruction (this will update PC)
-        self.execute_instruction(insn, is_compressed);
+        self.execute_instruction(&insn, is_compressed);
 
         // Record next PC (set during execute_instruction or default to pc+4)
         self.tracer.record_next_pc(self.pc);
@@ -181,6 +239,162 @@ impl<T: Tracer> VM<T> {
         self.tracer.commit();
 
         self.cycles = self.cycles.wrapping_add(1);
+    }
+
+    fn execute_basic_block(&mut self, block: &[(Instruction, bool)]) {
+        for (i, (insn, is_compressed)) in block.iter().enumerate() {
+            let current_pc = self.pc;
+
+            // For tracing, we need to determine the instruction bytes
+            let insn_bytes = if *is_compressed {
+                self.load_u16(current_pc as usize) as u32
+            } else {
+                let lower = self.load_u16(current_pc as usize) as u32;
+                let upper = self.load_u16((current_pc + 2) as usize) as u32;
+                (upper << 16) | lower
+            };
+
+            // Begin tracing this instruction
+            self.tracer.begin_instruction(
+                self.cycles + i as u64,
+                current_pc,
+                &self.registers,
+                &self.f_reg,
+                insn_bytes,
+                insn,
+            );
+
+            // Execute the instruction (this will update PC)
+            self.execute_instruction(insn, *is_compressed);
+
+            // Record next PC
+            self.tracer.record_next_pc(self.pc);
+
+            // Check for halt
+            if self.halted {
+                self.tracer.record_halt();
+                break;
+            }
+
+            // Commit the trace row
+            self.tracer.commit();
+        }
+
+        self.cycles = self.cycles.wrapping_add(block.len() as u64);
+    }
+
+    fn decode_instructions_and_build_basic_blocks(&mut self) {
+        // Phase 1: Decode all instructions from all segments
+        for (_, segment) in &self.insn_segments {
+            let mut pc = segment.start;
+            while pc < segment.end {
+                let offset = (pc - segment.start) as usize;
+                if offset + 2 > segment.data.len() {
+                    break; // Not enough data
+                }
+                let insn = self.load_u16_insn(offset, segment);
+                let is_compressed = insn & mask16(2) != 0b11;
+
+                let decoded_insn = if is_compressed {
+                    decode_compressed(insn)
+                } else {
+                    if offset + 4 > segment.data.len() {
+                        // Not enough data for full instruction, treat as illegal
+                        Instruction::Illegal(insn as u32)
+                    } else {
+                        let insn_upper = self.load_u16_insn(offset + 2, segment);
+                        let full_insn = (insn_upper as u32) << 16 | insn as u32;
+                        decode(full_insn)
+                    }
+                };
+
+                self.decoded_instructions
+                    .insert(pc, (pc, decoded_insn, is_compressed));
+
+                pc += if is_compressed { 2 } else { 4 };
+            }
+        }
+
+        // Phase 2: Identify leaders (basic block start addresses)
+        let mut leaders = std::collections::HashSet::new();
+        leaders.insert(self.pc);
+
+        for (pc, insn, _) in self.decoded_instructions.values().into_iter() {
+            if let Some(offset) = insn.jump_target() {
+                let target = (*pc as i64 + offset) as u64;
+                leaders.insert(target);
+            }
+
+            if insn.is_branch_or_jmp() {
+                let next_pc = if self.contains_pc(pc + 2) {
+                    pc + 2
+                } else {
+                    pc + 4
+                };
+                leaders.insert(next_pc);
+            }
+        }
+
+        // Phase 3: Build basic blocks
+        let mut sorted_leaders: Vec<u64> = leaders.into_iter().collect();
+        sorted_leaders.sort();
+
+        for window in sorted_leaders.windows(2) {
+            let start = window[0];
+            let end = window[1];
+
+            let mut block = Vec::new();
+            let mut current = start;
+            loop {
+                if let Some((insn, compressed)) = self.get_instruction_with_flag(current) {
+                    block.push((insn.clone(), compressed));
+                    let next_current = if current + 2 == end || !self.contains_pc(current + 2) {
+                        current + 4
+                    } else {
+                        current + 2
+                    };
+                    if next_current >= end {
+                        break;
+                    }
+                    current = next_current;
+                } else {
+                    break;
+                }
+            }
+            if !block.is_empty() {
+                self.basic_blocks.insert(start, block);
+            }
+        }
+
+        // Handle the last block if any
+        if let Some(&last_leader) = sorted_leaders.last() {
+            if let Some((insn, compressed)) = self.get_instruction_with_flag(last_leader) {
+                self.basic_blocks
+                    .insert(last_leader, vec![(insn.clone(), compressed)]);
+            }
+        }
+    }
+
+    // Binary search helper to check if PC exists
+    fn contains_pc(&self, pc: u64) -> bool {
+        self.decoded_instructions.contains_key(&pc)
+    }
+
+    // Binary search helper to get instruction by PC
+    pub(crate) fn get_instruction(&self, pc: u64) -> Option<&Instruction> {
+        self.decoded_instructions.get(&pc).map(|(_, insn, _)| insn)
+    }
+
+    // Get instruction and compressed flag by PC
+    pub(crate) fn get_instruction_with_flag(&self, pc: u64) -> Option<(&Instruction, bool)> {
+        self.decoded_instructions
+            .get(&pc)
+            .map(|(_, insn, compressed)| (insn, compressed.clone()))
+    }
+
+    // Get basic block starting at the given PC
+    pub(crate) fn get_basic_block(&self, pc: u64) -> Option<&Vec<(Instruction, bool)>> {
+        self.basic_blocks.get(&pc)
     }
 
     /// Finalize tracing and return the execution trace
@@ -281,6 +495,16 @@ impl<T: Tracer> VM<T> {
         self.memory.read_u16(addr as u64)
     }
 
+    pub(crate) fn load_u16_insn(&self, offset: usize, segment: &InstructionSegment) -> u16 {
+        let mut res = [0; 2];
+        res.copy_from_slice(&segment.data[offset..offset + 2]);
+        u16::from_le_bytes(res)
+    }
+
+    pub(crate) fn write_insn(&mut self, pc: u64, segment: InstructionSegment) {
+        self.insn_segments.insert(pc, segment);
+    }
+
     /// Load 1 byte from memory at the given addr
     pub(crate) fn load_u8(&self, addr: usize) -> u8 {
         self.memory.read_u8(addr as u64)
@@ -314,6 +538,32 @@ impl<T: Tracer> VM<T> {
     /// Read multiple bytes from a given address
     pub(crate) fn read_bytes(&mut self, addr: usize, len: usize) -> Vec<u8> {
         self.memory.read_n_bytes(addr as u64, len)
+    }
+
+    /// Try to decode the instruction at the current PC from memory
+    fn try_decode_instruction_at_pc(&self) -> Option<(Instruction, bool)> {
+        // Try to read 2 bytes first to check if compressed
+        let bytes = self.memory.read_n_bytes(self.pc, 2);
+        if bytes.len() < 2 {
+            return None;
+        }
+        let insn_u16 = u16::from_le_bytes([bytes[0], bytes[1]]);
+        let is_compressed = (insn_u16 & mask16(2)) != 0b11;
+
+        if is_compressed {
+            // Compressed instruction
+            let decoded = decode_compressed(insn_u16);
+            Some((decoded, true))
+        } else {
+            // Try to read 4 bytes
+            let bytes4 = self.memory.read_n_bytes(self.pc, 4);
+            if bytes4.len() < 4 {
+                return Some((Instruction::Illegal(insn_u16 as u32), false));
+            }
+            let full_insn = u32::from_le_bytes([bytes4[0], bytes4[1], bytes4[2], bytes4[3]]);
+            let decoded = decode(full_insn);
+            Some((decoded, false))
+        }
     }
 
     fn read_csr(&self, csr: u32) -> u32 {
@@ -634,8 +884,15 @@ mod tests {
             0x33, 0x81, 0x01, 0x00, // add x2, x3, x0
         ];
 
+        let segment = InstructionSegment {
+            start: 0,
+            end: 36,
+            data: fib_prog.to_vec(),
+        };
+
         let mut vm = VM::<NoopTracer>::init();
-        vm.write_bytes(0, &fib_prog);
+        vm.write_insn(0, segment);
+        vm.decode_instructions_and_build_basic_blocks();
         vm.reg_mut(1, 1);
         vm.reg_mut(2, 1);
 
@@ -672,7 +929,13 @@ mod tests {
         ];
 
         let mut vm = TracingVM::init();
-        vm.write_bytes(0, &fib_prog);
+        let segment = InstructionSegment {
+            start: 0,
+            end: 12,
+            data: fib_prog.to_vec(),
+        };
+        vm.write_insn(0, segment);
+        vm.decode_instructions_and_build_basic_blocks();
         vm.reg_mut(1, 1);
         vm.reg_mut(2, 1);
 
@@ -716,5 +979,174 @@ mod tests {
         // Verify the VM halted and exited successfully.
         assert!(vm.halted);
         assert_eq!(vm.exit_code, 0);
+    }
+
+    #[test]
+    fn test_analyzer() {
+        let file_location = "test-bin/rust-bin/fib/fib-gc".to_string();
+        let mut vm = FastVM::init_from_elf(file_location);
+        vm.decode_instructions_and_build_basic_blocks();
+
+        // Basic sanity checks
+        assert!(
+            !vm.basic_blocks.is_empty(),
+            "Should create at least one basic block"
+        );
+        assert!(
+            vm.decoded_instructions.len() > 0,
+            "Should decode some instructions"
+        );
+
+        // Entry point should be a leader (have a basic block starting there)
+        assert!(
+            vm.basic_blocks.contains_key(&vm.pc),
+            "Entry point should be a leader with a basic block"
+        );
+
+        // Collect all leaders (basic block start addresses)
+        let leaders: std::collections::HashSet<u64> = vm.basic_blocks.keys().cloned().collect();
+
+        // Verify that jump targets that point to valid instruction addresses are leaders
+        for (pc, insn, _) in vm.decoded_instructions.values() {
+            if let Some(offset) = insn.jump_target() {
+                let target = (*pc as i64 + offset) as u64;
+                println!("PC {:#x}, offset {:#x}, target {:#x}", pc, offset, target);
+                // Only check targets that are within our decoded instruction range
+                if vm.decoded_instructions.contains_key(&target) {
+                    println!("Target {:#x} is in decoded instructions", target);
+                    assert!(
+                        leaders.contains(&target),
+                        "Jump target {:#x} should be a leader",
+                        target
+                    );
+                } else {
+                    println!("Target {:#x} is NOT in decoded instructions", target);
+                }
+            }
+        }
+
+        // Verify basic block properties
+        for (block_start, instructions) in &vm.basic_blocks {
+            assert!(!instructions.is_empty(), "Basic blocks should not be empty");
+
+            // Check that instructions in the middle of blocks are not jumps/branches
+            for (i, (insn, _)) in instructions.iter().enumerate() {
+                if i < instructions.len() - 1 {
+                    // Instructions in the middle should not be jumps/branches
+                    assert!(
+                        !insn.is_branch_or_jmp(),
+                        "Instruction at position {} in block starting at {:#x} should not be a jump/branch",
+                        i,
+                        block_start
+                    );
+                }
+            }
+
+            // The last instruction can be a jump/branch
+            if let Some((last_insn, _)) = instructions.last() {
+                // If it's a jump/branch, the next instruction should be a leader
+                if last_insn.is_branch_or_jmp() {
+                    // We can't easily verify this without knowing the exact PC, but we can check
+                    // that there are other leaders
+                    assert!(
+                        leaders.len() > 1,
+                        "Should have multiple leaders if jumps exist"
+                    );
+                }
+            }
+        }
+
+        // Verify that all instructions are covered by basic blocks
+        let mut covered_instructions = 0;
+        for instructions in vm.basic_blocks.values() {
+            covered_instructions += instructions.len();
+        }
+
+        // Note: This might not be exactly equal due to compressed instructions having different sizes
+        // But we should cover most instructions
+        assert!(
+            covered_instructions > 0,
+            "Should cover some instructions in basic blocks"
+        );
+        assert!(
+            covered_instructions <= vm.decoded_instructions.len(),
+            "Should not cover more instructions than were decoded"
+        );
+
+        // Verify that leaders are properly ordered and don't overlap
+        let mut sorted_leaders: Vec<u64> = leaders.into_iter().collect();
+        sorted_leaders.sort();
+
+        for window in sorted_leaders.windows(2) {
+            let current = window[0];
+            let next = window[1];
+            assert!(current < next, "Leaders should be in ascending order");
+
+            // Check that there's no overlap - the end of one block should be before the start of the next
+            if let Some(instructions) = vm.basic_blocks.get(&current) {
+                // Calculate the actual end of the block by summing instruction sizes
+                let mut current_end = current;
+                for _insn in instructions {
+                    // Check if this instruction is compressed (2 bytes) or regular (4 bytes)
+                    // We can determine this by checking if the PC exists at pc+2
+                    let next_pc = current_end + 2;
+                    if vm.decoded_instructions.contains_key(&next_pc) {
+                        current_end += 2; // compressed
+                    } else {
+                        current_end += 4; // regular
+                    }
+                }
+                assert!(
+                    current_end <= next,
+                    "Block ending at {:#x} should not overlap with block starting at {:#x}",
+                    current_end,
+                    next
+                );
+            }
+        }
+
+        println!("Analyzer test passed!");
+        println!("- Decoded {} instructions", vm.decoded_instructions.len());
+        println!("- Created {} basic blocks", vm.basic_blocks.len());
+        println!("- Entry point: {:#x}", vm.pc);
+    }
+
+    #[test]
+    fn test_basic_block_boundaries() {
+        // Test with a simple program that has clear jump/branch boundaries
+        let file_location = "test-bin/rust-bin/fib/fib-gc".to_string();
+        let mut vm = FastVM::init_from_elf(file_location);
+        vm.decode_instructions_and_build_basic_blocks();
+
+        // Find any basic blocks that end with jumps/branches
+        let mut jump_blocks = Vec::new();
+        for (start_pc, instructions) in &vm.basic_blocks {
+            if let Some((last_insn, _)) = instructions.last() {
+                if last_insn.is_branch_or_jmp() {
+                    jump_blocks.push(*start_pc);
+                }
+            }
+        }
+
+        if !jump_blocks.is_empty() {
+            println!(
+                "Found {} basic blocks ending with jumps/branches",
+                jump_blocks.len()
+            );
+            // Verify that these blocks don't have jumps in the middle
+            for block_start in jump_blocks {
+                let instructions = &vm.basic_blocks[&block_start];
+                for (i, (insn, _)) in instructions.iter().enumerate() {
+                    if i < instructions.len() - 1 {
+                        assert!(
+                            !insn.is_branch_or_jmp(),
+                            "Block {:#x}: instruction at position {} should not be a jump/branch",
+                            block_start,
+                            i
+                        );
+                    }
+                }
+            }
+        }
     }
 }

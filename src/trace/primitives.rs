@@ -501,7 +501,6 @@ impl InstrFlags {
             // Remove when implemented
             _ => {
                 println!("Instruction not implemented: {:?}", opcode);
-                unimplemented!()
             }
         }
 

@@ -95,12 +95,13 @@ impl Memory {
             return;
         }
 
-        let end = addr
-            .checked_add(len as u64 - 1)
-            .unwrap_or_else(|| panic!("read out of range: 0x{:x}", addr));
+        if addr.checked_add(len as u64).is_none() {
+            panic!("read out of range: 0x{:x}", addr);
+        }
 
+        let end = addr + len as u64 - 1;
         if end > MAX_ADDR {
-            panic!("write out of range: 0x{:x}", addr);
+            panic!("read out of range: 0x{:x}", addr);
         }
 
         let mut curr_addr = addr;
@@ -130,11 +131,13 @@ impl Memory {
             return;
         }
 
-        let end = addr
-            .checked_add(bytes.len() as u64 - 1)
-            .unwrap_or_else(|| panic!("write out of range: 0x{:x}", addr));
+        let len = bytes.len() as u64;
+        if addr.checked_add(len).is_none() {
+            panic!("write out of range: 0x{:x}", addr);
+        }
 
-        if addr > MAX_ADDR || end > MAX_ADDR {
+        let end = addr + len - 1;
+        if end > MAX_ADDR {
             panic!("write out of range: 0x{:x}", addr);
         }
 

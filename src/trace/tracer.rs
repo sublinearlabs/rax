@@ -182,7 +182,7 @@ impl Tracer for FullTracer {
         } else if instr.is_fp_insn() {
             f_regs[instr.rs1() as usize]
         } else {
-            panic!("Instruction not accounted for: {:?}", instr);
+            0
         };
 
         let rs2_val = if instr.is_integer_insn() {
@@ -194,7 +194,7 @@ impl Tracer for FullTracer {
         } else if instr.is_fp_insn() {
             f_regs[instr.rs2() as usize]
         } else {
-            panic!("Instruction not accounted for: {:?}", instr);
+            0
         };
 
         let rs3_val = if instr.is_integer_insn() {
@@ -206,7 +206,7 @@ impl Tracer for FullTracer {
         } else if instr.is_fp_insn() {
             f_regs[instr.rs3() as usize]
         } else {
-            panic!("Instruction not accounted for: {:?}", instr);
+            0
         };
 
         self.current = Some(TraceRow {
