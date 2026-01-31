@@ -100,7 +100,7 @@ impl Memory {
             .unwrap_or_else(|| panic!("read out of range: 0x{:x}", addr));
 
         if end > MAX_ADDR {
-            panic!("write out of range: 0x{:x}", addr);
+            panic!("read out of range: 0x{:x}", addr);
         }
 
         let mut curr_addr = addr;
