@@ -237,12 +237,11 @@ impl<T: Tracer> VM<T> {
                     block.push((insn.clone(), is_compressed));
                     self.tracer.commit();
 
+                    self.cycles = self.cycles.wrapping_add(1);
+
                     if insn.is_branch_or_jmp() {
-                        self.cycles = self.cycles.wrapping_add(block.len() as u64);
                         self.basic_blocks.insert(leader, block);
                         break;
-                    } else {
-                        self.cycles = self.cycles.wrapping_add(1);
                     }
                 }
             }
