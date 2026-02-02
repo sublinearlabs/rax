@@ -170,15 +170,15 @@ impl<T: Tracer> VM<T> {
                     // Record next PC
                     self.tracer.record_next_pc(self.pc);
 
-                    // Commit the trace row
-                    self.tracer.commit();
-
                     // Check for halt
                     if self.halted {
                         self.tracer.record_halt();
                         self.tracer.commit();
                         break;
                     }
+
+                    // Commit the trace row
+                    self.tracer.commit();
                 }
                 self.cycles = self.cycles.wrapping_add(block.len() as u64);
             }
@@ -222,15 +222,15 @@ impl<T: Tracer> VM<T> {
 
                     self.cycles = self.cycles.wrapping_add(1);
 
-                    block.push((insn.clone(), insn_bytes, is_compressed));
-                    self.tracer.commit();
-
                     // Check for halt
                     if self.halted {
                         self.tracer.record_halt();
                         self.tracer.commit();
                         break;
                     }
+
+                    block.push((insn.clone(), insn_bytes, is_compressed));
+                    self.tracer.commit();
 
                     if insn.is_branch_or_jmp() {
                         self.basic_blocks.insert(leader, block);
