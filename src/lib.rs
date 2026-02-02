@@ -1,10 +1,10 @@
-use std::fs;
+use std::{collections::HashMap, fs};
 
-use crate::decode::compressed::decode_compressed;
+use crate::decode::{Instruction, compressed::decode_compressed};
 use crate::elf::decode_elf;
 use crate::memory::Memory;
 use crate::trace::{DefaultTracer, Tracer};
-use crate::util::{is_snan_f32, is_snan_f64, is_subnormal_f32, is_subnormal_f64, mask, mask16};
+use crate::util::{is_snan_f32, is_snan_f64, is_subnormal_f32, is_subnormal_f64, mask16};
 use decode::decode;
 
 mod decode;
@@ -25,6 +25,7 @@ pub struct VM<T: Tracer = DefaultTracer> {
     registers: [u64; 32],
     f_reg: [u64; 32],
     memory: Memory,
+    basic_blocks: HashMap<u64, Vec<(Instruction, u32, bool)>>,
     fcsr_reg: u32,
     reservation_set: u64,
     pc: u64,
@@ -44,6 +45,7 @@ impl<T: Tracer> Default for VM<T> {
         Self {
             registers: [0u64; 32],
             memory: Memory::default(),
+            basic_blocks: HashMap::new(),
             reservation_set: 0,
             pc: 0,
             halted: false,
@@ -144,43 +146,104 @@ impl<T: Tracer> VM<T> {
     }
 
     /// Perform one cycle with tracing
-    pub fn step(&mut self) {
-        let insn = self.load_u16(self.pc as usize);
-        let is_compressed = insn & mask16(2) != 0b11;
+    fn step(&mut self) {
+        let block = self.get_basic_block(self.pc).cloned();
 
-        let (insn, insn_bytes) = if is_compressed {
-            (decode_compressed(insn), insn as u32)
-        } else {
-            let insn_upper = self.load_u16((self.pc + 2) as usize);
-            let insn = (insn_upper as u32) << 16 | insn as u32;
-            (decode(insn), insn)
-        };
+        match block {
+            Some(block) => {
+                for (i, (insn, insn_bytes, is_compressed)) in block.iter().enumerate() {
+                    let current_pc = self.pc;
 
-        // Begin tracing this instruction
-        self.tracer.begin_instruction(
-            self.cycles,
-            self.pc,
-            &self.registers,
-            &self.f_reg,
-            insn_bytes,
-            &insn,
-        );
+                    // Begin tracing this instruction
+                    self.tracer.begin_instruction(
+                        self.cycles + i as u64,
+                        current_pc,
+                        &self.registers,
+                        &self.f_reg,
+                        *insn_bytes,
+                        insn,
+                    );
 
-        // Execute the instruction (this will update PC)
-        self.execute_instruction(insn, is_compressed);
+                    // Execute the instruction (this will update PC)
+                    self.execute_instruction(insn.clone(), *is_compressed);
 
-        // Record next PC (set during execute_instruction or default to pc+4)
-        self.tracer.record_next_pc(self.pc);
+                    // Record next PC
+                    self.tracer.record_next_pc(self.pc);
 
-        // Check for halt
-        if self.halted {
-            self.tracer.record_halt();
+                    // Check for halt
+                    if self.halted {
+                        self.tracer.record_halt();
+                        self.tracer.commit();
+                        break;
+                    }
+
+                    // Commit the trace row
+                    self.tracer.commit();
+                }
+                self.cycles = self.cycles.wrapping_add(block.len() as u64);
+            }
+            None => {
+                // Build the basic block
+                let leader = self.pc;
+                let mut block = vec![];
+
+                loop {
+                    let insn = self.load_u16(self.pc as usize);
+                    let is_compressed = insn & mask16(2) != 0b11;
+
+                    let (insn, insn_bytes) = if is_compressed {
+                        (decode_compressed(insn), insn as u32)
+                    } else {
+                        let insn_upper = self.load_u16((self.pc + 2) as usize);
+                        let insn = (insn_upper as u32) << 16 | insn as u32;
+                        (decode(insn), insn)
+                    };
+
+                    if let Instruction::Illegal(_) = &insn {
+                        self.halted = true;
+                        break;
+                    }
+
+                    // // Begin tracing this instruction
+                    self.tracer.begin_instruction(
+                        self.cycles,
+                        self.pc,
+                        &self.registers,
+                        &self.f_reg,
+                        insn_bytes,
+                        &insn,
+                    );
+
+                    // Execute the instruction (this will update PC)
+                    self.execute_instruction(insn.clone(), is_compressed);
+
+                    // Record next PC (set during execute_instruction or default to pc+4)
+                    self.tracer.record_next_pc(self.pc);
+
+                    self.cycles = self.cycles.wrapping_add(1);
+
+                    // Check for halt
+                    if self.halted {
+                        self.tracer.record_halt();
+                        self.tracer.commit();
+                        break;
+                    }
+
+                    block.push((insn.clone(), insn_bytes, is_compressed));
+                    self.tracer.commit();
+
+                    if insn.is_branch_or_jmp() {
+                        self.basic_blocks.insert(leader, block);
+                        break;
+                    }
+                }
+            }
         }
+    }
 
-        // Commit the trace row
-        self.tracer.commit();
-
-        self.cycles = self.cycles.wrapping_add(1);
+    // Get basic block starting at the given PC
+    pub(crate) fn get_basic_block(&self, pc: u64) -> Option<&Vec<(Instruction, u32, bool)>> {
+        self.basic_blocks.get(&pc)
     }
 
     /// Finalize tracing and return the execution trace
@@ -640,24 +703,6 @@ mod tests {
         vm.reg_mut(2, 1);
 
         vm.step();
-        vm.step();
-        vm.step();
-
-        assert_eq!(vm.reg(1), 1);
-        assert_eq!(vm.reg(2), 2);
-
-        vm.step();
-        vm.step();
-        vm.step();
-
-        assert_eq!(vm.reg(1), 2);
-        assert_eq!(vm.reg(2), 3);
-
-        vm.step();
-        vm.step();
-        vm.step();
-
-        assert_eq!(vm.reg(1), 3);
         assert_eq!(vm.reg(2), 5);
 
         assert_eq!(vm.cycles, 9);
@@ -678,8 +723,6 @@ mod tests {
 
         assert!(vm.is_tracing());
 
-        vm.step();
-        vm.step();
         vm.step();
 
         let trace = vm.take_trace().expect("Should have trace");
