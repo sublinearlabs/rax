@@ -228,6 +228,8 @@ impl<T: Tracer> VM<T> {
                     // Record next PC (set during execute_instruction or default to pc+4)
                     self.tracer.record_next_pc(self.pc);
 
+                    self.cycles = self.cycles.wrapping_add(1);
+
                     // Check for halt
                     if self.halted {
                         self.tracer.record_halt();
@@ -236,8 +238,6 @@ impl<T: Tracer> VM<T> {
 
                     block.push((insn.clone(), is_compressed));
                     self.tracer.commit();
-
-                    self.cycles = self.cycles.wrapping_add(1);
 
                     if insn.is_branch_or_jmp() {
                         self.basic_blocks.insert(leader, block);
