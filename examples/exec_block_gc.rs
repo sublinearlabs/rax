@@ -49,4 +49,6 @@ fn main() {
     println!("\nexit_code: {}", vm.exit_code());
 
     perf_stat::print_perf_stat(&vm, "exec_block_gc");
+
+    assert_eq!(vm.cycles, 2215154413);
 }
