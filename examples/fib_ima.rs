@@ -39,4 +39,6 @@ fn main() {
     println!("\nexit_code: {}", vm.exit_code());
 
     perf_stat::print_perf_stat(&vm, "fib_ima");
+
+    assert_eq!(vm.cycles, 72000006);
 }
