@@ -25,7 +25,7 @@ pub struct VM<T: Tracer = DefaultTracer> {
     registers: [u64; 32],
     f_reg: [u64; 32],
     memory: Memory,
-    basic_blocks: HashMap<u64, Vec<(Instruction, bool)>>,
+    basic_blocks: HashMap<u64, Vec<(Instruction, u32, bool)>>,
     fcsr_reg: u32,
     reservation_set: u64,
     pc: u64,
@@ -151,17 +151,8 @@ impl<T: Tracer> VM<T> {
 
         match block {
             Some(block) => {
-                for (i, (insn, is_compressed)) in block.iter().enumerate() {
+                for (i, (insn, insn_bytes, is_compressed)) in block.iter().enumerate() {
                     let current_pc = self.pc;
-
-                    // For tracing, we need to determine the instruction bytes
-                    let insn_bytes = if *is_compressed {
-                        self.load_u16(current_pc as usize) as u32
-                    } else {
-                        let lower = self.load_u16(current_pc as usize) as u32;
-                        let upper = self.load_u16((current_pc + 2) as usize) as u32;
-                        (upper << 16) | lower
-                    };
 
                     // Begin tracing this instruction
                     self.tracer.begin_instruction(
@@ -169,7 +160,7 @@ impl<T: Tracer> VM<T> {
                         current_pc,
                         &self.registers,
                         &self.f_reg,
-                        insn_bytes,
+                        *insn_bytes,
                         insn,
                     );
 
@@ -212,7 +203,7 @@ impl<T: Tracer> VM<T> {
                         break;
                     }
 
-                    // Begin tracing this instruction
+                    // // Begin tracing this instruction
                     self.tracer.begin_instruction(
                         self.cycles,
                         self.pc,
@@ -236,7 +227,7 @@ impl<T: Tracer> VM<T> {
                         break;
                     }
 
-                    block.push((insn.clone(), is_compressed));
+                    block.push((insn.clone(), insn_bytes, is_compressed));
                     self.tracer.commit();
 
                     if insn.is_branch_or_jmp() {
@@ -249,7 +240,7 @@ impl<T: Tracer> VM<T> {
     }
 
     // Get basic block starting at the given PC
-    pub(crate) fn get_basic_block(&self, pc: u64) -> Option<&Vec<(Instruction, bool)>> {
+    pub(crate) fn get_basic_block(&self, pc: u64) -> Option<&Vec<(Instruction, u32, bool)>> {
         self.basic_blocks.get(&pc)
     }
 
