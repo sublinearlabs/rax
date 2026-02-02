@@ -173,6 +173,7 @@ impl<T: Tracer> VM<T> {
                     // Check for halt
                     if self.halted {
                         self.tracer.record_halt();
+                        self.tracer.commit();
                         break;
                     }
 
@@ -224,6 +225,7 @@ impl<T: Tracer> VM<T> {
                     // Check for halt
                     if self.halted {
                         self.tracer.record_halt();
+                        self.tracer.commit();
                         break;
                     }
 
