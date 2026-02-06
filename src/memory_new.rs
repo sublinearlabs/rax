@@ -143,9 +143,6 @@ impl<const N: usize, S: BuildHasher + Default> Memory<N, S> {
 
         debug_assert!(N.is_power_of_two());
         let idx = (page_id as usize) & (N - 1);
-        if self.absent_ids[idx] == page_id {
-            self.absent_ids[idx] = u64::MAX;
-        }
 
         if self.cache_ids[idx] == page_id {
             if let Some(mut ptr) = self.cache_ptrs[idx] {
@@ -165,10 +162,12 @@ impl<const N: usize, S: BuildHasher + Default> Memory<N, S> {
 
     pub(crate) fn read_u64(&mut self, addr: u64) -> u64 {
         Self::check_read_range(addr, 8);
+        let end = addr + 7;
 
         let start_page = Self::page_idx(addr);
-        let offset = Self::page_offset(addr);
-        if offset + 8 <= PAGE_SIZE {
+        let end_page = Self::page_idx(end);
+        if start_page == end_page {
+            let offset = Self::page_offset(addr);
             if let Some(page) = self.cache_get_single_page(start_page) {
                 let mut bytes = [0u8; 8];
                 bytes.copy_from_slice(&page[offset..offset + 8]);
@@ -183,10 +182,12 @@ impl<const N: usize, S: BuildHasher + Default> Memory<N, S> {
 
     pub(crate) fn read_u32(&mut self, addr: u64) -> u32 {
         Self::check_read_range(addr, 4);
+        let end = addr + 3;
 
         let start_page = Self::page_idx(addr);
-        let offset = Self::page_offset(addr);
-        if offset + 4 <= PAGE_SIZE {
+        let end_page = Self::page_idx(end);
+        if start_page == end_page {
+            let offset = Self::page_offset(addr);
             if let Some(page) = self.cache_get_single_page(start_page) {
                 let mut bytes = [0u8; 4];
                 bytes.copy_from_slice(&page[offset..offset + 4]);
@@ -201,10 +202,12 @@ impl<const N: usize, S: BuildHasher + Default> Memory<N, S> {
 
     pub(crate) fn read_u16(&mut self, addr: u64) -> u16 {
         Self::check_read_range(addr, 2);
+        let end = addr + 1;
 
         let start_page = Self::page_idx(addr);
-        let offset = Self::page_offset(addr);
-        if offset + 2 <= PAGE_SIZE {
+        let end_page = Self::page_idx(end);
+        if start_page == end_page {
+            let offset = Self::page_offset(addr);
             if let Some(page) = self.cache_get_single_page(start_page) {
                 let mut bytes = [0u8; 2];
                 bytes.copy_from_slice(&page[offset..offset + 2]);
@@ -221,8 +224,8 @@ impl<const N: usize, S: BuildHasher + Default> Memory<N, S> {
         Self::check_read_range(addr, 1);
 
         let start_page = Self::page_idx(addr);
-        let offset = Self::page_offset(addr);
         if let Some(page) = self.cache_get_single_page(start_page) {
+            let offset = Self::page_offset(addr);
             return page[offset];
         }
         0
@@ -230,10 +233,12 @@ impl<const N: usize, S: BuildHasher + Default> Memory<N, S> {
 
     pub(crate) fn write_u64(&mut self, addr: u64, value: u64) {
         Self::check_write_range(addr, 8);
+        let end = addr + 7;
 
         let start_page = Self::page_idx(addr);
-        let offset = Self::page_offset(addr);
-        if offset + 8 <= PAGE_SIZE {
+        let end_page = Self::page_idx(end);
+        if start_page == end_page {
+            let offset = Self::page_offset(addr);
             self.invalidate_absent(start_page);
             let page = self.cache_get_mut(start_page);
             page[offset..offset + 8].copy_from_slice(&value.to_le_bytes());
@@ -245,10 +250,12 @@ impl<const N: usize, S: BuildHasher + Default> Memory<N, S> {
 
     pub(crate) fn write_u32(&mut self, addr: u64, value: u32) {
         Self::check_write_range(addr, 4);
+        let end = addr + 3;
 
         let start_page = Self::page_idx(addr);
-        let offset = Self::page_offset(addr);
-        if offset + 4 <= PAGE_SIZE {
+        let end_page = Self::page_idx(end);
+        if start_page == end_page {
+            let offset = Self::page_offset(addr);
             self.invalidate_absent(start_page);
             let page = self.cache_get_mut(start_page);
             page[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
@@ -260,10 +267,12 @@ impl<const N: usize, S: BuildHasher + Default> Memory<N, S> {
 
     pub(crate) fn write_u16(&mut self, addr: u64, value: u16) {
         Self::check_write_range(addr, 2);
+        let end = addr + 1;
 
         let start_page = Self::page_idx(addr);
-        let offset = Self::page_offset(addr);
-        if offset + 2 <= PAGE_SIZE {
+        let end_page = Self::page_idx(end);
+        if start_page == end_page {
+            let offset = Self::page_offset(addr);
             self.invalidate_absent(start_page);
             let page = self.cache_get_mut(start_page);
             page[offset..offset + 2].copy_from_slice(&value.to_le_bytes());
@@ -277,9 +286,9 @@ impl<const N: usize, S: BuildHasher + Default> Memory<N, S> {
         Self::check_write_range(addr, 1);
 
         let start_page = Self::page_idx(addr);
-        let offset = Self::page_offset(addr);
         self.invalidate_absent(start_page);
         let page = self.cache_get_mut(start_page);
+        let offset = Self::page_offset(addr);
         page[offset] = value;
     }
 
@@ -304,10 +313,12 @@ impl<const N: usize, S: BuildHasher + Default> Memory<N, S> {
         }
 
         Self::check_read_range(addr, len);
+        let end = addr + (len as u64 - 1);
 
         let start_page = Self::page_idx(addr);
-        let offset = Self::page_offset(addr);
-        if offset + len <= PAGE_SIZE {
+        let end_page = Self::page_idx(end);
+        if start_page == end_page {
+            let offset = Self::page_offset(addr);
             if let Some(page) = self.cache_get(start_page) {
                 out.copy_from_slice(&page[offset..offset + len]);
             }
@@ -342,10 +353,12 @@ impl<const N: usize, S: BuildHasher + Default> Memory<N, S> {
         }
 
         Self::check_write_range(addr, bytes.len());
+        let end = addr + (bytes.len() as u64 - 1);
 
         let start_page = Self::page_idx(addr);
-        let offset = Self::page_offset(addr);
-        if offset + bytes.len() <= PAGE_SIZE {
+        let end_page = Self::page_idx(end);
+        if start_page == end_page {
+            let offset = Self::page_offset(addr);
             self.invalidate_absent(start_page);
             let page = self.cache_get_mut(start_page);
             page[offset..offset + bytes.len()].copy_from_slice(bytes);
@@ -362,7 +375,6 @@ impl<const N: usize, S: BuildHasher + Default> Memory<N, S> {
 
             let chunk = bytes_left.min(PAGE_SIZE - offset);
 
-            self.invalidate_absent(idx);
             let page = self.cache_get_mut(idx);
             page[offset..(offset + chunk)].copy_from_slice(&bytes[src_off..(src_off + chunk)]);
 
