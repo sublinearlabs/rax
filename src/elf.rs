@@ -5,11 +5,11 @@ use elf::{
     file::Class,
 };
 
-use crate::memory::Memory;
+use crate::memory::MemoryDefault;
 
 /// Decodes the elf bytes,
 /// loads segments into memory and return the pc.
-pub(crate) fn decode_elf(bytes: &[u8]) -> (Memory, u64) {
+pub(crate) fn decode_elf(bytes: &[u8]) -> (MemoryDefault, u64) {
     let file =
         ElfBytes::<LittleEndian>::minimal_parse(bytes).expect("failed to parse the elf file");
     let ehdr = file.ehdr;
@@ -21,7 +21,7 @@ pub(crate) fn decode_elf(bytes: &[u8]) -> (Memory, u64) {
     let entry = ehdr.e_entry;
 
     // load the program headers into memory
-    let mut memory = Memory::default();
+    let mut memory = MemoryDefault::default();
 
     // iterate over the program headers
     // load header of type `PT_LOAD` to memory

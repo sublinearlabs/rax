@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, hash::BuildHasher, ptr::NonNull};
 
 /// Number of bits to describe entries in a page
 const PAGE_SHIFT: u64 = 12;
@@ -11,12 +11,27 @@ const MAX_ADDR: u64 = u64::MAX;
 
 type Page = Box<[u8; PAGE_SIZE]>;
 
-#[derive(Default)]
-pub(crate) struct Memory {
-    pages: HashMap<u64, Page>,
+pub(crate) struct Memory<const N: usize, S: BuildHasher + Default> {
+    pages: HashMap<u64, Page, S>,
+    cache_ids: [u64; N],
+    cache_ptrs: [Option<NonNull<[u8; PAGE_SIZE]>>; N],
+    absent_ids: [u64; N],
 }
 
-impl Memory {
+pub(crate) type MemoryDefault = Memory<32, fxhash::FxBuildHasher>;
+
+impl<const N: usize, S: BuildHasher + Default> Default for Memory<N, S> {
+    fn default() -> Self {
+        Self {
+            pages: HashMap::default(),
+            cache_ids: [u64::MAX; N],
+            cache_ptrs: [None; N],
+            absent_ids: [u64::MAX; N],
+        }
+    }
+}
+
+impl<const N: usize, S: BuildHasher + Default> Memory<N, S> {
     /// Return the page index given the address
     #[inline]
     fn page_idx(addr: u64) -> u64 {
@@ -40,48 +55,248 @@ impl Memory {
             .or_insert_with(|| Box::new([0; PAGE_SIZE]))
     }
 
-    pub(crate) fn read_u64(&self, addr: u64) -> u64 {
+    #[inline]
+    fn check_read_range(addr: u64, len: usize) {
+        let last = len as u64 - 1;
+        if addr > MAX_ADDR - last {
+            panic!("read out of range: 0x{:x}", addr);
+        }
+    }
+
+    #[inline]
+    fn check_write_range(addr: u64, len: usize) {
+        let last = len as u64 - 1;
+        if addr > MAX_ADDR - last {
+            panic!("write out of range: 0x{:x}", addr);
+        }
+    }
+
+    #[inline]
+    fn invalidate_absent(&mut self, page_id: u64) {
+        if N == 0 {
+            return;
+        }
+        debug_assert!(N.is_power_of_two());
+        let idx = (page_id as usize) & (N - 1);
+        if self.absent_ids[idx] == page_id {
+            self.absent_ids[idx] = u64::MAX;
+        }
+    }
+
+    #[inline]
+    fn cache_get_single_page(&mut self, page_id: u64) -> Option<&[u8; PAGE_SIZE]> {
+        if N == 0 {
+            let page = self.pages.get(&page_id);
+            return page.map(|page| page.as_ref());
+        }
+
+        debug_assert!(N.is_power_of_two());
+        let idx = (page_id as usize) & (N - 1);
+
+        if self.cache_ids[idx] == page_id {
+            if let Some(ptr) = self.cache_ptrs[idx] {
+                return Some(unsafe { ptr.as_ref() });
+            }
+        }
+
+        if self.absent_ids[idx] == page_id {
+            return None;
+        }
+
+        let page = self.pages.get(&page_id);
+        if let Some(page) = page {
+            self.cache_ids[idx] = page_id;
+            self.cache_ptrs[idx] = Some(NonNull::from(page.as_ref()));
+            return Some(page);
+        }
+
+        self.absent_ids[idx] = page_id;
+        None
+    }
+
+    #[inline]
+    fn cache_get(&mut self, page_id: u64) -> Option<&[u8; PAGE_SIZE]> {
+        if N == 0 {
+            let page = self.pages.get(&page_id);
+            return page.map(|page| page.as_ref());
+        }
+
+        debug_assert!(N.is_power_of_two());
+        let idx = (page_id as usize) & (N - 1);
+
+        if self.cache_ids[idx] == page_id {
+            if let Some(ptr) = self.cache_ptrs[idx] {
+                return Some(unsafe { ptr.as_ref() });
+            }
+        }
+
+        let page = self.pages.get(&page_id);
+        let page = page?;
+        self.cache_ids[idx] = page_id;
+        self.cache_ptrs[idx] = Some(NonNull::from(page.as_ref()));
+        Some(page)
+    }
+
+    #[inline]
+    fn cache_get_mut(&mut self, page_id: u64) -> &mut [u8; PAGE_SIZE] {
+        if N == 0 {
+            return self.ensure_page(page_id);
+        }
+
+        debug_assert!(N.is_power_of_two());
+        let idx = (page_id as usize) & (N - 1);
+
+        if self.cache_ids[idx] == page_id {
+            if let Some(mut ptr) = self.cache_ptrs[idx] {
+                return unsafe { ptr.as_mut() };
+            }
+        }
+
+        let entry = self
+            .pages
+            .entry(page_id)
+            .or_insert_with(|| Box::new([0; PAGE_SIZE]));
+        let ptr = NonNull::from(entry.as_mut());
+        self.cache_ids[idx] = page_id;
+        self.cache_ptrs[idx] = Some(ptr);
+        entry
+    }
+
+    pub(crate) fn read_u64(&mut self, addr: u64) -> u64 {
+        Self::check_read_range(addr, 8);
+        let end = addr + 7;
+
+        let start_page = Self::page_idx(addr);
+        let end_page = Self::page_idx(end);
+        if start_page == end_page {
+            let offset = Self::page_offset(addr);
+            if let Some(page) = self.cache_get_single_page(start_page) {
+                let mut bytes = [0u8; 8];
+                bytes.copy_from_slice(&page[offset..offset + 8]);
+                return u64::from_le_bytes(bytes);
+            }
+            return 0;
+        }
+
         let bytes = self.read_n_bytes_const::<8>(addr);
         u64::from_le_bytes(bytes)
     }
 
-    pub(crate) fn read_u32(&self, addr: u64) -> u32 {
+    pub(crate) fn read_u32(&mut self, addr: u64) -> u32 {
+        Self::check_read_range(addr, 4);
+        let end = addr + 3;
+
+        let start_page = Self::page_idx(addr);
+        let end_page = Self::page_idx(end);
+        if start_page == end_page {
+            let offset = Self::page_offset(addr);
+            if let Some(page) = self.cache_get_single_page(start_page) {
+                let mut bytes = [0u8; 4];
+                bytes.copy_from_slice(&page[offset..offset + 4]);
+                return u32::from_le_bytes(bytes);
+            }
+            return 0;
+        }
+
         let bytes = self.read_n_bytes_const::<4>(addr);
         u32::from_le_bytes(bytes)
     }
 
-    pub(crate) fn read_u16(&self, addr: u64) -> u16 {
+    pub(crate) fn read_u16(&mut self, addr: u64) -> u16 {
+        Self::check_read_range(addr, 2);
+        let end = addr + 1;
+
+        let start_page = Self::page_idx(addr);
+        let end_page = Self::page_idx(end);
+        if start_page == end_page {
+            let offset = Self::page_offset(addr);
+            if let Some(page) = self.cache_get_single_page(start_page) {
+                let mut bytes = [0u8; 2];
+                bytes.copy_from_slice(&page[offset..offset + 2]);
+                return u16::from_le_bytes(bytes);
+            }
+            return 0;
+        }
+
         let bytes = self.read_n_bytes_const::<2>(addr);
         u16::from_le_bytes(bytes)
     }
 
-    pub(crate) fn read_u8(&self, addr: u64) -> u8 {
-        self.read_n_bytes_const::<1>(addr)[0]
+    pub(crate) fn read_u8(&mut self, addr: u64) -> u8 {
+        let start_page = Self::page_idx(addr);
+        if let Some(page) = self.cache_get_single_page(start_page) {
+            let offset = Self::page_offset(addr);
+            return page[offset];
+        }
+        0
     }
 
     pub(crate) fn write_u64(&mut self, addr: u64, value: u64) {
+        Self::check_write_range(addr, 8);
+        let end = addr + 7;
+
+        let start_page = Self::page_idx(addr);
+        let end_page = Self::page_idx(end);
+        if start_page == end_page {
+            let offset = Self::page_offset(addr);
+            self.invalidate_absent(start_page);
+            let page = self.cache_get_mut(start_page);
+            page[offset..offset + 8].copy_from_slice(&value.to_le_bytes());
+            return;
+        }
+
         self.write_n_bytes(addr, &value.to_le_bytes());
     }
 
     pub(crate) fn write_u32(&mut self, addr: u64, value: u32) {
+        Self::check_write_range(addr, 4);
+        let end = addr + 3;
+
+        let start_page = Self::page_idx(addr);
+        let end_page = Self::page_idx(end);
+        if start_page == end_page {
+            let offset = Self::page_offset(addr);
+            self.invalidate_absent(start_page);
+            let page = self.cache_get_mut(start_page);
+            page[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
+            return;
+        }
+
         self.write_n_bytes(addr, &value.to_le_bytes());
     }
 
     pub(crate) fn write_u16(&mut self, addr: u64, value: u16) {
+        Self::check_write_range(addr, 2);
+        let end = addr + 1;
+
+        let start_page = Self::page_idx(addr);
+        let end_page = Self::page_idx(end);
+        if start_page == end_page {
+            let offset = Self::page_offset(addr);
+            self.invalidate_absent(start_page);
+            let page = self.cache_get_mut(start_page);
+            page[offset..offset + 2].copy_from_slice(&value.to_le_bytes());
+            return;
+        }
+
         self.write_n_bytes(addr, &value.to_le_bytes());
     }
 
     pub(crate) fn write_u8(&mut self, addr: u64, value: u8) {
-        self.write_n_bytes(addr, &value.to_le_bytes());
+        let start_page = Self::page_idx(addr);
+        self.invalidate_absent(start_page);
+        let page = self.cache_get_mut(start_page);
+        let offset = Self::page_offset(addr);
+        page[offset] = value;
     }
 
-    pub(crate) fn read_n_bytes_const<const N: usize>(&self, addr: u64) -> [u8; N] {
-        let mut out = [0u8; N];
+    pub(crate) fn read_n_bytes_const<const M: usize>(&mut self, addr: u64) -> [u8; M] {
+        let mut out = [0u8; M];
         self.read_into(addr, &mut out);
         out
     }
 
-    pub(crate) fn read_n_bytes(&self, addr: u64, len: usize) -> Vec<u8> {
+    pub(crate) fn read_n_bytes(&mut self, addr: u64, len: usize) -> Vec<u8> {
         let mut out = vec![0u8; len];
         self.read_into(addr, &mut out);
         out
@@ -89,18 +304,23 @@ impl Memory {
 
     /// Read n contiguous bytes from memory
     /// assumes that out is zeroed out
-    fn read_into(&self, addr: u64, out: &mut [u8]) {
+    fn read_into(&mut self, addr: u64, out: &mut [u8]) {
         let len = out.len();
         if len == 0 {
             return;
         }
 
-        let end = addr
-            .checked_add(len as u64 - 1)
-            .unwrap_or_else(|| panic!("read out of range: 0x{:x}", addr));
+        Self::check_read_range(addr, len);
+        let end = addr + (len as u64 - 1);
 
-        if end > MAX_ADDR {
-            panic!("read out of range: 0x{:x}", addr);
+        let start_page = Self::page_idx(addr);
+        let end_page = Self::page_idx(end);
+        if start_page == end_page {
+            let offset = Self::page_offset(addr);
+            if let Some(page) = self.cache_get(start_page) {
+                out.copy_from_slice(&page[offset..offset + len]);
+            }
+            return;
         }
 
         let mut curr_addr = addr;
@@ -113,13 +333,13 @@ impl Memory {
 
             let chunk = bytes_left.min(PAGE_SIZE - offset);
 
-            if let Some(page) = self.pages.get(&idx) {
+            if let Some(page) = self.cache_get(idx) {
                 out[dst_off..dst_off + chunk].copy_from_slice(&page[offset..offset + chunk]);
             } // else leave as zeros
 
             curr_addr += chunk as u64;
             dst_off += chunk;
-            bytes_left -= chunk
+            bytes_left -= chunk;
         }
     }
 
@@ -130,12 +350,17 @@ impl Memory {
             return;
         }
 
-        let end = addr
-            .checked_add(bytes.len() as u64 - 1)
-            .unwrap_or_else(|| panic!("write out of range: 0x{:x}", addr));
+        Self::check_write_range(addr, bytes.len());
+        let end = addr + (bytes.len() as u64 - 1);
 
-        if addr > MAX_ADDR || end > MAX_ADDR {
-            panic!("write out of range: 0x{:x}", addr);
+        let start_page = Self::page_idx(addr);
+        let end_page = Self::page_idx(end);
+        if start_page == end_page {
+            let offset = Self::page_offset(addr);
+            self.invalidate_absent(start_page);
+            let page = self.cache_get_mut(start_page);
+            page[offset..offset + bytes.len()].copy_from_slice(bytes);
+            return;
         }
 
         let mut curr_addr = addr;
@@ -148,7 +373,7 @@ impl Memory {
 
             let chunk = bytes_left.min(PAGE_SIZE - offset);
 
-            let page = self.ensure_page(idx);
+            let page = self.cache_get_mut(idx);
             page[offset..(offset + chunk)].copy_from_slice(&bytes[src_off..(src_off + chunk)]);
 
             curr_addr += chunk as u64;
@@ -173,7 +398,7 @@ mod tests {
 
     #[test]
     fn test_write_and_read_u8() {
-        let mut mem = Memory::default();
+        let mut mem = MemoryDefault::default();
 
         // write
         mem.write_u8(0x1000, 0xAB);
@@ -191,20 +416,20 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_read_out_of_range() {
-        let mem = Memory::default();
-        mem.read_u8(u64::MAX);
+        let mut mem = MemoryDefault::default();
+        mem.read_u16(u64::MAX);
     }
 
     #[test]
     #[should_panic]
     fn test_write_out_of_range() {
-        let mut mem = Memory::default();
-        mem.write_u8(u64::MAX, 0);
+        let mut mem = MemoryDefault::default();
+        mem.write_u16(u64::MAX, 0);
     }
 
     #[test]
     fn test_cross_page_write() {
-        let mut mem = Memory::default();
+        let mut mem = MemoryDefault::default();
 
         // force boundary cross
         // (PAGE_SIZE - 4)..(PAGE_SIZE + 4)
