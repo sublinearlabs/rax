@@ -328,24 +328,24 @@ impl<T: Tracer> VM<T> {
 
     /// Load 8 bytes from memory at the given addr
     /// assumes value at memory address is the LSB
-    pub(crate) fn load_u64(&self, addr: usize) -> u64 {
+    pub(crate) fn load_u64(&mut self, addr: usize) -> u64 {
         self.memory.read_u64(addr as u64)
     }
 
     /// Load 4 bytes from memory at the given addr
     /// assumes value at memory address is the LSB
-    pub(crate) fn load_u32(&self, addr: usize) -> u32 {
+    pub(crate) fn load_u32(&mut self, addr: usize) -> u32 {
         self.memory.read_u32(addr as u64)
     }
 
     /// Load 2 bytes from memory at the given addr
     /// assumes value at memory address is the LSB
-    pub(crate) fn load_u16(&self, addr: usize) -> u16 {
+    pub(crate) fn load_u16(&mut self, addr: usize) -> u16 {
         self.memory.read_u16(addr as u64)
     }
 
     /// Load 1 byte from memory at the given addr
-    pub(crate) fn load_u8(&self, addr: usize) -> u8 {
+    pub(crate) fn load_u8(&mut self, addr: usize) -> u8 {
         self.memory.read_u8(addr as u64)
     }
 
