@@ -2,7 +2,7 @@ use std::{collections::HashMap, fs};
 
 use crate::decode::{Instruction, compressed::decode_compressed};
 use crate::elf::decode_elf;
-use crate::memory::Memory;
+use crate::memory::{Memory, MemoryDefault};
 use crate::trace::{DefaultTracer, Tracer};
 use crate::util::{is_snan_f32, is_snan_f64, is_subnormal_f32, is_subnormal_f64, mask16};
 use decode::decode;
@@ -24,7 +24,7 @@ mod util;
 pub struct VM<T: Tracer = DefaultTracer> {
     registers: [u64; 32],
     f_reg: [u64; 32],
-    memory: Memory,
+    memory: MemoryDefault,
     basic_blocks: HashMap<u64, Vec<(Instruction, u32, bool)>>,
     fcsr_reg: u32,
     reservation_set: u64,
@@ -44,7 +44,7 @@ impl<T: Tracer> Default for VM<T> {
     fn default() -> Self {
         Self {
             registers: [0u64; 32],
-            memory: Memory::default(),
+            memory: MemoryDefault::default(),
             basic_blocks: HashMap::new(),
             reservation_set: 0,
             pc: 0,

@@ -11,12 +11,14 @@ const MAX_ADDR: u64 = u64::MAX;
 
 type Page = Box<[u8; PAGE_SIZE]>;
 
-pub(crate) struct Memory<const N: usize = 32, S: BuildHasher + Default = fxhash::FxBuildHasher> {
+pub(crate) struct Memory<const N: usize, S: BuildHasher + Default> {
     pages: HashMap<u64, Page, S>,
     cache_ids: [u64; N],
     cache_ptrs: [Option<NonNull<[u8; PAGE_SIZE]>>; N],
     absent_ids: [u64; N],
 }
+
+pub(crate) type MemoryDefault = Memory<32, fxhash::FxBuildHasher>;
 
 impl<const N: usize, S: BuildHasher + Default> Default for Memory<N, S> {
     fn default() -> Self {
@@ -221,8 +223,6 @@ impl<const N: usize, S: BuildHasher + Default> Memory<N, S> {
     }
 
     pub(crate) fn read_u8(&mut self, addr: u64) -> u8 {
-        Self::check_read_range(addr, 1);
-
         let start_page = Self::page_idx(addr);
         if let Some(page) = self.cache_get_single_page(start_page) {
             let offset = Self::page_offset(addr);
@@ -283,8 +283,6 @@ impl<const N: usize, S: BuildHasher + Default> Memory<N, S> {
     }
 
     pub(crate) fn write_u8(&mut self, addr: u64, value: u8) {
-        Self::check_write_range(addr, 1);
-
         let start_page = Self::page_idx(addr);
         self.invalidate_absent(start_page);
         let page = self.cache_get_mut(start_page);
@@ -400,7 +398,7 @@ mod tests {
 
     #[test]
     fn test_write_and_read_u8() {
-        let mut mem = Memory::default();
+        let mut mem = MemoryDefault::default();
 
         // write
         mem.write_u8(0x1000, 0xAB);
@@ -418,20 +416,20 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_read_out_of_range() {
-        let mut mem = Memory::default();
-        mem.read_u8(u64::MAX);
+        let mut mem = MemoryDefault::default();
+        mem.read_u16(u64::MAX);
     }
 
     #[test]
     #[should_panic]
     fn test_write_out_of_range() {
-        let mut mem = Memory::default();
-        mem.write_u8(u64::MAX, 0);
+        let mut mem = MemoryDefault::default();
+        mem.write_u16(u64::MAX, 0);
     }
 
     #[test]
     fn test_cross_page_write() {
-        let mut mem = Memory::default();
+        let mut mem = MemoryDefault::default();
 
         // force boundary cross
         // (PAGE_SIZE - 4)..(PAGE_SIZE + 4)
