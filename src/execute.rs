@@ -144,217 +144,217 @@ impl<T: Tracer> VM<T> {
             Instruction::Sraw(insn) => execute_sraw(self, insn),
 
             // M Extension - Multiplication
-            Instruction::Mul(insn) => execute_Mul(self, insn),
+            Instruction::Mul(insn) => execute_mul(self, insn),
 
-            Instruction::Mulh(insn) => execute_Mulh(self, insn),
+            Instruction::Mulh(insn) => execute_mulh(self, insn),
 
-            Instruction::Mulhsu(insn) => execute_Mulhsu(self, insn),
+            Instruction::Mulhsu(insn) => execute_mulhsu(self, insn),
 
-            Instruction::Mulhu(insn) => execute_Mulhu(self, insn),
+            Instruction::Mulhu(insn) => execute_mulhu(self, insn),
 
-            Instruction::Mulw(insn) => execute_Mulw(self, insn),
+            Instruction::Mulw(insn) => execute_mulw(self, insn),
 
             // M Extension - Division
-            Instruction::Div(insn) => execute_Div(self, insn),
+            Instruction::Div(insn) => execute_div(self, insn),
 
-            Instruction::Divu(insn) => execute_Divu(self, insn),
+            Instruction::Divu(insn) => execute_divu(self, insn),
 
-            Instruction::Rem(insn) => execute_Rem(self, insn),
+            Instruction::Rem(insn) => execute_rem(self, insn),
 
-            Instruction::Remu(insn) => execute_Remu(self, insn),
+            Instruction::Remu(insn) => execute_remu(self, insn),
 
-            Instruction::Divw(insn) => execute_Divw(self, insn),
+            Instruction::Divw(insn) => execute_divw(self, insn),
 
-            Instruction::Divuw(insn) => execute_Divuw(self, insn),
+            Instruction::Divuw(insn) => execute_divuw(self, insn),
 
-            Instruction::Remw(insn) => execute_Remw(self, insn),
+            Instruction::Remw(insn) => execute_remw(self, insn),
 
-            Instruction::Remuw(insn) => execute_Remuw(self, insn),
+            Instruction::Remuw(insn) => execute_remuw(self, insn),
 
             // A Extension - Load Reserved / Store Conditional
-            Instruction::LrW(insn) => execute_LrW(self, insn),
+            Instruction::LrW(insn) => execute_lr_w(self, insn),
 
-            Instruction::LrD(insn) => execute_LrD(self, insn),
+            Instruction::LrD(insn) => execute_lr_d(self, insn),
 
-            Instruction::ScW(insn) => execute_ScW(self, insn),
+            Instruction::ScW(insn) => execute_sc_w(self, insn),
 
-            Instruction::ScD(insn) => execute_ScD(self, insn),
+            Instruction::ScD(insn) => execute_sc_d(self, insn),
 
             // A Extension - Atomic Memory Operations (Word)
-            Instruction::AmoSwapW(insn) => execute_AmoSwapW(self, insn),
+            Instruction::AmoSwapW(insn) => execute_amo_swap_w(self, insn),
 
-            Instruction::AmoAddW(insn) => execute_AmoAddW(self, insn),
+            Instruction::AmoAddW(insn) => execute_amo_add_w(self, insn),
 
-            Instruction::AmoXorW(insn) => execute_AmoXorW(self, insn),
+            Instruction::AmoXorW(insn) => execute_amo_xor_w(self, insn),
 
-            Instruction::AmoAndW(insn) => execute_AmoAndW(self, insn),
+            Instruction::AmoAndW(insn) => execute_amo_and_w(self, insn),
 
-            Instruction::AmoOrW(insn) => execute_AmoOrW(self, insn),
+            Instruction::AmoOrW(insn) => execute_amo_or_w(self, insn),
 
-            Instruction::AmoMinW(insn) => execute_AmoMinW(self, insn),
+            Instruction::AmoMinW(insn) => execute_amo_min_w(self, insn),
 
-            Instruction::AmoMaxW(insn) => execute_AmoMaxW(self, insn),
+            Instruction::AmoMaxW(insn) => execute_amo_max_w(self, insn),
 
-            Instruction::AmoMinuW(insn) => execute_AmoMinuW(self, insn),
+            Instruction::AmoMinuW(insn) => execute_amo_minu_w(self, insn),
 
-            Instruction::AmoMaxuW(insn) => execute_AmoMaxuW(self, insn),
+            Instruction::AmoMaxuW(insn) => execute_amo_maxu_w(self, insn),
 
             // A Extension - Atomic Memory Operations (Double)
-            Instruction::AmoSwapD(insn) => execute_AmoSwapD(self, insn),
+            Instruction::AmoSwapD(insn) => execute_amo_swap_d(self, insn),
 
-            Instruction::AmoAddD(insn) => execute_AmoAddD(self, insn),
+            Instruction::AmoAddD(insn) => execute_amo_add_d(self, insn),
 
-            Instruction::AmoXorD(insn) => execute_AmoXorD(self, insn),
+            Instruction::AmoXorD(insn) => execute_amo_xor_d(self, insn),
 
-            Instruction::AmoAndD(insn) => execute_AmoAndD(self, insn),
+            Instruction::AmoAndD(insn) => execute_amo_and_d(self, insn),
 
-            Instruction::AmoOrD(insn) => execute_AmoOrD(self, insn),
+            Instruction::AmoOrD(insn) => execute_amo_or_d(self, insn),
 
-            Instruction::AmoMinD(insn) => execute_AmoMinD(self, insn),
+            Instruction::AmoMinD(insn) => execute_amo_min_d(self, insn),
 
-            Instruction::AmoMaxD(insn) => execute_AmoMaxD(self, insn),
+            Instruction::AmoMaxD(insn) => execute_amo_max_d(self, insn),
 
-            Instruction::AmoMinuD(insn) => execute_AmoMinuD(self, insn),
+            Instruction::AmoMinuD(insn) => execute_amo_minu_d(self, insn),
 
-            Instruction::AmoMaxuD(insn) => execute_AmoMaxuD(self, insn),
+            Instruction::AmoMaxuD(insn) => execute_amo_maxu_d(self, insn),
 
             // F instructions
-            Instruction::FmaddS(insn) => execute_FmaddS(self, insn),
+            Instruction::FmaddS(insn) => execute_fmadd_s(self, insn),
 
-            Instruction::FmsubS(insn) => execute_FmsubS(self, insn),
+            Instruction::FmsubS(insn) => execute_fmsub_s(self, insn),
 
-            Instruction::FnmsubS(insn) => execute_FnmsubS(self, insn),
+            Instruction::FnmsubS(insn) => execute_fnmsub_s(self, insn),
 
-            Instruction::FnmaddS(insn) => execute_FnmaddS(self, insn),
+            Instruction::FnmaddS(insn) => execute_fnmadd_s(self, insn),
 
-            Instruction::FaddS(insn) => execute_FaddS(self, insn),
+            Instruction::FaddS(insn) => execute_fadd_s(self, insn),
 
-            Instruction::FsubS(insn) => execute_FsubS(self, insn),
+            Instruction::FsubS(insn) => execute_fsub_s(self, insn),
 
-            Instruction::FmulS(insn) => execute_FmulS(self, insn),
+            Instruction::FmulS(insn) => execute_fmul_s(self, insn),
 
-            Instruction::FdivS(insn) => execute_FdivS(self, insn),
+            Instruction::FdivS(insn) => execute_fdiv_s(self, insn),
 
-            Instruction::FsqrtS(insn) => execute_FsqrtS(self, insn),
+            Instruction::FsqrtS(insn) => execute_fsqrt_s(self, insn),
 
-            Instruction::FsgnjS(insn) => execute_FsgnjS(self, insn),
+            Instruction::FsgnjS(insn) => execute_fsgnj_s(self, insn),
 
-            Instruction::FsgnjnS(insn) => execute_FsgnjnS(self, insn),
+            Instruction::FsgnjnS(insn) => execute_fsgnjn_s(self, insn),
 
-            Instruction::FsgnjxS(insn) => execute_FsgnjxS(self, insn),
+            Instruction::FsgnjxS(insn) => execute_fsgnjx_s(self, insn),
 
-            Instruction::FminS(insn) => execute_FminS(self, insn),
+            Instruction::FminS(insn) => execute_fmin_s(self, insn),
 
-            Instruction::FmaxS(insn) => execute_FmaxS(self, insn),
+            Instruction::FmaxS(insn) => execute_fmax_s(self, insn),
 
-            Instruction::FcvtWS(insn) => execute_FcvtWS(self, insn),
+            Instruction::FcvtWS(insn) => execute_fcvt_ws(self, insn),
 
-            Instruction::FcvtWuS(insn) => execute_FcvtWuS(self, insn),
+            Instruction::FcvtWuS(insn) => execute_fcvt_wu_s(self, insn),
 
-            Instruction::FmvXW(insn) => execute_FmvXW(self, insn),
+            Instruction::FmvXW(insn) => execute_fmv_xw(self, insn),
 
-            Instruction::FeqS(insn) => execute_FeqS(self, insn),
+            Instruction::FeqS(insn) => execute_feq_s(self, insn),
 
-            Instruction::FltS(insn) => execute_FltS(self, insn),
+            Instruction::FltS(insn) => execute_flt_s(self, insn),
 
-            Instruction::FleS(insn) => execute_FleS(self, insn),
+            Instruction::FleS(insn) => execute_fle_s(self, insn),
 
-            Instruction::FclassS(insn) => execute_FclassS(self, insn),
+            Instruction::FclassS(insn) => execute_fclass_s(self, insn),
 
-            Instruction::FcvtSW(insn) => execute_FcvtSW(self, insn),
+            Instruction::FcvtSW(insn) => execute_fcvt_sw(self, insn),
 
-            Instruction::FcvtSWu(insn) => execute_FcvtSWu(self, insn),
+            Instruction::FcvtSWu(insn) => execute_fcvt_swu(self, insn),
 
-            Instruction::FmvWX(insn) => execute_FmvWX(self, insn),
+            Instruction::FmvWX(insn) => execute_fmv_wx(self, insn),
 
-            Instruction::FmaddD(insn) => execute_FmaddD(self, insn),
+            Instruction::FmaddD(insn) => execute_fmadd_d(self, insn),
 
-            Instruction::FmsubD(insn) => execute_FmsubD(self, insn),
+            Instruction::FmsubD(insn) => execute_fmsub_d(self, insn),
 
-            Instruction::FnmsubD(insn) => execute_FnmsubD(self, insn),
+            Instruction::FnmsubD(insn) => execute_fnmsub_d(self, insn),
 
-            Instruction::FnmaddD(insn) => execute_FnmaddD(self, insn),
+            Instruction::FnmaddD(insn) => execute_fnmadd_d(self, insn),
 
-            Instruction::FaddD(insn) => execute_FaddD(self, insn),
+            Instruction::FaddD(insn) => execute_fadd_d(self, insn),
 
-            Instruction::FsubD(insn) => execute_FsubD(self, insn),
+            Instruction::FsubD(insn) => execute_fsub_d(self, insn),
 
-            Instruction::FmulD(insn) => execute_FmulD(self, insn),
+            Instruction::FmulD(insn) => execute_fmul_d(self, insn),
 
-            Instruction::FdivD(insn) => execute_FdivD(self, insn),
+            Instruction::FdivD(insn) => execute_fdiv_d(self, insn),
 
-            Instruction::FsqrtD(insn) => execute_FsqrtD(self, insn),
+            Instruction::FsqrtD(insn) => execute_fsqrt_d(self, insn),
 
-            Instruction::FsgnjD(insn) => execute_FsgnjD(self, insn),
+            Instruction::FsgnjD(insn) => execute_fsgnj_d(self, insn),
 
-            Instruction::FsgnjnD(insn) => execute_FsgnjnD(self, insn),
+            Instruction::FsgnjnD(insn) => execute_fsgnjn_d(self, insn),
 
-            Instruction::FsgnjxD(insn) => execute_FsgnjxD(self, insn),
+            Instruction::FsgnjxD(insn) => execute_fsgnjx_d(self, insn),
 
-            Instruction::FminD(insn) => execute_FminD(self, insn),
+            Instruction::FminD(insn) => execute_fmin_d(self, insn),
 
-            Instruction::FmaxD(insn) => execute_FmaxD(self, insn),
+            Instruction::FmaxD(insn) => execute_fmax_d(self, insn),
 
-            Instruction::FcvtSD(insn) => execute_FcvtSD(self, insn),
+            Instruction::FcvtSD(insn) => execute_fcvt_sd(self, insn),
 
-            Instruction::FcvtDS(insn) => execute_FcvtDS(self, insn),
+            Instruction::FcvtDS(insn) => execute_fcvt_ds(self, insn),
 
-            Instruction::FeqD(insn) => execute_FeqD(self, insn),
+            Instruction::FeqD(insn) => execute_feq_d(self, insn),
 
-            Instruction::FltD(insn) => execute_FltD(self, insn),
+            Instruction::FltD(insn) => execute_flt_d(self, insn),
 
-            Instruction::FleD(insn) => execute_FleD(self, insn),
+            Instruction::FleD(insn) => execute_fle_d(self, insn),
 
-            Instruction::FclassD(insn) => execute_FclassD(self, insn),
+            Instruction::FclassD(insn) => execute_fclass_d(self, insn),
 
-            Instruction::FcvtWD(insn) => execute_FcvtWD(self, insn),
+            Instruction::FcvtWD(insn) => execute_fcvt_wd(self, insn),
 
-            Instruction::FcvtWuD(insn) => execute_FcvtWuD(self, insn),
+            Instruction::FcvtWuD(insn) => execute_fcvt_wu_d(self, insn),
 
-            Instruction::FcvtDW(insn) => execute_FcvtDW(self, insn),
+            Instruction::FcvtDW(insn) => execute_fcvt_dw(self, insn),
 
-            Instruction::FcvtDWu(insn) => execute_FcvtDWu(self, insn),
+            Instruction::FcvtDWu(insn) => execute_fcvt_dwu(self, insn),
 
-            Instruction::Flw(insn) => execute_Flw(self, insn),
+            Instruction::Flw(insn) => execute_flw(self, insn),
 
-            Instruction::Fsw(insn) => execute_Fsw(self, insn),
+            Instruction::Fsw(insn) => execute_fsw(self, insn),
 
-            Instruction::Fld(insn) => execute_Fld(self, insn),
+            Instruction::Fld(insn) => execute_fld(self, insn),
 
-            Instruction::Fsd(insn) => execute_Fsd(self, insn),
+            Instruction::Fsd(insn) => execute_fsd(self, insn),
 
-            Instruction::FcvtLS(insn) => execute_FcvtLS(self, insn),
+            Instruction::FcvtLS(insn) => execute_fcvt_ls(self, insn),
 
-            Instruction::FcvtLuS(insn) => execute_FcvtLuS(self, insn),
+            Instruction::FcvtLuS(insn) => execute_fcvt_lu_s(self, insn),
 
-            Instruction::FcvtSL(insn) => execute_FcvtSL(self, insn),
+            Instruction::FcvtSL(insn) => execute_fcvt_sl(self, insn),
 
-            Instruction::FcvtSLu(insn) => execute_FcvtSLu(self, insn),
+            Instruction::FcvtSLu(insn) => execute_fcvt_slu(self, insn),
 
-            Instruction::FcvtLD(insn) => execute_FcvtLD(self, insn),
+            Instruction::FcvtLD(insn) => execute_fcvt_ld(self, insn),
 
-            Instruction::FcvtLuD(insn) => execute_FcvtLuD(self, insn),
+            Instruction::FcvtLuD(insn) => execute_fcvt_lu_d(self, insn),
 
-            Instruction::FmvXD(insn) => execute_FmvXD(self, insn),
+            Instruction::FmvXD(insn) => execute_fmv_xd(self, insn),
 
-            Instruction::FcvtDL(insn) => execute_FcvtDL(self, insn),
+            Instruction::FcvtDL(insn) => execute_fcvt_dl(self, insn),
 
-            Instruction::FcvtDLu(insn) => execute_FcvtDLu(self, insn),
+            Instruction::FcvtDLu(insn) => execute_fcvt_dlu(self, insn),
 
-            Instruction::FmvDX(insn) => execute_FmvDX(self, insn),
+            Instruction::FmvDX(insn) => execute_fmv_dx(self, insn),
 
             // CSR instructions
-            Instruction::Csrrw(insn) => execute_Csrrw(self, insn),
+            Instruction::Csrrw(insn) => execute_csrrw(self, insn),
 
-            Instruction::Csrrs(insn) => execute_Csrrs(self, insn),
+            Instruction::Csrrs(insn) => execute_csrrs(self, insn),
 
-            Instruction::Csrrc(insn) => execute_Csrrc(self, insn),
+            Instruction::Csrrc(insn) => execute_csrrc(self, insn),
 
-            Instruction::Csrrwi(insn) => execute_Csrrwi(self, insn),
+            Instruction::Csrrwi(insn) => execute_csrrwi(self, insn),
 
-            Instruction::Csrrsi(insn) => execute_Csrrsi(self, insn),
+            Instruction::Csrrsi(insn) => execute_csrrsi(self, insn),
 
-            Instruction::Csrrci(insn) => execute_Csrrci(self, insn),
+            Instruction::Csrrci(insn) => execute_csrrci(self, insn),
 
             // System Opcodes
             Instruction::Ecall => {
