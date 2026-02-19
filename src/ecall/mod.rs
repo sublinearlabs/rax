@@ -1,4 +1,4 @@
-use crate::{VM, trace::Tracer};
+use crate::{trace::Tracer, VM};
 
 pub mod constants;
 mod halt;

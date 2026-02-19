@@ -270,75 +270,71 @@ pub(crate) fn execute_sd<T: Tracer>(vm: &mut VM<T>, insn: S) {
 
 // Branch Opcodes
 #[inline(always)]
-pub(crate) fn execute_beq<T: Tracer>(vm: &mut VM<T>, insn: B) -> bool {
+pub(crate) fn execute_beq<T: Tracer>(vm: &mut VM<T>, insn: B, current_pc: u64) {
     if vm.reg(insn.rs1) == vm.reg(insn.rs2) {
-        vm.pc = vm.pc.wrapping_add(insn.imm as u64);
-        return true;
+        vm.pc = current_pc.wrapping_add(insn.imm as u64);
     }
-    false
 }
 
 #[inline(always)]
-pub(crate) fn execute_bne<T: Tracer>(vm: &mut VM<T>, insn: B) -> bool {
+pub(crate) fn execute_bne<T: Tracer>(vm: &mut VM<T>, insn: B, current_pc: u64) {
     if vm.reg(insn.rs1) != vm.reg(insn.rs2) {
-        vm.pc = vm.pc.wrapping_add(insn.imm as u64);
-        return true;
+        vm.pc = current_pc.wrapping_add(insn.imm as u64);
     }
-    false
 }
 
 #[inline(always)]
-pub(crate) fn execute_blt<T: Tracer>(vm: &mut VM<T>, insn: B) -> bool {
+pub(crate) fn execute_blt<T: Tracer>(vm: &mut VM<T>, insn: B, current_pc: u64) {
     if (vm.reg(insn.rs1) as i64) < (vm.reg(insn.rs2) as i64) {
-        vm.pc = vm.pc.wrapping_add(insn.imm as u64);
-        return true;
+        vm.pc = current_pc.wrapping_add(insn.imm as u64);
     }
-    false
 }
 
 #[inline(always)]
-pub(crate) fn execute_bltu<T: Tracer>(vm: &mut VM<T>, insn: B) -> bool {
+pub(crate) fn execute_bltu<T: Tracer>(vm: &mut VM<T>, insn: B, current_pc: u64) {
     if vm.reg(insn.rs1) < vm.reg(insn.rs2) {
-        vm.pc = vm.pc.wrapping_add(insn.imm as u64);
-        return true;
+        vm.pc = current_pc.wrapping_add(insn.imm as u64);
     }
-    false
 }
 
 #[inline(always)]
-pub(crate) fn execute_bge<T: Tracer>(vm: &mut VM<T>, insn: B) -> bool {
+pub(crate) fn execute_bge<T: Tracer>(vm: &mut VM<T>, insn: B, current_pc: u64) {
     if (vm.reg(insn.rs1) as i64) >= (vm.reg(insn.rs2) as i64) {
-        vm.pc = vm.pc.wrapping_add(insn.imm as u64);
-        return true;
+        vm.pc = current_pc.wrapping_add(insn.imm as u64);
     }
-    false
 }
 
 #[inline(always)]
-pub(crate) fn execute_bgeu<T: Tracer>(vm: &mut VM<T>, insn: B) -> bool {
+pub(crate) fn execute_bgeu<T: Tracer>(vm: &mut VM<T>, insn: B, current_pc: u64) {
     if vm.reg(insn.rs1) >= vm.reg(insn.rs2) {
-        vm.pc = vm.pc.wrapping_add(insn.imm as u64);
-        return true;
-    };
-    false
+        vm.pc = current_pc.wrapping_add(insn.imm as u64);
+    }
 }
 
 // Jump opcodes
 #[inline(always)]
-pub(crate) fn execute_jal<T: Tracer>(vm: &mut VM<T>, insn: J) {
-    let result = vm.pc.wrapping_add(4);
+pub(crate) fn execute_jal<T: Tracer>(
+    vm: &mut VM<T>,
+    insn: J,
+    current_pc: u64,
+    is_compressed: bool,
+) {
+    let result = current_pc.wrapping_add(if is_compressed { 2 } else { 4 });
     vm.reg_mut(insn.rd, result);
-    vm.pc = vm.pc.wrapping_add(insn.imm as u64);
-    return;
+    vm.pc = current_pc.wrapping_add(insn.imm as u64);
 }
 
 #[inline(always)]
-pub(crate) fn execute_jalr<T: Tracer>(vm: &mut VM<T>, insn: I, is_compressed: bool) {
+pub(crate) fn execute_jalr<T: Tracer>(
+    vm: &mut VM<T>,
+    insn: I,
+    current_pc: u64,
+    is_compressed: bool,
+) {
     let target = vm.reg(insn.rs1).wrapping_add(insn.imm as u64);
-    let result = vm.pc.wrapping_add(if is_compressed { 2 } else { 4 });
+    let result = current_pc.wrapping_add(if is_compressed { 2 } else { 4 });
     vm.reg_mut(insn.rd, result);
     vm.pc = target;
-    return;
 }
 
 // Lui and Auipc
@@ -348,8 +344,8 @@ pub(crate) fn execute_lui<T: Tracer>(vm: &mut VM<T>, insn: U) {
 }
 
 #[inline(always)]
-pub(crate) fn execute_auipc<T: Tracer>(vm: &mut VM<T>, insn: U) {
-    let result = vm.pc.wrapping_add(insn.imm as u64);
+pub(crate) fn execute_auipc<T: Tracer>(vm: &mut VM<T>, insn: U, current_pc: u64) {
+    let result = current_pc.wrapping_add(insn.imm as u64);
     vm.reg_mut(insn.rd, result);
 }
 

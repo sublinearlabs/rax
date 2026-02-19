@@ -6,7 +6,7 @@ mod util;
 
 use imm::{imm_b, imm_i, imm_j, imm_s, imm_u, shamt6};
 pub(crate) use insn::Instruction;
-pub(crate) use insn_formats::{B, I, J, R, R4, RF, S, Sh, U};
+pub(crate) use insn_formats::{Sh, B, I, J, R, R4, RF, S, U};
 use util::{funct3, funct7, opcode, rd, rs1, rs2};
 
 use crate::decode::{
