@@ -102,7 +102,11 @@ pub(crate) fn classify32(val: u32) -> u64 {
 
         (_, 0xff, frac) => {
             let quiet_bit = (frac >> 22) & 1;
-            if quiet_bit == 0 { 1 << 8 } else { 1 << 9 }
+            if quiet_bit == 0 {
+                1 << 8
+            } else {
+                1 << 9
+            }
         }
 
         (1, 0, 0) => 1 << 3,
@@ -129,7 +133,11 @@ pub(crate) fn classify64(val: u64) -> u64 {
 
         (_, 0x7ff, frac) => {
             let quiet_bit = (frac >> 51) & 1;
-            if quiet_bit == 0 { 1 << 8 } else { 1 << 9 }
+            if quiet_bit == 0 {
+                1 << 8
+            } else {
+                1 << 9
+            }
         }
 
         (1, 0, 0) => 1 << 3,

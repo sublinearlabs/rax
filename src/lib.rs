@@ -2,7 +2,7 @@ use std::{collections::HashMap, fs};
 
 use crate::decode::{Instruction, compressed::decode_compressed};
 use crate::elf::decode_elf;
-use crate::memory::{Memory, MemoryDefault};
+use crate::memory::MemoryDefault;
 use crate::trace::{DefaultTracer, Tracer};
 use crate::util::{is_snan_f32, is_snan_f64, is_subnormal_f32, is_subnormal_f64, mask16};
 use decode::decode;
@@ -153,6 +153,7 @@ impl<T: Tracer> VM<T> {
             Some(block) => {
                 for (i, (insn, insn_bytes, is_compressed)) in block.iter().enumerate() {
                     let current_pc = self.pc;
+                    let next_pc = current_pc.wrapping_add(if *is_compressed { 2 } else { 4 });
 
                     // Begin tracing this instruction
                     self.tracer.begin_instruction(
@@ -164,8 +165,10 @@ impl<T: Tracer> VM<T> {
                         insn,
                     );
 
+                    self.pc = next_pc;
+
                     // Execute the instruction (this will update PC)
-                    self.execute_instruction(insn.clone(), *is_compressed);
+                    self.execute_instruction(insn.clone(), *is_compressed, current_pc);
 
                     // Record next PC
                     self.tracer.record_next_pc(self.pc);
@@ -214,8 +217,12 @@ impl<T: Tracer> VM<T> {
                         &insn,
                     );
 
+                    let current_pc = self.pc;
+                    let next_pc = current_pc.wrapping_add(if is_compressed { 2 } else { 4 });
+                    self.pc = next_pc;
+
                     // Execute the instruction (this will update PC)
-                    self.execute_instruction(insn.clone(), is_compressed);
+                    self.execute_instruction(insn.clone(), is_compressed, current_pc);
 
                     // Record next PC (set during execute_instruction or default to pc+4)
                     self.tracer.record_next_pc(self.pc);
