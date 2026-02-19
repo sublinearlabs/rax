@@ -623,7 +623,7 @@ impl TraceRow {
             pc,
             next_pc: pc + 4,
             raw_instr,
-            opcode: instr.clone(),
+            opcode: *instr,
             flags,
             regs,
             f_regs,

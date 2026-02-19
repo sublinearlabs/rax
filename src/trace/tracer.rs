@@ -216,7 +216,7 @@ impl Tracer for FullTracer {
             regs: *regs,
             f_regs: *f_regs,
             raw_instr,
-            opcode: instr.clone(),
+            opcode: *instr,
             flags: InstrFlags::from_opcode(&instr),
             rs1: instr.rs1(),
             rs2: instr.rs2(),
