@@ -57,103 +57,99 @@ impl Runner {
     }
 
     pub fn step<T: Tracer>(&mut self, vm: &mut VM<T>) {
-        let block = self.basic_blocks.get(&vm.pc()).cloned();
+        if let Some(block) = self.basic_blocks.get(&vm.pc()) {
+            for (i, (insn, insn_bytes, is_compressed)) in block.iter().enumerate() {
+                let current_pc = vm.pc();
+                let next_pc = current_pc.wrapping_add(if *is_compressed { 2 } else { 4 });
 
-        match block {
-            Some(block) => {
-                for (i, (insn, insn_bytes, is_compressed)) in block.iter().enumerate() {
-                    let current_pc = vm.pc();
-                    let next_pc = current_pc.wrapping_add(if *is_compressed { 2 } else { 4 });
+                // Begin tracing this instruction
+                vm.tracer.begin_instruction(
+                    self.cycles + i as u64,
+                    current_pc,
+                    &vm.registers,
+                    &vm.f_reg,
+                    *insn_bytes,
+                    insn,
+                );
 
-                    // Begin tracing this instruction
-                    vm.tracer.begin_instruction(
-                        self.cycles + i as u64,
-                        current_pc,
-                        &vm.registers,
-                        &vm.f_reg,
-                        *insn_bytes,
-                        insn,
-                    );
+                vm.set_pc(next_pc);
 
-                    vm.set_pc(next_pc);
+                // Execute the instruction (this will update PC)
+                vm.execute_instruction(insn.clone(), *is_compressed, current_pc, &mut self.io);
 
-                    // Execute the instruction (this will update PC)
-                    vm.execute_instruction(insn.clone(), *is_compressed, current_pc, &mut self.io);
+                // Record next PC
+                vm.tracer.record_next_pc(vm.pc());
 
-                    // Record next PC
-                    vm.tracer.record_next_pc(vm.pc());
-
-                    // Check for halt
-                    if vm.halted {
-                        vm.tracer.record_halt();
-                        vm.tracer.commit();
-                        break;
-                    }
-
-                    // Commit the trace row
+                // Check for halt
+                if vm.halted {
+                    vm.tracer.record_halt();
                     vm.tracer.commit();
+                    break;
                 }
-                self.cycles = self.cycles.wrapping_add(block.len() as u64);
+
+                // Commit the trace row
+                vm.tracer.commit();
             }
-            None => {
-                // Build the basic block
-                let leader = vm.pc();
-                let mut block = vec![];
+            self.cycles = self.cycles.wrapping_add(block.len() as u64);
+            return;
+        }
 
-                loop {
-                    let insn = vm.load_u16(vm.pc() as usize);
-                    let is_compressed = insn & mask16(2) != 0b11;
+        // Build the basic block
+        let leader = vm.pc();
+        let mut block = vec![];
 
-                    let (insn, insn_bytes) = if is_compressed {
-                        (decode_compressed(insn), insn as u32)
-                    } else {
-                        let insn_upper = vm.load_u16((vm.pc() + 2) as usize);
-                        let insn = (insn_upper as u32) << 16 | insn as u32;
-                        (decode::decode(insn), insn)
-                    };
+        loop {
+            let insn = vm.load_u16(vm.pc() as usize);
+            let is_compressed = insn & mask16(2) != 0b11;
 
-                    if let Instruction::Illegal(_) = &insn {
-                        vm.halted = true;
-                        break;
-                    }
+            let (insn, insn_bytes) = if is_compressed {
+                (decode_compressed(insn), insn as u32)
+            } else {
+                let insn_upper = vm.load_u16((vm.pc() + 2) as usize);
+                let insn = (insn_upper as u32) << 16 | insn as u32;
+                (decode::decode(insn), insn)
+            };
 
-                    // // Begin tracing this instruction
-                    vm.tracer.begin_instruction(
-                        self.cycles,
-                        vm.pc(),
-                        &vm.registers,
-                        &vm.f_reg,
-                        insn_bytes,
-                        &insn,
-                    );
+            if let Instruction::Illegal(_) = &insn {
+                vm.halted = true;
+                break;
+            }
 
-                    let current_pc = vm.pc();
-                    let next_pc = current_pc.wrapping_add(if is_compressed { 2 } else { 4 });
-                    vm.set_pc(next_pc);
+            // // Begin tracing this instruction
+            vm.tracer.begin_instruction(
+                self.cycles,
+                vm.pc(),
+                &vm.registers,
+                &vm.f_reg,
+                insn_bytes,
+                &insn,
+            );
 
-                    // Execute the instruction (this will update PC)
-                    vm.execute_instruction(insn.clone(), is_compressed, current_pc, &mut self.io);
+            let current_pc = vm.pc();
+            let next_pc = current_pc.wrapping_add(if is_compressed { 2 } else { 4 });
+            vm.set_pc(next_pc);
 
-                    // Record next PC (set during execute_instruction or default to pc+4)
-                    vm.tracer.record_next_pc(vm.pc());
+            // Execute the instruction (this will update PC)
+            vm.execute_instruction(insn.clone(), is_compressed, current_pc, &mut self.io);
 
-                    self.cycles = self.cycles.wrapping_add(1);
+            // Record next PC (set during execute_instruction or default to pc+4)
+            vm.tracer.record_next_pc(vm.pc());
 
-                    // Check for halt
-                    if vm.halted {
-                        vm.tracer.record_halt();
-                        vm.tracer.commit();
-                        break;
-                    }
+            self.cycles = self.cycles.wrapping_add(1);
 
-                    block.push((insn.clone(), insn_bytes, is_compressed));
-                    vm.tracer.commit();
+            // Check for halt
+            if vm.halted {
+                vm.tracer.record_halt();
+                vm.tracer.commit();
+                break;
+            }
 
-                    if insn.is_branch_or_jmp() {
-                        self.basic_blocks.insert(leader, block);
-                        break;
-                    }
-                }
+            block.push((insn.clone(), insn_bytes, is_compressed));
+            vm.tracer.commit();
+
+            if insn.is_branch_or_jmp() {
+                self.basic_blocks.insert(leader, block);
+                break;
             }
         }
     }
