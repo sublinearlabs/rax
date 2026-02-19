@@ -1,14 +1,14 @@
 use std::fs;
 
-use riscv::{VM, trace::NoopTracer};
+use riscv::{init_from_elf, trace::NoopTracer, Runner};
 
 fn run_test_echo_elf(path: String) {
     println!("running test: {path}");
 
-    let mut vm = VM::<NoopTracer>::init_from_elf(path);
-    vm.input_stream = "Hola Riscv, buenos días".as_bytes().to_vec();
-    vm.input_cursor = 0;
-    vm.run();
+    let mut vm = init_from_elf::<NoopTracer>(path);
+    let mut runner = Runner::new();
+    runner.set_input_stream("Hola Riscv, buenos días".as_bytes().to_vec());
+    runner.run(&mut vm);
 
     println!("exit_code {}", vm.exit_code);
     assert!(vm.halted);

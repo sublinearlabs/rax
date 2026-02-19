@@ -1,7 +1,7 @@
-use crate::{ecall::constants, trace::Tracer, VM};
+use crate::{HostIO, VM, ecall::constants, trace::Tracer};
 
 /// @dev this function would heavily be designed following the Linux ABI
-pub fn handle_stdin<T: Tracer>(vm: &mut VM<T>) {
+pub fn handle_stdin<T: Tracer>(vm: &mut VM<T>, io: &mut HostIO) {
     // Arguments according to RISC-V calling convention:
     // a0 (x10) = File Descriptor
     // a1 (x11) = Buffer Pointer (Guest Virtual Address)
@@ -16,13 +16,15 @@ pub fn handle_stdin<T: Tracer>(vm: &mut VM<T>) {
         return;
     }
 
-    let available_bytes = vm.input_stream.len() - vm.input_cursor;
+    let available_bytes = io.input_stream.len() - io.input_cursor;
     let bytes_to_read = std::cmp::min(len as usize, available_bytes);
 
-    let src_slice = &vm.input_stream.clone()[vm.input_cursor..vm.input_cursor + bytes_to_read];
+    let start = io.input_cursor;
+    let end = start + bytes_to_read;
+    let src_slice = &io.input_stream[start..end];
     vm.write_bytes(guest_ptr as usize, src_slice);
 
-    vm.input_cursor += bytes_to_read;
+    io.input_cursor = end;
 
     vm.reg_mut(10, bytes_to_read as u64);
 }

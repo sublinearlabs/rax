@@ -8,8 +8,8 @@
 //! (depends on how your workspace/crate features are configured).
 use std::path::Path;
 
-use riscv::VM;
 use riscv::trace::NoopTracer;
+use riscv::{init_from_elf, Runner};
 
 #[path = "perf_stat.rs"]
 mod perf_stat;
@@ -30,17 +30,17 @@ fn main() {
     }
 
     // Construct a VM using the FullTracer tracer implementation (same as original main).
-    let mut vm = VM::<NoopTracer>::init_from_elf(ECHO_BINARY.to_string());
-    vm.input_stream = "Hola Riscv, buenos días".as_bytes().to_vec();
-    vm.input_cursor = 0;
+    let mut vm = init_from_elf::<NoopTracer>(ECHO_BINARY.to_string());
+    let mut runner = Runner::new();
+    runner.set_input_stream("Hola Riscv, buenos días".as_bytes().to_vec());
 
     println!("Running echo program IMA...\n");
 
-    vm.run_with_timing();
+    runner.run_with_timing(&mut vm);
 
     println!("\nexit_code: {}", vm.exit_code());
 
-    perf_stat::print_perf_stat(&vm, "echo_ima");
+    perf_stat::print_perf_stat(&runner, &vm, "echo_ima");
 
-    assert_eq!(vm.cycles, 112);
+    assert_eq!(runner.cycles(), 112);
 }

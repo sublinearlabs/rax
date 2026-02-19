@@ -5,7 +5,7 @@ use crate::util::{mask, sext};
 use crate::VM;
 
 #[inline(always)]
-pub(crate) fn execute_lr_w<T: Tracer>(vm: &mut VM<T>, insn: R) {
+pub(crate) fn execute_lr_w<T: Tracer>(vm: &mut VM<T>, insn: &R) {
     let addr = vm.reg(insn.rs1);
     let value = vm.load_u32(addr as usize) as u64;
     let result = sext(value, 32);
@@ -19,7 +19,7 @@ pub(crate) fn execute_lr_w<T: Tracer>(vm: &mut VM<T>, insn: R) {
 }
 
 #[inline(always)]
-pub(crate) fn execute_lr_d<T: Tracer>(vm: &mut VM<T>, insn: R) {
+pub(crate) fn execute_lr_d<T: Tracer>(vm: &mut VM<T>, insn: &R) {
     let addr = vm.reg(insn.rs1);
     let value = vm.load_u64(addr as usize);
     vm.reservation_set = addr;
@@ -30,7 +30,7 @@ pub(crate) fn execute_lr_d<T: Tracer>(vm: &mut VM<T>, insn: R) {
 }
 
 #[inline(always)]
-pub(crate) fn execute_sc_w<T: Tracer>(vm: &mut VM<T>, insn: R) {
+pub(crate) fn execute_sc_w<T: Tracer>(vm: &mut VM<T>, insn: &R) {
     let addr = vm.reg(insn.rs1);
     let value = vm.reg(insn.rs2) & mask(32);
     let success = addr == vm.reservation_set;
@@ -48,7 +48,7 @@ pub(crate) fn execute_sc_w<T: Tracer>(vm: &mut VM<T>, insn: R) {
 }
 
 #[inline(always)]
-pub(crate) fn execute_sc_d<T: Tracer>(vm: &mut VM<T>, insn: R) {
+pub(crate) fn execute_sc_d<T: Tracer>(vm: &mut VM<T>, insn: &R) {
     let addr = vm.reg(insn.rs1);
     let value = vm.reg(insn.rs2);
     let success = addr == vm.reservation_set;
@@ -67,7 +67,7 @@ pub(crate) fn execute_sc_d<T: Tracer>(vm: &mut VM<T>, insn: R) {
 
 // A Extension - Atomic Memory Operations (Word)
 #[inline(always)]
-pub(crate) fn execute_amo_swap_w<T: Tracer>(vm: &mut VM<T>, insn: R) {
+pub(crate) fn execute_amo_swap_w<T: Tracer>(vm: &mut VM<T>, insn: &R) {
     let addr = vm.reg(insn.rs1);
     let read_value = vm.load_u32(addr as usize) as u64;
     let write_value = vm.reg(insn.rs2) & mask(32);
@@ -81,7 +81,7 @@ pub(crate) fn execute_amo_swap_w<T: Tracer>(vm: &mut VM<T>, insn: R) {
 }
 
 #[inline(always)]
-pub(crate) fn execute_amo_add_w<T: Tracer>(vm: &mut VM<T>, insn: R) {
+pub(crate) fn execute_amo_add_w<T: Tracer>(vm: &mut VM<T>, insn: &R) {
     let addr = vm.reg(insn.rs1);
     let read_value = vm.load_u32(addr as usize) as i32;
     let rs2_val = (vm.reg(insn.rs2) & mask(32)) as i32;
@@ -96,7 +96,7 @@ pub(crate) fn execute_amo_add_w<T: Tracer>(vm: &mut VM<T>, insn: R) {
 }
 
 #[inline(always)]
-pub(crate) fn execute_amo_xor_w<T: Tracer>(vm: &mut VM<T>, insn: R) {
+pub(crate) fn execute_amo_xor_w<T: Tracer>(vm: &mut VM<T>, insn: &R) {
     let addr = vm.reg(insn.rs1);
     let read_value = vm.load_u32(addr as usize) as i32;
     let rs2_val = (vm.reg(insn.rs2) & mask(32)) as i32;
@@ -111,7 +111,7 @@ pub(crate) fn execute_amo_xor_w<T: Tracer>(vm: &mut VM<T>, insn: R) {
 }
 
 #[inline(always)]
-pub(crate) fn execute_amo_and_w<T: Tracer>(vm: &mut VM<T>, insn: R) {
+pub(crate) fn execute_amo_and_w<T: Tracer>(vm: &mut VM<T>, insn: &R) {
     let addr = vm.reg(insn.rs1);
     let read_value = vm.load_u32(addr as usize) as i32;
     let rs2_val = (vm.reg(insn.rs2) & mask(32)) as i32;
@@ -126,7 +126,7 @@ pub(crate) fn execute_amo_and_w<T: Tracer>(vm: &mut VM<T>, insn: R) {
 }
 
 #[inline(always)]
-pub(crate) fn execute_amo_or_w<T: Tracer>(vm: &mut VM<T>, insn: R) {
+pub(crate) fn execute_amo_or_w<T: Tracer>(vm: &mut VM<T>, insn: &R) {
     let addr = vm.reg(insn.rs1);
     let read_value = vm.load_u32(addr as usize) as i32;
     let rs2_val = (vm.reg(insn.rs2) & mask(32)) as i32;
@@ -141,7 +141,7 @@ pub(crate) fn execute_amo_or_w<T: Tracer>(vm: &mut VM<T>, insn: R) {
 }
 
 #[inline(always)]
-pub(crate) fn execute_amo_min_w<T: Tracer>(vm: &mut VM<T>, insn: R) {
+pub(crate) fn execute_amo_min_w<T: Tracer>(vm: &mut VM<T>, insn: &R) {
     let addr = vm.reg(insn.rs1);
     let read_value = vm.load_u32(addr as usize) as i32;
     let rs2_val = (vm.reg(insn.rs2) & mask(32)) as i32;
@@ -156,7 +156,7 @@ pub(crate) fn execute_amo_min_w<T: Tracer>(vm: &mut VM<T>, insn: R) {
 }
 
 #[inline(always)]
-pub(crate) fn execute_amo_max_w<T: Tracer>(vm: &mut VM<T>, insn: R) {
+pub(crate) fn execute_amo_max_w<T: Tracer>(vm: &mut VM<T>, insn: &R) {
     let addr = vm.reg(insn.rs1);
     let read_value = vm.load_u32(addr as usize) as i32;
     let rs2_val = (vm.reg(insn.rs2) & mask(32)) as i32;
@@ -171,7 +171,7 @@ pub(crate) fn execute_amo_max_w<T: Tracer>(vm: &mut VM<T>, insn: R) {
 }
 
 #[inline(always)]
-pub(crate) fn execute_amo_minu_w<T: Tracer>(vm: &mut VM<T>, insn: R) {
+pub(crate) fn execute_amo_minu_w<T: Tracer>(vm: &mut VM<T>, insn: &R) {
     let addr = vm.reg(insn.rs1);
     let read_value = vm.load_u32(addr as usize) as u64;
     let rs2_val = vm.reg(insn.rs2) & mask(32);
@@ -186,7 +186,7 @@ pub(crate) fn execute_amo_minu_w<T: Tracer>(vm: &mut VM<T>, insn: R) {
 }
 
 #[inline(always)]
-pub(crate) fn execute_amo_maxu_w<T: Tracer>(vm: &mut VM<T>, insn: R) {
+pub(crate) fn execute_amo_maxu_w<T: Tracer>(vm: &mut VM<T>, insn: &R) {
     let addr = vm.reg(insn.rs1);
     let read_value = vm.load_u32(addr as usize) as u64;
     let rs2_val = vm.reg(insn.rs2) & mask(32);
@@ -202,7 +202,7 @@ pub(crate) fn execute_amo_maxu_w<T: Tracer>(vm: &mut VM<T>, insn: R) {
 
 // A Extension - Atomic Memory Operations (Double)
 #[inline(always)]
-pub(crate) fn execute_amo_swap_d<T: Tracer>(vm: &mut VM<T>, insn: R) {
+pub(crate) fn execute_amo_swap_d<T: Tracer>(vm: &mut VM<T>, insn: &R) {
     let addr = vm.reg(insn.rs1);
     let read_value = vm.load_u64(addr as usize);
     let write_value = vm.reg(insn.rs2);
@@ -216,7 +216,7 @@ pub(crate) fn execute_amo_swap_d<T: Tracer>(vm: &mut VM<T>, insn: R) {
 }
 
 #[inline(always)]
-pub(crate) fn execute_amo_add_d<T: Tracer>(vm: &mut VM<T>, insn: R) {
+pub(crate) fn execute_amo_add_d<T: Tracer>(vm: &mut VM<T>, insn: &R) {
     let addr = vm.reg(insn.rs1);
     let read_value = vm.load_u64(addr as usize);
     let rs2_val = vm.reg(insn.rs2);
@@ -231,7 +231,7 @@ pub(crate) fn execute_amo_add_d<T: Tracer>(vm: &mut VM<T>, insn: R) {
 }
 
 #[inline(always)]
-pub(crate) fn execute_amo_xor_d<T: Tracer>(vm: &mut VM<T>, insn: R) {
+pub(crate) fn execute_amo_xor_d<T: Tracer>(vm: &mut VM<T>, insn: &R) {
     let addr = vm.reg(insn.rs1);
     let read_value = vm.load_u64(addr as usize);
     let rs2_val = vm.reg(insn.rs2);
@@ -246,7 +246,7 @@ pub(crate) fn execute_amo_xor_d<T: Tracer>(vm: &mut VM<T>, insn: R) {
 }
 
 #[inline(always)]
-pub(crate) fn execute_amo_and_d<T: Tracer>(vm: &mut VM<T>, insn: R) {
+pub(crate) fn execute_amo_and_d<T: Tracer>(vm: &mut VM<T>, insn: &R) {
     let addr = vm.reg(insn.rs1);
     let read_value = vm.load_u64(addr as usize);
     let rs2_val = vm.reg(insn.rs2);
@@ -261,7 +261,7 @@ pub(crate) fn execute_amo_and_d<T: Tracer>(vm: &mut VM<T>, insn: R) {
 }
 
 #[inline(always)]
-pub(crate) fn execute_amo_or_d<T: Tracer>(vm: &mut VM<T>, insn: R) {
+pub(crate) fn execute_amo_or_d<T: Tracer>(vm: &mut VM<T>, insn: &R) {
     let addr = vm.reg(insn.rs1);
     let read_value = vm.load_u64(addr as usize);
     let rs2_val = vm.reg(insn.rs2);
@@ -276,7 +276,7 @@ pub(crate) fn execute_amo_or_d<T: Tracer>(vm: &mut VM<T>, insn: R) {
 }
 
 #[inline(always)]
-pub(crate) fn execute_amo_min_d<T: Tracer>(vm: &mut VM<T>, insn: R) {
+pub(crate) fn execute_amo_min_d<T: Tracer>(vm: &mut VM<T>, insn: &R) {
     let addr = vm.reg(insn.rs1);
     let read_value = vm.load_u64(addr as usize);
     let rs2_val = vm.reg(insn.rs2) as i64;
@@ -291,7 +291,7 @@ pub(crate) fn execute_amo_min_d<T: Tracer>(vm: &mut VM<T>, insn: R) {
 }
 
 #[inline(always)]
-pub(crate) fn execute_amo_max_d<T: Tracer>(vm: &mut VM<T>, insn: R) {
+pub(crate) fn execute_amo_max_d<T: Tracer>(vm: &mut VM<T>, insn: &R) {
     let addr = vm.reg(insn.rs1);
     let read_value = vm.load_u64(addr as usize);
     let rs2_val = vm.reg(insn.rs2) as i64;
@@ -306,7 +306,7 @@ pub(crate) fn execute_amo_max_d<T: Tracer>(vm: &mut VM<T>, insn: R) {
 }
 
 #[inline(always)]
-pub(crate) fn execute_amo_minu_d<T: Tracer>(vm: &mut VM<T>, insn: R) {
+pub(crate) fn execute_amo_minu_d<T: Tracer>(vm: &mut VM<T>, insn: &R) {
     let addr = vm.reg(insn.rs1);
     let read_value = vm.load_u64(addr as usize);
     let rs2_val = vm.reg(insn.rs2);
@@ -321,7 +321,7 @@ pub(crate) fn execute_amo_minu_d<T: Tracer>(vm: &mut VM<T>, insn: R) {
 }
 
 #[inline(always)]
-pub(crate) fn execute_amo_maxu_d<T: Tracer>(vm: &mut VM<T>, insn: R) {
+pub(crate) fn execute_amo_maxu_d<T: Tracer>(vm: &mut VM<T>, insn: &R) {
     let addr = vm.reg(insn.rs1);
     let read_value = vm.load_u64(addr as usize);
     let rs2_val = vm.reg(insn.rs2);
