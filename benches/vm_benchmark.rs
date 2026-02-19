@@ -6,9 +6,9 @@
 //!
 //! Run with: `cargo bench`
 
-use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
-use riscv::VM;
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use riscv::trace::{FullTracer, NoopTracer};
+use riscv::{init_from_elf, Runner};
 
 /// Path to the fibonacci binary
 const FIB_BINARY: &str = "test-bin/rust-bin/fib/fib-ima"; // I intend to change to the block exec program... I trust that data more :)
@@ -20,8 +20,9 @@ const FIB_BINARY: &str = "test-bin/rust-bin/fib/fib-ima"; // I intend to change 
 fn bench_fib_no_tracer(c: &mut Criterion) {
     c.bench_function("fib_no_tracer", |b| {
         b.iter(|| {
-            let mut vm = VM::<NoopTracer>::init_from_elf(FIB_BINARY.to_string());
-            vm.run();
+            let mut vm = init_from_elf::<NoopTracer>(FIB_BINARY.to_string());
+            let mut runner = Runner::new();
+            runner.run(&mut vm);
             black_box(vm.exit_code())
         });
     });
@@ -34,8 +35,9 @@ fn bench_fib_no_tracer(c: &mut Criterion) {
 fn bench_fib_with_tracer(c: &mut Criterion) {
     c.bench_function("fib_full_tracer", |b| {
         b.iter(|| {
-            let mut vm = VM::<FullTracer>::init_from_elf(FIB_BINARY.to_string());
-            vm.run();
+            let mut vm = init_from_elf::<FullTracer>(FIB_BINARY.to_string());
+            let mut runner = Runner::new();
+            runner.run(&mut vm);
             let trace = vm.take_trace();
             black_box(trace)
         });
@@ -51,16 +53,18 @@ fn bench_tracer_comparison(c: &mut Criterion) {
 
     group.bench_function(BenchmarkId::new("tracer", "noop"), |b| {
         b.iter(|| {
-            let mut vm = VM::<NoopTracer>::init_from_elf(FIB_BINARY.to_string());
-            vm.run();
+            let mut vm = init_from_elf::<NoopTracer>(FIB_BINARY.to_string());
+            let mut runner = Runner::new();
+            runner.run(&mut vm);
             black_box(vm.exit_code())
         });
     });
 
     group.bench_function(BenchmarkId::new("tracer", "full"), |b| {
         b.iter(|| {
-            let mut vm = VM::<FullTracer>::init_from_elf(FIB_BINARY.to_string());
-            vm.run();
+            let mut vm = init_from_elf::<FullTracer>(FIB_BINARY.to_string());
+            let mut runner = Runner::new();
+            runner.run(&mut vm);
             let trace = vm.take_trace();
             black_box(trace)
         });
@@ -79,9 +83,10 @@ fn bench_execution_only(c: &mut Criterion) {
     // Pre-load the ELF to isolate execution time
     group.bench_function(BenchmarkId::new("execution", "noop"), |b| {
         b.iter_batched(
-            || VM::<NoopTracer>::init_from_elf(FIB_BINARY.to_string()),
+            || init_from_elf::<NoopTracer>(FIB_BINARY.to_string()),
             |mut vm| {
-                vm.run();
+                let mut runner = Runner::new();
+                runner.run(&mut vm);
                 black_box(vm.exit_code())
             },
             criterion::BatchSize::SmallInput,
@@ -90,9 +95,10 @@ fn bench_execution_only(c: &mut Criterion) {
 
     group.bench_function(BenchmarkId::new("execution", "full"), |b| {
         b.iter_batched(
-            || VM::<FullTracer>::init_from_elf(FIB_BINARY.to_string()),
+            || init_from_elf::<FullTracer>(FIB_BINARY.to_string()),
             |mut vm| {
-                vm.run();
+                let mut runner = Runner::new();
+                runner.run(&mut vm);
                 black_box(vm.take_trace())
             },
             criterion::BatchSize::SmallInput,

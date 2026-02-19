@@ -1,18 +1,19 @@
 use std::fs;
 
-use riscv::{VM, trace::NoopTracer};
+use riscv::{init_from_elf, trace::NoopTracer, Runner};
 
 fn run_test_exec_block_elf(path: String) {
     println!("running test: {path}");
 
-    let mut vm = VM::<NoopTracer>::init_from_elf(path);
+    let mut vm = init_from_elf::<NoopTracer>(path);
     let input_hex_string = fs::read_to_string("examples/exec-block.input").unwrap();
     let input_hex_string = input_hex_string.trim();
     let bytes = hex::decode(input_hex_string).unwrap();
 
-    vm.set_input_stream(bytes);
+    let mut runner = Runner::new();
+    runner.set_input_stream(bytes);
 
-    vm.run();
+    runner.run(&mut vm);
 
     println!("exit_code {}", vm.exit_code);
     assert!(vm.halted);

@@ -8,8 +8,8 @@
 use std::fs;
 use std::path::Path;
 
-use riscv::VM;
 use riscv::trace::NoopTracer;
+use riscv::{init_from_elf, Runner};
 
 #[path = "perf_stat.rs"]
 mod perf_stat;
@@ -32,23 +32,24 @@ fn main() {
     }
 
     // Construct a VM using the FullTracer tracer implementation (same as original main).
-    let mut vm = VM::<NoopTracer>::init_from_elf(EXEC_BLOCK_BINARY.to_string());
+    let mut vm = init_from_elf::<NoopTracer>(EXEC_BLOCK_BINARY.to_string());
 
     let input_hex_string = fs::read_to_string("examples/exec-block.input").unwrap();
     let input_hex_string = input_hex_string.trim();
     let bytes = hex::decode(input_hex_string).unwrap();
 
-    vm.set_input_stream(bytes);
+    let mut runner = Runner::new();
+    runner.set_input_stream(bytes);
 
     println!("Running exec-block program IMA...\n");
 
     // In the original project this run was sometimes commented out; we call
     // `run_with_timing` to match the fib example and produce timing output.
-    vm.run_with_timing();
+    runner.run_with_timing(&mut vm);
 
     println!("\nexit_code: {}", vm.exit_code());
 
-    perf_stat::print_perf_stat(&vm, "exec_block_ima");
+    perf_stat::print_perf_stat(&runner, &vm, "exec_block_ima");
 
-    assert_eq!(vm.cycles, 2165224867);
+    assert_eq!(runner.cycles(), 2165224867);
 }

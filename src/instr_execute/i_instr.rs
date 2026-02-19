@@ -272,42 +272,42 @@ pub(crate) fn execute_sd<T: Tracer>(vm: &mut VM<T>, insn: S) {
 #[inline(always)]
 pub(crate) fn execute_beq<T: Tracer>(vm: &mut VM<T>, insn: B, current_pc: u64) {
     if vm.reg(insn.rs1) == vm.reg(insn.rs2) {
-        vm.pc = current_pc.wrapping_add(insn.imm as u64);
+        vm.set_pc(current_pc.wrapping_add(insn.imm as u64));
     }
 }
 
 #[inline(always)]
 pub(crate) fn execute_bne<T: Tracer>(vm: &mut VM<T>, insn: B, current_pc: u64) {
     if vm.reg(insn.rs1) != vm.reg(insn.rs2) {
-        vm.pc = current_pc.wrapping_add(insn.imm as u64);
+        vm.set_pc(current_pc.wrapping_add(insn.imm as u64));
     }
 }
 
 #[inline(always)]
 pub(crate) fn execute_blt<T: Tracer>(vm: &mut VM<T>, insn: B, current_pc: u64) {
     if (vm.reg(insn.rs1) as i64) < (vm.reg(insn.rs2) as i64) {
-        vm.pc = current_pc.wrapping_add(insn.imm as u64);
+        vm.set_pc(current_pc.wrapping_add(insn.imm as u64));
     }
 }
 
 #[inline(always)]
 pub(crate) fn execute_bltu<T: Tracer>(vm: &mut VM<T>, insn: B, current_pc: u64) {
     if vm.reg(insn.rs1) < vm.reg(insn.rs2) {
-        vm.pc = current_pc.wrapping_add(insn.imm as u64);
+        vm.set_pc(current_pc.wrapping_add(insn.imm as u64));
     }
 }
 
 #[inline(always)]
 pub(crate) fn execute_bge<T: Tracer>(vm: &mut VM<T>, insn: B, current_pc: u64) {
     if (vm.reg(insn.rs1) as i64) >= (vm.reg(insn.rs2) as i64) {
-        vm.pc = current_pc.wrapping_add(insn.imm as u64);
+        vm.set_pc(current_pc.wrapping_add(insn.imm as u64));
     }
 }
 
 #[inline(always)]
 pub(crate) fn execute_bgeu<T: Tracer>(vm: &mut VM<T>, insn: B, current_pc: u64) {
     if vm.reg(insn.rs1) >= vm.reg(insn.rs2) {
-        vm.pc = current_pc.wrapping_add(insn.imm as u64);
+        vm.set_pc(current_pc.wrapping_add(insn.imm as u64));
     }
 }
 
@@ -321,7 +321,7 @@ pub(crate) fn execute_jal<T: Tracer>(
 ) {
     let result = current_pc.wrapping_add(if is_compressed { 2 } else { 4 });
     vm.reg_mut(insn.rd, result);
-    vm.pc = current_pc.wrapping_add(insn.imm as u64);
+    vm.set_pc(current_pc.wrapping_add(insn.imm as u64));
 }
 
 #[inline(always)]
@@ -334,7 +334,7 @@ pub(crate) fn execute_jalr<T: Tracer>(
     let target = vm.reg(insn.rs1).wrapping_add(insn.imm as u64);
     let result = current_pc.wrapping_add(if is_compressed { 2 } else { 4 });
     vm.reg_mut(insn.rd, result);
-    vm.pc = target;
+    vm.set_pc(target);
 }
 
 // Lui and Auipc

@@ -7,6 +7,7 @@ use crate::instr_execute::f_instr::*;
 use crate::instr_execute::i_instr::*;
 use crate::instr_execute::m_instr::*;
 use crate::trace::Tracer;
+use crate::HostIO;
 use crate::VM;
 
 // TODO consider cleaning up sext logic
@@ -16,6 +17,7 @@ impl<T: Tracer> VM<T> {
         insn: Instruction,
         is_compressed: bool,
         current_pc: u64,
+        io: &mut HostIO,
     ) {
         match insn {
             // Register Opcodes
@@ -339,7 +341,7 @@ impl<T: Tracer> VM<T> {
 
             // System Opcodes
             Instruction::Ecall => {
-                handle_ecall(self);
+                handle_ecall(self, io);
             }
 
             // TODO remove the eager check once all opcodes have been implemented
@@ -350,48 +352,52 @@ impl<T: Tracer> VM<T> {
 
 #[cfg(test)]
 mod test {
+    use crate::decode::decode;
     use crate::ecall::constants;
     use crate::trace::NoopTracer;
-    use crate::{decode, VM};
+    use crate::{HostIO, VM};
 
-    fn run_insn(vm: &mut VM<NoopTracer>, insn: u32, is_compressed: bool) {
-        let current_pc = vm.pc;
+    fn run_insn(vm: &mut VM<NoopTracer>, io: &mut HostIO, insn: u32, is_compressed: bool) {
+        let current_pc = vm.pc();
         let next_pc = current_pc.wrapping_add(if is_compressed { 2 } else { 4 });
-        vm.pc = next_pc;
-        vm.execute_instruction(decode(insn), is_compressed, current_pc);
+        vm.set_pc(next_pc);
+        vm.execute_instruction(decode(insn), is_compressed, current_pc, io);
     }
 
     #[test]
     fn test_add_instruction() {
         let mut vm = VM::<NoopTracer>::init();
+        let mut io = HostIO::new();
         vm.reg_mut(3, 12);
         vm.reg_mut(5, 32);
         // r8 = r3 + r5
         // 0x518433 = Instruction::Add(R { rd: 8, rs1: 3, rs2: 5 });
         let insn = 0x518433;
-        run_insn(&mut vm, insn, false);
+        run_insn(&mut vm, &mut io, insn, false);
         assert_eq!(vm.reg(8), 12 + 32);
     }
 
     #[test]
     fn test_store_byte() {
         let mut vm = VM::<NoopTracer>::init();
+        let mut io = HostIO::new();
         vm.reg_mut(3, 12);
         vm.reg_mut(2, 5);
         // 0x310123 = Instruction::Sb(S {rs1: 2, rs2: 3, imm: 2});
         let insn = 0x310123;
-        run_insn(&mut vm, insn, false);
+        run_insn(&mut vm, &mut io, insn, false);
         assert_eq!(vm.load_u64(7), 12);
     }
 
     #[test]
     fn test_store_half_word() {
         let mut vm = VM::<NoopTracer>::init();
+        let mut io = HostIO::new();
         vm.reg_mut(3, 64008);
         vm.reg_mut(2, 5);
         // 0x311123 = Instruction::Sh(S {rs1: 2, rs2: 3, imm: 2});
         let insn = 0x311123;
-        run_insn(&mut vm, insn, false);
+        run_insn(&mut vm, &mut io, insn, false);
         assert_eq!(vm.load_u64(7), 64008);
         assert_eq!(vm.load_u64(8), 250);
     }
@@ -399,11 +405,12 @@ mod test {
     #[test]
     fn test_store_word() {
         let mut vm = VM::<NoopTracer>::init();
+        let mut io = HostIO::new();
         vm.reg_mut(3, 2299561908);
         vm.reg_mut(2, 5);
         // 0x312123 = Instruction::Sw(S { rs1: 2, rs2: 3, imm: 2 });
         let insn = 0x312123;
-        run_insn(&mut vm, insn, false);
+        run_insn(&mut vm, &mut io, insn, false);
         assert_eq!(vm.load_u64(7), 2299561908);
         assert_eq!(vm.load_u64(8), 8982663);
         assert_eq!(vm.load_u64(9), 35088);
@@ -412,11 +419,12 @@ mod test {
     #[test]
     fn test_store_double_word() {
         let mut vm = VM::<NoopTracer>::init();
+        let mut io = HostIO::new();
         vm.reg_mut(3, 1234567898765432123);
         vm.reg_mut(2, 5);
         // 0x313123 = Instruction::Sd(S { rs1: 2, rs2: 3, imm: 2 });
         let insn = 0x313123;
-        run_insn(&mut vm, insn, false);
+        run_insn(&mut vm, &mut io, insn, false);
         assert_eq!(vm.load_u64(7), 1234567898765432123);
         assert_eq!(vm.load_u64(8), 4822530854552469);
         assert_eq!(vm.load_u64(9), 18838011150595);
@@ -428,33 +436,35 @@ mod test {
     #[test]
     fn test_jal_opcode() {
         let mut vm = VM::<NoopTracer>::init();
-        vm.pc = 8;
+        let mut io = HostIO::new();
+        vm.set_pc(8);
         // 0xC001EF = Instruction::Jal(J { rd: 3, imm: 12 });
         let insn = 0xC001EF;
-        run_insn(&mut vm, insn, false);
+        run_insn(&mut vm, &mut io, insn, false);
         assert_eq!(vm.reg(3), 12);
-        assert_eq!(vm.pc, 20);
+        assert_eq!(vm.pc(), 20);
     }
 
     #[test]
     fn test_jalr_opcode() {
         let mut vm = VM::<NoopTracer>::init();
-        vm.pc = 8;
+        let mut io = HostIO::new();
+        vm.set_pc(8);
         vm.reg_mut(5, 6);
         // 0x9281E7 = Instruction::Jalr(I {rs1: 5, rd: 3, imm: 9});
         let insn = 0x9281E7;
-        run_insn(&mut vm, insn, false);
+        run_insn(&mut vm, &mut io, insn, false);
         assert_eq!(vm.reg(3), 12);
-        assert_eq!(vm.pc, 15);
+        assert_eq!(vm.pc(), 15);
     }
 
     #[test]
     fn test_ecall_stdin() {
         let mut vm = VM::<NoopTracer>::init();
+        let mut io = HostIO::new();
 
         // Prepare an input stream "hello"
-        vm.input_stream = b"hello".to_vec();
-        vm.input_cursor = 0;
+        io.set_input_stream(b"hello".to_vec());
 
         // a0 = fd (stdin), a1 = guest ptr, a2 = len
         vm.reg_mut(10, constants::STDIN_FILENO); // x10 = a0
@@ -466,7 +476,7 @@ mod test {
 
         // execute ecall (standard encoding 0x0000_0073)
         let insn = 0x0000_0073;
-        run_insn(&mut vm, insn, false);
+        run_insn(&mut vm, &mut io, insn, false);
 
         // check bytes written to guest memory and return value in a0
         assert_eq!(vm.read_bytes(0, 3), b"hel".to_vec());
@@ -476,6 +486,7 @@ mod test {
     #[test]
     fn test_ecall_stdout() {
         let mut vm = VM::<NoopTracer>::init();
+        let mut io = HostIO::new();
 
         // Write "world" into guest memory at address 0
         vm.write_bytes(0, b"world");
@@ -490,7 +501,7 @@ mod test {
 
         // execute ecall
         let insn = 0x0000_0073;
-        run_insn(&mut vm, insn, false);
+        run_insn(&mut vm, &mut io, insn, false);
 
         // stdout handler returns length read in a0
         assert_eq!(vm.reg(10), 5);

@@ -1,8 +1,8 @@
 // F instructions
 
 use crate::decode::{R4, RF};
+use crate::trace::Tracer;
 use crate::util::{classify32, is_snan_f32, mask32, sext};
-use crate::Tracer;
 use crate::VM;
 
 #[inline(always)]

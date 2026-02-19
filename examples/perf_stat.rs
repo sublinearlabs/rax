@@ -1,10 +1,10 @@
-use riscv::VM;
+use riscv::{Runner, VM};
 
-pub fn print_perf_stat(vm: &VM, name: &'static str) {
+pub fn print_perf_stat(runner: &Runner, vm: &VM, name: &'static str) {
     if std::env::var("PERF").as_deref() == Ok("1") {
         println!("perf: name | {}", name);
-        println!("perf: elapsed(nanos) | {}", vm.elapsed.as_nanos());
-        println!("perf: cycles | {}", vm.cycles);
+        println!("perf: elapsed(nanos) | {}", runner.elapsed().as_nanos());
+        println!("perf: cycles | {}", runner.cycles());
         println!("perf: exit_code | {}", vm.exit_code);
     }
 }

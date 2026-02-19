@@ -8,8 +8,8 @@
 //! (depends on how your workspace/crate features are configured).
 use std::path::Path;
 
-use riscv::VM;
 use riscv::trace::NoopTracer;
+use riscv::{init_from_elf, Runner};
 
 #[path = "perf_stat.rs"]
 mod perf_stat;
@@ -30,15 +30,16 @@ fn main() {
     }
 
     // Construct a VM using the FullTracer tracer implementation (same as original main).
-    let mut vm = VM::<NoopTracer>::init_from_elf(FIB_BINARY.to_string());
+    let mut vm = init_from_elf::<NoopTracer>(FIB_BINARY.to_string());
 
     println!("Running fibonacci program IMAC...\n");
 
-    vm.run_with_timing();
+    let mut runner = Runner::new();
+    runner.run_with_timing(&mut vm);
 
     println!("\nexit_code: {}", vm.exit_code());
 
-    perf_stat::print_perf_stat(&vm, "fib_imac");
+    perf_stat::print_perf_stat(&runner, &vm, "fib_imac");
 
-    assert_eq!(vm.cycles, 72000006);
+    assert_eq!(runner.cycles(), 72000006);
 }
