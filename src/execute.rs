@@ -1,4 +1,3 @@
-use crate::VM;
 use crate::decode::Instruction;
 use crate::ecall::handle_ecall;
 use crate::instr_execute::a_instr::*;
@@ -8,140 +7,141 @@ use crate::instr_execute::f_instr::*;
 use crate::instr_execute::i_instr::*;
 use crate::instr_execute::m_instr::*;
 use crate::trace::Tracer;
+use crate::VM;
 
 // TODO consider cleaning up sext logic
 impl<T: Tracer> VM<T> {
     pub(crate) fn execute_instruction(&mut self, insn: Instruction, is_compressed: bool) {
         match insn {
             // Register Opcodes
-            Instruction::Add(insn) => execute_Add(self, insn),
+            Instruction::Add(insn) => execute_add(self, insn),
 
-            Instruction::Sub(insn) => execute_Sub(self, insn),
+            Instruction::Sub(insn) => execute_sub(self, insn),
 
-            Instruction::Xor(insn) => execute_Xor(self, insn),
+            Instruction::Xor(insn) => execute_xor(self, insn),
 
-            Instruction::Or(insn) => execute_Or(self, insn),
+            Instruction::Or(insn) => execute_or(self, insn),
 
-            Instruction::And(insn) => execute_And(self, insn),
+            Instruction::And(insn) => execute_and(self, insn),
 
-            Instruction::Sll(insn) => execute_Sll(self, insn),
+            Instruction::Sll(insn) => execute_sll(self, insn),
 
-            Instruction::Srl(insn) => execute_Srl(self, insn),
+            Instruction::Srl(insn) => execute_srl(self, insn),
 
-            Instruction::Sra(insn) => execute_Sra(self, insn),
+            Instruction::Sra(insn) => execute_sra(self, insn),
 
-            Instruction::Slt(insn) => execute_Slt(self, insn),
+            Instruction::Slt(insn) => execute_slt(self, insn),
 
-            Instruction::Sltu(insn) => execute_Sltu(self, insn),
+            Instruction::Sltu(insn) => execute_sltu(self, insn),
 
             // Immediate Opcodes
-            Instruction::Addi(insn) => execute_Addi(self, insn),
+            Instruction::Addi(insn) => execute_addi(self, insn),
 
-            Instruction::Xori(insn) => execute_Xori(self, insn),
+            Instruction::Xori(insn) => execute_xori(self, insn),
 
-            Instruction::Ori(insn) => execute_Ori(self, insn),
+            Instruction::Ori(insn) => execute_ori(self, insn),
 
-            Instruction::Andi(insn) => execute_Andi(self, insn),
+            Instruction::Andi(insn) => execute_andi(self, insn),
 
-            Instruction::Slli(insn) => execute_Slli(self, insn),
+            Instruction::Slli(insn) => execute_slli(self, insn),
 
-            Instruction::Srli(insn) => execute_Srli(self, insn),
+            Instruction::Srli(insn) => execute_srli(self, insn),
 
-            Instruction::Srai(insn) => execute_Srai(self, insn),
+            Instruction::Srai(insn) => execute_srai(self, insn),
 
-            Instruction::Slti(insn) => execute_Slti(self, insn),
+            Instruction::Slti(insn) => execute_slti(self, insn),
 
-            Instruction::Sltiu(insn) => execute_Sltiu(self, insn),
+            Instruction::Sltiu(insn) => execute_sltiu(self, insn),
 
             // Load Opcodes
-            Instruction::Lb(insn) => execute_Lb(self, insn),
+            Instruction::Lb(insn) => execute_lb(self, insn),
 
-            Instruction::Lbu(insn) => execute_Lbu(self, insn),
+            Instruction::Lbu(insn) => execute_lbu(self, insn),
 
-            Instruction::Lh(insn) => execute_Lh(self, insn),
+            Instruction::Lh(insn) => execute_lh(self, insn),
 
-            Instruction::Lhu(insn) => execute_Lhu(self, insn),
+            Instruction::Lhu(insn) => execute_lhu(self, insn),
 
-            Instruction::Lw(insn) => execute_Lw(self, insn),
+            Instruction::Lw(insn) => execute_lw(self, insn),
 
-            Instruction::Lwu(insn) => execute_Lwu(self, insn),
+            Instruction::Lwu(insn) => execute_lwu(self, insn),
 
-            Instruction::Ld(insn) => execute_Ld(self, insn),
+            Instruction::Ld(insn) => execute_ld(self, insn),
 
             // Store Opcodes
-            Instruction::Sb(insn) => execute_Sb(self, insn),
+            Instruction::Sb(insn) => execute_sb(self, insn),
 
-            Instruction::Sh(insn) => execute_Sh(self, insn),
+            Instruction::Sh(insn) => execute_sh(self, insn),
 
-            Instruction::Sw(insn) => execute_Sw(self, insn),
+            Instruction::Sw(insn) => execute_sw(self, insn),
 
-            Instruction::Sd(insn) => execute_Sd(self, insn),
+            Instruction::Sd(insn) => execute_sd(self, insn),
 
             // Branch Opcodes
             Instruction::Beq(insn) => {
-                if execute_Beq(self, insn) {
+                if execute_beq(self, insn) {
                     return;
                 }
             }
 
             Instruction::Bne(insn) => {
-                if execute_Bne(self, insn) {
+                if execute_bne(self, insn) {
                     return;
                 }
             }
 
             Instruction::Blt(insn) => {
-                if execute_Blt(self, insn) {
+                if execute_blt(self, insn) {
                     return;
                 }
             }
 
             Instruction::Bltu(insn) => {
-                if execute_Bltu(self, insn) {
+                if execute_bltu(self, insn) {
                     return;
                 }
             }
 
             Instruction::Bge(insn) => {
-                if execute_Bge(self, insn) {
+                if execute_bge(self, insn) {
                     return;
                 }
             }
 
             Instruction::Bgeu(insn) => {
-                if execute_Bgeu(self, insn) {
+                if execute_bgeu(self, insn) {
                     return;
                 }
             }
 
             // Jump opcodes
-            Instruction::Jal(insn) => return execute_Jal(self, insn),
+            Instruction::Jal(insn) => return execute_jal(self, insn),
 
-            Instruction::Jalr(insn) => return execute_Jalr(self, insn, is_compressed),
+            Instruction::Jalr(insn) => return execute_jalr(self, insn, is_compressed),
 
             // Lui and Auipc
-            Instruction::Lui(insn) => execute_Lui(self, insn),
+            Instruction::Lui(insn) => execute_lui(self, insn),
 
-            Instruction::Auipc(insn) => execute_Auipc(self, insn),
+            Instruction::Auipc(insn) => execute_auipc(self, insn),
 
             // RV64I Instructions
-            Instruction::Addiw(insn) => execute_Addiw(self, insn),
+            Instruction::Addiw(insn) => execute_addiw(self, insn),
 
-            Instruction::Slliw(insn) => execute_Slliw(self, insn),
+            Instruction::Slliw(insn) => execute_slliw(self, insn),
 
-            Instruction::Srliw(insn) => execute_Srliw(self, insn),
+            Instruction::Srliw(insn) => execute_srliw(self, insn),
 
-            Instruction::Sraiw(insn) => execute_Sraiw(self, insn),
+            Instruction::Sraiw(insn) => execute_sraiw(self, insn),
 
-            Instruction::Addw(insn) => execute_Addw(self, insn),
+            Instruction::Addw(insn) => execute_addw(self, insn),
 
-            Instruction::Subw(insn) => execute_Subw(self, insn),
+            Instruction::Subw(insn) => execute_subw(self, insn),
 
-            Instruction::Sllw(insn) => execute_Sllw(self, insn),
+            Instruction::Sllw(insn) => execute_sllw(self, insn),
 
-            Instruction::Srlw(insn) => execute_Srlw(self, insn),
+            Instruction::Srlw(insn) => execute_srlw(self, insn),
 
-            Instruction::Sraw(insn) => execute_Sraw(self, insn),
+            Instruction::Sraw(insn) => execute_sraw(self, insn),
 
             // M Extension - Multiplication
             Instruction::Mul(insn) => execute_Mul(self, insn),
@@ -377,7 +377,7 @@ impl<T: Tracer> VM<T> {
 mod test {
     use crate::ecall::constants;
     use crate::trace::NoopTracer;
-    use crate::{VM, decode};
+    use crate::{decode, VM};
 
     #[test]
     fn test_add_instruction() {
