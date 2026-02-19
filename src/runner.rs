@@ -75,7 +75,7 @@ impl Runner {
                 vm.set_pc(next_pc);
 
                 // Execute the instruction (this will update PC)
-                vm.execute_instruction(insn.clone(), *is_compressed, current_pc, &mut self.io);
+                vm.execute_instruction(insn, *is_compressed, current_pc, &mut self.io);
 
                 // Record next PC
                 vm.tracer.record_next_pc(vm.pc());
@@ -130,7 +130,7 @@ impl Runner {
             vm.set_pc(next_pc);
 
             // Execute the instruction (this will update PC)
-            vm.execute_instruction(insn.clone(), is_compressed, current_pc, &mut self.io);
+            vm.execute_instruction(&insn, is_compressed, current_pc, &mut self.io);
 
             // Record next PC (set during execute_instruction or default to pc+4)
             vm.tracer.record_next_pc(vm.pc());
@@ -144,10 +144,11 @@ impl Runner {
                 break;
             }
 
-            block.push((insn.clone(), insn_bytes, is_compressed));
+            let is_branch = insn.is_branch_or_jmp();
+            block.push((insn, insn_bytes, is_compressed));
             vm.tracer.commit();
 
-            if insn.is_branch_or_jmp() {
+            if is_branch {
                 self.basic_blocks.insert(leader, block);
                 break;
             }

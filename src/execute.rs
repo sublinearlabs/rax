@@ -14,7 +14,7 @@ use crate::VM;
 impl<T: Tracer> VM<T> {
     pub(crate) fn execute_instruction(
         &mut self,
-        insn: Instruction,
+        insn: &Instruction,
         is_compressed: bool,
         current_pc: u64,
         io: &mut HostIO,
@@ -361,7 +361,8 @@ mod test {
         let current_pc = vm.pc();
         let next_pc = current_pc.wrapping_add(if is_compressed { 2 } else { 4 });
         vm.set_pc(next_pc);
-        vm.execute_instruction(decode(insn), is_compressed, current_pc, io);
+        let decoded = decode(insn);
+        vm.execute_instruction(&decoded, is_compressed, current_pc, io);
     }
 
     #[test]
