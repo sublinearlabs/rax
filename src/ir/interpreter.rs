@@ -297,4 +297,28 @@ mod tests {
         assert_eq!(vm.reg(1), 10);
         assert_eq!(vm.reg(2), 15);
     }
+
+    #[test]
+    fn execute_ir_loads_and_stores_memory() {
+        let mut builder = IrBuilder::new();
+        let entry = builder.block();
+        builder.switch_to(entry);
+
+        let addr = builder.const_i64(0x10);
+        let value = builder.const_i64(0x1234_5678);
+        builder.store32(addr, value);
+
+        let loaded = builder.load32u(addr);
+        builder.set_reg(Reg::X3, loaded);
+
+        builder.ret();
+        let func = builder.finish();
+
+        let mut vm = VM::<NoopTracer>::init();
+        let mut io = HostIO::new();
+        execute_ir(&func, &mut vm, &mut io);
+
+        assert_eq!(vm.load_u32(0x10), 0x1234_5678);
+        assert_eq!(vm.reg(3), 0x1234_5678);
+    }
 }
