@@ -1,9 +1,8 @@
 use std::fs;
 
 use riscv::{
-    init_from_elf,
+    Runner, VM, init_from_elf,
     trace::{FullTracer, NoopTracer},
-    Runner, VM,
 };
 
 /// VM with no tracing (zero overhead)
@@ -35,6 +34,7 @@ fn test_rv64ui() {
         .collect::<Vec<_>>();
 }
 
+#[cfg(feature = "ext_m")]
 #[test]
 fn test_rv64um() {
     let _ = fs::read_dir("test-bin/rv64um")
@@ -44,6 +44,7 @@ fn test_rv64um() {
         .collect::<Vec<_>>();
 }
 
+#[cfg(feature = "ext_a")]
 #[test]
 fn test_rv64ua() {
     let _ = fs::read_dir("test-bin/rv64ua")
@@ -53,6 +54,7 @@ fn test_rv64ua() {
         .collect::<Vec<_>>();
 }
 
+#[cfg(feature = "ext_f")]
 #[test]
 fn test_rv64uf() {
     let _ = fs::read_dir("test-bin/rv64uf")
@@ -62,6 +64,7 @@ fn test_rv64uf() {
         .collect::<Vec<_>>();
 }
 
+#[cfg(feature = "ext_c")]
 #[test]
 fn test_rv64uc() {
     let _ = fs::read_dir("test-bin/rv64uc")

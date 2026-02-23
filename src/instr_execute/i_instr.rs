@@ -319,8 +319,7 @@ pub(crate) fn execute_jal<T: Tracer>(
     current_pc: u64,
     is_compressed: bool,
 ) {
-    let result = current_pc.wrapping_add(if is_compressed { 2 } else { 4 });
-    vm.reg_mut(insn.rd, result);
+    vm.reg_mut(insn.rd, vm.pc());
     vm.set_pc(current_pc.wrapping_add(insn.imm as u64));
 }
 
@@ -332,8 +331,7 @@ pub(crate) fn execute_jalr<T: Tracer>(
     is_compressed: bool,
 ) {
     let target = vm.reg(insn.rs1).wrapping_add(insn.imm as u64);
-    let result = current_pc.wrapping_add(if is_compressed { 2 } else { 4 });
-    vm.reg_mut(insn.rd, result);
+    vm.reg_mut(insn.rd, vm.pc());
     vm.set_pc(target);
 }
 
