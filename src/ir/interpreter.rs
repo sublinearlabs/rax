@@ -225,13 +225,20 @@ fn reg_index(reg: Reg) -> u8 {
 
 fn sext(value: i64, from: IrType, to: IrType) -> i64 {
     match (from, to) {
-        (IrType::I8, IrType::I16) => (value as i8 as i16) as i64,
-        (IrType::I8, IrType::I32) => (value as i8 as i32) as i64,
-        (IrType::I8, IrType::I64) => (value as i8) as i64,
-        (IrType::I16, IrType::I32) => (value as i16 as i32) as i64,
-        (IrType::I16, IrType::I64) => (value as i16) as i64,
-        (IrType::I32, IrType::I64) => (value as i32) as i64,
+        (IrType::I8, IrType::I16)
+        | (IrType::I8, IrType::I32)
+        | (IrType::I8, IrType::I64)
+        | (IrType::I16, IrType::I32)
+        | (IrType::I16, IrType::I64)
+        | (IrType::I32, IrType::I64) => {}
         _ => panic!("invalid sext {:?} -> {:?}", from, to),
+    }
+
+    match from {
+        IrType::I8 => (value as i8) as i64,
+        IrType::I16 => (value as i16) as i64,
+        IrType::I32 => (value as i32) as i64,
+        _ => panic!("invalid sext source {:?}", from),
     }
 }
 
