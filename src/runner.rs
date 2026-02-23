@@ -117,9 +117,7 @@ impl Runner {
                 }
                 #[cfg(not(feature = "ext_c"))]
                 {
-                    let insn = vm.load_u16(vm.pc() as usize);
-                    let insn_upper = vm.load_u16((vm.pc() + 2) as usize);
-                    let insn = (insn_upper as u32) << 16 | insn as u32;
+                    let insn = vm.load_u32(vm.pc() as usize);
                     (decode::decode(insn), insn, false)
                 }
             };
