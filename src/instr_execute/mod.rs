@@ -1,6 +1,10 @@
+#[cfg(feature = "ext_a")]
 pub mod a_instr;
 pub mod csr_instr;
+#[cfg(feature = "ext_d")]
 pub mod d_instr;
+#[cfg(feature = "ext_f")]
 pub mod f_instr;
 pub mod i_instr;
+#[cfg(feature = "ext_m")]
 pub mod m_instr;

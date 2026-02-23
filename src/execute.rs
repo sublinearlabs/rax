@@ -1,10 +1,14 @@
 use crate::decode::Instruction;
 use crate::ecall::handle_ecall;
+#[cfg(feature = "ext_a")]
 use crate::instr_execute::a_instr::*;
 use crate::instr_execute::csr_instr::*;
+#[cfg(feature = "ext_d")]
 use crate::instr_execute::d_instr::*;
+#[cfg(feature = "ext_f")]
 use crate::instr_execute::f_instr::*;
 use crate::instr_execute::i_instr::*;
+#[cfg(feature = "ext_m")]
 use crate::instr_execute::m_instr::*;
 use crate::trace::Tracer;
 use crate::HostIO;
@@ -127,203 +131,300 @@ impl<T: Tracer> VM<T> {
             Instruction::Sraw(insn) => execute_sraw(self, insn),
 
             // M Extension - Multiplication
+            #[cfg(feature = "ext_m")]
             Instruction::Mul(insn) => execute_mul(self, insn),
 
+            #[cfg(feature = "ext_m")]
             Instruction::Mulh(insn) => execute_mulh(self, insn),
 
+            #[cfg(feature = "ext_m")]
             Instruction::Mulhsu(insn) => execute_mulhsu(self, insn),
 
+            #[cfg(feature = "ext_m")]
             Instruction::Mulhu(insn) => execute_mulhu(self, insn),
 
+            #[cfg(feature = "ext_m")]
             Instruction::Mulw(insn) => execute_mulw(self, insn),
 
             // M Extension - Division
+            #[cfg(feature = "ext_m")]
             Instruction::Div(insn) => execute_div(self, insn),
 
+            #[cfg(feature = "ext_m")]
             Instruction::Divu(insn) => execute_divu(self, insn),
 
+            #[cfg(feature = "ext_m")]
             Instruction::Rem(insn) => execute_rem(self, insn),
 
+            #[cfg(feature = "ext_m")]
             Instruction::Remu(insn) => execute_remu(self, insn),
 
+            #[cfg(feature = "ext_m")]
             Instruction::Divw(insn) => execute_divw(self, insn),
 
+            #[cfg(feature = "ext_m")]
             Instruction::Divuw(insn) => execute_divuw(self, insn),
 
+            #[cfg(feature = "ext_m")]
             Instruction::Remw(insn) => execute_remw(self, insn),
 
+            #[cfg(feature = "ext_m")]
             Instruction::Remuw(insn) => execute_remuw(self, insn),
 
             // A Extension - Load Reserved / Store Conditional
+            #[cfg(feature = "ext_a")]
             Instruction::LrW(insn) => execute_lr_w(self, insn),
 
+            #[cfg(feature = "ext_a")]
             Instruction::LrD(insn) => execute_lr_d(self, insn),
 
+            #[cfg(feature = "ext_a")]
             Instruction::ScW(insn) => execute_sc_w(self, insn),
 
+            #[cfg(feature = "ext_a")]
             Instruction::ScD(insn) => execute_sc_d(self, insn),
 
             // A Extension - Atomic Memory Operations (Word)
+            #[cfg(feature = "ext_a")]
             Instruction::AmoSwapW(insn) => execute_amo_swap_w(self, insn),
 
+            #[cfg(feature = "ext_a")]
             Instruction::AmoAddW(insn) => execute_amo_add_w(self, insn),
 
+            #[cfg(feature = "ext_a")]
             Instruction::AmoXorW(insn) => execute_amo_xor_w(self, insn),
 
+            #[cfg(feature = "ext_a")]
             Instruction::AmoAndW(insn) => execute_amo_and_w(self, insn),
 
+            #[cfg(feature = "ext_a")]
             Instruction::AmoOrW(insn) => execute_amo_or_w(self, insn),
 
+            #[cfg(feature = "ext_a")]
             Instruction::AmoMinW(insn) => execute_amo_min_w(self, insn),
 
+            #[cfg(feature = "ext_a")]
             Instruction::AmoMaxW(insn) => execute_amo_max_w(self, insn),
 
+            #[cfg(feature = "ext_a")]
             Instruction::AmoMinuW(insn) => execute_amo_minu_w(self, insn),
 
+            #[cfg(feature = "ext_a")]
             Instruction::AmoMaxuW(insn) => execute_amo_maxu_w(self, insn),
 
             // A Extension - Atomic Memory Operations (Double)
+            #[cfg(feature = "ext_a")]
             Instruction::AmoSwapD(insn) => execute_amo_swap_d(self, insn),
 
+            #[cfg(feature = "ext_a")]
             Instruction::AmoAddD(insn) => execute_amo_add_d(self, insn),
 
+            #[cfg(feature = "ext_a")]
             Instruction::AmoXorD(insn) => execute_amo_xor_d(self, insn),
 
+            #[cfg(feature = "ext_a")]
             Instruction::AmoAndD(insn) => execute_amo_and_d(self, insn),
 
+            #[cfg(feature = "ext_a")]
             Instruction::AmoOrD(insn) => execute_amo_or_d(self, insn),
 
+            #[cfg(feature = "ext_a")]
             Instruction::AmoMinD(insn) => execute_amo_min_d(self, insn),
 
+            #[cfg(feature = "ext_a")]
             Instruction::AmoMaxD(insn) => execute_amo_max_d(self, insn),
 
+            #[cfg(feature = "ext_a")]
             Instruction::AmoMinuD(insn) => execute_amo_minu_d(self, insn),
 
+            #[cfg(feature = "ext_a")]
             Instruction::AmoMaxuD(insn) => execute_amo_maxu_d(self, insn),
 
             // F instructions
+            #[cfg(feature = "ext_f")]
             Instruction::FmaddS(insn) => execute_fmadd_s(self, insn),
 
+            #[cfg(feature = "ext_f")]
             Instruction::FmsubS(insn) => execute_fmsub_s(self, insn),
 
+            #[cfg(feature = "ext_f")]
             Instruction::FnmsubS(insn) => execute_fnmsub_s(self, insn),
 
+            #[cfg(feature = "ext_f")]
             Instruction::FnmaddS(insn) => execute_fnmadd_s(self, insn),
 
+            #[cfg(feature = "ext_f")]
             Instruction::FaddS(insn) => execute_fadd_s(self, insn),
 
+            #[cfg(feature = "ext_f")]
             Instruction::FsubS(insn) => execute_fsub_s(self, insn),
 
+            #[cfg(feature = "ext_f")]
             Instruction::FmulS(insn) => execute_fmul_s(self, insn),
 
+            #[cfg(feature = "ext_f")]
             Instruction::FdivS(insn) => execute_fdiv_s(self, insn),
 
+            #[cfg(feature = "ext_f")]
             Instruction::FsqrtS(insn) => execute_fsqrt_s(self, insn),
 
+            #[cfg(feature = "ext_f")]
             Instruction::FsgnjS(insn) => execute_fsgnj_s(self, insn),
 
+            #[cfg(feature = "ext_f")]
             Instruction::FsgnjnS(insn) => execute_fsgnjn_s(self, insn),
 
+            #[cfg(feature = "ext_f")]
             Instruction::FsgnjxS(insn) => execute_fsgnjx_s(self, insn),
 
+            #[cfg(feature = "ext_f")]
             Instruction::FminS(insn) => execute_fmin_s(self, insn),
 
+            #[cfg(feature = "ext_f")]
             Instruction::FmaxS(insn) => execute_fmax_s(self, insn),
 
+            #[cfg(feature = "ext_f")]
             Instruction::FcvtWS(insn) => execute_fcvt_ws(self, insn),
 
+            #[cfg(feature = "ext_f")]
             Instruction::FcvtWuS(insn) => execute_fcvt_wu_s(self, insn),
 
+            #[cfg(feature = "ext_f")]
             Instruction::FmvXW(insn) => execute_fmv_xw(self, insn),
 
+            #[cfg(feature = "ext_f")]
             Instruction::FeqS(insn) => execute_feq_s(self, insn),
 
+            #[cfg(feature = "ext_f")]
             Instruction::FltS(insn) => execute_flt_s(self, insn),
 
+            #[cfg(feature = "ext_f")]
             Instruction::FleS(insn) => execute_fle_s(self, insn),
 
+            #[cfg(feature = "ext_f")]
             Instruction::FclassS(insn) => execute_fclass_s(self, insn),
 
+            #[cfg(feature = "ext_f")]
             Instruction::FcvtSW(insn) => execute_fcvt_sw(self, insn),
 
+            #[cfg(feature = "ext_f")]
             Instruction::FcvtSWu(insn) => execute_fcvt_swu(self, insn),
 
+            #[cfg(feature = "ext_f")]
             Instruction::FmvWX(insn) => execute_fmv_wx(self, insn),
 
+            #[cfg(feature = "ext_d")]
             Instruction::FmaddD(insn) => execute_fmadd_d(self, insn),
 
+            #[cfg(feature = "ext_d")]
             Instruction::FmsubD(insn) => execute_fmsub_d(self, insn),
 
+            #[cfg(feature = "ext_d")]
             Instruction::FnmsubD(insn) => execute_fnmsub_d(self, insn),
 
+            #[cfg(feature = "ext_d")]
             Instruction::FnmaddD(insn) => execute_fnmadd_d(self, insn),
 
+            #[cfg(feature = "ext_d")]
             Instruction::FaddD(insn) => execute_fadd_d(self, insn),
 
+            #[cfg(feature = "ext_d")]
             Instruction::FsubD(insn) => execute_fsub_d(self, insn),
 
+            #[cfg(feature = "ext_d")]
             Instruction::FmulD(insn) => execute_fmul_d(self, insn),
 
+            #[cfg(feature = "ext_d")]
             Instruction::FdivD(insn) => execute_fdiv_d(self, insn),
 
+            #[cfg(feature = "ext_d")]
             Instruction::FsqrtD(insn) => execute_fsqrt_d(self, insn),
 
+            #[cfg(feature = "ext_d")]
             Instruction::FsgnjD(insn) => execute_fsgnj_d(self, insn),
 
+            #[cfg(feature = "ext_d")]
             Instruction::FsgnjnD(insn) => execute_fsgnjn_d(self, insn),
 
+            #[cfg(feature = "ext_d")]
             Instruction::FsgnjxD(insn) => execute_fsgnjx_d(self, insn),
 
+            #[cfg(feature = "ext_d")]
             Instruction::FminD(insn) => execute_fmin_d(self, insn),
 
+            #[cfg(feature = "ext_d")]
             Instruction::FmaxD(insn) => execute_fmax_d(self, insn),
 
+            #[cfg(feature = "ext_d")]
             Instruction::FcvtSD(insn) => execute_fcvt_sd(self, insn),
 
+            #[cfg(feature = "ext_d")]
             Instruction::FcvtDS(insn) => execute_fcvt_ds(self, insn),
 
+            #[cfg(feature = "ext_d")]
             Instruction::FeqD(insn) => execute_feq_d(self, insn),
 
+            #[cfg(feature = "ext_d")]
             Instruction::FltD(insn) => execute_flt_d(self, insn),
 
+            #[cfg(feature = "ext_d")]
             Instruction::FleD(insn) => execute_fle_d(self, insn),
 
+            #[cfg(feature = "ext_d")]
             Instruction::FclassD(insn) => execute_fclass_d(self, insn),
 
+            #[cfg(feature = "ext_d")]
             Instruction::FcvtWD(insn) => execute_fcvt_wd(self, insn),
 
+            #[cfg(feature = "ext_d")]
             Instruction::FcvtWuD(insn) => execute_fcvt_wu_d(self, insn),
 
+            #[cfg(feature = "ext_d")]
             Instruction::FcvtDW(insn) => execute_fcvt_dw(self, insn),
 
+            #[cfg(feature = "ext_d")]
             Instruction::FcvtDWu(insn) => execute_fcvt_dwu(self, insn),
 
+            #[cfg(feature = "ext_f")]
             Instruction::Flw(insn) => execute_flw(self, insn),
 
+            #[cfg(feature = "ext_f")]
             Instruction::Fsw(insn) => execute_fsw(self, insn),
 
+            #[cfg(feature = "ext_d")]
             Instruction::Fld(insn) => execute_fld(self, insn),
 
+            #[cfg(feature = "ext_d")]
             Instruction::Fsd(insn) => execute_fsd(self, insn),
 
+            #[cfg(feature = "ext_f")]
             Instruction::FcvtLS(insn) => execute_fcvt_ls(self, insn),
 
+            #[cfg(feature = "ext_f")]
             Instruction::FcvtLuS(insn) => execute_fcvt_lu_s(self, insn),
 
+            #[cfg(feature = "ext_f")]
             Instruction::FcvtSL(insn) => execute_fcvt_sl(self, insn),
 
+            #[cfg(feature = "ext_f")]
             Instruction::FcvtSLu(insn) => execute_fcvt_slu(self, insn),
 
+            #[cfg(feature = "ext_d")]
             Instruction::FcvtLD(insn) => execute_fcvt_ld(self, insn),
 
+            #[cfg(feature = "ext_d")]
             Instruction::FcvtLuD(insn) => execute_fcvt_lu_d(self, insn),
 
+            #[cfg(feature = "ext_d")]
             Instruction::FmvXD(insn) => execute_fmv_xd(self, insn),
 
+            #[cfg(feature = "ext_d")]
             Instruction::FcvtDL(insn) => execute_fcvt_dl(self, insn),
 
+            #[cfg(feature = "ext_d")]
             Instruction::FcvtDLu(insn) => execute_fcvt_dlu(self, insn),
 
+            #[cfg(feature = "ext_d")]
             Instruction::FmvDX(insn) => execute_fmv_dx(self, insn),
 
             // CSR instructions

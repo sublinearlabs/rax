@@ -1,7 +1,10 @@
 use std::collections::HashMap;
 
-use crate::decode::{compressed::decode_compressed, Instruction};
+#[cfg(feature = "ext_c")]
+use crate::decode::compressed::decode_compressed;
+use crate::decode::Instruction;
 use crate::trace::Tracer;
+#[cfg(feature = "ext_c")]
 use crate::util::mask16;
 use crate::HostIO;
 use crate::{decode, VM};
@@ -99,15 +102,26 @@ impl Runner {
         let mut block = vec![];
 
         loop {
-            let insn = vm.load_u16(vm.pc() as usize);
-            let is_compressed = insn & mask16(2) != 0b11;
-
-            let (insn, insn_bytes) = if is_compressed {
-                (decode_compressed(insn), insn as u32)
-            } else {
-                let insn_upper = vm.load_u16((vm.pc() + 2) as usize);
-                let insn = (insn_upper as u32) << 16 | insn as u32;
-                (decode::decode(insn), insn)
+            let (insn, insn_bytes, is_compressed) = {
+                #[cfg(feature = "ext_c")]
+                {
+                    let insn = vm.load_u16(vm.pc() as usize);
+                    let is_compressed = insn & mask16(2) != 0b11;
+                    if is_compressed {
+                        (decode_compressed(insn), insn as u32, true)
+                    } else {
+                        let insn_upper = vm.load_u16((vm.pc() + 2) as usize);
+                        let insn = (insn_upper as u32) << 16 | insn as u32;
+                        (decode::decode(insn), insn, false)
+                    }
+                }
+                #[cfg(not(feature = "ext_c"))]
+                {
+                    let insn = vm.load_u16(vm.pc() as usize);
+                    let insn_upper = vm.load_u16((vm.pc() + 2) as usize);
+                    let insn = (insn_upper as u32) << 16 | insn as u32;
+                    (decode::decode(insn), insn, false)
+                }
             };
 
             if let Instruction::Illegal(_) = &insn {

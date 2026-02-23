@@ -9,8 +9,16 @@ lto = "fat"
 panic = "abort"
 
 [features]
-default = []
+default = ["gc"]
 trace = []
+ext_i = []
+ext_m = []
+ext_a = []
+ext_f = []
+ext_d = []
+ext_c = []
+imac = ["ext_i", "ext_m", "ext_a", "ext_c"]
+gc = ["imac", "ext_f", "ext_d"]
 
 [dependencies]
 elf = "0.8.0"
@@ -24,3 +32,59 @@ criterion = { version = "0.5", features = ["html_reports"] }
 [[bench]]
 name = "vm_benchmark"
 harness = false
+
+[[example]]
+name = "perf_stat"
+required-features = ["ext_i"]
+
+[[example]]
+name = "fib_ima"
+required-features = ["ext_i", "ext_m", "ext_a"]
+
+[[example]]
+name = "exec_block_ima"
+required-features = ["ext_i", "ext_m", "ext_a"]
+
+[[example]]
+name = "echo_ima"
+required-features = ["ext_i", "ext_m", "ext_a"]
+
+[[example]]
+name = "fib_imac"
+required-features = ["imac"]
+
+[[example]]
+name = "exec_block_imac"
+required-features = ["imac"]
+
+[[example]]
+name = "echo_imac"
+required-features = ["imac"]
+
+[[example]]
+name = "fib_gc"
+required-features = ["gc"]
+
+[[example]]
+name = "exec_block_gc"
+required-features = ["gc"]
+
+[[example]]
+name = "echo_gc"
+required-features = ["gc"]
+
+[[test]]
+name = "block_exec_elf"
+required-features = ["gc"]
+
+[[test]]
+name = "echo_elf"
+required-features = ["gc"]
+
+[[test]]
+name = "fib_elf"
+required-features = ["gc"]
+
+[[test]]
+name = "standard_elf"
+required-features = ["gc"]
