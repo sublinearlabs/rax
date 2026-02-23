@@ -480,6 +480,7 @@ mod tests {
         assert_eq!(trace.total_cycles, 5);
     }
 
+    #[cfg(feature = "ext_f")]
     #[test]
     fn test_full_tracer_for_f_extension() {
         let mut tracer = FullTracer::new(0x1000, [0u64; 32], [0u64; 32]);

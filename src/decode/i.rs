@@ -1,12 +1,17 @@
 use crate::decode::imm::{imm_b, imm_i, imm_j, imm_s, imm_u, shamt5, shamt6};
 use crate::decode::insn_formats::{Sh, B, I, J, R, S, U};
-use crate::decode::m;
 use crate::decode::util::{funct3, funct6, funct7, rd, rs1, rs2};
 use crate::decode::Instruction;
 
 pub(crate) fn decode_op(insn: u32) -> Instruction {
+    #[cfg(feature = "ext_m")]
     if funct7(insn) == 0x01 {
-        return m::decode_op(insn);
+        return crate::decode::m::decode_op(insn);
+    }
+
+    #[cfg(not(feature = "ext_m"))]
+    if funct7(insn) == 0x01 {
+        return Instruction::Illegal(insn);
     }
 
     let insn_operands = R {
@@ -61,8 +66,14 @@ pub(crate) fn decode_op_imm(insn: u32) -> Instruction {
 }
 
 pub(crate) fn decode_op_32(insn: u32) -> Instruction {
+    #[cfg(feature = "ext_m")]
     if funct7(insn) == 0x01 {
-        return m::decode_op_32(insn);
+        return crate::decode::m::decode_op_32(insn);
+    }
+
+    #[cfg(not(feature = "ext_m"))]
+    if funct7(insn) == 0x01 {
+        return Instruction::Illegal(insn);
     }
 
     let operands = R {

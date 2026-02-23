@@ -1,15 +1,24 @@
+#[cfg(feature = "ext_a")]
 mod a;
+#[cfg(feature = "ext_c")]
 pub(crate) mod compressed;
+#[cfg(feature = "ext_d")]
 mod d;
+#[cfg(feature = "ext_f")]
 mod f;
+#[cfg(any(feature = "ext_f", feature = "ext_d"))]
 mod fp_util;
 mod i;
 mod imm;
 mod insn;
 mod insn_formats;
+#[cfg(feature = "ext_m")]
 mod m;
 mod util;
 mod zicsr;
+
+#[cfg(not(feature = "ext_i"))]
+compile_error!("feature \"ext_i\" is required for the decoder");
 
 pub(crate) use insn::Instruction;
 pub(crate) use insn_formats::{Sh, B, I, J, R, R4, RF, S, U};
@@ -33,28 +42,66 @@ pub(crate) fn decode(insn: u32) -> Instruction {
         0b0001111 => i::decode_fence(insn),
 
         // Atomics
-        0b0101111 => a::decode_atomics(insn),
+        0b0101111 => {
+            #[cfg(feature = "ext_a")]
+            {
+                return a::decode_atomics(insn);
+            }
+            #[cfg(not(feature = "ext_a"))]
+            {
+                return Instruction::Illegal(insn);
+            }
+        }
 
         // Floating-point
-        0b0000111 => match funct3(insn) {
-            0x2 => f::decode_fp_load(insn),
-            0x3 => d::decode_fp_load(insn),
-            _ => Instruction::Illegal(insn),
-        },
-        0b0100111 => match funct3(insn) {
-            0x2 => f::decode_fp_store(insn),
-            0x3 => d::decode_fp_store(insn),
-            _ => Instruction::Illegal(insn),
-        },
-        0b1000011 | 0b1000111 | 0b1001011 | 0b1001111 => match fp_util::fp_funct2(insn) {
-            0x0 => f::decode_fp_fma(insn),
-            0x1 => d::decode_fp_fma(insn),
-            _ => Instruction::Illegal(insn),
-        },
-        0b1010011 => match f::decode_fp_op(insn) {
-            Instruction::Illegal(_) => d::decode_fp_op(insn),
-            decoded => decoded,
-        },
+        0b0000111 => {
+            #[cfg(feature = "ext_f")]
+            if funct3(insn) == 0x2 {
+                return f::decode_fp_load(insn);
+            }
+            #[cfg(feature = "ext_d")]
+            if funct3(insn) == 0x3 {
+                return d::decode_fp_load(insn);
+            }
+            Instruction::Illegal(insn)
+        }
+        0b0100111 => {
+            #[cfg(feature = "ext_f")]
+            if funct3(insn) == 0x2 {
+                return f::decode_fp_store(insn);
+            }
+            #[cfg(feature = "ext_d")]
+            if funct3(insn) == 0x3 {
+                return d::decode_fp_store(insn);
+            }
+            Instruction::Illegal(insn)
+        }
+        0b1000011 | 0b1000111 | 0b1001011 | 0b1001111 => {
+            #[cfg(any(feature = "ext_f", feature = "ext_d"))]
+            match fp_util::fp_funct2(insn) {
+                #[cfg(feature = "ext_f")]
+                0x0 => return f::decode_fp_fma(insn),
+                #[cfg(feature = "ext_d")]
+                0x1 => return d::decode_fp_fma(insn),
+                _ => {}
+            }
+            Instruction::Illegal(insn)
+        }
+        0b1010011 => {
+            let mut decoded = Instruction::Illegal(insn);
+            #[cfg(feature = "ext_f")]
+            {
+                let candidate = f::decode_fp_op(insn);
+                if !matches!(candidate, Instruction::Illegal(_)) {
+                    decoded = candidate;
+                }
+            }
+            #[cfg(feature = "ext_d")]
+            if matches!(decoded, Instruction::Illegal(_)) {
+                decoded = d::decode_fp_op(insn);
+            }
+            decoded
+        }
 
         _ => Instruction::Illegal(insn),
     }
