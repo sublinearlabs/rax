@@ -34,10 +34,6 @@ name = "vm_benchmark"
 harness = false
 
 [[example]]
-name = "perf_stat"
-required-features = ["ext_i"]
-
-[[example]]
 name = "fib_ima"
 required-features = ["ext_i", "ext_m", "ext_a"]
 
