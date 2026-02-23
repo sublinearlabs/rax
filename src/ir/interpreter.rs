@@ -244,13 +244,20 @@ fn sext(value: i64, from: IrType, to: IrType) -> i64 {
 
 fn zext(value: i64, from: IrType, to: IrType) -> i64 {
     match (from, to) {
-        (IrType::I8, IrType::I16) => (value as u8 as u16) as i64,
-        (IrType::I8, IrType::I32) => (value as u8 as u32) as i64,
-        (IrType::I8, IrType::I64) => (value as u8) as i64,
-        (IrType::I16, IrType::I32) => (value as u16 as u32) as i64,
-        (IrType::I16, IrType::I64) => (value as u16) as i64,
-        (IrType::I32, IrType::I64) => (value as u32) as i64,
+        (IrType::I8, IrType::I16)
+        | (IrType::I8, IrType::I32)
+        | (IrType::I8, IrType::I64)
+        | (IrType::I16, IrType::I32)
+        | (IrType::I16, IrType::I64)
+        | (IrType::I32, IrType::I64) => {}
         _ => panic!("invalid zext {:?} -> {:?}", from, to),
+    }
+
+    match from {
+        IrType::I8 => (value as u8) as i64,
+        IrType::I16 => (value as u16) as i64,
+        IrType::I32 => (value as u32) as i64,
+        _ => panic!("invalid zext source {:?}", from),
     }
 }
 
