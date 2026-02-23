@@ -258,3 +258,36 @@ fn trunc(value: i64, from: IrType, to: IrType) -> i64 {
         _ => panic!("invalid trunc {:?} -> {:?}", from, to),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::execute_ir;
+    use crate::ir::{IrBuilder, Reg};
+    use crate::trace::NoopTracer;
+    use crate::{HostIO, VM};
+
+    #[test]
+    fn execute_ir_updates_registers() {
+        let mut builder = IrBuilder::new();
+        let entry = builder.block();
+        builder.switch_to(entry);
+
+        let ten = builder.const_i64(10);
+        builder.set_reg(Reg::X1, ten);
+
+        let x1 = builder.get_reg(Reg::X1);
+        let five = builder.const_i64(5);
+        let sum = builder.add(x1, five);
+        builder.set_reg(Reg::X2, sum);
+
+        builder.ret();
+        let func = builder.finish();
+
+        let mut vm = VM::<NoopTracer>::init();
+        let mut io = HostIO::new();
+        execute_ir(&func, &mut vm, &mut io);
+
+        assert_eq!(vm.reg(1), 10);
+        assert_eq!(vm.reg(2), 15);
+    }
+}
