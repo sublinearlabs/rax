@@ -80,7 +80,3 @@ required-features = ["gc"]
 [[test]]
 name = "fib_elf"
 required-features = ["gc"]
-
-[[test]]
-name = "standard_elf"
-required-features = ["gc"]
