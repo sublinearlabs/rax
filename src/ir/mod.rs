@@ -176,7 +176,7 @@ impl IrBuilder {
         self.func
     }
 
-    pub fn block(&mut self, arg_types: &[IrType]) -> BlockId {
+    pub fn block_with_args(&mut self, arg_types: &[IrType]) -> BlockId {
         let mut args = Vec::with_capacity(arg_types.len());
         for &ty in arg_types {
             args.push(self.new_value(ty));
@@ -188,6 +188,10 @@ impl IrBuilder {
             term: None,
         });
         id
+    }
+
+    pub fn block(&mut self) -> BlockId {
+        self.block_with_args(&[])
     }
 
     pub fn block_arg(&self, block: BlockId, index: usize) -> ValueId {
