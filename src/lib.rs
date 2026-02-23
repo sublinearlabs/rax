@@ -4,6 +4,7 @@ mod elf;
 mod execute;
 mod host_io;
 mod instr_execute;
+pub mod ir;
 mod loader;
 mod memory;
 mod runner;
