@@ -100,25 +100,118 @@ pub enum PureOp {
 
 #[derive(Clone, Debug)]
 pub enum EffectOp {
-    GetReg { dst: ValueId, reg: Reg },
-    SetReg { reg: Reg, val: ValueId },
-    GetCsr { dst: ValueId, csr: u32 },
-    SetCsr { csr: u32, val: ValueId },
-    GetPc { dst: ValueId },
-    SetPc { val: ValueId },
-    Load8s { dst: ValueId, addr: ValueId },
-    Load8u { dst: ValueId, addr: ValueId },
-    Load16s { dst: ValueId, addr: ValueId },
-    Load16u { dst: ValueId, addr: ValueId },
-    Load32s { dst: ValueId, addr: ValueId },
-    Load32u { dst: ValueId, addr: ValueId },
-    Load64 { dst: ValueId, addr: ValueId },
-    Store8 { addr: ValueId, val: ValueId },
-    Store16 { addr: ValueId, val: ValueId },
-    Store32 { addr: ValueId, val: ValueId },
-    Store64 { addr: ValueId, val: ValueId },
+    GetReg {
+        dst: ValueId,
+        reg: Reg,
+    },
+    SetReg {
+        reg: Reg,
+        val: ValueId,
+    },
+    GetCsr {
+        dst: ValueId,
+        csr: u32,
+    },
+    SetCsr {
+        csr: u32,
+        val: ValueId,
+    },
+    GetPc {
+        dst: ValueId,
+    },
+    SetPc {
+        val: ValueId,
+    },
+    Load8s {
+        dst: ValueId,
+        addr: ValueId,
+    },
+    Load8u {
+        dst: ValueId,
+        addr: ValueId,
+    },
+    Load16s {
+        dst: ValueId,
+        addr: ValueId,
+    },
+    Load16u {
+        dst: ValueId,
+        addr: ValueId,
+    },
+    Load32s {
+        dst: ValueId,
+        addr: ValueId,
+    },
+    Load32u {
+        dst: ValueId,
+        addr: ValueId,
+    },
+    Load64 {
+        dst: ValueId,
+        addr: ValueId,
+    },
+    Store8 {
+        addr: ValueId,
+        val: ValueId,
+    },
+    Store16 {
+        addr: ValueId,
+        val: ValueId,
+    },
+    Store32 {
+        addr: ValueId,
+        val: ValueId,
+    },
+    Store64 {
+        addr: ValueId,
+        val: ValueId,
+    },
+    LoadReservedW {
+        dst: ValueId,
+        addr: ValueId,
+    },
+    LoadReservedD {
+        dst: ValueId,
+        addr: ValueId,
+    },
+    StoreConditionalW {
+        dst: ValueId,
+        addr: ValueId,
+        val: ValueId,
+    },
+    StoreConditionalD {
+        dst: ValueId,
+        addr: ValueId,
+        val: ValueId,
+    },
+    AtomicRmw {
+        dst: ValueId,
+        addr: ValueId,
+        val: ValueId,
+        op: AtomicRmwOp,
+        width: AtomicWidth,
+    },
     Ecall,
     Ebreak,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AtomicRmwOp {
+    Xchg,
+    Add,
+    And,
+    Or,
+    Xor,
+    Min,
+    Max,
+    Umin,
+    Umax,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AtomicWidth {
+    W,
+    D,
 }
 
 #[derive(Clone, Debug)]

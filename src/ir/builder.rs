@@ -1,5 +1,6 @@
 use crate::ir::{
-    Block, BlockId, EffectOp, IrFunction, IrType, Op, PureOp, Reg, Terminator, ValueId,
+    AtomicRmwOp, AtomicWidth, Block, BlockId, EffectOp, IrFunction, IrType, Op, PureOp, Reg,
+    Terminator, ValueId,
 };
 use crate::util::mask;
 
@@ -329,6 +330,59 @@ impl IrBuilder {
         self.expect_type(addr, IrType::I64);
         self.expect_type(val, IrType::I64);
         self.push_op(Op::Effect(EffectOp::Store64 { addr, val }));
+    }
+
+    pub fn lr_w(&mut self, addr: ValueId) -> ValueId {
+        self.expect_type(addr, IrType::I64);
+        let dst = self.new_value(IrType::I64);
+        self.push_op(Op::Effect(EffectOp::LoadReservedW { dst, addr }));
+        dst
+    }
+
+    pub fn lr_d(&mut self, addr: ValueId) -> ValueId {
+        self.expect_type(addr, IrType::I64);
+        let dst = self.new_value(IrType::I64);
+        self.push_op(Op::Effect(EffectOp::LoadReservedD { dst, addr }));
+        dst
+    }
+
+    pub fn sc_w(&mut self, addr: ValueId, val: ValueId) -> ValueId {
+        self.expect_type(addr, IrType::I64);
+        self.expect_type(val, IrType::I64);
+        let dst = self.new_value(IrType::I64);
+        self.push_op(Op::Effect(EffectOp::StoreConditionalW { dst, addr, val }));
+        dst
+    }
+
+    pub fn sc_d(&mut self, addr: ValueId, val: ValueId) -> ValueId {
+        self.expect_type(addr, IrType::I64);
+        self.expect_type(val, IrType::I64);
+        let dst = self.new_value(IrType::I64);
+        self.push_op(Op::Effect(EffectOp::StoreConditionalD { dst, addr, val }));
+        dst
+    }
+
+    pub fn atomic_rmw(
+        &mut self,
+        op: AtomicRmwOp,
+        width: AtomicWidth,
+        addr: ValueId,
+        val: ValueId,
+    ) -> ValueId {
+        self.expect_type(addr, IrType::I64);
+        self.expect_type(val, IrType::I64);
+        let dst = match width {
+            AtomicWidth::W => self.new_value(IrType::I32),
+            AtomicWidth::D => self.new_value(IrType::I64),
+        };
+        self.push_op(Op::Effect(EffectOp::AtomicRmw {
+            dst,
+            addr,
+            val,
+            op,
+            width,
+        }));
+        dst
     }
 
     pub fn ecall(&mut self) {

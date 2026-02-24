@@ -4,6 +4,8 @@ use std::collections::HashMap;
 use crate::decode::compressed::decode_compressed;
 use crate::decode::Instruction;
 use crate::ir::execute_ir;
+#[cfg(feature = "ext_a")]
+use crate::ir::lower::a::lower_a;
 use crate::ir::lower::i::lower_i;
 #[cfg(feature = "ext_m")]
 use crate::ir::lower::m::lower_m;
@@ -82,6 +84,31 @@ fn lower_instruction(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFun
         | Instruction::Divuw(_)
         | Instruction::Remw(_)
         | Instruction::Remuw(_) => lower_m(insn, current_pc, next_pc),
+
+        // A instructions
+        #[cfg(feature = "ext_a")]
+        Instruction::LrW(_)
+        | Instruction::ScW(_)
+        | Instruction::AmoSwapW(_)
+        | Instruction::AmoAddW(_)
+        | Instruction::AmoXorW(_)
+        | Instruction::AmoAndW(_)
+        | Instruction::AmoOrW(_)
+        | Instruction::AmoMinW(_)
+        | Instruction::AmoMaxW(_)
+        | Instruction::AmoMinuW(_)
+        | Instruction::AmoMaxuW(_)
+        | Instruction::LrD(_)
+        | Instruction::ScD(_)
+        | Instruction::AmoSwapD(_)
+        | Instruction::AmoAddD(_)
+        | Instruction::AmoXorD(_)
+        | Instruction::AmoAndD(_)
+        | Instruction::AmoOrD(_)
+        | Instruction::AmoMinD(_)
+        | Instruction::AmoMaxD(_)
+        | Instruction::AmoMinuD(_)
+        | Instruction::AmoMaxuD(_) => lower_a(insn, current_pc, next_pc),
 
         // Other instructions
         _ => lower_i(insn, current_pc, next_pc), // fallback to I for now
