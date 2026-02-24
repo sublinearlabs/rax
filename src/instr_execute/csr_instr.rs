@@ -1,7 +1,7 @@
-use crate::decode::I;
-use crate::trace::Tracer;
 /// CSR instructions
 use crate::VM;
+use crate::decode::I;
+use crate::trace::Tracer;
 
 #[inline(always)]
 pub(crate) fn execute_csrrw<T: Tracer>(vm: &mut VM<T>, insn: &I) {

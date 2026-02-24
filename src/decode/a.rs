@@ -1,6 +1,6 @@
+use crate::decode::Instruction;
 use crate::decode::insn_formats::R;
 use crate::decode::util::{funct3, funct7, rd, rs1, rs2};
-use crate::decode::Instruction;
 
 pub(crate) fn decode_atomics(insn: u32) -> Instruction {
     let funct5 = funct7(insn) >> 2;

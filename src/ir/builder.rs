@@ -63,6 +63,38 @@ impl IrBuilder {
         self.bin_i64(PureOp::Sub, a, b)
     }
 
+    pub fn mul(&mut self, a: ValueId, b: ValueId) -> ValueId {
+        self.bin_i64(PureOp::Mul, a, b)
+    }
+
+    pub fn mulh(&mut self, a: ValueId, b: ValueId) -> ValueId {
+        self.bin_i64(PureOp::Mulh, a, b)
+    }
+
+    pub fn mulhu(&mut self, a: ValueId, b: ValueId) -> ValueId {
+        self.bin_i64(PureOp::Mulhu, a, b)
+    }
+
+    pub fn mulhsu(&mut self, a: ValueId, b: ValueId) -> ValueId {
+        self.bin_i64(PureOp::Mulhsu, a, b)
+    }
+
+    pub fn div(&mut self, a: ValueId, b: ValueId) -> ValueId {
+        self.bin_i64(PureOp::Div, a, b)
+    }
+
+    pub fn divu(&mut self, a: ValueId, b: ValueId) -> ValueId {
+        self.bin_i64(PureOp::Divu, a, b)
+    }
+
+    pub fn rem(&mut self, a: ValueId, b: ValueId) -> ValueId {
+        self.bin_i64(PureOp::Rem, a, b)
+    }
+
+    pub fn remu(&mut self, a: ValueId, b: ValueId) -> ValueId {
+        self.bin_i64(PureOp::Remu, a, b)
+    }
+
     pub fn and(&mut self, a: ValueId, b: ValueId) -> ValueId {
         self.bin_i64(PureOp::And, a, b)
     }

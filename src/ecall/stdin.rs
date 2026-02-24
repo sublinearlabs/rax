@@ -1,4 +1,4 @@
-use crate::{ecall::constants, trace::Tracer, HostIO, VM};
+use crate::{HostIO, VM, ecall::constants, trace::Tracer};
 
 /// @dev this function would heavily be designed following the Linux ABI
 pub fn handle_stdin<T: Tracer>(vm: &mut VM<T>, io: &mut HostIO) {

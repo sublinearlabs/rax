@@ -1,15 +1,92 @@
 use std::collections::HashMap;
 
+use crate::HostIO;
+use crate::decode::Instruction;
 #[cfg(feature = "ext_c")]
 use crate::decode::compressed::decode_compressed;
-use crate::decode::Instruction;
+use crate::ir::IrFunction;
 use crate::ir::execute_ir;
 use crate::ir::lower::i::lower_i;
+#[cfg(feature = "ext_m")]
+use crate::ir::lower::m::lower_m;
 use crate::trace::Tracer;
 #[cfg(feature = "ext_c")]
 use crate::util::mask16;
-use crate::HostIO;
-use crate::{decode, VM};
+use crate::{VM, decode};
+
+fn lower_instruction(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFunction {
+    match insn {
+        // I instructions
+        Instruction::Add(_)
+        | Instruction::Sub(_)
+        | Instruction::Sll(_)
+        | Instruction::Slt(_)
+        | Instruction::Sltu(_)
+        | Instruction::Xor(_)
+        | Instruction::Srl(_)
+        | Instruction::Sra(_)
+        | Instruction::Or(_)
+        | Instruction::And(_)
+        | Instruction::Addi(_)
+        | Instruction::Slti(_)
+        | Instruction::Sltiu(_)
+        | Instruction::Xori(_)
+        | Instruction::Ori(_)
+        | Instruction::Andi(_)
+        | Instruction::Slli(_)
+        | Instruction::Srli(_)
+        | Instruction::Srai(_)
+        | Instruction::Lb(_)
+        | Instruction::Lh(_)
+        | Instruction::Lw(_)
+        | Instruction::Lbu(_)
+        | Instruction::Lhu(_)
+        | Instruction::Sb(_)
+        | Instruction::Sh(_)
+        | Instruction::Sw(_)
+        | Instruction::Beq(_)
+        | Instruction::Bne(_)
+        | Instruction::Blt(_)
+        | Instruction::Bge(_)
+        | Instruction::Bltu(_)
+        | Instruction::Bgeu(_)
+        | Instruction::Jal(_)
+        | Instruction::Jalr(_)
+        | Instruction::Lui(_)
+        | Instruction::Auipc(_)
+        | Instruction::Addiw(_)
+        | Instruction::Slliw(_)
+        | Instruction::Srliw(_)
+        | Instruction::Sraiw(_)
+        | Instruction::Addw(_)
+        | Instruction::Subw(_)
+        | Instruction::Sllw(_)
+        | Instruction::Srlw(_)
+        | Instruction::Sraw(_)
+        | Instruction::Ld(_)
+        | Instruction::Lwu(_)
+        | Instruction::Sd(_) => lower_i(insn, current_pc, next_pc),
+
+        // M instructions
+        #[cfg(feature = "ext_m")]
+        Instruction::Mul(_)
+        | Instruction::Mulh(_)
+        | Instruction::Mulhsu(_)
+        | Instruction::Mulhu(_)
+        | Instruction::Mulw(_)
+        | Instruction::Div(_)
+        | Instruction::Divu(_)
+        | Instruction::Rem(_)
+        | Instruction::Remu(_)
+        | Instruction::Divw(_)
+        | Instruction::Divuw(_)
+        | Instruction::Remw(_)
+        | Instruction::Remuw(_) => lower_m(insn, current_pc, next_pc),
+
+        // Other instructions
+        _ => lower_i(insn, current_pc, next_pc), // fallback to I for now
+    }
+}
 
 pub struct Runner {
     io: HostIO,
@@ -80,7 +157,7 @@ impl Runner {
                 vm.set_pc(next_pc);
 
                 // Execute the instruction (this will update PC)
-                let func = lower_i(insn, current_pc, next_pc);
+                let func = lower_instruction(insn, current_pc, next_pc);
                 execute_ir(&func, vm, &mut self.io);
 
                 // Record next PC
@@ -145,7 +222,7 @@ impl Runner {
             vm.set_pc(next_pc);
 
             // Execute the instruction (this will update PC)
-            let func = lower_i(&insn, current_pc, next_pc);
+            let func = lower_instruction(&insn, current_pc, next_pc);
             execute_ir(&func, vm, &mut self.io);
 
             // Record next PC (set during execute_instruction or default to pc+4)

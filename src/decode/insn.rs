@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::decode::insn_formats::{Sh, B, I, J, R, R4, RF, S, U};
+use crate::decode::insn_formats::{B, I, J, R, R4, RF, S, Sh, U};
 
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq)]
 pub(crate) enum Instruction {

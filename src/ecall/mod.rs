@@ -1,4 +1,4 @@
-use crate::{trace::Tracer, HostIO, VM};
+use crate::{HostIO, VM, trace::Tracer};
 
 pub mod constants;
 mod halt;

@@ -1,4 +1,4 @@
-use crate::{ecall::constants, trace::Tracer, VM};
+use crate::{VM, ecall::constants, trace::Tracer};
 
 /// @dev this function would heavily be designed following the Linux ABI
 pub fn handle_stdout<T: Tracer>(vm: &mut VM<T>) {
