@@ -66,6 +66,54 @@ fn eval_pure(op: &PureOp, values: &[i64]) -> i64 {
         PureOp::ConstI64(v) => *v,
         PureOp::Add(a, b) => values[a.0 as usize].wrapping_add(values[b.0 as usize]),
         PureOp::Sub(a, b) => values[a.0 as usize].wrapping_sub(values[b.0 as usize]),
+        PureOp::Mul(a, b) => values[a.0 as usize].wrapping_mul(values[b.0 as usize]),
+        PureOp::Mulh(a, b) => {
+            let a = values[a.0 as usize] as i128;
+            let b = values[b.0 as usize] as i128;
+            (a * b >> 64) as i64
+        }
+        PureOp::Mulhu(a, b) => {
+            let a = values[a.0 as usize] as u128;
+            let b = values[b.0 as usize] as u128;
+            (a * b >> 64) as i64
+        }
+        PureOp::Mulhsu(a, b) => {
+            let a = values[a.0 as usize] as i128;
+            let b = values[b.0 as usize] as u128 as i128;
+            (a * b >> 64) as i64
+        }
+        PureOp::Div(a, b) => {
+            let b_val = values[b.0 as usize];
+            if b_val == 0 {
+                -1 // RISC-V division by zero
+            } else {
+                values[a.0 as usize] / b_val
+            }
+        }
+        PureOp::Divu(a, b) => {
+            let b_val = values[b.0 as usize] as u64;
+            if b_val == 0 {
+                u64::MAX as i64 // RISC-V unsigned division by zero
+            } else {
+                ((values[a.0 as usize] as u64) / b_val) as i64
+            }
+        }
+        PureOp::Rem(a, b) => {
+            let b_val = values[b.0 as usize];
+            if b_val == 0 {
+                values[a.0 as usize] // RISC-V remainder by zero
+            } else {
+                values[a.0 as usize] % b_val
+            }
+        }
+        PureOp::Remu(a, b) => {
+            let b_val = values[b.0 as usize] as u64;
+            if b_val == 0 {
+                values[a.0 as usize] // RISC-V unsigned remainder by zero
+            } else {
+                ((values[a.0 as usize] as u64) % b_val) as i64
+            }
+        }
         PureOp::And(a, b) => values[a.0 as usize] & values[b.0 as usize],
         PureOp::Or(a, b) => values[a.0 as usize] | values[b.0 as usize],
         PureOp::Xor(a, b) => values[a.0 as usize] ^ values[b.0 as usize],
