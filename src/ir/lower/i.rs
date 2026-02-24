@@ -9,105 +9,140 @@ pub fn lower_i(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFunction 
     match insn {
         // Integer Register-Register
         Instruction::Add(r) => {
-            let v = builder.add(reg(&mut builder, r.rs1), reg(&mut builder, r.rs2));
+            let rs1 = reg(&mut builder, r.rs1);
+            let rs2 = reg(&mut builder, r.rs2);
+            let v = builder.add(rs1, rs2);
             set_reg(&mut builder, r.rd, v);
             builder.ret();
         }
         Instruction::Sub(r) => {
-            let v = builder.sub(reg(&mut builder, r.rs1), reg(&mut builder, r.rs2));
+            let rs1 = reg(&mut builder, r.rs1);
+            let rs2 = reg(&mut builder, r.rs2);
+            let v = builder.sub(rs1, rs2);
             set_reg(&mut builder, r.rd, v);
             builder.ret();
         }
         Instruction::And(r) => {
-            let v = builder.and(reg(&mut builder, r.rs1), reg(&mut builder, r.rs2));
+            let rs1 = reg(&mut builder, r.rs1);
+            let rs2 = reg(&mut builder, r.rs2);
+            let v = builder.and(rs1, rs2);
             set_reg(&mut builder, r.rd, v);
             builder.ret();
         }
         Instruction::Or(r) => {
-            let v = builder.or(reg(&mut builder, r.rs1), reg(&mut builder, r.rs2));
+            let rs1 = reg(&mut builder, r.rs1);
+            let rs2 = reg(&mut builder, r.rs2);
+            let v = builder.or(rs1, rs2);
             set_reg(&mut builder, r.rd, v);
             builder.ret();
         }
         Instruction::Xor(r) => {
-            let v = builder.xor(reg(&mut builder, r.rs1), reg(&mut builder, r.rs2));
+            let rs1 = reg(&mut builder, r.rs1);
+            let rs2 = reg(&mut builder, r.rs2);
+            let v = builder.xor(rs1, rs2);
             set_reg(&mut builder, r.rd, v);
             builder.ret();
         }
         Instruction::Sll(r) => {
-            let sh = mask_shamt64(&mut builder, reg(&mut builder, r.rs2));
-            let v = builder.shl(reg(&mut builder, r.rs1), sh);
+            let rs1 = reg(&mut builder, r.rs1);
+            let rs2 = reg(&mut builder, r.rs2);
+            let sh = shamt64(&mut builder, rs2);
+            let v = builder.shl(rs1, sh);
             set_reg(&mut builder, r.rd, v);
             builder.ret();
         }
         Instruction::Srl(r) => {
-            let sh = mask_shamt64(&mut builder, reg(&mut builder, r.rs2));
-            let v = builder.shr(reg(&mut builder, r.rs1), sh);
+            let rs1 = reg(&mut builder, r.rs1);
+            let rs2 = reg(&mut builder, r.rs2);
+            let sh = shamt64(&mut builder, rs2);
+            let v = builder.shr(rs1, sh);
             set_reg(&mut builder, r.rd, v);
             builder.ret();
         }
         Instruction::Sra(r) => {
-            let sh = mask_shamt64(&mut builder, reg(&mut builder, r.rs2));
-            let v = builder.sar(reg(&mut builder, r.rs1), sh);
+            let rs1 = reg(&mut builder, r.rs1);
+            let rs2 = reg(&mut builder, r.rs2);
+            let sh = shamt64(&mut builder, rs2);
+            let v = builder.sar(rs1, sh);
             set_reg(&mut builder, r.rd, v);
             builder.ret();
         }
         Instruction::Slt(r) => {
-            let v = builder.lt(reg(&mut builder, r.rs1), reg(&mut builder, r.rs2));
+            let rs1 = reg(&mut builder, r.rs1);
+            let rs2 = reg(&mut builder, r.rs2);
+            let v = builder.lt(rs1, rs2);
             set_reg(&mut builder, r.rd, v);
             builder.ret();
         }
         Instruction::Sltu(r) => {
-            let v = builder.ltu(reg(&mut builder, r.rs1), reg(&mut builder, r.rs2));
+            let rs1 = reg(&mut builder, r.rs1);
+            let rs2 = reg(&mut builder, r.rs2);
+            let v = builder.ltu(rs1, rs2);
             set_reg(&mut builder, r.rd, v);
             builder.ret();
         }
 
         // Integer Register-Immediate
         Instruction::Addi(i) => {
-            let v = builder.add(reg(&mut builder, i.rs1), imm(&mut builder, i.imm));
+            let rs1 = reg(&mut builder, i.rs1);
+            let imm = imm(&mut builder, i.imm);
+            let v = builder.add(rs1, imm);
             set_reg(&mut builder, i.rd, v);
             builder.ret();
         }
         Instruction::Andi(i) => {
-            let v = builder.and(reg(&mut builder, i.rs1), imm(&mut builder, i.imm));
+            let rs1 = reg(&mut builder, i.rs1);
+            let imm = imm(&mut builder, i.imm);
+            let v = builder.and(rs1, imm);
             set_reg(&mut builder, i.rd, v);
             builder.ret();
         }
         Instruction::Ori(i) => {
-            let v = builder.or(reg(&mut builder, i.rs1), imm(&mut builder, i.imm));
+            let rs1 = reg(&mut builder, i.rs1);
+            let imm = imm(&mut builder, i.imm);
+            let v = builder.or(rs1, imm);
             set_reg(&mut builder, i.rd, v);
             builder.ret();
         }
         Instruction::Xori(i) => {
-            let v = builder.xor(reg(&mut builder, i.rs1), imm(&mut builder, i.imm));
+            let rs1 = reg(&mut builder, i.rs1);
+            let imm = imm(&mut builder, i.imm);
+            let v = builder.xor(rs1, imm);
             set_reg(&mut builder, i.rd, v);
             builder.ret();
         }
         Instruction::Slti(i) => {
-            let v = builder.lt(reg(&mut builder, i.rs1), imm(&mut builder, i.imm));
+            let rs1 = reg(&mut builder, i.rs1);
+            let imm = imm(&mut builder, i.imm);
+            let v = builder.lt(rs1, imm);
             set_reg(&mut builder, i.rd, v);
             builder.ret();
         }
         Instruction::Sltiu(i) => {
-            let v = builder.ltu(reg(&mut builder, i.rs1), imm(&mut builder, i.imm));
+            let rs1 = reg(&mut builder, i.rs1);
+            let imm = imm(&mut builder, i.imm);
+            let v = builder.ltu(rs1, imm);
             set_reg(&mut builder, i.rd, v);
             builder.ret();
         }
         Instruction::Slli(sh) => {
             let shamt = imm_u8(&mut builder, sh.shamt & 0x3f);
-            let v = builder.shl(reg(&mut builder, sh.rs1), shamt);
+            let rs1 = reg(&mut builder, sh.rs1);
+            let v = builder.shl(rs1, shamt);
             set_reg(&mut builder, sh.rd, v);
             builder.ret();
         }
         Instruction::Srli(sh) => {
             let shamt = imm_u8(&mut builder, sh.shamt & 0x3f);
-            let v = builder.shr(reg(&mut builder, sh.rs1), shamt);
+            let rs1 = reg(&mut builder, sh.rs1);
+            let v = builder.shr(rs1, shamt);
             set_reg(&mut builder, sh.rd, v);
             builder.ret();
         }
         Instruction::Srai(sh) => {
             let shamt = imm_u8(&mut builder, sh.shamt & 0x3f);
-            let v = builder.sar(reg(&mut builder, sh.rs1), shamt);
+            let rs1 = reg(&mut builder, sh.rs1);
+            let v = builder.sar(rs1, shamt);
             set_reg(&mut builder, sh.rd, v);
             builder.ret();
         }
@@ -159,69 +194,89 @@ pub fn lower_i(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFunction 
         // Stores
         Instruction::Sb(s) => {
             let addr = addr(&mut builder, s.rs1, s.imm);
-            builder.store8(addr, reg(&mut builder, s.rs2));
+            let val = reg(&mut builder, s.rs2);
+            builder.store8(addr, val);
             builder.ret();
         }
         Instruction::Sh(s) => {
             let addr = addr(&mut builder, s.rs1, s.imm);
-            builder.store16(addr, reg(&mut builder, s.rs2));
+            let val = reg(&mut builder, s.rs2);
+            builder.store16(addr, val);
             builder.ret();
         }
         Instruction::Sw(s) => {
             let addr = addr(&mut builder, s.rs1, s.imm);
-            builder.store32(addr, reg(&mut builder, s.rs2));
+            let val = reg(&mut builder, s.rs2);
+            builder.store32(addr, val);
             builder.ret();
         }
         Instruction::Sd(s) => {
             let addr = addr(&mut builder, s.rs1, s.imm);
-            builder.store64(addr, reg(&mut builder, s.rs2));
+            let val = reg(&mut builder, s.rs2);
+            builder.store64(addr, val);
             builder.ret();
         }
 
         // Branches
         Instruction::Beq(b) => {
-            let cond = builder.eq(reg(&mut builder, b.rs1), reg(&mut builder, b.rs2));
+            let rs1 = reg(&mut builder, b.rs1);
+            let rs2 = reg(&mut builder, b.rs2);
+            let cond = builder.eq(rs1, rs2);
             lower_branch(&mut builder, cond, current_pc, b.imm);
         }
         Instruction::Bne(b) => {
-            let cond = builder.ne(reg(&mut builder, b.rs1), reg(&mut builder, b.rs2));
+            let rs1 = reg(&mut builder, b.rs1);
+            let rs2 = reg(&mut builder, b.rs2);
+            let cond = builder.ne(rs1, rs2);
             lower_branch(&mut builder, cond, current_pc, b.imm);
         }
         Instruction::Blt(b) => {
-            let cond = builder.lt(reg(&mut builder, b.rs1), reg(&mut builder, b.rs2));
+            let rs1 = reg(&mut builder, b.rs1);
+            let rs2 = reg(&mut builder, b.rs2);
+            let cond = builder.lt(rs1, rs2);
             lower_branch(&mut builder, cond, current_pc, b.imm);
         }
         Instruction::Bltu(b) => {
-            let cond = builder.ltu(reg(&mut builder, b.rs1), reg(&mut builder, b.rs2));
+            let rs1 = reg(&mut builder, b.rs1);
+            let rs2 = reg(&mut builder, b.rs2);
+            let cond = builder.ltu(rs1, rs2);
             lower_branch(&mut builder, cond, current_pc, b.imm);
         }
         Instruction::Bge(b) => {
-            let cond = builder.ge(reg(&mut builder, b.rs1), reg(&mut builder, b.rs2));
+            let rs1 = reg(&mut builder, b.rs1);
+            let rs2 = reg(&mut builder, b.rs2);
+            let cond = builder.ge(rs1, rs2);
             lower_branch(&mut builder, cond, current_pc, b.imm);
         }
         Instruction::Bgeu(b) => {
-            let cond = builder.geu(reg(&mut builder, b.rs1), reg(&mut builder, b.rs2));
+            let rs1 = reg(&mut builder, b.rs1);
+            let rs2 = reg(&mut builder, b.rs2);
+            let cond = builder.geu(rs1, rs2);
             lower_branch(&mut builder, cond, current_pc, b.imm);
         }
 
         // Jumps
         Instruction::Jal(j) => {
-            set_reg(&mut builder, j.rd, const_u64(&mut builder, next_pc));
+            let link = const_u64(&mut builder, next_pc);
+            set_reg(&mut builder, j.rd, link);
             let target = add_pc_imm(&mut builder, current_pc, j.imm);
             builder.set_pc(target);
             builder.ret();
         }
         Instruction::Jalr(i) => {
-            set_reg(&mut builder, i.rd, const_u64(&mut builder, next_pc));
+            let link = const_u64(&mut builder, next_pc);
+            set_reg(&mut builder, i.rd, link);
             let target = addr(&mut builder, i.rs1, i.imm);
-            let masked = builder.and(target, imm(&mut builder, -2));
+            let mask = imm(&mut builder, -2);
+            let masked = builder.and(target, mask);
             builder.set_pc(masked);
             builder.ret();
         }
 
         // Upper immediates
         Instruction::Lui(u) => {
-            set_reg(&mut builder, u.rd, imm(&mut builder, u.imm));
+            let imm = imm(&mut builder, u.imm);
+            set_reg(&mut builder, u.rd, imm);
             builder.ret();
         }
         Instruction::Auipc(u) => {
@@ -232,62 +287,86 @@ pub fn lower_i(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFunction 
 
         // RV64I word ops
         Instruction::Addiw(i) => {
-            let sum = builder.add(reg(&mut builder, i.rs1), imm(&mut builder, i.imm));
-            let v = sext_i32(&mut builder, trunc_i32(&mut builder, sum));
+            let rs1 = reg(&mut builder, i.rs1);
+            let imm = imm(&mut builder, i.imm);
+            let sum = builder.add(rs1, imm);
+            let trunc = trunc_i32(&mut builder, sum);
+            let v = sext_i32(&mut builder, trunc);
             set_reg(&mut builder, i.rd, v);
             builder.ret();
         }
         Instruction::Slliw(sh) => {
             let shamt = imm_u8(&mut builder, sh.shamt & 0x1f);
-            let shifted = builder.shl(reg(&mut builder, sh.rs1), shamt);
-            let v = sext_i32(&mut builder, trunc_i32(&mut builder, shifted));
+            let rs1 = reg(&mut builder, sh.rs1);
+            let shifted = builder.shl(rs1, shamt);
+            let trunc = trunc_i32(&mut builder, shifted);
+            let v = sext_i32(&mut builder, trunc);
             set_reg(&mut builder, sh.rd, v);
             builder.ret();
         }
         Instruction::Srliw(sh) => {
             let shamt = imm_u8(&mut builder, sh.shamt & 0x1f);
-            let shifted = builder.shr(reg(&mut builder, sh.rs1), shamt);
-            let v = sext_i32(&mut builder, trunc_i32(&mut builder, shifted));
+            let rs1 = reg(&mut builder, sh.rs1);
+            let shifted = builder.shr(rs1, shamt);
+            let trunc = trunc_i32(&mut builder, shifted);
+            let v = sext_i32(&mut builder, trunc);
             set_reg(&mut builder, sh.rd, v);
             builder.ret();
         }
         Instruction::Sraiw(sh) => {
             let shamt = imm_u8(&mut builder, sh.shamt & 0x1f);
-            let shifted = builder.sar(reg(&mut builder, sh.rs1), shamt);
-            let v = sext_i32(&mut builder, trunc_i32(&mut builder, shifted));
+            let rs1 = reg(&mut builder, sh.rs1);
+            let shifted = builder.sar(rs1, shamt);
+            let trunc = trunc_i32(&mut builder, shifted);
+            let v = sext_i32(&mut builder, trunc);
             set_reg(&mut builder, sh.rd, v);
             builder.ret();
         }
         Instruction::Addw(r) => {
-            let sum = builder.add(reg(&mut builder, r.rs1), reg(&mut builder, r.rs2));
-            let v = sext_i32(&mut builder, trunc_i32(&mut builder, sum));
+            let rs1 = reg(&mut builder, r.rs1);
+            let rs2 = reg(&mut builder, r.rs2);
+            let sum = builder.add(rs1, rs2);
+            let trunc = trunc_i32(&mut builder, sum);
+            let v = sext_i32(&mut builder, trunc);
             set_reg(&mut builder, r.rd, v);
             builder.ret();
         }
         Instruction::Subw(r) => {
-            let diff = builder.sub(reg(&mut builder, r.rs1), reg(&mut builder, r.rs2));
-            let v = sext_i32(&mut builder, trunc_i32(&mut builder, diff));
+            let rs1 = reg(&mut builder, r.rs1);
+            let rs2 = reg(&mut builder, r.rs2);
+            let diff = builder.sub(rs1, rs2);
+            let trunc = trunc_i32(&mut builder, diff);
+            let v = sext_i32(&mut builder, trunc);
             set_reg(&mut builder, r.rd, v);
             builder.ret();
         }
         Instruction::Sllw(r) => {
-            let sh = mask_shamt32(&mut builder, reg(&mut builder, r.rs2));
-            let shifted = builder.shl(reg(&mut builder, r.rs1), sh);
-            let v = sext_i32(&mut builder, trunc_i32(&mut builder, shifted));
+            let rs1 = reg(&mut builder, r.rs1);
+            let rs2 = reg(&mut builder, r.rs2);
+            let sh = shamt32(&mut builder, rs2);
+            let shifted = builder.shl(rs1, sh);
+            let trunc = trunc_i32(&mut builder, shifted);
+            let v = sext_i32(&mut builder, trunc);
             set_reg(&mut builder, r.rd, v);
             builder.ret();
         }
         Instruction::Srlw(r) => {
-            let sh = mask_shamt32(&mut builder, reg(&mut builder, r.rs2));
-            let shifted = builder.shr(reg(&mut builder, r.rs1), sh);
-            let v = sext_i32(&mut builder, trunc_i32(&mut builder, shifted));
+            let rs1 = reg(&mut builder, r.rs1);
+            let rs2 = reg(&mut builder, r.rs2);
+            let sh = shamt32(&mut builder, rs2);
+            let shifted = builder.shr(rs1, sh);
+            let trunc = trunc_i32(&mut builder, shifted);
+            let v = sext_i32(&mut builder, trunc);
             set_reg(&mut builder, r.rd, v);
             builder.ret();
         }
         Instruction::Sraw(r) => {
-            let sh = mask_shamt32(&mut builder, reg(&mut builder, r.rs2));
-            let shifted = builder.sar(reg(&mut builder, r.rs1), sh);
-            let v = sext_i32(&mut builder, trunc_i32(&mut builder, shifted));
+            let rs1 = reg(&mut builder, r.rs1);
+            let rs2 = reg(&mut builder, r.rs2);
+            let sh = shamt32(&mut builder, rs2);
+            let shifted = builder.sar(rs1, sh);
+            let trunc = trunc_i32(&mut builder, shifted);
+            let v = sext_i32(&mut builder, trunc);
             set_reg(&mut builder, r.rd, v);
             builder.ret();
         }
@@ -334,9 +413,9 @@ fn addr(builder: &mut IrBuilder, rs1: u8, offset: i32) -> ValueId {
     builder.add(base, off)
 }
 
-fn add_pc_imm(builder: &mut IrBuilder, current_pc: u64, imm: i32) -> ValueId {
+fn add_pc_imm(builder: &mut IrBuilder, current_pc: u64, offset: i32) -> ValueId {
     let base = const_u64(builder, current_pc);
-    let off = imm(builder, imm);
+    let off = imm(builder, offset);
     builder.add(base, off)
 }
 
@@ -363,12 +442,14 @@ fn sext_i32(builder: &mut IrBuilder, value: ValueId) -> ValueId {
     builder.sext(value, IrType::I32, IrType::I64)
 }
 
-fn mask_shamt64(builder: &mut IrBuilder, value: ValueId) -> ValueId {
-    builder.and(value, builder.const_i64(0x3f))
+fn shamt64(builder: &mut IrBuilder, value: ValueId) -> ValueId {
+    let mask = builder.const_i64(0x3f);
+    builder.and(value, mask)
 }
 
-fn mask_shamt32(builder: &mut IrBuilder, value: ValueId) -> ValueId {
-    builder.and(value, builder.const_i64(0x1f))
+fn shamt32(builder: &mut IrBuilder, value: ValueId) -> ValueId {
+    let mask = builder.const_i64(0x1f);
+    builder.and(value, mask)
 }
 
 fn reg_from_u8(idx: u8) -> Reg {
@@ -412,8 +493,7 @@ fn reg_from_u8(idx: u8) -> Reg {
 #[cfg(test)]
 mod tests {
     use super::lower_i;
-    use crate::decode::insn_formats::{B, I};
-    use crate::decode::Instruction;
+    use crate::decode::{Instruction, B, I};
     use crate::ir::execute_ir;
     use crate::trace::NoopTracer;
     use crate::{HostIO, VM};
