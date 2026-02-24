@@ -233,7 +233,11 @@ fn exec_effect<T: Tracer>(op: &EffectOp, values: &mut [i64], vm: &mut VM<T>, io:
 }
 
 fn bool_to_i64(v: bool) -> i64 {
-    if v { 1 } else { 0 }
+    if v {
+        1
+    } else {
+        0
+    }
 }
 
 fn reg_index(reg: Reg) -> u8 {
@@ -275,7 +279,8 @@ fn reg_index(reg: Reg) -> u8 {
 
 fn sext(value: i64, from: IrType, to: IrType) -> i64 {
     match (from, to) {
-        (IrType::I8, IrType::I16)
+        (IrType::I1, IrType::I64)
+        | (IrType::I8, IrType::I16)
         | (IrType::I8, IrType::I32)
         | (IrType::I8, IrType::I64)
         | (IrType::I16, IrType::I32)
@@ -285,6 +290,13 @@ fn sext(value: i64, from: IrType, to: IrType) -> i64 {
     }
 
     match from {
+        IrType::I1 => {
+            if value != 0 {
+                1
+            } else {
+                0
+            }
+        }
         IrType::I8 => (value as i8) as i64,
         IrType::I16 => (value as i16) as i64,
         IrType::I32 => (value as i32) as i64,
@@ -294,7 +306,8 @@ fn sext(value: i64, from: IrType, to: IrType) -> i64 {
 
 fn zext(value: i64, from: IrType, to: IrType) -> i64 {
     match (from, to) {
-        (IrType::I8, IrType::I16)
+        (IrType::I1, IrType::I64)
+        | (IrType::I8, IrType::I16)
         | (IrType::I8, IrType::I32)
         | (IrType::I8, IrType::I64)
         | (IrType::I16, IrType::I32)
@@ -304,6 +317,13 @@ fn zext(value: i64, from: IrType, to: IrType) -> i64 {
     }
 
     match from {
+        IrType::I1 => {
+            if value != 0 {
+                1
+            } else {
+                0
+            }
+        }
         IrType::I8 => (value as u8) as i64,
         IrType::I16 => (value as u16) as i64,
         IrType::I32 => (value as u32) as i64,

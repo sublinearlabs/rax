@@ -76,6 +76,7 @@ pub(crate) fn lower_i(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFu
             let rs1 = builder.reg(r.rs1);
             let rs2 = builder.reg(r.rs2);
             let v = builder.lt(rs1, rs2);
+            let v = builder.zext(v, IrType::I1, IrType::I64);
             builder.set_reg_idx(r.rd, v);
             builder.ret();
         }
@@ -83,6 +84,7 @@ pub(crate) fn lower_i(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFu
             let rs1 = builder.reg(r.rs1);
             let rs2 = builder.reg(r.rs2);
             let v = builder.ltu(rs1, rs2);
+            let v = builder.zext(v, IrType::I1, IrType::I64);
             builder.set_reg_idx(r.rd, v);
             builder.ret();
         }
@@ -120,6 +122,7 @@ pub(crate) fn lower_i(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFu
             let rs1 = builder.reg(i.rs1);
             let imm = builder.imm_i32(i.imm);
             let v = builder.lt(rs1, imm);
+            let v = builder.zext(v, IrType::I1, IrType::I64);
             builder.set_reg_idx(i.rd, v);
             builder.ret();
         }
@@ -127,6 +130,7 @@ pub(crate) fn lower_i(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFu
             let rs1 = builder.reg(i.rs1);
             let imm = builder.imm_i32(i.imm);
             let v = builder.ltu(rs1, imm);
+            let v = builder.zext(v, IrType::I1, IrType::I64);
             builder.set_reg_idx(i.rd, v);
             builder.ret();
         }
@@ -270,10 +274,10 @@ pub(crate) fn lower_i(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFu
         }
         Instruction::Jalr(i) => {
             let link = builder.imm_u64(next_pc);
-            builder.set_reg_idx(i.rd, link);
             let target = builder.addr(i.rs1, i.imm);
             let mask = builder.imm_i32(-2);
             let masked = builder.and(target, mask);
+            builder.set_reg_idx(i.rd, link);
             builder.set_pc(masked);
             builder.ret();
         }
@@ -303,7 +307,9 @@ pub(crate) fn lower_i(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFu
         Instruction::Slliw(sh) => {
             let shamt = builder.imm_u8(sh.shamt & 0x1f);
             let rs1 = builder.reg(sh.rs1);
-            let shifted = builder.shl(rs1, shamt);
+            let trunc = trunc_i32(&mut builder, rs1);
+            let base = zext_i32(&mut builder, trunc);
+            let shifted = builder.shl(base, shamt);
             let trunc = trunc_i32(&mut builder, shifted);
             let v = sext_i32(&mut builder, trunc);
             builder.set_reg_idx(sh.rd, v);
@@ -312,7 +318,9 @@ pub(crate) fn lower_i(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFu
         Instruction::Srliw(sh) => {
             let shamt = builder.imm_u8(sh.shamt & 0x1f);
             let rs1 = builder.reg(sh.rs1);
-            let shifted = builder.shr(rs1, shamt);
+            let trunc = trunc_i32(&mut builder, rs1);
+            let base = zext_i32(&mut builder, trunc);
+            let shifted = builder.shr(base, shamt);
             let trunc = trunc_i32(&mut builder, shifted);
             let v = sext_i32(&mut builder, trunc);
             builder.set_reg_idx(sh.rd, v);
@@ -321,7 +329,9 @@ pub(crate) fn lower_i(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFu
         Instruction::Sraiw(sh) => {
             let shamt = builder.imm_u8(sh.shamt & 0x1f);
             let rs1 = builder.reg(sh.rs1);
-            let shifted = builder.sar(rs1, shamt);
+            let trunc = trunc_i32(&mut builder, rs1);
+            let base = sext_i32(&mut builder, trunc);
+            let shifted = builder.sar(base, shamt);
             let trunc = trunc_i32(&mut builder, shifted);
             let v = sext_i32(&mut builder, trunc);
             builder.set_reg_idx(sh.rd, v);
@@ -349,7 +359,9 @@ pub(crate) fn lower_i(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFu
             let rs1 = builder.reg(r.rs1);
             let rs2 = builder.reg(r.rs2);
             let sh = builder.shamt32(rs2);
-            let shifted = builder.shl(rs1, sh);
+            let trunc = trunc_i32(&mut builder, rs1);
+            let base = zext_i32(&mut builder, trunc);
+            let shifted = builder.shl(base, sh);
             let trunc = trunc_i32(&mut builder, shifted);
             let v = sext_i32(&mut builder, trunc);
             builder.set_reg_idx(r.rd, v);
@@ -359,7 +371,9 @@ pub(crate) fn lower_i(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFu
             let rs1 = builder.reg(r.rs1);
             let rs2 = builder.reg(r.rs2);
             let sh = builder.shamt32(rs2);
-            let shifted = builder.shr(rs1, sh);
+            let trunc = trunc_i32(&mut builder, rs1);
+            let base = zext_i32(&mut builder, trunc);
+            let shifted = builder.shr(base, sh);
             let trunc = trunc_i32(&mut builder, shifted);
             let v = sext_i32(&mut builder, trunc);
             builder.set_reg_idx(r.rd, v);
@@ -369,7 +383,9 @@ pub(crate) fn lower_i(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFu
             let rs1 = builder.reg(r.rs1);
             let rs2 = builder.reg(r.rs2);
             let sh = builder.shamt32(rs2);
-            let shifted = builder.sar(rs1, sh);
+            let trunc = trunc_i32(&mut builder, rs1);
+            let base = sext_i32(&mut builder, trunc);
+            let shifted = builder.sar(base, sh);
             let trunc = trunc_i32(&mut builder, shifted);
             let v = sext_i32(&mut builder, trunc);
             builder.set_reg_idx(r.rd, v);
@@ -422,6 +438,10 @@ fn trunc_i32(builder: &mut IrBuilder, value: ValueId) -> ValueId {
 
 fn sext_i32(builder: &mut IrBuilder, value: ValueId) -> ValueId {
     builder.sext(value, IrType::I32, IrType::I64)
+}
+
+fn zext_i32(builder: &mut IrBuilder, value: ValueId) -> ValueId {
+    builder.zext(value, IrType::I32, IrType::I64)
 }
 
 #[cfg(test)]
