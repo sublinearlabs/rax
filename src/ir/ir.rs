@@ -100,23 +100,180 @@ pub enum PureOp {
 
 #[derive(Clone, Debug)]
 pub enum EffectOp {
-    GetReg { dst: ValueId, reg: Reg },
-    SetReg { reg: Reg, val: ValueId },
-    GetCsr { dst: ValueId, csr: u32 },
-    SetCsr { csr: u32, val: ValueId },
-    GetPc { dst: ValueId },
-    SetPc { val: ValueId },
-    Load8s { dst: ValueId, addr: ValueId },
-    Load8u { dst: ValueId, addr: ValueId },
-    Load16s { dst: ValueId, addr: ValueId },
-    Load16u { dst: ValueId, addr: ValueId },
-    Load32s { dst: ValueId, addr: ValueId },
-    Load32u { dst: ValueId, addr: ValueId },
-    Load64 { dst: ValueId, addr: ValueId },
-    Store8 { addr: ValueId, val: ValueId },
-    Store16 { addr: ValueId, val: ValueId },
-    Store32 { addr: ValueId, val: ValueId },
-    Store64 { addr: ValueId, val: ValueId },
+    GetReg {
+        dst: ValueId,
+        reg: Reg,
+    },
+    SetReg {
+        reg: Reg,
+        val: ValueId,
+    },
+    GetCsr {
+        dst: ValueId,
+        csr: u32,
+    },
+    SetCsr {
+        csr: u32,
+        val: ValueId,
+    },
+    GetPc {
+        dst: ValueId,
+    },
+    SetPc {
+        val: ValueId,
+    },
+    Load8s {
+        dst: ValueId,
+        addr: ValueId,
+    },
+    Load8u {
+        dst: ValueId,
+        addr: ValueId,
+    },
+    Load16s {
+        dst: ValueId,
+        addr: ValueId,
+    },
+    Load16u {
+        dst: ValueId,
+        addr: ValueId,
+    },
+    Load32s {
+        dst: ValueId,
+        addr: ValueId,
+    },
+    Load32u {
+        dst: ValueId,
+        addr: ValueId,
+    },
+    Load64 {
+        dst: ValueId,
+        addr: ValueId,
+    },
+    Store8 {
+        addr: ValueId,
+        val: ValueId,
+    },
+    Store16 {
+        addr: ValueId,
+        val: ValueId,
+    },
+    Store32 {
+        addr: ValueId,
+        val: ValueId,
+    },
+    Store64 {
+        addr: ValueId,
+        val: ValueId,
+    },
+    LoadReservedW {
+        dst: ValueId,
+        addr: ValueId,
+    },
+    LoadReservedD {
+        dst: ValueId,
+        addr: ValueId,
+    },
+    StoreConditionalW {
+        dst: ValueId,
+        addr: ValueId,
+        val: ValueId,
+    },
+    StoreConditionalD {
+        dst: ValueId,
+        addr: ValueId,
+        val: ValueId,
+    },
+    AmoSwapW {
+        dst: ValueId,
+        addr: ValueId,
+        val: ValueId,
+    },
+    AmoAddW {
+        dst: ValueId,
+        addr: ValueId,
+        val: ValueId,
+    },
+    AmoXorW {
+        dst: ValueId,
+        addr: ValueId,
+        val: ValueId,
+    },
+    AmoAndW {
+        dst: ValueId,
+        addr: ValueId,
+        val: ValueId,
+    },
+    AmoOrW {
+        dst: ValueId,
+        addr: ValueId,
+        val: ValueId,
+    },
+    AmoMinW {
+        dst: ValueId,
+        addr: ValueId,
+        val: ValueId,
+    },
+    AmoMaxW {
+        dst: ValueId,
+        addr: ValueId,
+        val: ValueId,
+    },
+    AmoMinuW {
+        dst: ValueId,
+        addr: ValueId,
+        val: ValueId,
+    },
+    AmoMaxuW {
+        dst: ValueId,
+        addr: ValueId,
+        val: ValueId,
+    },
+    AmoSwapD {
+        dst: ValueId,
+        addr: ValueId,
+        val: ValueId,
+    },
+    AmoAddD {
+        dst: ValueId,
+        addr: ValueId,
+        val: ValueId,
+    },
+    AmoXorD {
+        dst: ValueId,
+        addr: ValueId,
+        val: ValueId,
+    },
+    AmoAndD {
+        dst: ValueId,
+        addr: ValueId,
+        val: ValueId,
+    },
+    AmoOrD {
+        dst: ValueId,
+        addr: ValueId,
+        val: ValueId,
+    },
+    AmoMinD {
+        dst: ValueId,
+        addr: ValueId,
+        val: ValueId,
+    },
+    AmoMaxD {
+        dst: ValueId,
+        addr: ValueId,
+        val: ValueId,
+    },
+    AmoMinuD {
+        dst: ValueId,
+        addr: ValueId,
+        val: ValueId,
+    },
+    AmoMaxuD {
+        dst: ValueId,
+        addr: ValueId,
+        val: ValueId,
+    },
     Ecall,
     Ebreak,
 }

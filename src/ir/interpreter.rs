@@ -1,6 +1,7 @@
 use crate::ecall::handle_ecall;
 use crate::ir::{BlockId, EffectOp, IrFunction, IrType, Op, PureOp, Reg, Terminator, ValueId};
-use crate::trace::Tracer;
+use crate::trace::{MemOp, Tracer};
+use crate::util::{mask, sext as sext_u64};
 use crate::{HostIO, VM};
 
 pub fn execute_ir<T: Tracer>(func: &IrFunction, vm: &mut VM<T>, io: &mut HostIO) {
@@ -226,6 +227,288 @@ fn exec_effect<T: Tracer>(op: &EffectOp, values: &mut [i64], vm: &mut VM<T>, io:
             let addr = values[addr.0 as usize] as usize;
             vm.store_u64(addr, values[val.0 as usize] as u64);
         }
+        EffectOp::LoadReservedW { dst, addr } => {
+            let addr = values[addr.0 as usize] as u64;
+            let value = vm.load_u32(addr as usize) as u64;
+            vm.reservation_set = addr;
+            vm.tracer.record_reservation(addr);
+            vm.tracer.record_mem_op(MemOp::LoadReservedWord {
+                addr,
+                value: value as u32,
+            });
+            values[dst.0 as usize] = sext_u64(value, 32usize) as i64;
+        }
+        EffectOp::LoadReservedD { dst, addr } => {
+            let addr = values[addr.0 as usize] as u64;
+            let value = vm.load_u64(addr as usize);
+            vm.reservation_set = addr;
+            vm.tracer.record_reservation(addr);
+            vm.tracer
+                .record_mem_op(MemOp::LoadReservedDouble { addr, value });
+            values[dst.0 as usize] = value as i64;
+        }
+        EffectOp::StoreConditionalW { dst, addr, val } => {
+            let addr = values[addr.0 as usize] as u64;
+            let value = (values[val.0 as usize] as u64) & mask(32);
+            let success = addr == vm.reservation_set;
+            if success {
+                vm.store_u32(addr as usize, value as u32);
+            }
+            vm.reservation_set = 0;
+            vm.tracer.record_mem_op(MemOp::StoreConditionalWord {
+                addr,
+                value: value as u32,
+                success,
+            });
+            values[dst.0 as usize] = if success { 0 } else { 1 };
+        }
+        EffectOp::StoreConditionalD { dst, addr, val } => {
+            let addr = values[addr.0 as usize] as u64;
+            let value = values[val.0 as usize] as u64;
+            let success = addr == vm.reservation_set;
+            if success {
+                vm.store_u64(addr as usize, value);
+            }
+            vm.reservation_set = 0;
+            vm.tracer.record_mem_op(MemOp::StoreConditionalDouble {
+                addr,
+                value,
+                success,
+            });
+            values[dst.0 as usize] = if success { 0 } else { 1 };
+        }
+        EffectOp::AmoSwapW { dst, addr, val } => {
+            let addr = values[addr.0 as usize] as u64;
+            let read_value = vm.load_u32(addr as usize) as u64;
+            let write_value = (values[val.0 as usize] as u64) & mask(32);
+            vm.store_u32(addr as usize, write_value as u32);
+            vm.tracer.record_mem_op(MemOp::AtomicWord {
+                addr,
+                read_value: read_value as u32,
+                write_value: write_value as u32,
+            });
+            values[dst.0 as usize] = sext_u64(read_value, 32usize) as i64;
+        }
+        EffectOp::AmoAddW { dst, addr, val } => {
+            let addr = values[addr.0 as usize] as u64;
+            let read_value = vm.load_u32(addr as usize) as i32;
+            let rs2_val = ((values[val.0 as usize] as u64) & mask(32)) as i32;
+            let write_value = (read_value.wrapping_add(rs2_val) as i64) as u64 & mask(32);
+            vm.store_u32(addr as usize, write_value as u32);
+            vm.tracer.record_mem_op(MemOp::AtomicWord {
+                addr,
+                read_value: read_value as u32,
+                write_value: write_value as u32,
+            });
+            values[dst.0 as usize] = (read_value as i64) as i64;
+        }
+        EffectOp::AmoXorW { dst, addr, val } => {
+            let addr = values[addr.0 as usize] as u64;
+            let read_value = vm.load_u32(addr as usize) as i32;
+            let rs2_val = ((values[val.0 as usize] as u64) & mask(32)) as i32;
+            let write_value = ((read_value ^ rs2_val) as i64) as u64 & mask(32);
+            vm.store_u32(addr as usize, write_value as u32);
+            vm.tracer.record_mem_op(MemOp::AtomicWord {
+                addr,
+                read_value: read_value as u32,
+                write_value: write_value as u32,
+            });
+            values[dst.0 as usize] = (read_value as i64) as i64;
+        }
+        EffectOp::AmoAndW { dst, addr, val } => {
+            let addr = values[addr.0 as usize] as u64;
+            let read_value = vm.load_u32(addr as usize) as i32;
+            let rs2_val = ((values[val.0 as usize] as u64) & mask(32)) as i32;
+            let write_value = ((read_value & rs2_val) as i64) as u64 & mask(32);
+            vm.store_u32(addr as usize, write_value as u32);
+            vm.tracer.record_mem_op(MemOp::AtomicWord {
+                addr,
+                read_value: read_value as u32,
+                write_value: write_value as u32,
+            });
+            values[dst.0 as usize] = (read_value as i64) as i64;
+        }
+        EffectOp::AmoOrW { dst, addr, val } => {
+            let addr = values[addr.0 as usize] as u64;
+            let read_value = vm.load_u32(addr as usize) as i32;
+            let rs2_val = ((values[val.0 as usize] as u64) & mask(32)) as i32;
+            let write_value = ((read_value | rs2_val) as i64) as u64 & mask(32);
+            vm.store_u32(addr as usize, write_value as u32);
+            vm.tracer.record_mem_op(MemOp::AtomicWord {
+                addr,
+                read_value: read_value as u32,
+                write_value: write_value as u32,
+            });
+            values[dst.0 as usize] = (read_value as i64) as i64;
+        }
+        EffectOp::AmoMinW { dst, addr, val } => {
+            let addr = values[addr.0 as usize] as u64;
+            let read_value = vm.load_u32(addr as usize) as i32;
+            let rs2_val = ((values[val.0 as usize] as u64) & mask(32)) as i32;
+            let write_value = (read_value.min(rs2_val) as i64) as u64 & mask(32);
+            vm.store_u32(addr as usize, write_value as u32);
+            vm.tracer.record_mem_op(MemOp::AtomicWord {
+                addr,
+                read_value: read_value as u32,
+                write_value: write_value as u32,
+            });
+            values[dst.0 as usize] = (read_value as i64) as i64;
+        }
+        EffectOp::AmoMaxW { dst, addr, val } => {
+            let addr = values[addr.0 as usize] as u64;
+            let read_value = vm.load_u32(addr as usize) as i32;
+            let rs2_val = ((values[val.0 as usize] as u64) & mask(32)) as i32;
+            let write_value = (read_value.max(rs2_val) as i64) as u64 & mask(32);
+            vm.store_u32(addr as usize, write_value as u32);
+            vm.tracer.record_mem_op(MemOp::AtomicWord {
+                addr,
+                read_value: read_value as u32,
+                write_value: write_value as u32,
+            });
+            values[dst.0 as usize] = (read_value as i64) as i64;
+        }
+        EffectOp::AmoMinuW { dst, addr, val } => {
+            let addr = values[addr.0 as usize] as u64;
+            let read_value = vm.load_u32(addr as usize) as u64;
+            let rs2_val = (values[val.0 as usize] as u64) & mask(32);
+            let write_value = read_value.min(rs2_val);
+            vm.store_u32(addr as usize, write_value as u32);
+            vm.tracer.record_mem_op(MemOp::AtomicWord {
+                addr,
+                read_value: read_value as u32,
+                write_value: write_value as u32,
+            });
+            values[dst.0 as usize] = sext_u64(read_value, 32usize) as i64;
+        }
+        EffectOp::AmoMaxuW { dst, addr, val } => {
+            let addr = values[addr.0 as usize] as u64;
+            let read_value = vm.load_u32(addr as usize) as u64;
+            let rs2_val = (values[val.0 as usize] as u64) & mask(32);
+            let write_value = read_value.max(rs2_val);
+            vm.store_u32(addr as usize, write_value as u32);
+            vm.tracer.record_mem_op(MemOp::AtomicWord {
+                addr,
+                read_value: read_value as u32,
+                write_value: write_value as u32,
+            });
+            values[dst.0 as usize] = sext_u64(read_value, 32usize) as i64;
+        }
+        EffectOp::AmoSwapD { dst, addr, val } => {
+            let addr = values[addr.0 as usize] as u64;
+            let read_value = vm.load_u64(addr as usize);
+            let write_value = values[val.0 as usize] as u64;
+            vm.store_u64(addr as usize, write_value);
+            vm.tracer.record_mem_op(MemOp::AtomicDouble {
+                addr,
+                read_value,
+                write_value,
+            });
+            values[dst.0 as usize] = read_value as i64;
+        }
+        EffectOp::AmoAddD { dst, addr, val } => {
+            let addr = values[addr.0 as usize] as u64;
+            let read_value = vm.load_u64(addr as usize);
+            let rs2_val = values[val.0 as usize] as u64;
+            let write_value = read_value.wrapping_add(rs2_val);
+            vm.store_u64(addr as usize, write_value);
+            vm.tracer.record_mem_op(MemOp::AtomicDouble {
+                addr,
+                read_value,
+                write_value,
+            });
+            values[dst.0 as usize] = read_value as i64;
+        }
+        EffectOp::AmoXorD { dst, addr, val } => {
+            let addr = values[addr.0 as usize] as u64;
+            let read_value = vm.load_u64(addr as usize);
+            let rs2_val = values[val.0 as usize] as u64;
+            let write_value = read_value ^ rs2_val;
+            vm.store_u64(addr as usize, write_value);
+            vm.tracer.record_mem_op(MemOp::AtomicDouble {
+                addr,
+                read_value,
+                write_value,
+            });
+            values[dst.0 as usize] = read_value as i64;
+        }
+        EffectOp::AmoAndD { dst, addr, val } => {
+            let addr = values[addr.0 as usize] as u64;
+            let read_value = vm.load_u64(addr as usize);
+            let rs2_val = values[val.0 as usize] as u64;
+            let write_value = read_value & rs2_val;
+            vm.store_u64(addr as usize, write_value);
+            vm.tracer.record_mem_op(MemOp::AtomicDouble {
+                addr,
+                read_value,
+                write_value,
+            });
+            values[dst.0 as usize] = read_value as i64;
+        }
+        EffectOp::AmoOrD { dst, addr, val } => {
+            let addr = values[addr.0 as usize] as u64;
+            let read_value = vm.load_u64(addr as usize);
+            let rs2_val = values[val.0 as usize] as u64;
+            let write_value = read_value | rs2_val;
+            vm.store_u64(addr as usize, write_value);
+            vm.tracer.record_mem_op(MemOp::AtomicDouble {
+                addr,
+                read_value,
+                write_value,
+            });
+            values[dst.0 as usize] = read_value as i64;
+        }
+        EffectOp::AmoMinD { dst, addr, val } => {
+            let addr = values[addr.0 as usize] as u64;
+            let read_value = vm.load_u64(addr as usize);
+            let rs2_val = values[val.0 as usize] as i64;
+            let write_value = (read_value as i64).min(rs2_val) as u64;
+            vm.store_u64(addr as usize, write_value);
+            vm.tracer.record_mem_op(MemOp::AtomicDouble {
+                addr,
+                read_value,
+                write_value,
+            });
+            values[dst.0 as usize] = read_value as i64;
+        }
+        EffectOp::AmoMaxD { dst, addr, val } => {
+            let addr = values[addr.0 as usize] as u64;
+            let read_value = vm.load_u64(addr as usize);
+            let rs2_val = values[val.0 as usize] as i64;
+            let write_value = (read_value as i64).max(rs2_val) as u64;
+            vm.store_u64(addr as usize, write_value);
+            vm.tracer.record_mem_op(MemOp::AtomicDouble {
+                addr,
+                read_value,
+                write_value,
+            });
+            values[dst.0 as usize] = read_value as i64;
+        }
+        EffectOp::AmoMinuD { dst, addr, val } => {
+            let addr = values[addr.0 as usize] as u64;
+            let read_value = vm.load_u64(addr as usize);
+            let rs2_val = values[val.0 as usize] as u64;
+            let write_value = read_value.min(rs2_val);
+            vm.store_u64(addr as usize, write_value);
+            vm.tracer.record_mem_op(MemOp::AtomicDouble {
+                addr,
+                read_value,
+                write_value,
+            });
+            values[dst.0 as usize] = read_value as i64;
+        }
+        EffectOp::AmoMaxuD { dst, addr, val } => {
+            let addr = values[addr.0 as usize] as u64;
+            let read_value = vm.load_u64(addr as usize);
+            let rs2_val = values[val.0 as usize] as u64;
+            let write_value = read_value.max(rs2_val);
+            vm.store_u64(addr as usize, write_value);
+            vm.tracer.record_mem_op(MemOp::AtomicDouble {
+                addr,
+                read_value,
+                write_value,
+            });
+            values[dst.0 as usize] = read_value as i64;
+        }
         EffectOp::Ecall | EffectOp::Ebreak => {
             handle_ecall(vm, io);
         }
@@ -233,7 +516,11 @@ fn exec_effect<T: Tracer>(op: &EffectOp, values: &mut [i64], vm: &mut VM<T>, io:
 }
 
 fn bool_to_i64(v: bool) -> i64 {
-    if v { 1 } else { 0 }
+    if v {
+        1
+    } else {
+        0
+    }
 }
 
 fn reg_index(reg: Reg) -> u8 {

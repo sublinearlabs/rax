@@ -1,4 +1,6 @@
 use crate::decode::Instruction;
+#[cfg(feature = "ext_a")]
+use crate::ir::lower::a::lower_a;
 use crate::ir::lower::csr::lower_csr;
 use crate::ir::{IrBuilder, IrFunction, IrType, ValueId};
 
@@ -9,6 +11,13 @@ pub(crate) fn lower_i(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFu
 
     if lower_csr(insn, &mut builder) {
         return builder.finish();
+    }
+
+    #[cfg(feature = "ext_a")]
+    {
+        if lower_a(insn, &mut builder) {
+            return builder.finish();
+        }
     }
 
     match insn {
@@ -418,7 +427,7 @@ fn sext_i32(builder: &mut IrBuilder, value: ValueId) -> ValueId {
 #[cfg(test)]
 mod tests {
     use super::lower_i;
-    use crate::decode::{B, I, Instruction};
+    use crate::decode::{Instruction, B, I};
     use crate::ir::execute_ir;
     use crate::trace::NoopTracer;
     use crate::{HostIO, VM};
