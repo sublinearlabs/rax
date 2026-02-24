@@ -1,6 +1,6 @@
 //! Zero-cost abstraction for execution tracing.
 use super::primitives::{ExecutionTrace, InstrFlags, MemOp, TraceRow};
-use crate::decode::{decode, Instruction};
+use crate::decode::{Instruction, decode};
 
 /// Trait for instruction execution tracing.
 ///

@@ -6,9 +6,9 @@
 //!
 //! Run with: `cargo bench`
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use riscv::trace::{FullTracer, NoopTracer};
-use riscv::{init_from_elf, Runner};
+use riscv::{Runner, init_from_elf};
 
 /// Path to the fibonacci binary
 const FIB_BINARY: &str = "test-bin/rust-bin/fib/fib-ima"; // I intend to change to the block exec program... I trust that data more :)
