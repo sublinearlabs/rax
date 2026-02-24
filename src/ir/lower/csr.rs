@@ -29,8 +29,7 @@ pub(crate) fn lower_csr(insn: &Instruction, builder: &mut IrBuilder) -> bool {
             let rs1 = builder.reg(i.rs1);
             let prev = builder.get_csr(csr);
             if i.rs1 != 0 {
-                let all_ones = builder.const_i64(-1);
-                let inv = builder.xor(rs1, all_ones);
+                let inv = builder.not(rs1);
                 let next = builder.and(prev, inv);
                 builder.set_csr(csr, next);
             }
@@ -64,8 +63,7 @@ pub(crate) fn lower_csr(insn: &Instruction, builder: &mut IrBuilder) -> bool {
             let zimm = builder.zimm5(i.rs1);
             let prev = builder.get_csr(csr);
             if i.rs1 != 0 {
-                let all_ones = builder.const_i64(-1);
-                let inv = builder.xor(zimm, all_ones);
+                let inv = builder.not(zimm);
                 let next = builder.and(prev, inv);
                 builder.set_csr(csr, next);
             }
