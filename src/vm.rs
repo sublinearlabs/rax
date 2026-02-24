@@ -454,9 +454,9 @@ impl<T: Tracer> VM<T> {
 
 #[cfg(test)]
 mod tests {
+    use crate::Runner;
     use crate::init_from_elf;
     use crate::trace::{FullTracer, NoopTracer};
-    use crate::Runner;
     use std::fs;
 
     use super::*;

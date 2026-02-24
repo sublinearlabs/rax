@@ -418,7 +418,7 @@ fn sext_i32(builder: &mut IrBuilder, value: ValueId) -> ValueId {
 #[cfg(test)]
 mod tests {
     use super::lower_i;
-    use crate::decode::{Instruction, B, I};
+    use crate::decode::{B, I, Instruction};
     use crate::ir::execute_ir;
     use crate::trace::NoopTracer;
     use crate::{HostIO, VM};

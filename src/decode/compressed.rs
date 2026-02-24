@@ -1,11 +1,11 @@
 use crate::{
     decode::{
+        B, I, Instruction, J, R, S, Sh, U,
         imm::{
             imm_addi16sp, imm_cb, imm_ci_signed, imm_ciw_addi4spn, imm_cj, imm_cl_d, imm_cl_w,
             imm_clui, imm_csp_d_load, imm_csp_lw, imm_css_d, imm_css_w, shamt_ci,
         },
         util::{c_funct3, quadrant},
-        Instruction, Sh, B, I, J, R, S, U,
     },
     util::mask16,
 };
@@ -435,7 +435,7 @@ fn dec_c_sdsp(insn: u16) -> Instruction {
 
 #[cfg(test)]
 mod tests {
-    use crate::decode::{compressed::decode_compressed, insn, Instruction, Sh, B, I, J, S, U};
+    use crate::decode::{B, I, Instruction, J, S, Sh, U, compressed::decode_compressed, insn};
 
     #[test]
     fn test_decode_compressed() {

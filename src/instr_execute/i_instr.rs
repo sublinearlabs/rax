@@ -1,9 +1,9 @@
 // Register Opcodes
 
-use crate::decode::{Sh, B, I, J, R, S, U};
+use crate::VM;
+use crate::decode::{B, I, J, R, S, Sh, U};
 use crate::trace::{MemOp, Tracer};
 use crate::util::{mask, sext};
-use crate::VM;
 
 #[inline(always)]
 pub(crate) fn execute_add<T: Tracer>(vm: &mut VM<T>, insn: &R) {
