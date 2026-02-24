@@ -1,5 +1,5 @@
 use crate::decode::Instruction;
-use crate::ir::{IrBuilder, IrFunction};
+use crate::ir::{AtomicRmwOp, AtomicWidth, IrBuilder, IrFunction, IrType};
 
 pub(crate) fn lower_a(insn: &Instruction, _current_pc: u64, _next_pc: u64) -> IrFunction {
     let mut builder = IrBuilder::new();
@@ -33,75 +33,43 @@ pub(crate) fn lower_a(insn: &Instruction, _current_pc: u64, _next_pc: u64) -> Ir
             builder.set_reg_idx(r.rd, result);
             builder.ret();
         }
-        Instruction::AmoSwapW(r) => amo_w(&mut builder, r, IrAmoOp::Swap),
-        Instruction::AmoAddW(r) => amo_w(&mut builder, r, IrAmoOp::Add),
-        Instruction::AmoXorW(r) => amo_w(&mut builder, r, IrAmoOp::Xor),
-        Instruction::AmoAndW(r) => amo_w(&mut builder, r, IrAmoOp::And),
-        Instruction::AmoOrW(r) => amo_w(&mut builder, r, IrAmoOp::Or),
-        Instruction::AmoMinW(r) => amo_w(&mut builder, r, IrAmoOp::Min),
-        Instruction::AmoMaxW(r) => amo_w(&mut builder, r, IrAmoOp::Max),
-        Instruction::AmoMinuW(r) => amo_w(&mut builder, r, IrAmoOp::Minu),
-        Instruction::AmoMaxuW(r) => amo_w(&mut builder, r, IrAmoOp::Maxu),
-        Instruction::AmoSwapD(r) => amo_d(&mut builder, r, IrAmoOp::Swap),
-        Instruction::AmoAddD(r) => amo_d(&mut builder, r, IrAmoOp::Add),
-        Instruction::AmoXorD(r) => amo_d(&mut builder, r, IrAmoOp::Xor),
-        Instruction::AmoAndD(r) => amo_d(&mut builder, r, IrAmoOp::And),
-        Instruction::AmoOrD(r) => amo_d(&mut builder, r, IrAmoOp::Or),
-        Instruction::AmoMinD(r) => amo_d(&mut builder, r, IrAmoOp::Min),
-        Instruction::AmoMaxD(r) => amo_d(&mut builder, r, IrAmoOp::Max),
-        Instruction::AmoMinuD(r) => amo_d(&mut builder, r, IrAmoOp::Minu),
-        Instruction::AmoMaxuD(r) => amo_d(&mut builder, r, IrAmoOp::Maxu),
+        Instruction::AmoSwapW(r) => amo_w(&mut builder, r, AtomicRmwOp::Xchg),
+        Instruction::AmoAddW(r) => amo_w(&mut builder, r, AtomicRmwOp::Add),
+        Instruction::AmoXorW(r) => amo_w(&mut builder, r, AtomicRmwOp::Xor),
+        Instruction::AmoAndW(r) => amo_w(&mut builder, r, AtomicRmwOp::And),
+        Instruction::AmoOrW(r) => amo_w(&mut builder, r, AtomicRmwOp::Or),
+        Instruction::AmoMinW(r) => amo_w(&mut builder, r, AtomicRmwOp::Min),
+        Instruction::AmoMaxW(r) => amo_w(&mut builder, r, AtomicRmwOp::Max),
+        Instruction::AmoMinuW(r) => amo_w(&mut builder, r, AtomicRmwOp::Umin),
+        Instruction::AmoMaxuW(r) => amo_w(&mut builder, r, AtomicRmwOp::Umax),
+        Instruction::AmoSwapD(r) => amo_d(&mut builder, r, AtomicRmwOp::Xchg),
+        Instruction::AmoAddD(r) => amo_d(&mut builder, r, AtomicRmwOp::Add),
+        Instruction::AmoXorD(r) => amo_d(&mut builder, r, AtomicRmwOp::Xor),
+        Instruction::AmoAndD(r) => amo_d(&mut builder, r, AtomicRmwOp::And),
+        Instruction::AmoOrD(r) => amo_d(&mut builder, r, AtomicRmwOp::Or),
+        Instruction::AmoMinD(r) => amo_d(&mut builder, r, AtomicRmwOp::Min),
+        Instruction::AmoMaxD(r) => amo_d(&mut builder, r, AtomicRmwOp::Max),
+        Instruction::AmoMinuD(r) => amo_d(&mut builder, r, AtomicRmwOp::Umin),
+        Instruction::AmoMaxuD(r) => amo_d(&mut builder, r, AtomicRmwOp::Umax),
         _ => panic!("IR lowering missing for A instruction {:?}", insn),
     }
 
     builder.finish()
 }
 
-#[derive(Clone, Copy)]
-enum IrAmoOp {
-    Swap,
-    Add,
-    Xor,
-    And,
-    Or,
-    Min,
-    Max,
-    Minu,
-    Maxu,
-}
-
-fn amo_w(builder: &mut IrBuilder, r: &crate::decode::R, op: IrAmoOp) {
+fn amo_w(builder: &mut IrBuilder, r: &crate::decode::R, op: AtomicRmwOp) {
     let addr = builder.reg(r.rs1);
     let value = builder.reg(r.rs2);
-    let read = match op {
-        IrAmoOp::Swap => builder.amo_swap_w(addr, value),
-        IrAmoOp::Add => builder.amo_add_w(addr, value),
-        IrAmoOp::Xor => builder.amo_xor_w(addr, value),
-        IrAmoOp::And => builder.amo_and_w(addr, value),
-        IrAmoOp::Or => builder.amo_or_w(addr, value),
-        IrAmoOp::Min => builder.amo_min_w(addr, value),
-        IrAmoOp::Max => builder.amo_max_w(addr, value),
-        IrAmoOp::Minu => builder.amo_minu_w(addr, value),
-        IrAmoOp::Maxu => builder.amo_maxu_w(addr, value),
-    };
-    builder.set_reg_idx(r.rd, read);
+    let read = builder.atomic_rmw(op, AtomicWidth::W, addr, value);
+    let read64 = builder.sext(read, IrType::I32, IrType::I64);
+    builder.set_reg_idx(r.rd, read64);
     builder.ret();
 }
 
-fn amo_d(builder: &mut IrBuilder, r: &crate::decode::R, op: IrAmoOp) {
+fn amo_d(builder: &mut IrBuilder, r: &crate::decode::R, op: AtomicRmwOp) {
     let addr = builder.reg(r.rs1);
     let value = builder.reg(r.rs2);
-    let read = match op {
-        IrAmoOp::Swap => builder.amo_swap_d(addr, value),
-        IrAmoOp::Add => builder.amo_add_d(addr, value),
-        IrAmoOp::Xor => builder.amo_xor_d(addr, value),
-        IrAmoOp::And => builder.amo_and_d(addr, value),
-        IrAmoOp::Or => builder.amo_or_d(addr, value),
-        IrAmoOp::Min => builder.amo_min_d(addr, value),
-        IrAmoOp::Max => builder.amo_max_d(addr, value),
-        IrAmoOp::Minu => builder.amo_minu_d(addr, value),
-        IrAmoOp::Maxu => builder.amo_maxu_d(addr, value),
-    };
+    let read = builder.atomic_rmw(op, AtomicWidth::D, addr, value);
     builder.set_reg_idx(r.rd, read);
     builder.ret();
 }

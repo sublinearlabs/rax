@@ -1,7 +1,10 @@
 use crate::ecall::handle_ecall;
-use crate::ir::{BlockId, EffectOp, IrFunction, IrType, Op, PureOp, Reg, Terminator, ValueId};
+use crate::ir::{
+    AtomicRmwOp, AtomicWidth, BlockId, EffectOp, IrFunction, IrType, Op, PureOp, Reg, Terminator,
+    ValueId,
+};
 use crate::trace::Tracer;
-use crate::util::{mask, sext as sext_u64};
+use crate::util::mask;
 use crate::{HostIO, VM};
 
 pub fn execute_ir<T: Tracer>(func: &IrFunction, vm: &mut VM<T>, io: &mut HostIO) {
@@ -231,7 +234,7 @@ fn exec_effect<T: Tracer>(op: &EffectOp, values: &mut [i64], vm: &mut VM<T>, io:
             let addr = values[addr.0 as usize] as u64;
             let value = vm.load_u32(addr as usize) as u64;
             vm.reservation_set = addr;
-            values[dst.0 as usize] = sext_u64(value, 32usize) as i64;
+            values[dst.0 as usize] = crate::util::sext(value, 32usize) as i64;
         }
         EffectOp::LoadReservedD { dst, addr } => {
             let addr = values[addr.0 as usize] as u64;
@@ -259,147 +262,30 @@ fn exec_effect<T: Tracer>(op: &EffectOp, values: &mut [i64], vm: &mut VM<T>, io:
             vm.reservation_set = 0;
             values[dst.0 as usize] = if success { 0 } else { 1 };
         }
-        EffectOp::AmoSwapW { dst, addr, val } => {
+        EffectOp::AtomicRmw {
+            dst,
+            addr,
+            val,
+            op,
+            width,
+        } => {
             let addr = values[addr.0 as usize] as u64;
-            let read_value = vm.load_u32(addr as usize) as u64;
-            let write_value = (values[val.0 as usize] as u64) & mask(32);
-            vm.store_u32(addr as usize, write_value as u32);
-            values[dst.0 as usize] = sext_u64(read_value, 32usize) as i64;
-        }
-        EffectOp::AmoAddW { dst, addr, val } => {
-            let addr = values[addr.0 as usize] as u64;
-            let read_value = vm.load_u32(addr as usize) as i32;
-            let rs2_val = ((values[val.0 as usize] as u64) & mask(32)) as i32;
-            let write_value = (read_value.wrapping_add(rs2_val) as i64) as u64 & mask(32);
-            vm.store_u32(addr as usize, write_value as u32);
-            values[dst.0 as usize] = (read_value as i64) as i64;
-        }
-        EffectOp::AmoXorW { dst, addr, val } => {
-            let addr = values[addr.0 as usize] as u64;
-            let read_value = vm.load_u32(addr as usize) as i32;
-            let rs2_val = ((values[val.0 as usize] as u64) & mask(32)) as i32;
-            let write_value = ((read_value ^ rs2_val) as i64) as u64 & mask(32);
-            vm.store_u32(addr as usize, write_value as u32);
-            values[dst.0 as usize] = (read_value as i64) as i64;
-        }
-        EffectOp::AmoAndW { dst, addr, val } => {
-            let addr = values[addr.0 as usize] as u64;
-            let read_value = vm.load_u32(addr as usize) as i32;
-            let rs2_val = ((values[val.0 as usize] as u64) & mask(32)) as i32;
-            let write_value = ((read_value & rs2_val) as i64) as u64 & mask(32);
-            vm.store_u32(addr as usize, write_value as u32);
-            values[dst.0 as usize] = (read_value as i64) as i64;
-        }
-        EffectOp::AmoOrW { dst, addr, val } => {
-            let addr = values[addr.0 as usize] as u64;
-            let read_value = vm.load_u32(addr as usize) as i32;
-            let rs2_val = ((values[val.0 as usize] as u64) & mask(32)) as i32;
-            let write_value = ((read_value | rs2_val) as i64) as u64 & mask(32);
-            vm.store_u32(addr as usize, write_value as u32);
-            values[dst.0 as usize] = (read_value as i64) as i64;
-        }
-        EffectOp::AmoMinW { dst, addr, val } => {
-            let addr = values[addr.0 as usize] as u64;
-            let read_value = vm.load_u32(addr as usize) as i32;
-            let rs2_val = ((values[val.0 as usize] as u64) & mask(32)) as i32;
-            let write_value = (read_value.min(rs2_val) as i64) as u64 & mask(32);
-            vm.store_u32(addr as usize, write_value as u32);
-            values[dst.0 as usize] = (read_value as i64) as i64;
-        }
-        EffectOp::AmoMaxW { dst, addr, val } => {
-            let addr = values[addr.0 as usize] as u64;
-            let read_value = vm.load_u32(addr as usize) as i32;
-            let rs2_val = ((values[val.0 as usize] as u64) & mask(32)) as i32;
-            let write_value = (read_value.max(rs2_val) as i64) as u64 & mask(32);
-            vm.store_u32(addr as usize, write_value as u32);
-            values[dst.0 as usize] = (read_value as i64) as i64;
-        }
-        EffectOp::AmoMinuW { dst, addr, val } => {
-            let addr = values[addr.0 as usize] as u64;
-            let read_value = vm.load_u32(addr as usize) as u64;
-            let rs2_val = (values[val.0 as usize] as u64) & mask(32);
-            let write_value = read_value.min(rs2_val);
-            vm.store_u32(addr as usize, write_value as u32);
-            values[dst.0 as usize] = sext_u64(read_value, 32usize) as i64;
-        }
-        EffectOp::AmoMaxuW { dst, addr, val } => {
-            let addr = values[addr.0 as usize] as u64;
-            let read_value = vm.load_u32(addr as usize) as u64;
-            let rs2_val = (values[val.0 as usize] as u64) & mask(32);
-            let write_value = read_value.max(rs2_val);
-            vm.store_u32(addr as usize, write_value as u32);
-            values[dst.0 as usize] = sext_u64(read_value, 32usize) as i64;
-        }
-        EffectOp::AmoSwapD { dst, addr, val } => {
-            let addr = values[addr.0 as usize] as u64;
-            let read_value = vm.load_u64(addr as usize);
-            let write_value = values[val.0 as usize] as u64;
-            vm.store_u64(addr as usize, write_value);
-            values[dst.0 as usize] = read_value as i64;
-        }
-        EffectOp::AmoAddD { dst, addr, val } => {
-            let addr = values[addr.0 as usize] as u64;
-            let read_value = vm.load_u64(addr as usize);
-            let rs2_val = values[val.0 as usize] as u64;
-            let write_value = read_value.wrapping_add(rs2_val);
-            vm.store_u64(addr as usize, write_value);
-            values[dst.0 as usize] = read_value as i64;
-        }
-        EffectOp::AmoXorD { dst, addr, val } => {
-            let addr = values[addr.0 as usize] as u64;
-            let read_value = vm.load_u64(addr as usize);
-            let rs2_val = values[val.0 as usize] as u64;
-            let write_value = read_value ^ rs2_val;
-            vm.store_u64(addr as usize, write_value);
-            values[dst.0 as usize] = read_value as i64;
-        }
-        EffectOp::AmoAndD { dst, addr, val } => {
-            let addr = values[addr.0 as usize] as u64;
-            let read_value = vm.load_u64(addr as usize);
-            let rs2_val = values[val.0 as usize] as u64;
-            let write_value = read_value & rs2_val;
-            vm.store_u64(addr as usize, write_value);
-            values[dst.0 as usize] = read_value as i64;
-        }
-        EffectOp::AmoOrD { dst, addr, val } => {
-            let addr = values[addr.0 as usize] as u64;
-            let read_value = vm.load_u64(addr as usize);
-            let rs2_val = values[val.0 as usize] as u64;
-            let write_value = read_value | rs2_val;
-            vm.store_u64(addr as usize, write_value);
-            values[dst.0 as usize] = read_value as i64;
-        }
-        EffectOp::AmoMinD { dst, addr, val } => {
-            let addr = values[addr.0 as usize] as u64;
-            let read_value = vm.load_u64(addr as usize);
-            let rs2_val = values[val.0 as usize] as i64;
-            let write_value = (read_value as i64).min(rs2_val) as u64;
-            vm.store_u64(addr as usize, write_value);
-            values[dst.0 as usize] = read_value as i64;
-        }
-        EffectOp::AmoMaxD { dst, addr, val } => {
-            let addr = values[addr.0 as usize] as u64;
-            let read_value = vm.load_u64(addr as usize);
-            let rs2_val = values[val.0 as usize] as i64;
-            let write_value = (read_value as i64).max(rs2_val) as u64;
-            vm.store_u64(addr as usize, write_value);
-            values[dst.0 as usize] = read_value as i64;
-        }
-        EffectOp::AmoMinuD { dst, addr, val } => {
-            let addr = values[addr.0 as usize] as u64;
-            let read_value = vm.load_u64(addr as usize);
-            let rs2_val = values[val.0 as usize] as u64;
-            let write_value = read_value.min(rs2_val);
-            vm.store_u64(addr as usize, write_value);
-            values[dst.0 as usize] = read_value as i64;
-        }
-        EffectOp::AmoMaxuD { dst, addr, val } => {
-            let addr = values[addr.0 as usize] as u64;
-            let read_value = vm.load_u64(addr as usize);
-            let rs2_val = values[val.0 as usize] as u64;
-            let write_value = read_value.max(rs2_val);
-            vm.store_u64(addr as usize, write_value);
-            values[dst.0 as usize] = read_value as i64;
+            match width {
+                AtomicWidth::W => {
+                    let read_value = vm.load_u32(addr as usize) as u64;
+                    let rs2_val = (values[val.0 as usize] as u64) & mask(32);
+                    let write_value = atomic_rmw_w(read_value, rs2_val, *op);
+                    vm.store_u32(addr as usize, write_value as u32);
+                    values[dst.0 as usize] = (read_value as i32) as i64;
+                }
+                AtomicWidth::D => {
+                    let read_value = vm.load_u64(addr as usize);
+                    let rs2_val = values[val.0 as usize] as u64;
+                    let write_value = atomic_rmw_d(read_value, rs2_val, *op);
+                    vm.store_u64(addr as usize, write_value);
+                    values[dst.0 as usize] = read_value as i64;
+                }
+            }
         }
         EffectOp::Ecall | EffectOp::Ebreak => {
             handle_ecall(vm, io);
@@ -408,7 +294,11 @@ fn exec_effect<T: Tracer>(op: &EffectOp, values: &mut [i64], vm: &mut VM<T>, io:
 }
 
 fn bool_to_i64(v: bool) -> i64 {
-    if v { 1 } else { 0 }
+    if v {
+        1
+    } else {
+        0
+    }
 }
 
 fn reg_index(reg: Reg) -> u8 {
@@ -445,6 +335,37 @@ fn reg_index(reg: Reg) -> u8 {
         Reg::X29 => 29,
         Reg::X30 => 30,
         Reg::X31 => 31,
+    }
+}
+
+fn atomic_rmw_w(read_value: u64, rs2_val: u64, op: AtomicRmwOp) -> u64 {
+    let read_i32 = read_value as i32;
+    let rs2_i32 = rs2_val as i32;
+    let result = match op {
+        AtomicRmwOp::Xchg => rs2_val,
+        AtomicRmwOp::Add => (read_i32.wrapping_add(rs2_i32) as i64) as u64,
+        AtomicRmwOp::And => (read_i32 & rs2_i32) as i64 as u64,
+        AtomicRmwOp::Or => (read_i32 | rs2_i32) as i64 as u64,
+        AtomicRmwOp::Xor => (read_i32 ^ rs2_i32) as i64 as u64,
+        AtomicRmwOp::Min => read_i32.min(rs2_i32) as i64 as u64,
+        AtomicRmwOp::Max => read_i32.max(rs2_i32) as i64 as u64,
+        AtomicRmwOp::Umin => read_value.min(rs2_val),
+        AtomicRmwOp::Umax => read_value.max(rs2_val),
+    };
+    result & mask(32)
+}
+
+fn atomic_rmw_d(read_value: u64, rs2_val: u64, op: AtomicRmwOp) -> u64 {
+    match op {
+        AtomicRmwOp::Xchg => rs2_val,
+        AtomicRmwOp::Add => read_value.wrapping_add(rs2_val),
+        AtomicRmwOp::And => read_value & rs2_val,
+        AtomicRmwOp::Or => read_value | rs2_val,
+        AtomicRmwOp::Xor => read_value ^ rs2_val,
+        AtomicRmwOp::Min => (read_value as i64).min(rs2_val as i64) as u64,
+        AtomicRmwOp::Max => (read_value as i64).max(rs2_val as i64) as u64,
+        AtomicRmwOp::Umin => read_value.min(rs2_val),
+        AtomicRmwOp::Umax => read_value.max(rs2_val),
     }
 }
 

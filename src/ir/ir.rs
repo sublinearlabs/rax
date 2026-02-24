@@ -184,98 +184,34 @@ pub enum EffectOp {
         addr: ValueId,
         val: ValueId,
     },
-    AmoSwapW {
+    AtomicRmw {
         dst: ValueId,
         addr: ValueId,
         val: ValueId,
-    },
-    AmoAddW {
-        dst: ValueId,
-        addr: ValueId,
-        val: ValueId,
-    },
-    AmoXorW {
-        dst: ValueId,
-        addr: ValueId,
-        val: ValueId,
-    },
-    AmoAndW {
-        dst: ValueId,
-        addr: ValueId,
-        val: ValueId,
-    },
-    AmoOrW {
-        dst: ValueId,
-        addr: ValueId,
-        val: ValueId,
-    },
-    AmoMinW {
-        dst: ValueId,
-        addr: ValueId,
-        val: ValueId,
-    },
-    AmoMaxW {
-        dst: ValueId,
-        addr: ValueId,
-        val: ValueId,
-    },
-    AmoMinuW {
-        dst: ValueId,
-        addr: ValueId,
-        val: ValueId,
-    },
-    AmoMaxuW {
-        dst: ValueId,
-        addr: ValueId,
-        val: ValueId,
-    },
-    AmoSwapD {
-        dst: ValueId,
-        addr: ValueId,
-        val: ValueId,
-    },
-    AmoAddD {
-        dst: ValueId,
-        addr: ValueId,
-        val: ValueId,
-    },
-    AmoXorD {
-        dst: ValueId,
-        addr: ValueId,
-        val: ValueId,
-    },
-    AmoAndD {
-        dst: ValueId,
-        addr: ValueId,
-        val: ValueId,
-    },
-    AmoOrD {
-        dst: ValueId,
-        addr: ValueId,
-        val: ValueId,
-    },
-    AmoMinD {
-        dst: ValueId,
-        addr: ValueId,
-        val: ValueId,
-    },
-    AmoMaxD {
-        dst: ValueId,
-        addr: ValueId,
-        val: ValueId,
-    },
-    AmoMinuD {
-        dst: ValueId,
-        addr: ValueId,
-        val: ValueId,
-    },
-    AmoMaxuD {
-        dst: ValueId,
-        addr: ValueId,
-        val: ValueId,
+        op: AtomicRmwOp,
+        width: AtomicWidth,
     },
     Ecall,
     Ebreak,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AtomicRmwOp {
+    Xchg,
+    Add,
+    And,
+    Or,
+    Xor,
+    Min,
+    Max,
+    Umin,
+    Umax,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AtomicWidth {
+    W,
+    D,
 }
 
 #[derive(Clone, Debug)]

@@ -1,5 +1,6 @@
 use crate::ir::{
-    Block, BlockId, EffectOp, IrFunction, IrType, Op, PureOp, Reg, Terminator, ValueId,
+    AtomicRmwOp, AtomicWidth, Block, BlockId, EffectOp, IrFunction, IrType, Op, PureOp, Reg,
+    Terminator, ValueId,
 };
 use crate::util::mask;
 
@@ -361,94 +362,27 @@ impl IrBuilder {
         dst
     }
 
-    pub fn amo_swap_w(&mut self, addr: ValueId, val: ValueId) -> ValueId {
-        let dst = self.new_value(IrType::I64);
-        self.amo_op_w(EffectOp::AmoSwapW { dst, addr, val })
-    }
-
-    pub fn amo_add_w(&mut self, addr: ValueId, val: ValueId) -> ValueId {
-        let dst = self.new_value(IrType::I64);
-        self.amo_op_w(EffectOp::AmoAddW { dst, addr, val })
-    }
-
-    pub fn amo_xor_w(&mut self, addr: ValueId, val: ValueId) -> ValueId {
-        let dst = self.new_value(IrType::I64);
-        self.amo_op_w(EffectOp::AmoXorW { dst, addr, val })
-    }
-
-    pub fn amo_and_w(&mut self, addr: ValueId, val: ValueId) -> ValueId {
-        let dst = self.new_value(IrType::I64);
-        self.amo_op_w(EffectOp::AmoAndW { dst, addr, val })
-    }
-
-    pub fn amo_or_w(&mut self, addr: ValueId, val: ValueId) -> ValueId {
-        let dst = self.new_value(IrType::I64);
-        self.amo_op_w(EffectOp::AmoOrW { dst, addr, val })
-    }
-
-    pub fn amo_min_w(&mut self, addr: ValueId, val: ValueId) -> ValueId {
-        let dst = self.new_value(IrType::I64);
-        self.amo_op_w(EffectOp::AmoMinW { dst, addr, val })
-    }
-
-    pub fn amo_max_w(&mut self, addr: ValueId, val: ValueId) -> ValueId {
-        let dst = self.new_value(IrType::I64);
-        self.amo_op_w(EffectOp::AmoMaxW { dst, addr, val })
-    }
-
-    pub fn amo_minu_w(&mut self, addr: ValueId, val: ValueId) -> ValueId {
-        let dst = self.new_value(IrType::I64);
-        self.amo_op_w(EffectOp::AmoMinuW { dst, addr, val })
-    }
-
-    pub fn amo_maxu_w(&mut self, addr: ValueId, val: ValueId) -> ValueId {
-        let dst = self.new_value(IrType::I64);
-        self.amo_op_w(EffectOp::AmoMaxuW { dst, addr, val })
-    }
-
-    pub fn amo_swap_d(&mut self, addr: ValueId, val: ValueId) -> ValueId {
-        let dst = self.new_value(IrType::I64);
-        self.amo_op_d(EffectOp::AmoSwapD { dst, addr, val })
-    }
-
-    pub fn amo_add_d(&mut self, addr: ValueId, val: ValueId) -> ValueId {
-        let dst = self.new_value(IrType::I64);
-        self.amo_op_d(EffectOp::AmoAddD { dst, addr, val })
-    }
-
-    pub fn amo_xor_d(&mut self, addr: ValueId, val: ValueId) -> ValueId {
-        let dst = self.new_value(IrType::I64);
-        self.amo_op_d(EffectOp::AmoXorD { dst, addr, val })
-    }
-
-    pub fn amo_and_d(&mut self, addr: ValueId, val: ValueId) -> ValueId {
-        let dst = self.new_value(IrType::I64);
-        self.amo_op_d(EffectOp::AmoAndD { dst, addr, val })
-    }
-
-    pub fn amo_or_d(&mut self, addr: ValueId, val: ValueId) -> ValueId {
-        let dst = self.new_value(IrType::I64);
-        self.amo_op_d(EffectOp::AmoOrD { dst, addr, val })
-    }
-
-    pub fn amo_min_d(&mut self, addr: ValueId, val: ValueId) -> ValueId {
-        let dst = self.new_value(IrType::I64);
-        self.amo_op_d(EffectOp::AmoMinD { dst, addr, val })
-    }
-
-    pub fn amo_max_d(&mut self, addr: ValueId, val: ValueId) -> ValueId {
-        let dst = self.new_value(IrType::I64);
-        self.amo_op_d(EffectOp::AmoMaxD { dst, addr, val })
-    }
-
-    pub fn amo_minu_d(&mut self, addr: ValueId, val: ValueId) -> ValueId {
-        let dst = self.new_value(IrType::I64);
-        self.amo_op_d(EffectOp::AmoMinuD { dst, addr, val })
-    }
-
-    pub fn amo_maxu_d(&mut self, addr: ValueId, val: ValueId) -> ValueId {
-        let dst = self.new_value(IrType::I64);
-        self.amo_op_d(EffectOp::AmoMaxuD { dst, addr, val })
+    pub fn atomic_rmw(
+        &mut self,
+        op: AtomicRmwOp,
+        width: AtomicWidth,
+        addr: ValueId,
+        val: ValueId,
+    ) -> ValueId {
+        self.expect_type(addr, IrType::I64);
+        self.expect_type(val, IrType::I64);
+        let dst = match width {
+            AtomicWidth::W => self.new_value(IrType::I32),
+            AtomicWidth::D => self.new_value(IrType::I64),
+        };
+        self.push_op(Op::Effect(EffectOp::AtomicRmw {
+            dst,
+            addr,
+            val,
+            op,
+            width,
+        }));
+        dst
     }
 
     pub fn ecall(&mut self) {
@@ -505,44 +439,6 @@ impl IrBuilder {
             panic!("cannot add op after terminator");
         }
         block.ops.push(op);
-    }
-
-    fn amo_op_w(&mut self, op: EffectOp) -> ValueId {
-        let (dst, addr, val) = match &op {
-            EffectOp::AmoSwapW { dst, addr, val }
-            | EffectOp::AmoAddW { dst, addr, val }
-            | EffectOp::AmoXorW { dst, addr, val }
-            | EffectOp::AmoAndW { dst, addr, val }
-            | EffectOp::AmoOrW { dst, addr, val }
-            | EffectOp::AmoMinW { dst, addr, val }
-            | EffectOp::AmoMaxW { dst, addr, val }
-            | EffectOp::AmoMinuW { dst, addr, val }
-            | EffectOp::AmoMaxuW { dst, addr, val } => (*dst, *addr, *val),
-            _ => panic!("invalid amo_op_w"),
-        };
-        self.expect_type(addr, IrType::I64);
-        self.expect_type(val, IrType::I64);
-        self.push_op(Op::Effect(op));
-        dst
-    }
-
-    fn amo_op_d(&mut self, op: EffectOp) -> ValueId {
-        let (dst, addr, val) = match &op {
-            EffectOp::AmoSwapD { dst, addr, val }
-            | EffectOp::AmoAddD { dst, addr, val }
-            | EffectOp::AmoXorD { dst, addr, val }
-            | EffectOp::AmoAndD { dst, addr, val }
-            | EffectOp::AmoOrD { dst, addr, val }
-            | EffectOp::AmoMinD { dst, addr, val }
-            | EffectOp::AmoMaxD { dst, addr, val }
-            | EffectOp::AmoMinuD { dst, addr, val }
-            | EffectOp::AmoMaxuD { dst, addr, val } => (*dst, *addr, *val),
-            _ => panic!("invalid amo_op_d"),
-        };
-        self.expect_type(addr, IrType::I64);
-        self.expect_type(val, IrType::I64);
-        self.push_op(Op::Effect(op));
-        dst
     }
 
     fn set_term(&mut self, term: Terminator) {
