@@ -6,6 +6,8 @@ use crate::decode::Instruction;
 use crate::decode::compressed::decode_compressed;
 use crate::ir::IrFunction;
 use crate::ir::execute_ir;
+#[cfg(feature = "ext_f")]
+use crate::ir::lower::f::lower_f;
 use crate::ir::lower::i::lower_i;
 #[cfg(feature = "ext_m")]
 use crate::ir::lower::m::lower_m;
@@ -82,6 +84,35 @@ fn lower_instruction(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFun
         | Instruction::Divuw(_)
         | Instruction::Remw(_)
         | Instruction::Remuw(_) => lower_m(insn, current_pc, next_pc),
+
+        // F instructions
+        #[cfg(feature = "ext_f")]
+        Instruction::Flw(_)
+        | Instruction::Fsw(_)
+        | Instruction::FmaddS(_)
+        | Instruction::FmsubS(_)
+        | Instruction::FnmsubS(_)
+        | Instruction::FnmaddS(_)
+        | Instruction::FaddS(_)
+        | Instruction::FsubS(_)
+        | Instruction::FmulS(_)
+        | Instruction::FdivS(_)
+        | Instruction::FsqrtS(_)
+        | Instruction::FsgnjS(_)
+        | Instruction::FsgnjnS(_)
+        | Instruction::FsgnjxS(_)
+        | Instruction::FminS(_)
+        | Instruction::FmaxS(_)
+        | Instruction::FeqS(_)
+        | Instruction::FltS(_)
+        | Instruction::FleS(_)
+        | Instruction::FcvtWS(_)
+        | Instruction::FcvtWuS(_)
+        | Instruction::FcvtSW(_)
+        | Instruction::FcvtSWu(_)
+        | Instruction::FmvXW(_)
+        | Instruction::FmvWX(_)
+        | Instruction::FclassS(_) => lower_f(insn, current_pc, next_pc),
 
         // Other instructions
         _ => lower_i(insn, current_pc, next_pc), // fallback to I for now

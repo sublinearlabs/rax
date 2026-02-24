@@ -198,6 +198,25 @@ impl IrBuilder {
         self.set_reg(reg_from_u8(idx), val);
     }
 
+    pub fn get_freg(&mut self, reg: Reg) -> ValueId {
+        let dst = self.new_value(IrType::F32);
+        self.push_op(Op::Effect(EffectOp::GetReg { dst, reg }));
+        dst
+    }
+
+    pub fn set_freg(&mut self, reg: Reg, val: ValueId) {
+        self.expect_type(val, IrType::F32);
+        self.push_op(Op::Effect(EffectOp::SetReg { reg, val }));
+    }
+
+    pub fn freg(&mut self, idx: u8) -> ValueId {
+        self.get_freg(freg_from_u8(idx))
+    }
+
+    pub fn set_freg_idx(&mut self, idx: u8, val: ValueId) {
+        self.set_freg(freg_from_u8(idx), val);
+    }
+
     pub fn imm_i32(&mut self, value: i32) -> ValueId {
         self.const_i64(value as i64)
     }
@@ -208,6 +227,10 @@ impl IrBuilder {
 
     pub fn imm_u64(&mut self, value: u64) -> ValueId {
         self.const_i64(value as i64)
+    }
+
+    pub fn iconst(&mut self, value: i64) -> ValueId {
+        self.const_i64(value)
     }
 
     pub fn zimm5(&mut self, value: u8) -> ValueId {
@@ -331,6 +354,185 @@ impl IrBuilder {
         self.push_op(Op::Effect(EffectOp::Store64 { addr, val }));
     }
 
+    pub fn load_f32(&mut self, addr: ValueId) -> ValueId {
+        self.expect_type(addr, IrType::I64);
+        let dst = self.new_value(IrType::F32);
+        self.push_op(Op::Effect(EffectOp::LoadF32 { dst, addr }));
+        dst
+    }
+
+    pub fn store_f32(&mut self, addr: ValueId, val: ValueId) {
+        self.expect_type(addr, IrType::I64);
+        self.expect_type(val, IrType::F32);
+        self.push_op(Op::Effect(EffectOp::StoreF32 { addr, val }));
+    }
+
+    pub fn fadd(&mut self, a: ValueId, b: ValueId) -> ValueId {
+        self.bin_f32(PureOp::Fadd, a, b)
+    }
+
+    pub fn fsub(&mut self, a: ValueId, b: ValueId) -> ValueId {
+        self.bin_f32(PureOp::Fsub, a, b)
+    }
+
+    pub fn fmul(&mut self, a: ValueId, b: ValueId) -> ValueId {
+        self.bin_f32(PureOp::Fmul, a, b)
+    }
+
+    pub fn fdiv(&mut self, a: ValueId, b: ValueId) -> ValueId {
+        self.bin_f32(PureOp::Fdiv, a, b)
+    }
+
+    pub fn fsqrt(&mut self, v: ValueId) -> ValueId {
+        self.un_f32(PureOp::Fsqrt, v)
+    }
+
+    pub fn fmin(&mut self, a: ValueId, b: ValueId) -> ValueId {
+        self.bin_f32(PureOp::Fmin, a, b)
+    }
+
+    pub fn fmax(&mut self, a: ValueId, b: ValueId) -> ValueId {
+        self.bin_f32(PureOp::Fmax, a, b)
+    }
+
+    pub fn feq(&mut self, a: ValueId, b: ValueId) -> ValueId {
+        self.bin_f32_cmp(PureOp::Feq, a, b)
+    }
+
+    pub fn flt(&mut self, a: ValueId, b: ValueId) -> ValueId {
+        self.bin_f32_cmp(PureOp::Flt, a, b)
+    }
+
+    pub fn fle(&mut self, a: ValueId, b: ValueId) -> ValueId {
+        self.bin_f32_cmp(PureOp::Fle, a, b)
+    }
+
+    pub fn fsgnj(&mut self, a: ValueId, b: ValueId) -> ValueId {
+        self.bin_f32(PureOp::Fsgnj, a, b)
+    }
+
+    pub fn fsgnjn(&mut self, a: ValueId, b: ValueId) -> ValueId {
+        self.bin_f32(PureOp::Fsgnjn, a, b)
+    }
+
+    pub fn fsgnjx(&mut self, a: ValueId, b: ValueId) -> ValueId {
+        self.bin_f32(PureOp::Fsgnjx, a, b)
+    }
+
+    pub fn fcvt_f32_i32(&mut self, v: ValueId) -> ValueId {
+        self.un_f32_from_i32(PureOp::FcvtF32I32, v)
+    }
+
+    pub fn fcvt_f32_i64(&mut self, v: ValueId) -> ValueId {
+        self.un_f32_from_i64(PureOp::FcvtF32I64, v)
+    }
+
+    pub fn fcvt_f32_u32(&mut self, v: ValueId) -> ValueId {
+        self.un_f32_from_i32(PureOp::FcvtF32U32, v)
+    }
+
+    pub fn fcvt_f32_u64(&mut self, v: ValueId) -> ValueId {
+        self.un_f32_from_i64(PureOp::FcvtF32U64, v)
+    }
+
+    pub fn fcvt_i32_f32(&mut self, v: ValueId) -> ValueId {
+        self.un_i32_from_f32(PureOp::FcvtI32F32, v)
+    }
+
+    pub fn fcvt_i64_f32(&mut self, v: ValueId) -> ValueId {
+        self.un_i64_from_f32(PureOp::FcvtI64F32, v)
+    }
+
+    pub fn fcvt_u32_f32(&mut self, v: ValueId) -> ValueId {
+        self.un_i32_from_f32(PureOp::FcvtU32F32, v)
+    }
+
+    pub fn fcvt_u64_f32(&mut self, v: ValueId) -> ValueId {
+        self.un_i64_from_f32(PureOp::FcvtU64F32, v)
+    }
+
+    pub fn fmv_f32(&mut self, v: ValueId) -> ValueId {
+        self.un_f32_from_i32(PureOp::FmvF32, v)
+    }
+
+    pub fn fmv_i32(&mut self, v: ValueId) -> ValueId {
+        self.un_i32_from_f32(PureOp::FmvI32, v)
+    }
+
+    pub fn fcvt_w_s(&mut self, v: ValueId) -> ValueId {
+        self.un_i32_from_f32(PureOp::FcvtI32F32, v)
+    }
+
+    pub fn fcvt_wu_s(&mut self, v: ValueId) -> ValueId {
+        self.un_i32_from_f32(PureOp::FcvtU32F32, v)
+    }
+
+    pub fn fcvt_s_w(&mut self, v: ValueId) -> ValueId {
+        self.un_f32_from_i32(PureOp::FcvtF32I32, v)
+    }
+
+    pub fn fcvt_s_wu(&mut self, v: ValueId) -> ValueId {
+        self.un_f32_from_i32(PureOp::FcvtF32U32, v)
+    }
+
+    pub fn fmadd(&mut self, a: ValueId, b: ValueId, c: ValueId) -> ValueId {
+        // For now, implement as (a * b) + c
+        let mul = self.fmul(a, b);
+        self.fadd(mul, c)
+    }
+
+    pub fn fmsub(&mut self, a: ValueId, b: ValueId, c: ValueId) -> ValueId {
+        // For now, implement as (a * b) - c
+        let mul = self.fmul(a, b);
+        self.fsub(mul, c)
+    }
+
+    pub fn fnmsub(&mut self, a: ValueId, b: ValueId, c: ValueId) -> ValueId {
+        // For now, implement as -(a * b) + c
+        let mul = self.fmul(a, b);
+        let neg_mul = self.fneg(mul);
+        self.fadd(neg_mul, c)
+    }
+
+    pub fn fnmadd(&mut self, a: ValueId, b: ValueId, c: ValueId) -> ValueId {
+        // For now, implement as -(a * b) - c
+        let mul = self.fmul(a, b);
+        let neg_mul = self.fneg(mul);
+        self.fsub(neg_mul, c)
+    }
+
+    pub fn fneg(&mut self, v: ValueId) -> ValueId {
+        // Implement as -0.0 - v
+        let neg_zero = self.fconst(0.0);
+        let neg_zero = self.fneg_const(neg_zero);
+        self.fsub(neg_zero, v)
+    }
+
+    pub fn fconst(&mut self, v: f32) -> ValueId {
+        let dst = self.new_value(IrType::F32);
+        self.push_op(Op::Pure {
+            dst,
+            op: PureOp::ConstF32(v.to_bits()),
+        });
+        dst
+    }
+
+    pub fn fneg_const(&mut self, v: ValueId) -> ValueId {
+        // Flip the sign bit
+        let bits = self.fbits(v);
+        let sign_bit = self.iconst(0x8000_0000);
+        let flipped = self.xor(bits, sign_bit);
+        self.fbits_to_f32(flipped)
+    }
+
+    pub fn fbits(&mut self, v: ValueId) -> ValueId {
+        self.un_i32_from_f32(PureOp::FmvI32, v)
+    }
+
+    pub fn fbits_to_f32(&mut self, v: ValueId) -> ValueId {
+        self.un_f32_from_i32(PureOp::FmvF32, v)
+    }
+
     pub fn ecall(&mut self) {
         self.push_op(Op::Effect(EffectOp::Ecall));
     }
@@ -442,6 +644,88 @@ impl IrBuilder {
         dst
     }
 
+    fn bin_f32(
+        &mut self,
+        make_op: fn(ValueId, ValueId) -> PureOp,
+        a: ValueId,
+        b: ValueId,
+    ) -> ValueId {
+        self.expect_type(a, IrType::F32);
+        self.expect_type(b, IrType::F32);
+        let dst = self.new_value(IrType::F32);
+        self.push_op(Op::Pure {
+            dst,
+            op: make_op(a, b),
+        });
+        dst
+    }
+
+    fn bin_f32_cmp(
+        &mut self,
+        make_op: fn(ValueId, ValueId) -> PureOp,
+        a: ValueId,
+        b: ValueId,
+    ) -> ValueId {
+        self.expect_type(a, IrType::F32);
+        self.expect_type(b, IrType::F32);
+        let dst = self.new_value(IrType::I1);
+        self.push_op(Op::Pure {
+            dst,
+            op: make_op(a, b),
+        });
+        dst
+    }
+
+    fn un_f32(&mut self, make_op: fn(ValueId) -> PureOp, v: ValueId) -> ValueId {
+        self.expect_type(v, IrType::F32);
+        let dst = self.new_value(IrType::F32);
+        self.push_op(Op::Pure {
+            dst,
+            op: make_op(v),
+        });
+        dst
+    }
+
+    fn un_f32_from_i32(&mut self, make_op: fn(ValueId) -> PureOp, v: ValueId) -> ValueId {
+        self.expect_type(v, IrType::I32);
+        let dst = self.new_value(IrType::F32);
+        self.push_op(Op::Pure {
+            dst,
+            op: make_op(v),
+        });
+        dst
+    }
+
+    fn un_f32_from_i64(&mut self, make_op: fn(ValueId) -> PureOp, v: ValueId) -> ValueId {
+        self.expect_type(v, IrType::I64);
+        let dst = self.new_value(IrType::F32);
+        self.push_op(Op::Pure {
+            dst,
+            op: make_op(v),
+        });
+        dst
+    }
+
+    fn un_i32_from_f32(&mut self, make_op: fn(ValueId) -> PureOp, v: ValueId) -> ValueId {
+        self.expect_type(v, IrType::F32);
+        let dst = self.new_value(IrType::I32);
+        self.push_op(Op::Pure {
+            dst,
+            op: make_op(v),
+        });
+        dst
+    }
+
+    fn un_i64_from_f32(&mut self, make_op: fn(ValueId) -> PureOp, v: ValueId) -> ValueId {
+        self.expect_type(v, IrType::F32);
+        let dst = self.new_value(IrType::I64);
+        self.push_op(Op::Pure {
+            dst,
+            op: make_op(v),
+        });
+        dst
+    }
+
     fn check_block_args(&self, block: BlockId, args: &[ValueId]) {
         let block = &self.func.blocks[block.0 as usize];
         if block.args.len() != args.len() {
@@ -495,5 +779,43 @@ fn reg_from_u8(idx: u8) -> Reg {
         30 => Reg::X30,
         31 => Reg::X31,
         _ => panic!("invalid register index: {}", idx),
+    }
+}
+
+fn freg_from_u8(idx: u8) -> Reg {
+    match idx {
+        0 => Reg::F0,
+        1 => Reg::F1,
+        2 => Reg::F2,
+        3 => Reg::F3,
+        4 => Reg::F4,
+        5 => Reg::F5,
+        6 => Reg::F6,
+        7 => Reg::F7,
+        8 => Reg::F8,
+        9 => Reg::F9,
+        10 => Reg::F10,
+        11 => Reg::F11,
+        12 => Reg::F12,
+        13 => Reg::F13,
+        14 => Reg::F14,
+        15 => Reg::F15,
+        16 => Reg::F16,
+        17 => Reg::F17,
+        18 => Reg::F18,
+        19 => Reg::F19,
+        20 => Reg::F20,
+        21 => Reg::F21,
+        22 => Reg::F22,
+        23 => Reg::F23,
+        24 => Reg::F24,
+        25 => Reg::F25,
+        26 => Reg::F26,
+        27 => Reg::F27,
+        28 => Reg::F28,
+        29 => Reg::F29,
+        30 => Reg::F30,
+        31 => Reg::F31,
+        _ => panic!("invalid floating point register index: {}", idx),
     }
 }

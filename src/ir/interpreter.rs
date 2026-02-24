@@ -3,10 +3,61 @@ use crate::ir::{BlockId, EffectOp, IrFunction, IrType, Op, PureOp, Reg, Terminat
 use crate::trace::Tracer;
 use crate::{HostIO, VM};
 
+#[derive(Clone, Copy)]
+enum Value {
+    I1(bool),
+    I8(i8),
+    I16(i16),
+    I32(i32),
+    I64(i64),
+    F32(f32),
+    F64(f64),
+}
+
+impl Value {
+    fn as_i64(&self) -> i64 {
+        match self {
+            Value::I1(v) => *v as i64,
+            Value::I8(v) => *v as i64,
+            Value::I16(v) => *v as i64,
+            Value::I32(v) => *v as i64,
+            Value::I64(v) => *v,
+            Value::F32(v) => v.to_bits() as i64,
+            Value::F64(v) => v.to_bits() as i64,
+        }
+    }
+
+    fn as_f32(&self) -> f32 {
+        match self {
+            Value::F32(v) => *v,
+            _ => panic!("expected F32 value"),
+        }
+    }
+
+    fn as_bool(&self) -> bool {
+        match self {
+            Value::I1(v) => *v,
+            _ => panic!("expected I1 value"),
+        }
+    }
+}
+
 pub fn execute_ir<T: Tracer>(func: &IrFunction, vm: &mut VM<T>, io: &mut HostIO) {
-    let mut values = vec![0i64; func.value_types.len()];
+    let mut values: Vec<Value> = func
+        .value_types
+        .iter()
+        .map(|ty| match ty {
+            IrType::I1 => Value::I1(false),
+            IrType::I8 => Value::I8(0),
+            IrType::I16 => Value::I16(0),
+            IrType::I32 => Value::I32(0),
+            IrType::I64 => Value::I64(0),
+            IrType::F32 => Value::F32(0.0),
+            IrType::F64 => Value::F64(0.0),
+        })
+        .collect();
     let mut current = BlockId(0);
-    let mut pending_args: Vec<i64> = Vec::new();
+    let mut pending_args: Vec<Value> = Vec::new();
 
     loop {
         let block = &func.blocks[current.0 as usize];
@@ -47,8 +98,8 @@ pub fn execute_ir<T: Tracer>(func: &IrFunction, vm: &mut VM<T>, io: &mut HostIO)
                 t_args,
                 f_args,
             } => {
-                let cond_val = values[cond.0 as usize];
-                if cond_val != 0 {
+                let cond_val = values[cond.0 as usize].as_bool();
+                if cond_val {
                     pending_args = t_args.iter().map(|v| values[v.0 as usize]).collect();
                     current = *t;
                 } else {
@@ -61,173 +112,508 @@ pub fn execute_ir<T: Tracer>(func: &IrFunction, vm: &mut VM<T>, io: &mut HostIO)
     }
 }
 
-fn eval_pure(op: &PureOp, values: &[i64]) -> i64 {
+fn eval_pure(op: &PureOp, values: &[Value]) -> Value {
     match op {
-        PureOp::ConstI64(v) => *v,
-        PureOp::Add(a, b) => values[a.0 as usize].wrapping_add(values[b.0 as usize]),
-        PureOp::Sub(a, b) => values[a.0 as usize].wrapping_sub(values[b.0 as usize]),
-        PureOp::Mul(a, b) => values[a.0 as usize].wrapping_mul(values[b.0 as usize]),
+        PureOp::ConstI64(v) => Value::I64(*v),
+        PureOp::ConstF32(v) => Value::F32(f32::from_bits(*v)),
+        PureOp::Add(a, b) => {
+            let a = values[a.0 as usize].as_i64();
+            let b = values[b.0 as usize].as_i64();
+            Value::I64(a.wrapping_add(b))
+        }
+        PureOp::Sub(a, b) => {
+            let a = values[a.0 as usize].as_i64();
+            let b = values[b.0 as usize].as_i64();
+            Value::I64(a.wrapping_sub(b))
+        }
+        PureOp::Mul(a, b) => {
+            let a = values[a.0 as usize].as_i64();
+            let b = values[b.0 as usize].as_i64();
+            Value::I64(a.wrapping_mul(b))
+        }
         PureOp::Mulh(a, b) => {
-            let a = values[a.0 as usize] as i128;
-            let b = values[b.0 as usize] as i128;
-            (a * b >> 64) as i64
+            let a = values[a.0 as usize].as_i64() as i128;
+            let b = values[b.0 as usize].as_i64() as i128;
+            Value::I64((a * b >> 64) as i64)
         }
         PureOp::Mulhu(a, b) => {
-            let a = values[a.0 as usize] as u128;
-            let b = values[b.0 as usize] as u128;
-            (a * b >> 64) as i64
+            let a = values[a.0 as usize].as_i64() as u128;
+            let b = values[b.0 as usize].as_i64() as u128;
+            Value::I64((a * b >> 64) as i64)
         }
         PureOp::Mulhsu(a, b) => {
-            let a = values[a.0 as usize] as i128;
-            let b = values[b.0 as usize] as u128 as i128;
-            (a * b >> 64) as i64
+            let a = values[a.0 as usize].as_i64() as i128;
+            let b = values[b.0 as usize].as_i64() as u128 as i128;
+            Value::I64((a * b >> 64) as i64)
         }
         PureOp::Div(a, b) => {
-            let b_val = values[b.0 as usize];
-            if b_val == 0 {
-                -1 // RISC-V division by zero
+            let a = values[a.0 as usize].as_i64();
+            let b = values[b.0 as usize].as_i64();
+            if b == 0 {
+                Value::I64(-1) // RISC-V division by zero
             } else {
-                values[a.0 as usize] / b_val
+                Value::I64(a / b)
             }
         }
         PureOp::Divu(a, b) => {
-            let b_val = values[b.0 as usize] as u64;
-            if b_val == 0 {
-                u64::MAX as i64 // RISC-V unsigned division by zero
+            let a = values[a.0 as usize].as_i64() as u64;
+            let b = values[b.0 as usize].as_i64() as u64;
+            if b == 0 {
+                Value::I64(u64::MAX as i64) // RISC-V unsigned division by zero
             } else {
-                ((values[a.0 as usize] as u64) / b_val) as i64
+                Value::I64((a / b) as i64)
             }
         }
         PureOp::Rem(a, b) => {
-            let b_val = values[b.0 as usize];
-            if b_val == 0 {
-                values[a.0 as usize] // RISC-V remainder by zero
+            let a = values[a.0 as usize].as_i64();
+            let b = values[b.0 as usize].as_i64();
+            if b == 0 {
+                Value::I64(a) // RISC-V remainder by zero
             } else {
-                values[a.0 as usize] % b_val
+                Value::I64(a % b)
             }
         }
         PureOp::Remu(a, b) => {
-            let b_val = values[b.0 as usize] as u64;
-            if b_val == 0 {
-                values[a.0 as usize] // RISC-V unsigned remainder by zero
+            let a = values[a.0 as usize].as_i64() as u64;
+            let b = values[b.0 as usize].as_i64() as u64;
+            if b == 0 {
+                Value::I64(a as i64) // RISC-V unsigned remainder by zero
             } else {
-                ((values[a.0 as usize] as u64) % b_val) as i64
+                Value::I64((a % b) as i64)
             }
         }
-        PureOp::And(a, b) => values[a.0 as usize] & values[b.0 as usize],
-        PureOp::Or(a, b) => values[a.0 as usize] | values[b.0 as usize],
-        PureOp::Xor(a, b) => values[a.0 as usize] ^ values[b.0 as usize],
+        PureOp::And(a, b) => {
+            let a = values[a.0 as usize].as_i64();
+            let b = values[b.0 as usize].as_i64();
+            Value::I64(a & b)
+        }
+        PureOp::Or(a, b) => {
+            let a = values[a.0 as usize].as_i64();
+            let b = values[b.0 as usize].as_i64();
+            Value::I64(a | b)
+        }
+        PureOp::Xor(a, b) => {
+            let a = values[a.0 as usize].as_i64();
+            let b = values[b.0 as usize].as_i64();
+            Value::I64(a ^ b)
+        }
         PureOp::Shl(a, b) => {
-            let sh = values[b.0 as usize] as u32;
-            values[a.0 as usize] << sh
+            let a = values[a.0 as usize].as_i64();
+            let b = values[b.0 as usize].as_i64() as u32;
+            Value::I64(a << b)
         }
         PureOp::Shr(a, b) => {
-            let sh = values[b.0 as usize] as u32;
-            ((values[a.0 as usize] as u64) >> sh) as i64
+            let a = values[a.0 as usize].as_i64() as u64;
+            let b = values[b.0 as usize].as_i64() as u32;
+            Value::I64((a >> b) as i64)
         }
         PureOp::Sar(a, b) => {
-            let sh = values[b.0 as usize] as u32;
-            values[a.0 as usize] >> sh
+            let a = values[a.0 as usize].as_i64();
+            let b = values[b.0 as usize].as_i64() as u32;
+            Value::I64(a >> b)
         }
-        PureOp::Eq(a, b) => bool_to_i64(values[a.0 as usize] == values[b.0 as usize]),
-        PureOp::Ne(a, b) => bool_to_i64(values[a.0 as usize] != values[b.0 as usize]),
-        PureOp::Lt(a, b) => bool_to_i64(values[a.0 as usize] < values[b.0 as usize]),
+        PureOp::Eq(a, b) => {
+            let a = values[a.0 as usize].as_i64();
+            let b = values[b.0 as usize].as_i64();
+            Value::I1(a == b)
+        }
+        PureOp::Ne(a, b) => {
+            let a = values[a.0 as usize].as_i64();
+            let b = values[b.0 as usize].as_i64();
+            Value::I1(a != b)
+        }
+        PureOp::Lt(a, b) => {
+            let a = values[a.0 as usize].as_i64();
+            let b = values[b.0 as usize].as_i64();
+            Value::I1(a < b)
+        }
         PureOp::Ltu(a, b) => {
-            bool_to_i64((values[a.0 as usize] as u64) < (values[b.0 as usize] as u64))
+            let a = values[a.0 as usize].as_i64() as u64;
+            let b = values[b.0 as usize].as_i64() as u64;
+            Value::I1(a < b)
         }
-        PureOp::Ge(a, b) => bool_to_i64(values[a.0 as usize] >= values[b.0 as usize]),
+        PureOp::Ge(a, b) => {
+            let a = values[a.0 as usize].as_i64();
+            let b = values[b.0 as usize].as_i64();
+            Value::I1(a >= b)
+        }
         PureOp::Geu(a, b) => {
-            bool_to_i64((values[a.0 as usize] as u64) >= (values[b.0 as usize] as u64))
+            let a = values[a.0 as usize].as_i64() as u64;
+            let b = values[b.0 as usize].as_i64() as u64;
+            Value::I1(a >= b)
         }
-        PureOp::Sext { v, from, to } => sext(values[v.0 as usize], *from, *to),
-        PureOp::Zext { v, from, to } => zext(values[v.0 as usize], *from, *to),
-        PureOp::Trunc { v, from, to } => trunc(values[v.0 as usize], *from, *to),
+        PureOp::Sext { v, from, to } => {
+            let v = values[v.0 as usize].as_i64();
+            Value::I64(sext(v, *from, *to))
+        }
+        PureOp::Zext { v, from, to } => {
+            let v = values[v.0 as usize].as_i64();
+            Value::I64(zext(v, *from, *to))
+        }
+        PureOp::Trunc { v, from, to } => {
+            let v = values[v.0 as usize].as_i64();
+            Value::I64(trunc(v, *from, *to))
+        }
         PureOp::Select { cond, t, f } => {
-            let c = values[cond.0 as usize];
-            if c != 0 {
+            let c = values[cond.0 as usize].as_bool();
+            if c {
                 values[t.0 as usize]
             } else {
                 values[f.0 as usize]
             }
         }
+        // Floating point operations
+        PureOp::Fadd(a, b) => {
+            let a = values[a.0 as usize].as_f32();
+            let b = values[b.0 as usize].as_f32();
+            Value::F32(a + b)
+        }
+        PureOp::Fsub(a, b) => {
+            let a = values[a.0 as usize].as_f32();
+            let b = values[b.0 as usize].as_f32();
+            Value::F32(a - b)
+        }
+        PureOp::Fmul(a, b) => {
+            let a = values[a.0 as usize].as_f32();
+            let b = values[b.0 as usize].as_f32();
+            Value::F32(a * b)
+        }
+        PureOp::Fdiv(a, b) => {
+            let a = values[a.0 as usize].as_f32();
+            let b = values[b.0 as usize].as_f32();
+            Value::F32(a / b)
+        }
+        PureOp::Fsqrt(v) => {
+            let v = values[v.0 as usize].as_f32();
+            Value::F32(v.sqrt())
+        }
+        PureOp::Fmin(a, b) => {
+            let a = values[a.0 as usize].as_f32();
+            let b = values[b.0 as usize].as_f32();
+            Value::F32(a.min(b))
+        }
+        PureOp::Fmax(a, b) => {
+            let a = values[a.0 as usize].as_f32();
+            let b = values[b.0 as usize].as_f32();
+            Value::F32(a.max(b))
+        }
+        PureOp::Feq(a, b) => {
+            let a = values[a.0 as usize].as_f32();
+            let b = values[b.0 as usize].as_f32();
+            Value::I1(a == b)
+        }
+        PureOp::Flt(a, b) => {
+            let a = values[a.0 as usize].as_f32();
+            let b = values[b.0 as usize].as_f32();
+            Value::I1(a < b)
+        }
+        PureOp::Fle(a, b) => {
+            let a = values[a.0 as usize].as_f32();
+            let b = values[b.0 as usize].as_f32();
+            Value::I1(a <= b)
+        }
+        PureOp::Fsgnj(a, b) => {
+            let a = values[a.0 as usize].as_f32();
+            let b = values[b.0 as usize].as_f32();
+            let sign = b.to_bits() & 0x8000_0000;
+            let mag = a.to_bits() & 0x7FFF_FFFF;
+            Value::F32(f32::from_bits(sign | mag))
+        }
+        PureOp::Fsgnjn(a, b) => {
+            let a = values[a.0 as usize].as_f32();
+            let b = values[b.0 as usize].as_f32();
+            let sign = (b.to_bits() & 0x8000_0000) ^ 0x8000_0000;
+            let mag = a.to_bits() & 0x7FFF_FFFF;
+            Value::F32(f32::from_bits(sign | mag))
+        }
+        PureOp::Fsgnjx(a, b) => {
+            let a = values[a.0 as usize].as_f32();
+            let b = values[b.0 as usize].as_f32();
+            let sign = (a.to_bits() & 0x8000_0000) ^ (b.to_bits() & 0x8000_0000);
+            let mag = a.to_bits() & 0x7FFF_FFFF;
+            Value::F32(f32::from_bits(sign | mag))
+        }
+        PureOp::FcvtF32I32(v) => {
+            let v = values[v.0 as usize].as_i64() as i32;
+            Value::F32(v as f32)
+        }
+        PureOp::FcvtF32I64(v) => {
+            let v = values[v.0 as usize].as_i64();
+            Value::F32(v as f32)
+        }
+        PureOp::FcvtF32U32(v) => {
+            let v = values[v.0 as usize].as_i64() as u32;
+            Value::F32(v as f32)
+        }
+        PureOp::FcvtF32U64(v) => {
+            let v = values[v.0 as usize].as_i64() as u64;
+            Value::F32(v as f32)
+        }
+        PureOp::FcvtI32F32(v) => {
+            let v = values[v.0 as usize].as_f32();
+            Value::I32(v as i32)
+        }
+        PureOp::FcvtI64F32(v) => {
+            let v = values[v.0 as usize].as_f32();
+            Value::I64(v as i64)
+        }
+        PureOp::FcvtU32F32(v) => {
+            let v = values[v.0 as usize].as_f32();
+            Value::I32(v as u32 as i32)
+        }
+        PureOp::FcvtU64F32(v) => {
+            let v = values[v.0 as usize].as_f32();
+            Value::I64(v as u64 as i64)
+        }
+        PureOp::FmvF32(v) => {
+            let v = values[v.0 as usize].as_i64() as u32;
+            Value::F32(f32::from_bits(v))
+        }
+        PureOp::FmvI32(v) => {
+            let v = values[v.0 as usize].as_f32();
+            Value::I32(v.to_bits() as i32)
+        }
     }
 }
 
-fn exec_effect<T: Tracer>(op: &EffectOp, values: &mut [i64], vm: &mut VM<T>, io: &mut HostIO) {
+fn exec_effect<T: Tracer>(op: &EffectOp, values: &mut [Value], vm: &mut VM<T>, io: &mut HostIO) {
     match op {
-        EffectOp::GetReg { dst, reg } => {
-            let idx = reg_index(*reg);
-            values[dst.0 as usize] = vm.reg(idx) as i64;
-        }
-        EffectOp::SetReg { reg, val } => {
-            let idx = reg_index(*reg);
-            vm.reg_mut(idx, values[val.0 as usize] as u64);
-        }
+        EffectOp::GetReg { dst, reg } => match reg {
+            Reg::X0
+            | Reg::X1
+            | Reg::X2
+            | Reg::X3
+            | Reg::X4
+            | Reg::X5
+            | Reg::X6
+            | Reg::X7
+            | Reg::X8
+            | Reg::X9
+            | Reg::X10
+            | Reg::X11
+            | Reg::X12
+            | Reg::X13
+            | Reg::X14
+            | Reg::X15
+            | Reg::X16
+            | Reg::X17
+            | Reg::X18
+            | Reg::X19
+            | Reg::X20
+            | Reg::X21
+            | Reg::X22
+            | Reg::X23
+            | Reg::X24
+            | Reg::X25
+            | Reg::X26
+            | Reg::X27
+            | Reg::X28
+            | Reg::X29
+            | Reg::X30
+            | Reg::X31 => {
+                let idx = reg_index(*reg);
+                let val = vm.reg(idx) as i64;
+                values[dst.0 as usize] = Value::I64(val);
+            }
+            Reg::F0
+            | Reg::F1
+            | Reg::F2
+            | Reg::F3
+            | Reg::F4
+            | Reg::F5
+            | Reg::F6
+            | Reg::F7
+            | Reg::F8
+            | Reg::F9
+            | Reg::F10
+            | Reg::F11
+            | Reg::F12
+            | Reg::F13
+            | Reg::F14
+            | Reg::F15
+            | Reg::F16
+            | Reg::F17
+            | Reg::F18
+            | Reg::F19
+            | Reg::F20
+            | Reg::F21
+            | Reg::F22
+            | Reg::F23
+            | Reg::F24
+            | Reg::F25
+            | Reg::F26
+            | Reg::F27
+            | Reg::F28
+            | Reg::F29
+            | Reg::F30
+            | Reg::F31 => {
+                let idx = freg_index(*reg);
+                let val = vm.read_f32(idx);
+                values[dst.0 as usize] = Value::F32(val);
+            }
+        },
+        EffectOp::SetReg { reg, val } => match reg {
+            Reg::X0
+            | Reg::X1
+            | Reg::X2
+            | Reg::X3
+            | Reg::X4
+            | Reg::X5
+            | Reg::X6
+            | Reg::X7
+            | Reg::X8
+            | Reg::X9
+            | Reg::X10
+            | Reg::X11
+            | Reg::X12
+            | Reg::X13
+            | Reg::X14
+            | Reg::X15
+            | Reg::X16
+            | Reg::X17
+            | Reg::X18
+            | Reg::X19
+            | Reg::X20
+            | Reg::X21
+            | Reg::X22
+            | Reg::X23
+            | Reg::X24
+            | Reg::X25
+            | Reg::X26
+            | Reg::X27
+            | Reg::X28
+            | Reg::X29
+            | Reg::X30
+            | Reg::X31 => {
+                let idx = reg_index(*reg);
+                let val = values[val.0 as usize].as_i64() as u64;
+                vm.reg_mut(idx, val);
+            }
+            Reg::F0
+            | Reg::F1
+            | Reg::F2
+            | Reg::F3
+            | Reg::F4
+            | Reg::F5
+            | Reg::F6
+            | Reg::F7
+            | Reg::F8
+            | Reg::F9
+            | Reg::F10
+            | Reg::F11
+            | Reg::F12
+            | Reg::F13
+            | Reg::F14
+            | Reg::F15
+            | Reg::F16
+            | Reg::F17
+            | Reg::F18
+            | Reg::F19
+            | Reg::F20
+            | Reg::F21
+            | Reg::F22
+            | Reg::F23
+            | Reg::F24
+            | Reg::F25
+            | Reg::F26
+            | Reg::F27
+            | Reg::F28
+            | Reg::F29
+            | Reg::F30
+            | Reg::F31 => {
+                let idx = freg_index(*reg);
+                let val = values[val.0 as usize].as_f32();
+                vm.write_f32(idx, val);
+            }
+        },
         EffectOp::GetCsr { dst, csr } => {
-            values[dst.0 as usize] = vm.read_csr(*csr) as i64;
+            let val = vm.read_csr(*csr) as i64;
+            values[dst.0 as usize] = Value::I64(val);
         }
         EffectOp::SetCsr { csr, val } => {
-            vm.set_csr(*csr, values[val.0 as usize] as u32);
+            let val = values[val.0 as usize].as_i64() as u32;
+            vm.set_csr(*csr, val);
         }
         EffectOp::GetPc { dst } => {
-            values[dst.0 as usize] = vm.pc() as i64;
+            let val = vm.pc() as i64;
+            values[dst.0 as usize] = Value::I64(val);
         }
         EffectOp::SetPc { val } => {
-            vm.set_pc(values[val.0 as usize] as u64);
+            let val = values[val.0 as usize].as_i64() as u64;
+            vm.set_pc(val);
         }
         EffectOp::Load8s { dst, addr } => {
-            let addr = values[addr.0 as usize] as usize;
+            let addr = values[addr.0 as usize].as_i64() as usize;
             let v = vm.load_u8(addr) as i8 as i64;
-            values[dst.0 as usize] = v;
+            values[dst.0 as usize] = Value::I64(v);
         }
         EffectOp::Load8u { dst, addr } => {
-            let addr = values[addr.0 as usize] as usize;
+            let addr = values[addr.0 as usize].as_i64() as usize;
             let v = vm.load_u8(addr) as u8 as i64;
-            values[dst.0 as usize] = v;
+            values[dst.0 as usize] = Value::I64(v);
         }
         EffectOp::Load16s { dst, addr } => {
-            let addr = values[addr.0 as usize] as usize;
+            let addr = values[addr.0 as usize].as_i64() as usize;
             let v = vm.load_u16(addr) as i16 as i64;
-            values[dst.0 as usize] = v;
+            values[dst.0 as usize] = Value::I64(v);
         }
         EffectOp::Load16u { dst, addr } => {
-            let addr = values[addr.0 as usize] as usize;
+            let addr = values[addr.0 as usize].as_i64() as usize;
             let v = vm.load_u16(addr) as u16 as i64;
-            values[dst.0 as usize] = v;
+            values[dst.0 as usize] = Value::I64(v);
         }
         EffectOp::Load32s { dst, addr } => {
-            let addr = values[addr.0 as usize] as usize;
+            let addr = values[addr.0 as usize].as_i64() as usize;
             let v = vm.load_u32(addr) as i32 as i64;
-            values[dst.0 as usize] = v;
+            values[dst.0 as usize] = Value::I64(v);
         }
         EffectOp::Load32u { dst, addr } => {
-            let addr = values[addr.0 as usize] as usize;
+            let addr = values[addr.0 as usize].as_i64() as usize;
             let v = vm.load_u32(addr) as u32 as i64;
-            values[dst.0 as usize] = v;
+            values[dst.0 as usize] = Value::I64(v);
         }
         EffectOp::Load64 { dst, addr } => {
-            let addr = values[addr.0 as usize] as usize;
+            let addr = values[addr.0 as usize].as_i64() as usize;
             let v = vm.load_u64(addr) as i64;
-            values[dst.0 as usize] = v;
+            values[dst.0 as usize] = Value::I64(v);
         }
         EffectOp::Store8 { addr, val } => {
-            let addr = values[addr.0 as usize] as usize;
-            vm.store_u8(addr, values[val.0 as usize] as u8);
+            let addr = values[addr.0 as usize].as_i64() as usize;
+            let val = values[val.0 as usize].as_i64() as u8;
+            vm.store_u8(addr, val);
         }
         EffectOp::Store16 { addr, val } => {
-            let addr = values[addr.0 as usize] as usize;
-            vm.store_u16(addr, values[val.0 as usize] as u16);
+            let addr = values[addr.0 as usize].as_i64() as usize;
+            let val = values[val.0 as usize].as_i64() as u16;
+            vm.store_u16(addr, val);
         }
         EffectOp::Store32 { addr, val } => {
-            let addr = values[addr.0 as usize] as usize;
-            vm.store_u32(addr, values[val.0 as usize] as u32);
+            let addr = values[addr.0 as usize].as_i64() as usize;
+            let val = values[val.0 as usize].as_i64() as u32;
+            vm.store_u32(addr, val);
         }
         EffectOp::Store64 { addr, val } => {
-            let addr = values[addr.0 as usize] as usize;
-            vm.store_u64(addr, values[val.0 as usize] as u64);
+            let addr = values[addr.0 as usize].as_i64() as usize;
+            let val = values[val.0 as usize].as_i64() as u64;
+            vm.store_u64(addr, val);
         }
-        EffectOp::Ecall | EffectOp::Ebreak => {
+        // Floating point load/store
+        EffectOp::LoadF32 { dst, addr } => {
+            let addr = values[addr.0 as usize].as_i64() as usize;
+            let v = vm.load_u32(addr);
+            values[dst.0 as usize] = Value::F32(f32::from_bits(v));
+        }
+        EffectOp::StoreF32 { addr, val } => {
+            let addr = values[addr.0 as usize].as_i64() as usize;
+            let val = values[val.0 as usize].as_f32().to_bits();
+            vm.store_u32(addr, val);
+        }
+        EffectOp::Ecall => {
             handle_ecall(vm, io);
+        }
+        EffectOp::Ebreak => {
+            vm.halted = true;
+            vm.exit_code = 1;
         }
     }
 }
@@ -270,6 +656,45 @@ fn reg_index(reg: Reg) -> u8 {
         Reg::X29 => 29,
         Reg::X30 => 30,
         Reg::X31 => 31,
+        _ => panic!("not an integer register: {:?}", reg),
+    }
+}
+
+fn freg_index(reg: Reg) -> u8 {
+    match reg {
+        Reg::F0 => 0,
+        Reg::F1 => 1,
+        Reg::F2 => 2,
+        Reg::F3 => 3,
+        Reg::F4 => 4,
+        Reg::F5 => 5,
+        Reg::F6 => 6,
+        Reg::F7 => 7,
+        Reg::F8 => 8,
+        Reg::F9 => 9,
+        Reg::F10 => 10,
+        Reg::F11 => 11,
+        Reg::F12 => 12,
+        Reg::F13 => 13,
+        Reg::F14 => 14,
+        Reg::F15 => 15,
+        Reg::F16 => 16,
+        Reg::F17 => 17,
+        Reg::F18 => 18,
+        Reg::F19 => 19,
+        Reg::F20 => 20,
+        Reg::F21 => 21,
+        Reg::F22 => 22,
+        Reg::F23 => 23,
+        Reg::F24 => 24,
+        Reg::F25 => 25,
+        Reg::F26 => 26,
+        Reg::F27 => 27,
+        Reg::F28 => 28,
+        Reg::F29 => 29,
+        Reg::F30 => 30,
+        Reg::F31 => 31,
+        _ => panic!("not a floating point register: {:?}", reg),
     }
 }
 
@@ -294,7 +719,11 @@ fn sext(value: i64, from: IrType, to: IrType) -> i64 {
 
 fn zext(value: i64, from: IrType, to: IrType) -> i64 {
     match (from, to) {
-        (IrType::I8, IrType::I16)
+        (IrType::I1, IrType::I8)
+        | (IrType::I1, IrType::I16)
+        | (IrType::I1, IrType::I32)
+        | (IrType::I1, IrType::I64)
+        | (IrType::I8, IrType::I16)
         | (IrType::I8, IrType::I32)
         | (IrType::I8, IrType::I64)
         | (IrType::I16, IrType::I32)
@@ -304,6 +733,7 @@ fn zext(value: i64, from: IrType, to: IrType) -> i64 {
     }
 
     match from {
+        IrType::I1 => value & 1,
         IrType::I8 => (value as u8) as i64,
         IrType::I16 => (value as u16) as i64,
         IrType::I32 => (value as u32) as i64,
