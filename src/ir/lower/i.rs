@@ -390,7 +390,8 @@ pub(crate) fn lower_i(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFu
         | Instruction::Sret
         | Instruction::Uret
         | Instruction::Wfi
-        | Instruction::SfenceVma => {
+        | Instruction::SfenceVma
+        | Instruction::Fence => {
             builder.ret();
         }
 
