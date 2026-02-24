@@ -1,9 +1,9 @@
 // F instructions
 
-use crate::VM;
-use crate::decode::{R4, RF};
-use crate::trace::Tracer;
+use crate::decode::{I, R4, RF, S};
+use crate::trace::{MemOp, Tracer};
 use crate::util::{classify32, is_snan_f32, mask32, sext};
+use crate::VM;
 
 #[inline(always)]
 pub(crate) fn execute_fmadd_s<T: Tracer>(vm: &mut VM<T>, insn: &R4) {
@@ -192,7 +192,11 @@ pub(crate) fn execute_fmin_s<T: Tracer>(vm: &mut VM<T>, insn: &RF) {
         a
     } else if a == 0.0 && b == 0.0 {
         // -0.0 is less than +0.0
-        if a.to_bits() & 0x80000000 != 0 { a } else { b }
+        if a.to_bits() & 0x80000000 != 0 {
+            a
+        } else {
+            b
+        }
     } else {
         a.min(b)
     };
@@ -218,7 +222,11 @@ pub(crate) fn execute_fmax_s<T: Tracer>(vm: &mut VM<T>, insn: &RF) {
         a
     } else if a == 0.0 && b == 0.0 {
         // +0.0 is greater than -0.0
-        if a.to_bits() & 0x80000000 == 0 { a } else { b }
+        if a.to_bits() & 0x80000000 == 0 {
+            a
+        } else {
+            b
+        }
     } else {
         a.max(b)
     };
@@ -351,4 +359,80 @@ pub(crate) fn execute_fcvt_swu<T: Tracer>(vm: &mut VM<T>, insn: &RF) {
 pub(crate) fn execute_fmv_wx<T: Tracer>(vm: &mut VM<T>, insn: &RF) {
     let a = f32::from_bits(vm.reg(insn.rs1) as u32);
     vm.write_f32(insn.rd, a);
+}
+
+#[inline(always)]
+pub(crate) fn execute_flw<T: Tracer>(vm: &mut VM<T>, insn: &I) {
+    let addr = (vm.reg(insn.rs1)).wrapping_add(insn.imm as u64) as usize;
+    let data = f32::from_bits(vm.load_u32(addr));
+    vm.write_f32(insn.rd, data);
+}
+
+#[inline(always)]
+pub(crate) fn execute_fsw<T: Tracer>(vm: &mut VM<T>, insn: &S) {
+    let addr = (vm.reg(insn.rs1).wrapping_add(insn.imm as u64)) as usize;
+    let data = vm.read_f32(insn.rs2).to_bits().to_le_bytes();
+    vm.store_u32(addr, u32::from_le_bytes(data));
+    vm.tracer.record_mem_op(MemOp::StoreWord {
+        addr: addr as u64,
+        value: u32::from_le_bytes(data),
+    });
+}
+
+#[inline(always)]
+pub(crate) fn execute_fcvt_ls<T: Tracer>(vm: &mut VM<T>, insn: &RF) {
+    let val = vm.read_f32(insn.rs1);
+
+    let (result, flags): (i64, u32) = if val.is_nan() {
+        (i64::MAX, 0b10000)
+    } else if val >= (i64::MAX as f32) {
+        (i64::MAX, 0b10000)
+    } else if val < (i64::MIN as f32) {
+        (i64::MIN, 0b10000)
+    } else {
+        let truncated = val.trunc();
+        let int_val = val as i64;
+        let inexact = if val != truncated { 0b00001 } else { 0 };
+        (int_val, inexact)
+    };
+
+    vm.fcsr_reg |= flags;
+    vm.reg_mut(insn.rd, result as u64);
+    vm.tracer.record_csr_reg(vm.fcsr_reg);
+}
+
+#[inline(always)]
+pub(crate) fn execute_fcvt_lu_s<T: Tracer>(vm: &mut VM<T>, insn: &RF) {
+    let val = vm.read_f32(insn.rs1);
+
+    let (result, flags): (u64, u32) = if val.is_nan() {
+        (u64::MAX, 0b10000)
+    } else if val <= -1.0 {
+        (0_u64, 0b10000) // NV - changed from < to <=
+    } else if val < 0.0 {
+        (0_u64, 0b00001) // NX only
+    } else if val >= (u64::MAX as f32) {
+        (u64::MAX, 0b10000)
+    } else {
+        let truncated = val.trunc();
+        let int_val = truncated as u64;
+        let inexact = if val != truncated { 0b00001 } else { 0 };
+        (int_val, inexact)
+    };
+
+    vm.fcsr_reg |= flags;
+    vm.reg_mut(insn.rd, result);
+    vm.tracer.record_csr_reg(vm.fcsr_reg);
+}
+
+#[inline(always)]
+pub(crate) fn execute_fcvt_sl<T: Tracer>(vm: &mut VM<T>, insn: &RF) {
+    let val = (vm.reg(insn.rs1) as i64) as f32;
+    vm.write_f32(insn.rd, val);
+}
+
+#[inline(always)]
+pub(crate) fn execute_fcvt_slu<T: Tracer>(vm: &mut VM<T>, insn: &RF) {
+    let val = vm.reg(insn.rs1) as f32;
+    vm.write_f32(insn.rd, val);
 }
