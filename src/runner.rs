@@ -1,18 +1,18 @@
 use std::collections::HashMap;
 
-use crate::HostIO;
-use crate::decode::Instruction;
 #[cfg(feature = "ext_c")]
 use crate::decode::compressed::decode_compressed;
-use crate::ir::IrFunction;
+use crate::decode::Instruction;
 use crate::ir::execute_ir;
 use crate::ir::lower::i::lower_i;
 #[cfg(feature = "ext_m")]
 use crate::ir::lower::m::lower_m;
+use crate::ir::IrFunction;
 use crate::trace::Tracer;
 #[cfg(feature = "ext_c")]
 use crate::util::mask16;
-use crate::{VM, decode};
+use crate::HostIO;
+use crate::{decode, VM};
 
 fn lower_instruction(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFunction {
     match insn {
@@ -203,6 +203,7 @@ impl Runner {
             };
 
             if let Instruction::Illegal(_) = &insn {
+                vm.exit_code = 1;
                 vm.halted = true;
                 break;
             }

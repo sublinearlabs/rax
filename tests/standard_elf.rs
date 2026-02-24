@@ -1,8 +1,9 @@
 use std::fs;
 
 use riscv::{
-    Runner, VM, init_from_elf,
+    init_from_elf,
     trace::{FullTracer, NoopTracer},
+    Runner, VM,
 };
 
 /// VM with no tracing (zero overhead)
@@ -58,6 +59,16 @@ fn test_rv64ua() {
 #[test]
 fn test_rv64uf() {
     let _ = fs::read_dir("test-bin/rv64uf")
+        .expect("Failed to read directory")
+        .filter_map(|entry| entry.ok())
+        .map(|entry| run_test_elf(entry.path().to_str().unwrap().to_string()))
+        .collect::<Vec<_>>();
+}
+
+#[cfg(feature = "ext_d")]
+#[test]
+fn test_rv64ud() {
+    let _ = fs::read_dir("test-bin/rv64ud")
         .expect("Failed to read directory")
         .filter_map(|entry| entry.ok())
         .map(|entry| run_test_elf(entry.path().to_str().unwrap().to_string()))

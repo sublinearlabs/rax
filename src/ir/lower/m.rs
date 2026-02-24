@@ -1,5 +1,5 @@
 use crate::decode::Instruction;
-use crate::ir::{IrBuilder, IrFunction, ValueId};
+use crate::ir::{IrBuilder, IrFunction, IrType, ValueId};
 
 pub(crate) fn lower_m(insn: &Instruction, _current_pc: u64, _next_pc: u64) -> IrFunction {
     let mut builder = IrBuilder::new();
@@ -12,6 +12,19 @@ pub(crate) fn lower_m(insn: &Instruction, _current_pc: u64, _next_pc: u64) -> Ir
             let rs1 = builder.reg(r.rs1);
             let rs2 = builder.reg(r.rs2);
             let v = builder.mul(rs1, rs2); // Lower 64 bits
+            builder.set_reg_idx(r.rd, v);
+            builder.ret();
+        }
+        Instruction::Mulw(r) => {
+            let rs1 = builder.reg(r.rs1);
+            let rs2 = builder.reg(r.rs2);
+            let rs1_trunc = trunc_i32(&mut builder, rs1);
+            let rs2_trunc = trunc_i32(&mut builder, rs2);
+            let a = sext_i32(&mut builder, rs1_trunc);
+            let b = sext_i32(&mut builder, rs2_trunc);
+            let prod = builder.mul(a, b);
+            let trunc = trunc_i32(&mut builder, prod);
+            let v = sext_i32(&mut builder, trunc);
             builder.set_reg_idx(r.rd, v);
             builder.ret();
         }
@@ -45,10 +58,36 @@ pub(crate) fn lower_m(insn: &Instruction, _current_pc: u64, _next_pc: u64) -> Ir
             builder.set_reg_idx(r.rd, v);
             builder.ret();
         }
+        Instruction::Divw(r) => {
+            let rs1 = builder.reg(r.rs1);
+            let rs2 = builder.reg(r.rs2);
+            let rs1_trunc = trunc_i32(&mut builder, rs1);
+            let rs2_trunc = trunc_i32(&mut builder, rs2);
+            let a = sext_i32(&mut builder, rs1_trunc);
+            let b = sext_i32(&mut builder, rs2_trunc);
+            let quot = builder.div(a, b);
+            let trunc = trunc_i32(&mut builder, quot);
+            let v = sext_i32(&mut builder, trunc);
+            builder.set_reg_idx(r.rd, v);
+            builder.ret();
+        }
         Instruction::Divu(r) => {
             let rs1 = builder.reg(r.rs1);
             let rs2 = builder.reg(r.rs2);
             let v = builder.divu(rs1, rs2); // Unsigned division
+            builder.set_reg_idx(r.rd, v);
+            builder.ret();
+        }
+        Instruction::Divuw(r) => {
+            let rs1 = builder.reg(r.rs1);
+            let rs2 = builder.reg(r.rs2);
+            let rs1_trunc = trunc_i32(&mut builder, rs1);
+            let rs2_trunc = trunc_i32(&mut builder, rs2);
+            let a = zext_i32(&mut builder, rs1_trunc);
+            let b = zext_i32(&mut builder, rs2_trunc);
+            let quot = builder.divu(a, b);
+            let trunc = trunc_i32(&mut builder, quot);
+            let v = sext_i32(&mut builder, trunc);
             builder.set_reg_idx(r.rd, v);
             builder.ret();
         }
@@ -61,10 +100,36 @@ pub(crate) fn lower_m(insn: &Instruction, _current_pc: u64, _next_pc: u64) -> Ir
             builder.set_reg_idx(r.rd, v);
             builder.ret();
         }
+        Instruction::Remw(r) => {
+            let rs1 = builder.reg(r.rs1);
+            let rs2 = builder.reg(r.rs2);
+            let rs1_trunc = trunc_i32(&mut builder, rs1);
+            let rs2_trunc = trunc_i32(&mut builder, rs2);
+            let a = sext_i32(&mut builder, rs1_trunc);
+            let b = sext_i32(&mut builder, rs2_trunc);
+            let rem = builder.rem(a, b);
+            let trunc = trunc_i32(&mut builder, rem);
+            let v = sext_i32(&mut builder, trunc);
+            builder.set_reg_idx(r.rd, v);
+            builder.ret();
+        }
         Instruction::Remu(r) => {
             let rs1 = builder.reg(r.rs1);
             let rs2 = builder.reg(r.rs2);
             let v = builder.remu(rs1, rs2); // Unsigned remainder
+            builder.set_reg_idx(r.rd, v);
+            builder.ret();
+        }
+        Instruction::Remuw(r) => {
+            let rs1 = builder.reg(r.rs1);
+            let rs2 = builder.reg(r.rs2);
+            let rs1_trunc = trunc_i32(&mut builder, rs1);
+            let rs2_trunc = trunc_i32(&mut builder, rs2);
+            let a = zext_i32(&mut builder, rs1_trunc);
+            let b = zext_i32(&mut builder, rs2_trunc);
+            let rem = builder.remu(a, b);
+            let trunc = trunc_i32(&mut builder, rem);
+            let v = sext_i32(&mut builder, trunc);
             builder.set_reg_idx(r.rd, v);
             builder.ret();
         }
@@ -73,6 +138,18 @@ pub(crate) fn lower_m(insn: &Instruction, _current_pc: u64, _next_pc: u64) -> Ir
     }
 
     builder.finish()
+}
+
+fn trunc_i32(builder: &mut IrBuilder, value: ValueId) -> ValueId {
+    builder.trunc(value, IrType::I64, IrType::I32)
+}
+
+fn sext_i32(builder: &mut IrBuilder, value: ValueId) -> ValueId {
+    builder.sext(value, IrType::I32, IrType::I64)
+}
+
+fn zext_i32(builder: &mut IrBuilder, value: ValueId) -> ValueId {
+    builder.zext(value, IrType::I32, IrType::I64)
 }
 
 #[cfg(test)]
