@@ -115,6 +115,12 @@ fn exec_effect<T: Tracer>(op: &EffectOp, values: &mut [i64], vm: &mut VM<T>, io:
             let idx = reg_index(*reg);
             vm.reg_mut(idx, values[val.0 as usize] as u64);
         }
+        EffectOp::GetCsr { dst, csr } => {
+            values[dst.0 as usize] = vm.read_csr(*csr) as i64;
+        }
+        EffectOp::SetCsr { csr, val } => {
+            vm.set_csr(*csr, values[val.0 as usize] as u32);
+        }
         EffectOp::GetPc { dst } => {
             values[dst.0 as usize] = vm.pc() as i64;
         }

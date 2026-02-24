@@ -3,6 +3,8 @@ use std::collections::HashMap;
 #[cfg(feature = "ext_c")]
 use crate::decode::compressed::decode_compressed;
 use crate::decode::Instruction;
+use crate::ir::execute_ir;
+use crate::ir::lower::i::lower_i;
 use crate::trace::Tracer;
 #[cfg(feature = "ext_c")]
 use crate::util::mask16;
@@ -78,7 +80,8 @@ impl Runner {
                 vm.set_pc(next_pc);
 
                 // Execute the instruction (this will update PC)
-                vm.execute_instruction(insn, *is_compressed, current_pc, &mut self.io);
+                let func = lower_i(insn, current_pc, next_pc);
+                execute_ir(&func, vm, &mut self.io);
 
                 // Record next PC
                 vm.tracer.record_next_pc(vm.pc());
@@ -142,7 +145,8 @@ impl Runner {
             vm.set_pc(next_pc);
 
             // Execute the instruction (this will update PC)
-            vm.execute_instruction(&insn, is_compressed, current_pc, &mut self.io);
+            let func = lower_i(&insn, current_pc, next_pc);
+            execute_ir(&func, vm, &mut self.io);
 
             // Record next PC (set during execute_instruction or default to pc+4)
             vm.tracer.record_next_pc(vm.pc());
