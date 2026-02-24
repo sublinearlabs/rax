@@ -1,33 +1,32 @@
 use crate::decode::Instruction;
-use crate::ir::lower::util::{reg, set_reg_if_needed, zimm5};
 use crate::ir::IrBuilder;
 
 pub(crate) fn lower_csr(insn: &Instruction, builder: &mut IrBuilder) -> bool {
     match insn {
         Instruction::Csrrw(i) => {
             let csr = csr_from_imm(i.imm);
-            let rs1 = reg(builder, i.rs1);
+            let rs1 = builder.reg(i.rs1);
             let prev = builder.get_csr(csr);
             builder.set_csr(csr, rs1);
-            set_reg_if_needed(builder, i.rd, prev);
+            builder.set_reg_if_needed(i.rd, prev);
             builder.ret();
             true
         }
         Instruction::Csrrs(i) => {
             let csr = csr_from_imm(i.imm);
-            let rs1 = reg(builder, i.rs1);
+            let rs1 = builder.reg(i.rs1);
             let prev = builder.get_csr(csr);
             if i.rs1 != 0 {
                 let next = builder.or(prev, rs1);
                 builder.set_csr(csr, next);
             }
-            set_reg_if_needed(builder, i.rd, prev);
+            builder.set_reg_if_needed(i.rd, prev);
             builder.ret();
             true
         }
         Instruction::Csrrc(i) => {
             let csr = csr_from_imm(i.imm);
-            let rs1 = reg(builder, i.rs1);
+            let rs1 = builder.reg(i.rs1);
             let prev = builder.get_csr(csr);
             if i.rs1 != 0 {
                 let all_ones = builder.const_i64(-1);
@@ -35,34 +34,34 @@ pub(crate) fn lower_csr(insn: &Instruction, builder: &mut IrBuilder) -> bool {
                 let next = builder.and(prev, inv);
                 builder.set_csr(csr, next);
             }
-            set_reg_if_needed(builder, i.rd, prev);
+            builder.set_reg_if_needed(i.rd, prev);
             builder.ret();
             true
         }
         Instruction::Csrrwi(i) => {
             let csr = csr_from_imm(i.imm);
-            let zimm = zimm5(builder, i.rs1);
+            let zimm = builder.zimm5(i.rs1);
             let prev = builder.get_csr(csr);
             builder.set_csr(csr, zimm);
-            set_reg_if_needed(builder, i.rd, prev);
+            builder.set_reg_if_needed(i.rd, prev);
             builder.ret();
             true
         }
         Instruction::Csrrsi(i) => {
             let csr = csr_from_imm(i.imm);
-            let zimm = zimm5(builder, i.rs1);
+            let zimm = builder.zimm5(i.rs1);
             let prev = builder.get_csr(csr);
             if i.rs1 != 0 {
                 let next = builder.or(prev, zimm);
                 builder.set_csr(csr, next);
             }
-            set_reg_if_needed(builder, i.rd, prev);
+            builder.set_reg_if_needed(i.rd, prev);
             builder.ret();
             true
         }
         Instruction::Csrrci(i) => {
             let csr = csr_from_imm(i.imm);
-            let zimm = zimm5(builder, i.rs1);
+            let zimm = builder.zimm5(i.rs1);
             let prev = builder.get_csr(csr);
             if i.rs1 != 0 {
                 let all_ones = builder.const_i64(-1);
@@ -70,7 +69,7 @@ pub(crate) fn lower_csr(insn: &Instruction, builder: &mut IrBuilder) -> bool {
                 let next = builder.and(prev, inv);
                 builder.set_csr(csr, next);
             }
-            set_reg_if_needed(builder, i.rd, prev);
+            builder.set_reg_if_needed(i.rd, prev);
             builder.ret();
             true
         }

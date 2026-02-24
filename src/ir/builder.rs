@@ -1,6 +1,7 @@
 use crate::ir::{
     Block, BlockId, EffectOp, IrFunction, IrType, Op, PureOp, Reg, Terminator, ValueId,
 };
+use crate::util::mask;
 
 pub struct IrBuilder {
     func: IrFunction,
@@ -143,6 +144,59 @@ impl IrBuilder {
     pub fn set_reg(&mut self, reg: Reg, val: ValueId) {
         self.expect_type(val, IrType::I64);
         self.push_op(Op::Effect(EffectOp::SetReg { reg, val }));
+    }
+
+    pub fn reg(&mut self, idx: u8) -> ValueId {
+        self.get_reg(reg_from_u8(idx))
+    }
+
+    pub fn set_reg_idx(&mut self, idx: u8, val: ValueId) {
+        self.set_reg(reg_from_u8(idx), val);
+    }
+
+    pub fn set_reg_if_needed(&mut self, idx: u8, val: ValueId) {
+        if idx == 0 {
+            return;
+        }
+        self.set_reg(reg_from_u8(idx), val);
+    }
+
+    pub fn imm_i32(&mut self, value: i32) -> ValueId {
+        self.const_i64(value as i64)
+    }
+
+    pub fn imm_u8(&mut self, value: u8) -> ValueId {
+        self.const_i64(value as i64)
+    }
+
+    pub fn imm_u64(&mut self, value: u64) -> ValueId {
+        self.const_i64(value as i64)
+    }
+
+    pub fn zimm5(&mut self, value: u8) -> ValueId {
+        self.const_i64((value & 0x1f) as i64)
+    }
+
+    pub fn shamt64(&mut self, value: ValueId) -> ValueId {
+        let mask = self.imm_u64(mask(6));
+        self.and(value, mask)
+    }
+
+    pub fn shamt32(&mut self, value: ValueId) -> ValueId {
+        let mask = self.imm_u64(mask(5));
+        self.and(value, mask)
+    }
+
+    pub fn addr(&mut self, rs1: u8, offset: i32) -> ValueId {
+        let base = self.reg(rs1);
+        let off = self.imm_i32(offset);
+        self.add(base, off)
+    }
+
+    pub fn pc_plus(&mut self, current_pc: u64, offset: i32) -> ValueId {
+        let base = self.imm_u64(current_pc);
+        let off = self.imm_i32(offset);
+        self.add(base, off)
     }
 
     pub fn get_csr(&mut self, csr: u32) -> ValueId {
@@ -366,5 +420,43 @@ impl IrBuilder {
                 );
             }
         }
+    }
+}
+
+fn reg_from_u8(idx: u8) -> Reg {
+    match idx {
+        0 => Reg::X0,
+        1 => Reg::X1,
+        2 => Reg::X2,
+        3 => Reg::X3,
+        4 => Reg::X4,
+        5 => Reg::X5,
+        6 => Reg::X6,
+        7 => Reg::X7,
+        8 => Reg::X8,
+        9 => Reg::X9,
+        10 => Reg::X10,
+        11 => Reg::X11,
+        12 => Reg::X12,
+        13 => Reg::X13,
+        14 => Reg::X14,
+        15 => Reg::X15,
+        16 => Reg::X16,
+        17 => Reg::X17,
+        18 => Reg::X18,
+        19 => Reg::X19,
+        20 => Reg::X20,
+        21 => Reg::X21,
+        22 => Reg::X22,
+        23 => Reg::X23,
+        24 => Reg::X24,
+        25 => Reg::X25,
+        26 => Reg::X26,
+        27 => Reg::X27,
+        28 => Reg::X28,
+        29 => Reg::X29,
+        30 => Reg::X30,
+        31 => Reg::X31,
+        _ => panic!("invalid register index: {}", idx),
     }
 }
