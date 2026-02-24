@@ -385,6 +385,14 @@ pub(crate) fn lower_i(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFu
             builder.ebreak();
             builder.ret();
         }
+        Instruction::Nop
+        | Instruction::Mret
+        | Instruction::Sret
+        | Instruction::Uret
+        | Instruction::Wfi
+        | Instruction::SfenceVma => {
+            builder.ret();
+        }
 
         _ => panic!("IR lowering missing for {:?}", insn),
     }
@@ -418,7 +426,7 @@ fn sext_i32(builder: &mut IrBuilder, value: ValueId) -> ValueId {
 #[cfg(test)]
 mod tests {
     use super::lower_i;
-    use crate::decode::{B, I, Instruction};
+    use crate::decode::{Instruction, B, I};
     use crate::ir::execute_ir;
     use crate::trace::NoopTracer;
     use crate::{HostIO, VM};
