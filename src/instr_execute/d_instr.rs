@@ -1,4 +1,4 @@
-use crate::decode::{R4, RF};
+use crate::decode::{I, R4, RF, S};
 use crate::trace::{MemOp, Tracer};
 use crate::util::{classify64, is_snan_f32, is_snan_f64, mask};
 /// D-extension
