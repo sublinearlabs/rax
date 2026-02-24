@@ -1,18 +1,18 @@
 use std::collections::HashMap;
 
-use crate::HostIO;
-use crate::decode::Instruction;
 #[cfg(feature = "ext_c")]
 use crate::decode::compressed::decode_compressed;
-use crate::ir::IrFunction;
+use crate::decode::Instruction;
 use crate::ir::execute_ir;
 use crate::ir::lower::i::lower_i;
 #[cfg(feature = "ext_m")]
 use crate::ir::lower::m::lower_m;
+use crate::ir::IrFunction;
 use crate::trace::Tracer;
 #[cfg(feature = "ext_c")]
 use crate::util::mask16;
-use crate::{VM, decode};
+use crate::HostIO;
+use crate::{decode, VM};
 
 fn lower_instruction(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFunction {
     match insn {
@@ -236,7 +236,7 @@ impl Runner {
             let func = lower_instruction(&insn, current_pc, next_pc);
             execute_ir(&func, vm, &mut self.io);
 
-            // Record next PC (set during execute_instruction or default to pc+4)
+            // Record next PC (set during IR execution or default to pc+4)
             vm.tracer.record_next_pc(vm.pc());
 
             self.cycles = self.cycles.wrapping_add(1);

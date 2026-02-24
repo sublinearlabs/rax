@@ -1,9 +1,7 @@
 mod decode;
 mod ecall;
 mod elf;
-mod execute;
 mod host_io;
-mod instr_execute;
 pub mod ir;
 mod loader;
 mod memory;

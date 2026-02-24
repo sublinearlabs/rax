@@ -21,7 +21,7 @@ mod zicsr;
 compile_error!("feature \"ext_i\" is required for the decoder");
 
 pub(crate) use insn::Instruction;
-pub(crate) use insn_formats::{B, I, J, R, R4, RF, S, Sh, U};
+pub(crate) use insn_formats::{Sh, B, I, J, R, R4, RF, S, U};
 use util::{funct3, opcode};
 
 pub(crate) fn decode(insn: u32) -> Instruction {
