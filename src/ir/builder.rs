@@ -75,6 +75,11 @@ impl IrBuilder {
         self.bin_i64(PureOp::Xor, a, b)
     }
 
+    pub fn not(&mut self, value: ValueId) -> ValueId {
+        let all_ones = self.const_i64(-1);
+        self.xor(value, all_ones)
+    }
+
     pub fn shl(&mut self, a: ValueId, b: ValueId) -> ValueId {
         self.bin_i64(PureOp::Shl, a, b)
     }
