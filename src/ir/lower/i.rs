@@ -1,6 +1,4 @@
 use crate::decode::Instruction;
-#[cfg(feature = "ext_a")]
-use crate::ir::lower::a::lower_a;
 use crate::ir::lower::csr::lower_csr;
 use crate::ir::{IrBuilder, IrFunction, IrType, ValueId};
 
@@ -11,13 +9,6 @@ pub(crate) fn lower_i(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFu
 
     if lower_csr(insn, &mut builder) {
         return builder.finish();
-    }
-
-    #[cfg(feature = "ext_a")]
-    {
-        if lower_a(insn, &mut builder) {
-            return builder.finish();
-        }
     }
 
     match insn {
