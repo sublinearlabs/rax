@@ -1,9 +1,9 @@
 // F instructions
 
+use crate::VM;
 use crate::decode::{I, R4, RF, S};
 use crate::trace::{MemOp, Tracer};
 use crate::util::{classify32, is_snan_f32, mask32, sext};
-use crate::VM;
 
 #[inline(always)]
 pub(crate) fn execute_fmadd_s<T: Tracer>(vm: &mut VM<T>, insn: &R4) {
@@ -192,11 +192,7 @@ pub(crate) fn execute_fmin_s<T: Tracer>(vm: &mut VM<T>, insn: &RF) {
         a
     } else if a == 0.0 && b == 0.0 {
         // -0.0 is less than +0.0
-        if a.to_bits() & 0x80000000 != 0 {
-            a
-        } else {
-            b
-        }
+        if a.to_bits() & 0x80000000 != 0 { a } else { b }
     } else {
         a.min(b)
     };
@@ -222,11 +218,7 @@ pub(crate) fn execute_fmax_s<T: Tracer>(vm: &mut VM<T>, insn: &RF) {
         a
     } else if a == 0.0 && b == 0.0 {
         // +0.0 is greater than -0.0
-        if a.to_bits() & 0x80000000 == 0 {
-            a
-        } else {
-            b
-        }
+        if a.to_bits() & 0x80000000 == 0 { a } else { b }
     } else {
         a.max(b)
     };
