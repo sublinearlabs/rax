@@ -1,8 +1,9 @@
 use crate::decode::Instruction;
 use crate::ir::lower::csr::lower_csr;
-use crate::ir::{IrBuilder, IrFunction, IrType, Reg, ValueId};
+use crate::ir::lower::util::{imm_i32, imm_u64, imm_u8, reg, set_reg};
+use crate::ir::{IrBuilder, IrFunction, IrType, ValueId};
 
-pub fn lower_i(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFunction {
+pub(crate) fn lower_i(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFunction {
     let mut builder = IrBuilder::new();
     let entry = builder.block();
     builder.switch_to(entry);
@@ -90,42 +91,42 @@ pub fn lower_i(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFunction 
         // Integer Register-Immediate
         Instruction::Addi(i) => {
             let rs1 = reg(&mut builder, i.rs1);
-            let imm = imm(&mut builder, i.imm);
+            let imm = imm_i32(&mut builder, i.imm);
             let v = builder.add(rs1, imm);
             set_reg(&mut builder, i.rd, v);
             builder.ret();
         }
         Instruction::Andi(i) => {
             let rs1 = reg(&mut builder, i.rs1);
-            let imm = imm(&mut builder, i.imm);
+            let imm = imm_i32(&mut builder, i.imm);
             let v = builder.and(rs1, imm);
             set_reg(&mut builder, i.rd, v);
             builder.ret();
         }
         Instruction::Ori(i) => {
             let rs1 = reg(&mut builder, i.rs1);
-            let imm = imm(&mut builder, i.imm);
+            let imm = imm_i32(&mut builder, i.imm);
             let v = builder.or(rs1, imm);
             set_reg(&mut builder, i.rd, v);
             builder.ret();
         }
         Instruction::Xori(i) => {
             let rs1 = reg(&mut builder, i.rs1);
-            let imm = imm(&mut builder, i.imm);
+            let imm = imm_i32(&mut builder, i.imm);
             let v = builder.xor(rs1, imm);
             set_reg(&mut builder, i.rd, v);
             builder.ret();
         }
         Instruction::Slti(i) => {
             let rs1 = reg(&mut builder, i.rs1);
-            let imm = imm(&mut builder, i.imm);
+            let imm = imm_i32(&mut builder, i.imm);
             let v = builder.lt(rs1, imm);
             set_reg(&mut builder, i.rd, v);
             builder.ret();
         }
         Instruction::Sltiu(i) => {
             let rs1 = reg(&mut builder, i.rs1);
-            let imm = imm(&mut builder, i.imm);
+            let imm = imm_i32(&mut builder, i.imm);
             let v = builder.ltu(rs1, imm);
             set_reg(&mut builder, i.rd, v);
             builder.ret();
@@ -262,17 +263,17 @@ pub fn lower_i(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFunction 
 
         // Jumps
         Instruction::Jal(j) => {
-            let link = const_u64(&mut builder, next_pc);
+            let link = imm_u64(&mut builder, next_pc);
             set_reg(&mut builder, j.rd, link);
             let target = add_pc_imm(&mut builder, current_pc, j.imm);
             builder.set_pc(target);
             builder.ret();
         }
         Instruction::Jalr(i) => {
-            let link = const_u64(&mut builder, next_pc);
+            let link = imm_u64(&mut builder, next_pc);
             set_reg(&mut builder, i.rd, link);
             let target = addr(&mut builder, i.rs1, i.imm);
-            let mask = imm(&mut builder, -2);
+            let mask = imm_i32(&mut builder, -2);
             let masked = builder.and(target, mask);
             builder.set_pc(masked);
             builder.ret();
@@ -280,7 +281,7 @@ pub fn lower_i(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFunction 
 
         // Upper immediates
         Instruction::Lui(u) => {
-            let imm = imm(&mut builder, u.imm);
+            let imm = imm_i32(&mut builder, u.imm);
             set_reg(&mut builder, u.rd, imm);
             builder.ret();
         }
@@ -293,7 +294,7 @@ pub fn lower_i(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFunction 
         // RV64I word ops
         Instruction::Addiw(i) => {
             let rs1 = reg(&mut builder, i.rs1);
-            let imm = imm(&mut builder, i.imm);
+            let imm = imm_i32(&mut builder, i.imm);
             let sum = builder.add(rs1, imm);
             let trunc = trunc_i32(&mut builder, sum);
             let v = sext_i32(&mut builder, trunc);
@@ -392,35 +393,15 @@ pub fn lower_i(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFunction 
     builder.finish()
 }
 
-fn reg(builder: &mut IrBuilder, idx: u8) -> ValueId {
-    builder.get_reg(reg_from_u8(idx))
-}
-
-fn set_reg(builder: &mut IrBuilder, idx: u8, val: ValueId) {
-    builder.set_reg(reg_from_u8(idx), val);
-}
-
-fn imm(builder: &mut IrBuilder, value: i32) -> ValueId {
-    builder.const_i64(value as i64)
-}
-
-fn imm_u8(builder: &mut IrBuilder, value: u8) -> ValueId {
-    builder.const_i64(value as i64)
-}
-
-fn const_u64(builder: &mut IrBuilder, value: u64) -> ValueId {
-    builder.const_i64(value as i64)
-}
-
 fn addr(builder: &mut IrBuilder, rs1: u8, offset: i32) -> ValueId {
     let base = reg(builder, rs1);
-    let off = imm(builder, offset);
+    let off = imm_i32(builder, offset);
     builder.add(base, off)
 }
 
 fn add_pc_imm(builder: &mut IrBuilder, current_pc: u64, offset: i32) -> ValueId {
-    let base = const_u64(builder, current_pc);
-    let off = imm(builder, offset);
+    let base = imm_u64(builder, current_pc);
+    let off = imm_i32(builder, offset);
     builder.add(base, off)
 }
 
@@ -448,51 +429,13 @@ fn sext_i32(builder: &mut IrBuilder, value: ValueId) -> ValueId {
 }
 
 fn shamt64(builder: &mut IrBuilder, value: ValueId) -> ValueId {
-    let mask = builder.const_i64(0x3f);
+    let mask = imm_u8(builder, 0x3f);
     builder.and(value, mask)
 }
 
 fn shamt32(builder: &mut IrBuilder, value: ValueId) -> ValueId {
-    let mask = builder.const_i64(0x1f);
+    let mask = imm_u8(builder, 0x1f);
     builder.and(value, mask)
-}
-
-fn reg_from_u8(idx: u8) -> Reg {
-    match idx {
-        0 => Reg::X0,
-        1 => Reg::X1,
-        2 => Reg::X2,
-        3 => Reg::X3,
-        4 => Reg::X4,
-        5 => Reg::X5,
-        6 => Reg::X6,
-        7 => Reg::X7,
-        8 => Reg::X8,
-        9 => Reg::X9,
-        10 => Reg::X10,
-        11 => Reg::X11,
-        12 => Reg::X12,
-        13 => Reg::X13,
-        14 => Reg::X14,
-        15 => Reg::X15,
-        16 => Reg::X16,
-        17 => Reg::X17,
-        18 => Reg::X18,
-        19 => Reg::X19,
-        20 => Reg::X20,
-        21 => Reg::X21,
-        22 => Reg::X22,
-        23 => Reg::X23,
-        24 => Reg::X24,
-        25 => Reg::X25,
-        26 => Reg::X26,
-        27 => Reg::X27,
-        28 => Reg::X28,
-        29 => Reg::X29,
-        30 => Reg::X30,
-        31 => Reg::X31,
-        _ => panic!("invalid register index: {}", idx),
-    }
 }
 
 #[cfg(test)]

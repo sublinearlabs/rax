@@ -1,7 +1,8 @@
 use crate::decode::Instruction;
-use crate::ir::{IrBuilder, Reg, ValueId};
+use crate::ir::lower::util::{reg, set_reg_if_needed, zimm5};
+use crate::ir::IrBuilder;
 
-pub fn lower_csr(insn: &Instruction, builder: &mut IrBuilder) -> bool {
+pub(crate) fn lower_csr(insn: &Instruction, builder: &mut IrBuilder) -> bool {
     match insn {
         Instruction::Csrrw(i) => {
             let csr = csr_from_imm(i.imm);
@@ -40,7 +41,7 @@ pub fn lower_csr(insn: &Instruction, builder: &mut IrBuilder) -> bool {
         }
         Instruction::Csrrwi(i) => {
             let csr = csr_from_imm(i.imm);
-            let zimm = zimm(builder, i.rs1);
+            let zimm = zimm5(builder, i.rs1);
             let prev = builder.get_csr(csr);
             builder.set_csr(csr, zimm);
             set_reg_if_needed(builder, i.rd, prev);
@@ -49,7 +50,7 @@ pub fn lower_csr(insn: &Instruction, builder: &mut IrBuilder) -> bool {
         }
         Instruction::Csrrsi(i) => {
             let csr = csr_from_imm(i.imm);
-            let zimm = zimm(builder, i.rs1);
+            let zimm = zimm5(builder, i.rs1);
             let prev = builder.get_csr(csr);
             if i.rs1 != 0 {
                 let next = builder.or(prev, zimm);
@@ -61,7 +62,7 @@ pub fn lower_csr(insn: &Instruction, builder: &mut IrBuilder) -> bool {
         }
         Instruction::Csrrci(i) => {
             let csr = csr_from_imm(i.imm);
-            let zimm = zimm(builder, i.rs1);
+            let zimm = zimm5(builder, i.rs1);
             let prev = builder.get_csr(csr);
             if i.rs1 != 0 {
                 let all_ones = builder.const_i64(-1);
@@ -77,61 +78,8 @@ pub fn lower_csr(insn: &Instruction, builder: &mut IrBuilder) -> bool {
     }
 }
 
-fn reg(builder: &mut IrBuilder, idx: u8) -> ValueId {
-    builder.get_reg(reg_from_u8(idx))
-}
-
-fn set_reg_if_needed(builder: &mut IrBuilder, idx: u8, val: ValueId) {
-    if idx == 0 {
-        return;
-    }
-    builder.set_reg(reg_from_u8(idx), val);
-}
-
-fn zimm(builder: &mut IrBuilder, value: u8) -> ValueId {
-    builder.const_i64((value & 0x1f) as i64)
-}
-
 fn csr_from_imm(imm: i32) -> u32 {
     (imm as u32) & 0xfff
-}
-
-fn reg_from_u8(idx: u8) -> Reg {
-    match idx {
-        0 => Reg::X0,
-        1 => Reg::X1,
-        2 => Reg::X2,
-        3 => Reg::X3,
-        4 => Reg::X4,
-        5 => Reg::X5,
-        6 => Reg::X6,
-        7 => Reg::X7,
-        8 => Reg::X8,
-        9 => Reg::X9,
-        10 => Reg::X10,
-        11 => Reg::X11,
-        12 => Reg::X12,
-        13 => Reg::X13,
-        14 => Reg::X14,
-        15 => Reg::X15,
-        16 => Reg::X16,
-        17 => Reg::X17,
-        18 => Reg::X18,
-        19 => Reg::X19,
-        20 => Reg::X20,
-        21 => Reg::X21,
-        22 => Reg::X22,
-        23 => Reg::X23,
-        24 => Reg::X24,
-        25 => Reg::X25,
-        26 => Reg::X26,
-        27 => Reg::X27,
-        28 => Reg::X28,
-        29 => Reg::X29,
-        30 => Reg::X30,
-        31 => Reg::X31,
-        _ => panic!("invalid register index: {}", idx),
-    }
 }
 
 #[cfg(test)]
