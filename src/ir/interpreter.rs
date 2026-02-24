@@ -77,19 +77,21 @@ fn eval_pure(op: &PureOp, values: &[i64]) -> i64 {
             (a * b >> 64) as i64
         }
         PureOp::Mulhu(a, b) => {
-            let a = values[a.0 as usize] as u128;
-            let b = values[b.0 as usize] as u128;
+            let a = values[a.0 as usize] as u64 as u128;
+            let b = values[b.0 as usize] as u64 as u128;
             (a * b >> 64) as i64
         }
         PureOp::Mulhsu(a, b) => {
             let a = values[a.0 as usize] as i128;
-            let b = values[b.0 as usize] as u128 as i128;
+            let b = values[b.0 as usize] as u64 as i128;
             (a * b >> 64) as i64
         }
         PureOp::Div(a, b) => {
             let b_val = values[b.0 as usize];
             if b_val == 0 {
                 -1 // RISC-V division by zero
+            } else if values[a.0 as usize] == i64::MIN && b_val == -1 {
+                i64::MIN // RISC-V overflow case
             } else {
                 values[a.0 as usize] / b_val
             }
@@ -106,6 +108,8 @@ fn eval_pure(op: &PureOp, values: &[i64]) -> i64 {
             let b_val = values[b.0 as usize];
             if b_val == 0 {
                 values[a.0 as usize] // RISC-V remainder by zero
+            } else if values[a.0 as usize] == i64::MIN && b_val == -1 {
+                0 // RISC-V overflow case
             } else {
                 values[a.0 as usize] % b_val
             }
@@ -371,7 +375,8 @@ fn atomic_rmw_d(read_value: u64, rs2_val: u64, op: AtomicRmwOp) -> u64 {
 
 fn sext(value: i64, from: IrType, to: IrType) -> i64 {
     match (from, to) {
-        (IrType::I8, IrType::I16)
+        (IrType::I1, IrType::I64)
+        | (IrType::I8, IrType::I16)
         | (IrType::I8, IrType::I32)
         | (IrType::I8, IrType::I64)
         | (IrType::I16, IrType::I32)
@@ -381,6 +386,13 @@ fn sext(value: i64, from: IrType, to: IrType) -> i64 {
     }
 
     match from {
+        IrType::I1 => {
+            if value != 0 {
+                1
+            } else {
+                0
+            }
+        }
         IrType::I8 => (value as i8) as i64,
         IrType::I16 => (value as i16) as i64,
         IrType::I32 => (value as i32) as i64,
@@ -390,7 +402,8 @@ fn sext(value: i64, from: IrType, to: IrType) -> i64 {
 
 fn zext(value: i64, from: IrType, to: IrType) -> i64 {
     match (from, to) {
-        (IrType::I8, IrType::I16)
+        (IrType::I1, IrType::I64)
+        | (IrType::I8, IrType::I16)
         | (IrType::I8, IrType::I32)
         | (IrType::I8, IrType::I64)
         | (IrType::I16, IrType::I32)
@@ -400,6 +413,13 @@ fn zext(value: i64, from: IrType, to: IrType) -> i64 {
     }
 
     match from {
+        IrType::I1 => {
+            if value != 0 {
+                1
+            } else {
+                0
+            }
+        }
         IrType::I8 => (value as u8) as i64,
         IrType::I16 => (value as u16) as i64,
         IrType::I32 => (value as u32) as i64,
