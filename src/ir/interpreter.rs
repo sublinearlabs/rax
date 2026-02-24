@@ -408,11 +408,7 @@ fn exec_effect<T: Tracer>(op: &EffectOp, values: &mut [i64], vm: &mut VM<T>, io:
 }
 
 fn bool_to_i64(v: bool) -> i64 {
-    if v {
-        1
-    } else {
-        0
-    }
+    if v { 1 } else { 0 }
 }
 
 fn reg_index(reg: Reg) -> u8 {
