@@ -2,6 +2,7 @@ use crate::decode::Instruction;
 use crate::ir::lower::csr::lower_csr;
 use crate::ir::lower::util::{imm_i32, imm_u64, imm_u8, reg, set_reg};
 use crate::ir::{IrBuilder, IrFunction, IrType, ValueId};
+use crate::util::mask;
 
 pub(crate) fn lower_i(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFunction {
     let mut builder = IrBuilder::new();
@@ -429,12 +430,12 @@ fn sext_i32(builder: &mut IrBuilder, value: ValueId) -> ValueId {
 }
 
 fn shamt64(builder: &mut IrBuilder, value: ValueId) -> ValueId {
-    let mask = imm_u8(builder, 0x3f);
+    let mask = imm_u64(builder, mask(6));
     builder.and(value, mask)
 }
 
 fn shamt32(builder: &mut IrBuilder, value: ValueId) -> ValueId {
-    let mask = imm_u8(builder, 0x1f);
+    let mask = imm_u64(builder, mask(5));
     builder.and(value, mask)
 }
 
