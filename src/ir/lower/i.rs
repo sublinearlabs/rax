@@ -1,10 +1,15 @@
 use crate::decode::Instruction;
+use crate::ir::lower::csr::lower_csr;
 use crate::ir::{IrBuilder, IrFunction, IrType, Reg, ValueId};
 
 pub fn lower_i(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFunction {
     let mut builder = IrBuilder::new();
     let entry = builder.block();
     builder.switch_to(entry);
+
+    if lower_csr(insn, &mut builder) {
+        return builder.finish();
+    }
 
     match insn {
         // Integer Register-Register

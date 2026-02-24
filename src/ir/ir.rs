@@ -94,6 +94,8 @@ pub enum PureOp {
 pub enum EffectOp {
     GetReg { dst: ValueId, reg: Reg },
     SetReg { reg: Reg, val: ValueId },
+    GetCsr { dst: ValueId, csr: u32 },
+    SetCsr { csr: u32, val: ValueId },
     GetPc { dst: ValueId },
     SetPc { val: ValueId },
     Load8s { dst: ValueId, addr: ValueId },

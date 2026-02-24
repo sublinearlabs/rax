@@ -145,6 +145,17 @@ impl IrBuilder {
         self.push_op(Op::Effect(EffectOp::SetReg { reg, val }));
     }
 
+    pub fn get_csr(&mut self, csr: u32) -> ValueId {
+        let dst = self.new_value(IrType::I64);
+        self.push_op(Op::Effect(EffectOp::GetCsr { dst, csr }));
+        dst
+    }
+
+    pub fn set_csr(&mut self, csr: u32, val: ValueId) {
+        self.expect_type(val, IrType::I64);
+        self.push_op(Op::Effect(EffectOp::SetCsr { csr, val }));
+    }
+
     pub fn get_pc(&mut self) -> ValueId {
         let dst = self.new_value(IrType::I64);
         self.push_op(Op::Effect(EffectOp::GetPc { dst }));
