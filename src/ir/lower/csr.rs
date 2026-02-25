@@ -88,7 +88,7 @@ fn csr_from_imm(imm: i32) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::lower_csr;
-    use crate::decode::{I, Instruction};
+    use crate::decode::{Instruction, I};
     use crate::ir::execute_ir;
     use crate::trace::NoopTracer;
     use crate::{HostIO, VM};
