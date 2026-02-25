@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 
+use crate::HostIO;
+use crate::decode::Instruction;
 #[cfg(feature = "ext_c")]
 use crate::decode::compressed::decode_compressed;
-use crate::decode::Instruction;
 use crate::ir::execute_ir;
 #[cfg(feature = "ext_a")]
 use crate::ir::lower::a::lower_a_into;
@@ -13,8 +14,7 @@ use crate::ir::{IrBuilder, IrFunction};
 use crate::trace::Tracer;
 #[cfg(feature = "ext_c")]
 use crate::util::mask16;
-use crate::HostIO;
-use crate::{decode, VM};
+use crate::{VM, decode};
 
 fn lower_instruction_into(
     insn: &Instruction,
