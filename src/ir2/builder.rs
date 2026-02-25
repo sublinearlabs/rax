@@ -58,86 +58,120 @@ impl IrBuilder {
     }
 
     pub fn add(&mut self, a: ValueId, b: ValueId, ty: IrType) -> ValueId {
+        self.expect_type(a, ty);
+        self.expect_type(b, ty);
         self.emit_pure(PureOp::Add(a, b), ty)
     }
 
     pub fn sub(&mut self, a: ValueId, b: ValueId, ty: IrType) -> ValueId {
+        self.expect_type(a, ty);
+        self.expect_type(b, ty);
         self.emit_pure(PureOp::Sub(a, b), ty)
     }
 
     pub fn mul(&mut self, a: ValueId, b: ValueId, ty: IrType) -> ValueId {
+        self.expect_type(a, ty);
+        self.expect_type(b, ty);
         self.emit_pure(PureOp::Mul(a, b), ty)
     }
 
     pub fn div(&mut self, a: ValueId, b: ValueId, ty: IrType) -> ValueId {
+        self.expect_type(a, ty);
+        self.expect_type(b, ty);
         self.emit_pure(PureOp::Div(a, b), ty)
     }
 
     pub fn rem(&mut self, a: ValueId, b: ValueId, ty: IrType) -> ValueId {
+        self.expect_type(a, ty);
+        self.expect_type(b, ty);
         self.emit_pure(PureOp::Rem(a, b), ty)
     }
 
     pub fn and(&mut self, a: ValueId, b: ValueId, ty: IrType) -> ValueId {
+        self.expect_type(a, ty);
+        self.expect_type(b, ty);
         self.emit_pure(PureOp::And(a, b), ty)
     }
 
     pub fn or(&mut self, a: ValueId, b: ValueId, ty: IrType) -> ValueId {
+        self.expect_type(a, ty);
+        self.expect_type(b, ty);
         self.emit_pure(PureOp::Or(a, b), ty)
     }
 
     pub fn xor(&mut self, a: ValueId, b: ValueId, ty: IrType) -> ValueId {
+        self.expect_type(a, ty);
+        self.expect_type(b, ty);
         self.emit_pure(PureOp::Xor(a, b), ty)
     }
 
     pub fn shl(&mut self, a: ValueId, b: ValueId, ty: IrType) -> ValueId {
+        self.expect_type(a, ty);
+        self.expect_type(b, ty);
         self.emit_pure(PureOp::Shl(a, b), ty)
     }
 
     pub fn shr(&mut self, a: ValueId, b: ValueId, ty: IrType) -> ValueId {
+        self.expect_type(a, ty);
+        self.expect_type(b, ty);
         self.emit_pure(PureOp::Shr(a, b), ty)
     }
 
     pub fn sar(&mut self, a: ValueId, b: ValueId, ty: IrType) -> ValueId {
+        self.expect_type(a, ty);
+        self.expect_type(b, ty);
         self.emit_pure(PureOp::Sar(a, b), ty)
     }
 
     pub fn eq(&mut self, a: ValueId, b: ValueId) -> ValueId {
+        self.expect_same_type(a, b);
         self.emit_pure(PureOp::Eq(a, b), IrType::I1)
     }
 
     pub fn ne(&mut self, a: ValueId, b: ValueId) -> ValueId {
+        self.expect_same_type(a, b);
         self.emit_pure(PureOp::Ne(a, b), IrType::I1)
     }
 
     pub fn lt(&mut self, a: ValueId, b: ValueId) -> ValueId {
+        self.expect_same_type(a, b);
         self.emit_pure(PureOp::Lt(a, b), IrType::I1)
     }
 
     pub fn ltu(&mut self, a: ValueId, b: ValueId) -> ValueId {
+        self.expect_same_type(a, b);
         self.emit_pure(PureOp::Ltu(a, b), IrType::I1)
     }
 
     pub fn ge(&mut self, a: ValueId, b: ValueId) -> ValueId {
+        self.expect_same_type(a, b);
         self.emit_pure(PureOp::Ge(a, b), IrType::I1)
     }
 
     pub fn geu(&mut self, a: ValueId, b: ValueId) -> ValueId {
+        self.expect_same_type(a, b);
         self.emit_pure(PureOp::Geu(a, b), IrType::I1)
     }
 
     pub fn sext(&mut self, v: ValueId, from: IrType, to: IrType) -> ValueId {
+        self.expect_type(v, from);
         self.emit_pure(PureOp::Sext { v, from, to }, to)
     }
 
     pub fn zext(&mut self, v: ValueId, from: IrType, to: IrType) -> ValueId {
+        self.expect_type(v, from);
         self.emit_pure(PureOp::Zext { v, from, to }, to)
     }
 
     pub fn trunc(&mut self, v: ValueId, from: IrType, to: IrType) -> ValueId {
+        self.expect_type(v, from);
         self.emit_pure(PureOp::Trunc { v, from, to }, to)
     }
 
     pub fn select(&mut self, cond: ValueId, t: ValueId, f: ValueId, ty: IrType) -> ValueId {
+        self.expect_type(cond, IrType::I1);
+        self.expect_type(t, ty);
+        self.expect_type(f, ty);
         self.emit_pure(PureOp::Select { cond, t, f }, ty)
     }
 
@@ -148,6 +182,7 @@ impl IrBuilder {
     }
 
     pub fn set_reg(&mut self, reg: crate::ir2::Reg, val: ValueId) {
+        self.expect_type(val, IrType::I64);
         self.emit_effect(EffectOp::SetReg { reg, val });
     }
 
@@ -158,6 +193,7 @@ impl IrBuilder {
     }
 
     pub fn set_pc(&mut self, val: ValueId) {
+        self.expect_type(val, IrType::I64);
         self.emit_effect(EffectOp::SetPc { val });
     }
 
@@ -168,6 +204,7 @@ impl IrBuilder {
     }
 
     pub fn set_csr(&mut self, csr: u32, val: ValueId) {
+        self.expect_type(val, IrType::I64);
         self.emit_effect(EffectOp::SetCsr { csr, val });
     }
 
@@ -178,6 +215,8 @@ impl IrBuilder {
         signed: crate::ir2::LoadSign,
         ty: IrType,
     ) -> ValueId {
+        self.expect_type(addr, IrType::I64);
+        self.expect_mem_width_type(width, ty);
         let dst = self.new_value(ty);
         self.emit_effect(EffectOp::Load {
             dst,
@@ -189,6 +228,8 @@ impl IrBuilder {
     }
 
     pub fn store(&mut self, addr: ValueId, val: ValueId, width: crate::ir2::MemWidth) {
+        self.expect_type(addr, IrType::I64);
+        self.expect_mem_width_value(width, val);
         self.emit_effect(EffectOp::Store { addr, val, width });
     }
 
@@ -198,6 +239,8 @@ impl IrBuilder {
         width: crate::ir2::AtomicWidth,
         ty: IrType,
     ) -> ValueId {
+        self.expect_type(addr, IrType::I64);
+        self.expect_atomic_width_type(width, ty);
         let dst = self.new_value(ty);
         self.emit_effect(EffectOp::LoadReserved { dst, addr, width });
         dst
@@ -210,6 +253,9 @@ impl IrBuilder {
         width: crate::ir2::AtomicWidth,
         ty: IrType,
     ) -> ValueId {
+        self.expect_type(addr, IrType::I64);
+        self.expect_atomic_width_value(width, val);
+        self.expect_atomic_width_type(width, ty);
         let dst = self.new_value(ty);
         self.emit_effect(EffectOp::StoreConditional {
             dst,
@@ -228,6 +274,9 @@ impl IrBuilder {
         val: ValueId,
         ty: IrType,
     ) -> ValueId {
+        self.expect_type(addr, IrType::I64);
+        self.expect_atomic_width_value(width, val);
+        self.expect_atomic_width_type(width, ty);
         let dst = self.new_value(ty);
         self.emit_effect(EffectOp::AtomicRmw {
             dst,
@@ -313,6 +362,60 @@ impl IrBuilder {
         if actual != ty {
             panic!("type mismatch: expected {:?}, got {:?}", ty, actual);
         }
+    }
+
+    fn expect_same_type(&self, a: ValueId, b: ValueId) {
+        let a_ty = self.value_type(a);
+        let b_ty = self.value_type(b);
+        if a_ty != b_ty {
+            panic!("type mismatch: expected {:?}, got {:?}", a_ty, b_ty);
+        }
+    }
+
+    fn expect_mem_width_type(&self, width: crate::ir2::MemWidth, ty: IrType) {
+        let expected = match width {
+            crate::ir2::MemWidth::W8 => IrType::I8,
+            crate::ir2::MemWidth::W16 => IrType::I16,
+            crate::ir2::MemWidth::W32 => IrType::I32,
+            crate::ir2::MemWidth::W64 => IrType::I64,
+        };
+        if expected != ty {
+            panic!(
+                "mem width type mismatch: expected {:?}, got {:?}",
+                expected, ty
+            );
+        }
+    }
+
+    fn expect_mem_width_value(&self, width: crate::ir2::MemWidth, v: ValueId) {
+        let expected = match width {
+            crate::ir2::MemWidth::W8 => IrType::I8,
+            crate::ir2::MemWidth::W16 => IrType::I16,
+            crate::ir2::MemWidth::W32 => IrType::I32,
+            crate::ir2::MemWidth::W64 => IrType::I64,
+        };
+        self.expect_type(v, expected);
+    }
+
+    fn expect_atomic_width_type(&self, width: crate::ir2::AtomicWidth, ty: IrType) {
+        let expected = match width {
+            crate::ir2::AtomicWidth::W => IrType::I32,
+            crate::ir2::AtomicWidth::D => IrType::I64,
+        };
+        if expected != ty {
+            panic!(
+                "atomic width type mismatch: expected {:?}, got {:?}",
+                expected, ty
+            );
+        }
+    }
+
+    fn expect_atomic_width_value(&self, width: crate::ir2::AtomicWidth, v: ValueId) {
+        let expected = match width {
+            crate::ir2::AtomicWidth::W => IrType::I32,
+            crate::ir2::AtomicWidth::D => IrType::I64,
+        };
+        self.expect_type(v, expected);
     }
 
     fn check_block_args(&self, block: BlockId, args: &[ValueId]) {
