@@ -117,49 +117,16 @@ pub enum EffectOp {
     SetPc {
         val: ValueId,
     },
-    Load8s {
+    Load {
         dst: ValueId,
         addr: ValueId,
+        width: MemWidth,
+        signed: LoadSign,
     },
-    Load8u {
-        dst: ValueId,
-        addr: ValueId,
-    },
-    Load16s {
-        dst: ValueId,
-        addr: ValueId,
-    },
-    Load16u {
-        dst: ValueId,
-        addr: ValueId,
-    },
-    Load32s {
-        dst: ValueId,
-        addr: ValueId,
-    },
-    Load32u {
-        dst: ValueId,
-        addr: ValueId,
-    },
-    Load64 {
-        dst: ValueId,
-        addr: ValueId,
-    },
-    Store8 {
+    Store {
         addr: ValueId,
         val: ValueId,
-    },
-    Store16 {
-        addr: ValueId,
-        val: ValueId,
-    },
-    Store32 {
-        addr: ValueId,
-        val: ValueId,
-    },
-    Store64 {
-        addr: ValueId,
-        val: ValueId,
+        width: MemWidth,
     },
     LoadReservedW {
         dst: ValueId,
@@ -210,6 +177,20 @@ pub enum AtomicRmwOp {
 pub enum AtomicWidth {
     W,
     D,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MemWidth {
+    W8,
+    W16,
+    W32,
+    W64,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LoadSign {
+    Signed,
+    Unsigned,
 }
 
 #[derive(Clone, Debug)]
