@@ -6,13 +6,13 @@ pub mod i;
 pub mod m;
 
 use crate::decode::Instruction;
+use crate::ir::IrBuilder;
 #[cfg(feature = "ext_a")]
 use crate::ir::lower::a::lower_a_into;
 use crate::ir::lower::csr::lower_csr_into;
 use crate::ir::lower::i::lower_i_into;
 #[cfg(feature = "ext_m")]
 use crate::ir::lower::m::lower_m_into;
-use crate::ir::IrBuilder;
 
 pub fn lower_instruction_into(
     insn: &Instruction,
