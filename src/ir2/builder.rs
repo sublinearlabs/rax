@@ -53,6 +53,204 @@ impl IrBuilder {
         self.push_op(Op::Effect(op));
     }
 
+    pub fn const_i64(&mut self, value: i64) -> ValueId {
+        self.emit_pure(PureOp::ConstI64(value), IrType::I64)
+    }
+
+    pub fn add(&mut self, a: ValueId, b: ValueId, ty: IrType) -> ValueId {
+        self.emit_pure(PureOp::Add(a, b), ty)
+    }
+
+    pub fn sub(&mut self, a: ValueId, b: ValueId, ty: IrType) -> ValueId {
+        self.emit_pure(PureOp::Sub(a, b), ty)
+    }
+
+    pub fn mul(&mut self, a: ValueId, b: ValueId, ty: IrType) -> ValueId {
+        self.emit_pure(PureOp::Mul(a, b), ty)
+    }
+
+    pub fn div(&mut self, a: ValueId, b: ValueId, ty: IrType) -> ValueId {
+        self.emit_pure(PureOp::Div(a, b), ty)
+    }
+
+    pub fn rem(&mut self, a: ValueId, b: ValueId, ty: IrType) -> ValueId {
+        self.emit_pure(PureOp::Rem(a, b), ty)
+    }
+
+    pub fn and(&mut self, a: ValueId, b: ValueId, ty: IrType) -> ValueId {
+        self.emit_pure(PureOp::And(a, b), ty)
+    }
+
+    pub fn or(&mut self, a: ValueId, b: ValueId, ty: IrType) -> ValueId {
+        self.emit_pure(PureOp::Or(a, b), ty)
+    }
+
+    pub fn xor(&mut self, a: ValueId, b: ValueId, ty: IrType) -> ValueId {
+        self.emit_pure(PureOp::Xor(a, b), ty)
+    }
+
+    pub fn shl(&mut self, a: ValueId, b: ValueId, ty: IrType) -> ValueId {
+        self.emit_pure(PureOp::Shl(a, b), ty)
+    }
+
+    pub fn shr(&mut self, a: ValueId, b: ValueId, ty: IrType) -> ValueId {
+        self.emit_pure(PureOp::Shr(a, b), ty)
+    }
+
+    pub fn sar(&mut self, a: ValueId, b: ValueId, ty: IrType) -> ValueId {
+        self.emit_pure(PureOp::Sar(a, b), ty)
+    }
+
+    pub fn eq(&mut self, a: ValueId, b: ValueId) -> ValueId {
+        self.emit_pure(PureOp::Eq(a, b), IrType::I1)
+    }
+
+    pub fn ne(&mut self, a: ValueId, b: ValueId) -> ValueId {
+        self.emit_pure(PureOp::Ne(a, b), IrType::I1)
+    }
+
+    pub fn lt(&mut self, a: ValueId, b: ValueId) -> ValueId {
+        self.emit_pure(PureOp::Lt(a, b), IrType::I1)
+    }
+
+    pub fn ltu(&mut self, a: ValueId, b: ValueId) -> ValueId {
+        self.emit_pure(PureOp::Ltu(a, b), IrType::I1)
+    }
+
+    pub fn ge(&mut self, a: ValueId, b: ValueId) -> ValueId {
+        self.emit_pure(PureOp::Ge(a, b), IrType::I1)
+    }
+
+    pub fn geu(&mut self, a: ValueId, b: ValueId) -> ValueId {
+        self.emit_pure(PureOp::Geu(a, b), IrType::I1)
+    }
+
+    pub fn sext(&mut self, v: ValueId, from: IrType, to: IrType) -> ValueId {
+        self.emit_pure(PureOp::Sext { v, from, to }, to)
+    }
+
+    pub fn zext(&mut self, v: ValueId, from: IrType, to: IrType) -> ValueId {
+        self.emit_pure(PureOp::Zext { v, from, to }, to)
+    }
+
+    pub fn trunc(&mut self, v: ValueId, from: IrType, to: IrType) -> ValueId {
+        self.emit_pure(PureOp::Trunc { v, from, to }, to)
+    }
+
+    pub fn select(&mut self, cond: ValueId, t: ValueId, f: ValueId, ty: IrType) -> ValueId {
+        self.emit_pure(PureOp::Select { cond, t, f }, ty)
+    }
+
+    pub fn get_reg(&mut self, reg: crate::ir2::Reg) -> ValueId {
+        let dst = self.new_value(IrType::I64);
+        self.emit_effect(EffectOp::GetReg { dst, reg });
+        dst
+    }
+
+    pub fn set_reg(&mut self, reg: crate::ir2::Reg, val: ValueId) {
+        self.emit_effect(EffectOp::SetReg { reg, val });
+    }
+
+    pub fn get_pc(&mut self) -> ValueId {
+        let dst = self.new_value(IrType::I64);
+        self.emit_effect(EffectOp::GetPc { dst });
+        dst
+    }
+
+    pub fn set_pc(&mut self, val: ValueId) {
+        self.emit_effect(EffectOp::SetPc { val });
+    }
+
+    pub fn get_csr(&mut self, csr: u32) -> ValueId {
+        let dst = self.new_value(IrType::I64);
+        self.emit_effect(EffectOp::GetCsr { dst, csr });
+        dst
+    }
+
+    pub fn set_csr(&mut self, csr: u32, val: ValueId) {
+        self.emit_effect(EffectOp::SetCsr { csr, val });
+    }
+
+    pub fn load(
+        &mut self,
+        addr: ValueId,
+        width: crate::ir2::MemWidth,
+        signed: crate::ir2::LoadSign,
+        ty: IrType,
+    ) -> ValueId {
+        let dst = self.new_value(ty);
+        self.emit_effect(EffectOp::Load {
+            dst,
+            addr,
+            width,
+            signed,
+        });
+        dst
+    }
+
+    pub fn store(&mut self, addr: ValueId, val: ValueId, width: crate::ir2::MemWidth) {
+        self.emit_effect(EffectOp::Store { addr, val, width });
+    }
+
+    pub fn load_reserved(
+        &mut self,
+        addr: ValueId,
+        width: crate::ir2::AtomicWidth,
+        ty: IrType,
+    ) -> ValueId {
+        let dst = self.new_value(ty);
+        self.emit_effect(EffectOp::LoadReserved { dst, addr, width });
+        dst
+    }
+
+    pub fn store_conditional(
+        &mut self,
+        addr: ValueId,
+        val: ValueId,
+        width: crate::ir2::AtomicWidth,
+        ty: IrType,
+    ) -> ValueId {
+        let dst = self.new_value(ty);
+        self.emit_effect(EffectOp::StoreConditional {
+            dst,
+            addr,
+            val,
+            width,
+        });
+        dst
+    }
+
+    pub fn atomic_rmw(
+        &mut self,
+        op: crate::ir2::AtomicRmwOp,
+        width: crate::ir2::AtomicWidth,
+        addr: ValueId,
+        val: ValueId,
+        ty: IrType,
+    ) -> ValueId {
+        let dst = self.new_value(ty);
+        self.emit_effect(EffectOp::AtomicRmw {
+            dst,
+            addr,
+            val,
+            op,
+            width,
+        });
+        dst
+    }
+
+    pub fn ecall(&mut self) {
+        self.emit_effect(EffectOp::Ecall);
+    }
+
+    pub fn ebreak(&mut self) {
+        self.emit_effect(EffectOp::Ebreak);
+    }
+
+    pub fn halt(&mut self, code: u64) {
+        self.emit_effect(EffectOp::Halt { code });
+    }
+
     pub fn br(&mut self, target: BlockId, args: Vec<ValueId>) {
         self.set_term(Terminator::Br { target, args });
     }
