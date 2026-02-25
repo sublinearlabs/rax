@@ -7,6 +7,7 @@ use crate::util::mask;
 pub struct IrBuilder {
     func: IrFunction,
     current_block: Option<BlockId>,
+    suppress_ret: bool,
 }
 
 impl IrBuilder {
@@ -14,6 +15,7 @@ impl IrBuilder {
         Self {
             func: IrFunction::new(),
             current_block: None,
+            suppress_ret: false,
         }
     }
 
@@ -423,7 +425,14 @@ impl IrBuilder {
     }
 
     pub fn ret(&mut self) {
+        if self.suppress_ret {
+            return;
+        }
         self.set_term(Terminator::Ret);
+    }
+
+    pub fn set_ret_suppressed(&mut self, suppress: bool) {
+        self.suppress_ret = suppress;
     }
 
     pub fn value_type(&self, v: ValueId) -> IrType {

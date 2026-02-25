@@ -1,7 +1,13 @@
 use crate::decode::Instruction;
 use crate::ir::IrBuilder;
 
-pub(crate) fn lower_csr(insn: &Instruction, builder: &mut IrBuilder) -> bool {
+fn finish_insn(builder: &mut IrBuilder, terminate: bool) {
+    if terminate {
+        builder.ret();
+    }
+}
+
+pub(crate) fn lower_csr(insn: &Instruction, builder: &mut IrBuilder, terminate: bool) -> bool {
     match insn {
         Instruction::Csrrw(i) => {
             let csr = csr_from_imm(i.imm);
@@ -9,7 +15,7 @@ pub(crate) fn lower_csr(insn: &Instruction, builder: &mut IrBuilder) -> bool {
             let prev = builder.get_csr(csr);
             builder.set_csr(csr, rs1);
             builder.set_reg_if_needed(i.rd, prev);
-            builder.ret();
+            finish_insn(builder, terminate);
             true
         }
         Instruction::Csrrs(i) => {
@@ -21,7 +27,7 @@ pub(crate) fn lower_csr(insn: &Instruction, builder: &mut IrBuilder) -> bool {
                 builder.set_csr(csr, next);
             }
             builder.set_reg_if_needed(i.rd, prev);
-            builder.ret();
+            finish_insn(builder, terminate);
             true
         }
         Instruction::Csrrc(i) => {
@@ -34,7 +40,7 @@ pub(crate) fn lower_csr(insn: &Instruction, builder: &mut IrBuilder) -> bool {
                 builder.set_csr(csr, next);
             }
             builder.set_reg_if_needed(i.rd, prev);
-            builder.ret();
+            finish_insn(builder, terminate);
             true
         }
         Instruction::Csrrwi(i) => {
@@ -43,7 +49,7 @@ pub(crate) fn lower_csr(insn: &Instruction, builder: &mut IrBuilder) -> bool {
             let prev = builder.get_csr(csr);
             builder.set_csr(csr, zimm);
             builder.set_reg_if_needed(i.rd, prev);
-            builder.ret();
+            finish_insn(builder, terminate);
             true
         }
         Instruction::Csrrsi(i) => {
@@ -55,7 +61,7 @@ pub(crate) fn lower_csr(insn: &Instruction, builder: &mut IrBuilder) -> bool {
                 builder.set_csr(csr, next);
             }
             builder.set_reg_if_needed(i.rd, prev);
-            builder.ret();
+            finish_insn(builder, terminate);
             true
         }
         Instruction::Csrrci(i) => {
@@ -68,7 +74,7 @@ pub(crate) fn lower_csr(insn: &Instruction, builder: &mut IrBuilder) -> bool {
                 builder.set_csr(csr, next);
             }
             builder.set_reg_if_needed(i.rd, prev);
-            builder.ret();
+            finish_insn(builder, terminate);
             true
         }
         _ => false,
@@ -82,7 +88,7 @@ fn csr_from_imm(imm: i32) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::lower_csr;
-    use crate::decode::{I, Instruction};
+    use crate::decode::{Instruction, I};
     use crate::ir::execute_ir;
     use crate::trace::NoopTracer;
     use crate::{HostIO, VM};
@@ -100,7 +106,7 @@ mod tests {
         builder.switch_to(entry);
         let seven = builder.const_i64(7);
         builder.set_reg(crate::ir::Reg::X1, seven);
-        assert!(lower_csr(&insn, &mut builder));
+        assert!(lower_csr(&insn, &mut builder, true));
         let func = builder.finish();
 
         let mut vm = VM::<NoopTracer>::init();
@@ -124,7 +130,7 @@ mod tests {
         builder.switch_to(entry);
         let three = builder.const_i64(3);
         builder.set_csr(0x2, three);
-        assert!(lower_csr(&insn, &mut builder));
+        assert!(lower_csr(&insn, &mut builder, true));
         let func = builder.finish();
 
         let mut vm = VM::<NoopTracer>::init();
@@ -147,7 +153,7 @@ mod tests {
         builder.switch_to(entry);
         let mask = builder.const_i64(0x1f);
         builder.set_csr(0x3, mask);
-        assert!(lower_csr(&insn, &mut builder));
+        assert!(lower_csr(&insn, &mut builder, true));
         let func = builder.finish();
 
         let mut vm = VM::<NoopTracer>::init();

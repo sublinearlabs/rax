@@ -1,11 +1,22 @@
 use crate::decode::Instruction;
 use crate::ir::{AtomicRmwOp, AtomicWidth, IrBuilder, IrFunction, IrType};
 
-pub(crate) fn lower_a(insn: &Instruction, _current_pc: u64, _next_pc: u64) -> IrFunction {
+pub(crate) fn lower_a(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFunction {
     let mut builder = IrBuilder::new();
     let entry = builder.block();
     builder.switch_to(entry);
 
+    lower_a_into(insn, current_pc, next_pc, &mut builder);
+
+    builder.finish()
+}
+
+pub(crate) fn lower_a_into(
+    insn: &Instruction,
+    _current_pc: u64,
+    _next_pc: u64,
+    builder: &mut IrBuilder,
+) {
     match insn {
         Instruction::LrW(r) => {
             let addr = builder.reg(r.rs1);
@@ -33,28 +44,26 @@ pub(crate) fn lower_a(insn: &Instruction, _current_pc: u64, _next_pc: u64) -> Ir
             builder.set_reg_idx(r.rd, result);
             builder.ret();
         }
-        Instruction::AmoSwapW(r) => amo_w(&mut builder, r, AtomicRmwOp::Xchg),
-        Instruction::AmoAddW(r) => amo_w(&mut builder, r, AtomicRmwOp::Add),
-        Instruction::AmoXorW(r) => amo_w(&mut builder, r, AtomicRmwOp::Xor),
-        Instruction::AmoAndW(r) => amo_w(&mut builder, r, AtomicRmwOp::And),
-        Instruction::AmoOrW(r) => amo_w(&mut builder, r, AtomicRmwOp::Or),
-        Instruction::AmoMinW(r) => amo_w(&mut builder, r, AtomicRmwOp::Min),
-        Instruction::AmoMaxW(r) => amo_w(&mut builder, r, AtomicRmwOp::Max),
-        Instruction::AmoMinuW(r) => amo_w(&mut builder, r, AtomicRmwOp::Umin),
-        Instruction::AmoMaxuW(r) => amo_w(&mut builder, r, AtomicRmwOp::Umax),
-        Instruction::AmoSwapD(r) => amo_d(&mut builder, r, AtomicRmwOp::Xchg),
-        Instruction::AmoAddD(r) => amo_d(&mut builder, r, AtomicRmwOp::Add),
-        Instruction::AmoXorD(r) => amo_d(&mut builder, r, AtomicRmwOp::Xor),
-        Instruction::AmoAndD(r) => amo_d(&mut builder, r, AtomicRmwOp::And),
-        Instruction::AmoOrD(r) => amo_d(&mut builder, r, AtomicRmwOp::Or),
-        Instruction::AmoMinD(r) => amo_d(&mut builder, r, AtomicRmwOp::Min),
-        Instruction::AmoMaxD(r) => amo_d(&mut builder, r, AtomicRmwOp::Max),
-        Instruction::AmoMinuD(r) => amo_d(&mut builder, r, AtomicRmwOp::Umin),
-        Instruction::AmoMaxuD(r) => amo_d(&mut builder, r, AtomicRmwOp::Umax),
+        Instruction::AmoSwapW(r) => amo_w(builder, r, AtomicRmwOp::Xchg),
+        Instruction::AmoAddW(r) => amo_w(builder, r, AtomicRmwOp::Add),
+        Instruction::AmoXorW(r) => amo_w(builder, r, AtomicRmwOp::Xor),
+        Instruction::AmoAndW(r) => amo_w(builder, r, AtomicRmwOp::And),
+        Instruction::AmoOrW(r) => amo_w(builder, r, AtomicRmwOp::Or),
+        Instruction::AmoMinW(r) => amo_w(builder, r, AtomicRmwOp::Min),
+        Instruction::AmoMaxW(r) => amo_w(builder, r, AtomicRmwOp::Max),
+        Instruction::AmoMinuW(r) => amo_w(builder, r, AtomicRmwOp::Umin),
+        Instruction::AmoMaxuW(r) => amo_w(builder, r, AtomicRmwOp::Umax),
+        Instruction::AmoSwapD(r) => amo_d(builder, r, AtomicRmwOp::Xchg),
+        Instruction::AmoAddD(r) => amo_d(builder, r, AtomicRmwOp::Add),
+        Instruction::AmoXorD(r) => amo_d(builder, r, AtomicRmwOp::Xor),
+        Instruction::AmoAndD(r) => amo_d(builder, r, AtomicRmwOp::And),
+        Instruction::AmoOrD(r) => amo_d(builder, r, AtomicRmwOp::Or),
+        Instruction::AmoMinD(r) => amo_d(builder, r, AtomicRmwOp::Min),
+        Instruction::AmoMaxD(r) => amo_d(builder, r, AtomicRmwOp::Max),
+        Instruction::AmoMinuD(r) => amo_d(builder, r, AtomicRmwOp::Umin),
+        Instruction::AmoMaxuD(r) => amo_d(builder, r, AtomicRmwOp::Umax),
         _ => panic!("IR lowering missing for A instruction {:?}", insn),
     }
-
-    builder.finish()
 }
 
 fn amo_w(builder: &mut IrBuilder, r: &crate::decode::R, op: AtomicRmwOp) {
