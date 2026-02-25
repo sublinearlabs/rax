@@ -73,7 +73,9 @@ pub fn lower_instruction_into(
         | Instruction::Sraw(_)
         | Instruction::Ld(_)
         | Instruction::Lwu(_)
-        | Instruction::Sd(_) => lower_i_into(insn, current_pc, next_pc, builder),
+        | Instruction::Sd(_)
+        | Instruction::Ecall
+        | Instruction::Ebreak => lower_i_into(insn, current_pc, next_pc, builder),
 
         // M instructions
         #[cfg(feature = "ext_m")]
@@ -117,6 +119,6 @@ pub fn lower_instruction_into(
         | Instruction::AmoMaxuD(_) => lower_a_into(insn, current_pc, next_pc, builder),
 
         // Other instructions
-        _ => lower_i_into(insn, current_pc, next_pc, builder), // fallback to I for now
+        _ => panic!("no lowering found for {:?}", insn),
     }
 }
