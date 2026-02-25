@@ -82,6 +82,7 @@ pub fn lower_instruction_into(
         | Instruction::Ld(_)
         | Instruction::Lwu(_)
         | Instruction::Sd(_)
+        | Instruction::Nop
         | Instruction::Ecall
         | Instruction::Ebreak => lower_i_into(insn, current_pc, next_pc, builder),
 
