@@ -1,20 +1,20 @@
 use std::collections::HashMap;
 
+use crate::HostIO;
+use crate::decode::Instruction;
 #[cfg(feature = "ext_c")]
 use crate::decode::compressed::decode_compressed;
-use crate::decode::Instruction;
+use crate::ir::IrFunction;
 use crate::ir::execute_ir;
 #[cfg(feature = "ext_a")]
 use crate::ir::lower::a::lower_a;
 use crate::ir::lower::i::lower_i;
 #[cfg(feature = "ext_m")]
 use crate::ir::lower::m::lower_m;
-use crate::ir::IrFunction;
 use crate::trace::Tracer;
 #[cfg(feature = "ext_c")]
 use crate::util::mask16;
-use crate::HostIO;
-use crate::{decode, VM};
+use crate::{VM, decode};
 
 fn lower_instruction(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFunction {
     match insn {
@@ -122,6 +122,12 @@ pub struct Runner {
     elapsed: std::time::Duration,
 }
 
+struct DecodedBlock {
+    insns: Vec<(Instruction, u32, bool)>,
+    terminated_by_branch: bool,
+    terminated_by_illegal: bool,
+}
+
 impl Runner {
     pub fn new() -> Self {
         Self {
@@ -165,114 +171,104 @@ impl Runner {
         )
     }
 
-    pub fn step<T: Tracer>(&mut self, vm: &mut VM<T>) {
-        if let Some(block) = self.basic_blocks.get(&vm.pc()) {
-            for (i, (insn, insn_bytes, is_compressed)) in block.iter().enumerate() {
-                let current_pc = vm.pc();
-                let next_pc = current_pc.wrapping_add(if *is_compressed { 2 } else { 4 });
-
-                // Begin tracing this instruction
-                vm.tracer.begin_instruction(
-                    self.cycles + i as u64,
-                    current_pc,
-                    &vm.registers,
-                    &vm.f_reg,
-                    *insn_bytes,
-                    insn,
-                );
-
-                vm.set_pc(next_pc);
-
-                // Execute the instruction (this will update PC)
-                let func = lower_instruction(insn, current_pc, next_pc);
-                execute_ir(&func, vm, &mut self.io);
-
-                // Record next PC
-                vm.tracer.record_next_pc(vm.pc());
-
-                // Check for halt
-                if vm.halted {
-                    vm.tracer.record_halt();
-                    vm.tracer.commit();
-                    break;
-                }
-
-                // Commit the trace row
-                vm.tracer.commit();
-            }
-            self.cycles = self.cycles.wrapping_add(block.len() as u64);
-            return;
-        }
-
-        // Build the basic block
-        let leader = vm.pc();
+    fn decode_basic_block<T: Tracer>(&self, vm: &mut VM<T>, start_pc: u64) -> DecodedBlock {
         let mut block = vec![];
+        let mut pc = start_pc;
 
         loop {
             let (insn, insn_bytes, is_compressed) = {
                 #[cfg(feature = "ext_c")]
                 {
-                    let insn = vm.load_u16(vm.pc() as usize);
+                    let insn = vm.load_u16(pc as usize);
                     let is_compressed = insn & mask16(2) != 0b11;
                     if is_compressed {
                         (decode_compressed(insn), insn as u32, true)
                     } else {
-                        let insn_upper = vm.load_u16((vm.pc() + 2) as usize);
+                        let insn_upper = vm.load_u16((pc + 2) as usize);
                         let insn = (insn_upper as u32) << 16 | insn as u32;
                         (decode::decode(insn), insn, false)
                     }
                 }
                 #[cfg(not(feature = "ext_c"))]
                 {
-                    let insn = vm.load_u32(vm.pc() as usize);
+                    let insn = vm.load_u32(pc as usize);
                     (decode::decode(insn), insn, false)
                 }
             };
 
-            if let Instruction::Illegal(_) = &insn {
+            let is_branch = insn.is_branch_or_jmp();
+            let is_illegal = matches!(insn, Instruction::Illegal(_));
+            block.push((insn, insn_bytes, is_compressed));
+
+            if is_branch || is_illegal {
+                return DecodedBlock {
+                    insns: block,
+                    terminated_by_branch: is_branch,
+                    terminated_by_illegal: is_illegal,
+                };
+            }
+
+            pc = pc.wrapping_add(if is_compressed { 2 } else { 4 });
+        }
+    }
+
+    fn execute_basic_block<T: Tracer>(
+        io: &mut HostIO,
+        cycles: &mut u64,
+        vm: &mut VM<T>,
+        block: &[(Instruction, u32, bool)],
+    ) {
+        for (insn, insn_bytes, is_compressed) in block.iter() {
+            if let Instruction::Illegal(_) = insn {
                 vm.exit_code = 1;
                 vm.halted = true;
                 break;
             }
 
-            // // Begin tracing this instruction
+            let current_pc = vm.pc();
+            let next_pc = current_pc.wrapping_add(if *is_compressed { 2 } else { 4 });
+
             vm.tracer.begin_instruction(
-                self.cycles,
-                vm.pc(),
+                *cycles,
+                current_pc,
                 &vm.registers,
                 &vm.f_reg,
-                insn_bytes,
-                &insn,
+                *insn_bytes,
+                insn,
             );
 
-            let current_pc = vm.pc();
-            let next_pc = current_pc.wrapping_add(if is_compressed { 2 } else { 4 });
             vm.set_pc(next_pc);
 
-            // Execute the instruction (this will update PC)
-            let func = lower_instruction(&insn, current_pc, next_pc);
-            execute_ir(&func, vm, &mut self.io);
+            let func = lower_instruction(insn, current_pc, next_pc);
+            execute_ir(&func, vm, io);
 
-            // Record next PC (set during execute_instruction or default to pc+4)
             vm.tracer.record_next_pc(vm.pc());
 
-            self.cycles = self.cycles.wrapping_add(1);
+            *cycles = cycles.wrapping_add(1);
 
-            // Check for halt
             if vm.halted {
                 vm.tracer.record_halt();
                 vm.tracer.commit();
                 break;
             }
 
-            let is_branch = insn.is_branch_or_jmp();
-            block.push((insn, insn_bytes, is_compressed));
             vm.tracer.commit();
+        }
+    }
 
-            if is_branch {
-                self.basic_blocks.insert(leader, block);
-                break;
-            }
+    pub fn step<T: Tracer>(&mut self, vm: &mut VM<T>) {
+        if let Some(block) = self.basic_blocks.get(&vm.pc()) {
+            Self::execute_basic_block(&mut self.io, &mut self.cycles, vm, block);
+            return;
+        }
+
+        let leader = vm.pc();
+        let block = self.decode_basic_block(vm, leader);
+
+        Self::execute_basic_block(&mut self.io, &mut self.cycles, vm, &block.insns);
+
+        if block.terminated_by_branch {
+            self.basic_blocks.insert(leader, block.insns);
         }
     }
 }
