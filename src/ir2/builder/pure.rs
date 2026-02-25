@@ -1,8 +1,24 @@
-use crate::ir2::{IrBuilder, IrType, PureOp, ValueId};
+use crate::ir2::{ConstVal, IrBuilder, IrType, PureOp, ValueId};
 
 impl IrBuilder {
+    pub fn const_i1(&mut self, value: bool) -> ValueId {
+        self.emit_pure(PureOp::Const(ConstVal::I1(value)), IrType::I1)
+    }
+
+    pub fn const_i8(&mut self, value: i8) -> ValueId {
+        self.emit_pure(PureOp::Const(ConstVal::I8(value)), IrType::I8)
+    }
+
+    pub fn const_i16(&mut self, value: i16) -> ValueId {
+        self.emit_pure(PureOp::Const(ConstVal::I16(value)), IrType::I16)
+    }
+
+    pub fn const_i32(&mut self, value: i32) -> ValueId {
+        self.emit_pure(PureOp::Const(ConstVal::I32(value)), IrType::I32)
+    }
+
     pub fn const_i64(&mut self, value: i64) -> ValueId {
-        self.emit_pure(PureOp::ConstI64(value), IrType::I64)
+        self.emit_pure(PureOp::Const(ConstVal::I64(value)), IrType::I64)
     }
 
     pub fn add(&mut self, a: ValueId, b: ValueId, ty: IrType) -> ValueId {

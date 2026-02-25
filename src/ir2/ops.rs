@@ -2,7 +2,7 @@ use crate::ir2::{IrType, Reg, ValueId};
 
 #[derive(Clone, Debug)]
 pub enum PureOp {
-    ConstI64(i64),
+    Const(ConstVal),
     Add(ValueId, ValueId),
     Sub(ValueId, ValueId),
     Mul(ValueId, ValueId),
@@ -40,6 +40,15 @@ pub enum PureOp {
         t: ValueId,
         f: ValueId,
     },
+}
+
+#[derive(Clone, Debug)]
+pub enum ConstVal {
+    I1(bool),
+    I8(i8),
+    I16(i16),
+    I32(i32),
+    I64(i64),
 }
 
 #[derive(Clone, Debug)]

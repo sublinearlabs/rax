@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::ir2::{IrBuilder, IrType, PureOp};
+    use crate::ir2::IrBuilder;
 
     #[test]
     fn build_single_block_with_ret() {
@@ -11,7 +11,7 @@ mod tests {
         let mut builder = IrBuilder::new();
         let entry = builder.block();
         builder.switch_to(entry);
-        builder.emit_pure(PureOp::ConstI64(7), IrType::I64);
+        builder.const_i64(7);
         builder.ret();
 
         let func = builder.finish();
@@ -28,7 +28,7 @@ mod tests {
         let mut builder = IrBuilder::new();
         let entry = builder.block();
         builder.switch_to(entry);
-        builder.emit_pure(PureOp::ConstI64(0), IrType::I64);
+        builder.const_i64(0);
         builder.require_single_exit();
         builder.ret();
     }
@@ -76,7 +76,7 @@ mod tests {
         builder.switch_to(entry);
         builder.ret();
 
-        builder.emit_pure(PureOp::ConstI64(1), IrType::I64);
+        builder.const_i64(1);
     }
 
     #[test]
@@ -93,7 +93,7 @@ mod tests {
         builder.switch_to(entry);
         builder.br(target, vec![]);
 
-        builder.emit_pure(PureOp::ConstI64(1), IrType::I64);
+        builder.const_i64(1);
     }
 
     #[test]
