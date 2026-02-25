@@ -86,7 +86,7 @@ pub fn execute_ir<T: Tracer>(func: &IrFunction, vm: &mut VM<T>, io: &mut HostIO)
 
 fn eval_pure(op: &PureOp, values: &[u64], types: &[IrType]) -> u64 {
     match op {
-        PureOp::Const(c) => const_value(*c),
+        PureOp::Const(c) => const_value(c),
         PureOp::Add(a, b) => {
             let ty = types[a.0 as usize];
             let a = mask_value(values[a.0 as usize], ty);
@@ -321,8 +321,8 @@ fn exec_effect<T: Tracer>(
     }
 }
 
-fn const_value(c: crate::ir2::ConstVal) -> u64 {
-    match c {
+fn const_value(c: &crate::ir2::ConstVal) -> u64 {
+    match *c {
         crate::ir2::ConstVal::I1(v) => {
             if v {
                 1
@@ -498,5 +498,44 @@ fn atomic_rmw_d(read_value: u64, rs2_val: u64, op: AtomicRmwOp) -> u64 {
         AtomicRmwOp::Max => (read_value as i64).max(rs2_val as i64) as u64,
         AtomicRmwOp::Umin => read_value.min(rs2_val),
         AtomicRmwOp::Umax => read_value.max(rs2_val),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::execute_ir;
+    use crate::decode::{Instruction, B, I};
+    use crate::ir2::lower::lower_instruction_into;
+    use crate::ir2::IrBuilder;
+    use crate::trace::NoopTracer;
+    use crate::{HostIO, VM};
+
+    #[test]
+    fn execute_ir_addi_then_beq_sets_reg_and_pc() {
+        let mut builder = IrBuilder::new();
+        let entry = builder.block();
+        builder.switch_to(entry);
+
+        let addi = Instruction::Addi(I {
+            rd: 1,
+            rs1: 0,
+            imm: 7,
+        });
+        lower_instruction_into(&addi, 0, 4, &mut builder);
+
+        let beq = Instruction::Beq(B {
+            rs1: 1,
+            rs2: 1,
+            imm: 12,
+        });
+        lower_instruction_into(&beq, 4, 8, &mut builder);
+
+        let func = builder.finish();
+        let mut vm = VM::<NoopTracer>::init();
+        let mut io = HostIO::new();
+        execute_ir(&func, &mut vm, &mut io);
+
+        assert_eq!(vm.reg(1), 7);
+        assert_eq!(vm.pc(), 16);
     }
 }
