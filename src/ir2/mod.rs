@@ -1,5 +1,7 @@
 // Builder API (construction + validation)
 mod builder;
+// Lowering from decoded instructions
+pub mod lower;
 // CFG structures (Op/Terminator/Block/IrFunction)
 mod cfg;
 // Display impl + IR formatting tests
