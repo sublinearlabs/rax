@@ -34,7 +34,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "expected single exit")]
+    #[should_panic(expected = "require_single_exit failed")]
     fn require_single_exit_panics_on_multiple_exits() {
         // Proof sketch:
         // - C4: Every new block starts as an exit.
@@ -49,7 +49,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "no current block")]
+    #[should_panic(expected = "require_single_exit failed")]
     fn require_single_exit_panics_on_no_current_block() {
         // Proof sketch:
         // - C5: br/cbr terminate the current block, remove it from exits, and clear current.
