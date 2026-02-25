@@ -1,20 +1,20 @@
 use std::collections::HashMap;
 
-use crate::HostIO;
-use crate::decode::Instruction;
 #[cfg(feature = "ext_c")]
 use crate::decode::compressed::decode_compressed;
-use crate::ir::IrFunction;
+use crate::decode::Instruction;
 use crate::ir::execute_ir;
 #[cfg(feature = "ext_a")]
 use crate::ir::lower::a::lower_a;
 use crate::ir::lower::i::lower_i;
 #[cfg(feature = "ext_m")]
 use crate::ir::lower::m::lower_m;
+use crate::ir::IrFunction;
 use crate::trace::Tracer;
 #[cfg(feature = "ext_c")]
 use crate::util::mask16;
-use crate::{VM, decode};
+use crate::HostIO;
+use crate::{decode, VM};
 
 fn lower_instruction(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFunction {
     match insn {
@@ -117,13 +117,13 @@ fn lower_instruction(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFun
 
 pub struct Runner {
     io: HostIO,
-    basic_blocks: HashMap<u64, Vec<(Instruction, u32, bool)>>,
+    basic_blocks: HashMap<u64, Vec<(IrFunction, bool)>>,
     cycles: u64,
     elapsed: std::time::Duration,
 }
 
 struct DecodedBlock {
-    insns: Vec<(Instruction, u32, bool)>,
+    insns: Vec<(Instruction, bool)>,
     terminated_by_branch: bool,
     terminated_by_illegal: bool,
 }
@@ -176,29 +176,29 @@ impl Runner {
         let mut pc = start_pc;
 
         loop {
-            let (insn, insn_bytes, is_compressed) = {
+            let (insn, is_compressed) = {
                 #[cfg(feature = "ext_c")]
                 {
                     let insn = vm.load_u16(pc as usize);
                     let is_compressed = insn & mask16(2) != 0b11;
                     if is_compressed {
-                        (decode_compressed(insn), insn as u32, true)
+                        (decode_compressed(insn), true)
                     } else {
                         let insn_upper = vm.load_u16((pc + 2) as usize);
                         let insn = (insn_upper as u32) << 16 | insn as u32;
-                        (decode::decode(insn), insn, false)
+                        (decode::decode(insn), false)
                     }
                 }
                 #[cfg(not(feature = "ext_c"))]
                 {
                     let insn = vm.load_u32(pc as usize);
-                    (decode::decode(insn), insn, false)
+                    (decode::decode(insn), false)
                 }
             };
 
             let is_branch = insn.is_branch_or_jmp();
             let is_illegal = matches!(insn, Instruction::Illegal(_));
-            block.push((insn, insn_bytes, is_compressed));
+            block.push((insn, is_compressed));
 
             if is_branch || is_illegal {
                 return DecodedBlock {
@@ -212,47 +212,38 @@ impl Runner {
         }
     }
 
+    fn lower_basic_block(&self, start_pc: u64, block: &DecodedBlock) -> Vec<(IrFunction, bool)> {
+        let mut pc = start_pc;
+        let mut lowered = Vec::with_capacity(block.insns.len());
+
+        for (insn, is_compressed) in &block.insns {
+            let current_pc = pc;
+            let next_pc = current_pc.wrapping_add(if *is_compressed { 2 } else { 4 });
+            lowered.push((lower_instruction(insn, current_pc, next_pc), *is_compressed));
+            pc = next_pc;
+        }
+
+        lowered
+    }
+
     fn execute_basic_block<T: Tracer>(
         io: &mut HostIO,
         cycles: &mut u64,
         vm: &mut VM<T>,
-        block: &[(Instruction, u32, bool)],
+        block: &[(IrFunction, bool)],
     ) {
-        for (insn, insn_bytes, is_compressed) in block.iter() {
-            if let Instruction::Illegal(_) = insn {
-                vm.exit_code = 1;
-                vm.halted = true;
-                break;
-            }
-
+        for (func, is_compressed) in block.iter() {
             let current_pc = vm.pc();
             let next_pc = current_pc.wrapping_add(if *is_compressed { 2 } else { 4 });
 
-            vm.tracer.begin_instruction(
-                *cycles,
-                current_pc,
-                &vm.registers,
-                &vm.f_reg,
-                *insn_bytes,
-                insn,
-            );
-
             vm.set_pc(next_pc);
-
-            let func = lower_instruction(insn, current_pc, next_pc);
-            execute_ir(&func, vm, io);
-
-            vm.tracer.record_next_pc(vm.pc());
+            execute_ir(func, vm, io);
 
             *cycles = cycles.wrapping_add(1);
 
             if vm.halted {
-                vm.tracer.record_halt();
-                vm.tracer.commit();
                 break;
             }
-
-            vm.tracer.commit();
         }
     }
 
@@ -264,11 +255,12 @@ impl Runner {
 
         let leader = vm.pc();
         let block = self.decode_basic_block(vm, leader);
+        let lowered = self.lower_basic_block(leader, &block);
 
-        Self::execute_basic_block(&mut self.io, &mut self.cycles, vm, &block.insns);
+        Self::execute_basic_block(&mut self.io, &mut self.cycles, vm, &lowered);
 
         if block.terminated_by_branch {
-            self.basic_blocks.insert(leader, block.insns);
+            self.basic_blocks.insert(leader, lowered);
         }
     }
 }
