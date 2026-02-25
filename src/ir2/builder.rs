@@ -252,6 +252,7 @@ impl IrBuilder {
     }
 
     pub fn br(&mut self, target: BlockId, args: Vec<ValueId>) {
+        self.check_block_args(target, &args);
         self.set_term(Terminator::Br { target, args });
     }
 
@@ -263,6 +264,9 @@ impl IrBuilder {
         t_args: Vec<ValueId>,
         f_args: Vec<ValueId>,
     ) {
+        self.expect_type(cond, IrType::I1);
+        self.check_block_args(t, &t_args);
+        self.check_block_args(f, &f_args);
         self.set_term(Terminator::Cbr {
             cond,
             t,
@@ -282,6 +286,10 @@ impl IrBuilder {
         id
     }
 
+    fn value_type(&self, v: ValueId) -> IrType {
+        self.func.value_types[v.0 as usize]
+    }
+
     fn push_op(&mut self, op: Op) {
         let block = self.current_block.expect("no current block");
         let block = &mut self.func.blocks[block.0 as usize];
@@ -298,6 +306,30 @@ impl IrBuilder {
             panic!("terminator already set");
         }
         block.term = Some(term);
+    }
+
+    fn expect_type(&self, v: ValueId, ty: IrType) {
+        let actual = self.value_type(v);
+        if actual != ty {
+            panic!("type mismatch: expected {:?}, got {:?}", ty, actual);
+        }
+    }
+
+    fn check_block_args(&self, block: BlockId, args: &[ValueId]) {
+        let block = &self.func.blocks[block.0 as usize];
+        if block.args.len() != args.len() {
+            panic!("block arg count mismatch");
+        }
+        for (arg, param) in args.iter().zip(block.args.iter()) {
+            let expected = self.value_type(*param);
+            let actual = self.value_type(*arg);
+            if expected != actual {
+                panic!(
+                    "block arg type mismatch: expected {:?}, got {:?}",
+                    expected, actual
+                );
+            }
+        }
     }
 }
 
