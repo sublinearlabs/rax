@@ -53,14 +53,7 @@ pub(crate) enum Instruction {
     Ecall,
     Ebreak,
     Nop,
-    Mret,
-    Sret,
-    Uret,
-    Wfi,
-    SfenceVma,
     Eother,
-    // Fence
-    Fence,
 
     // RV64I
     // Register-Register

@@ -14,16 +14,29 @@ pub(crate) fn decode_system(insn: u32) -> Instruction {
     };
 
     if funct3(insn) == 0x0 && funct7(insn) == 0x09 {
-        return Instruction::SfenceVma;
+        // system-reminder: was SfenceVma
+        return Instruction::Nop;
     }
 
     match (funct3(insn), imm12) {
         (0x0, 0x000) => Instruction::Ecall,
         (0x0, 0x001) => Instruction::Ebreak,
-        (0x0, 0x302) => Instruction::Mret,
-        (0x0, 0x102) => Instruction::Sret,
-        (0x0, 0x002) => Instruction::Uret,
-        (0x0, 0x105) => Instruction::Wfi,
+        (0x0, 0x302) => {
+            // system-reminder: was Mret
+            Instruction::Nop
+        }
+        (0x0, 0x102) => {
+            // system-reminder: was Sret
+            Instruction::Nop
+        }
+        (0x0, 0x002) => {
+            // system-reminder: was Uret
+            Instruction::Nop
+        }
+        (0x0, 0x105) => {
+            // system-reminder: was Wfi
+            Instruction::Nop
+        }
         (0x1, _) => Instruction::Csrrw(operand),
         (0x2, _) => Instruction::Csrrs(operand),
         (0x3, _) => Instruction::Csrrc(operand),

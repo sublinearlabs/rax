@@ -1,128 +1,16 @@
 use std::collections::HashMap;
 
-use crate::HostIO;
-use crate::decode::Instruction;
 #[cfg(feature = "ext_c")]
 use crate::decode::compressed::decode_compressed;
+use crate::decode::Instruction;
 use crate::ir::execute_ir;
-#[cfg(feature = "ext_a")]
-use crate::ir::lower::a::lower_a_into;
-use crate::ir::lower::i::lower_i_into;
-#[cfg(feature = "ext_m")]
-use crate::ir::lower::m::lower_m_into;
+use crate::ir::lower::lower_instruction_into;
 use crate::ir::{IrBuilder, IrFunction};
 use crate::trace::Tracer;
 #[cfg(feature = "ext_c")]
 use crate::util::mask16;
-use crate::{VM, decode};
-
-fn lower_instruction_into(
-    insn: &Instruction,
-    current_pc: u64,
-    next_pc: u64,
-    builder: &mut IrBuilder,
-) {
-    match insn {
-        Instruction::Illegal(_) => {
-            builder.halt(1);
-            builder.ret();
-        }
-        // I instructions
-        Instruction::Add(_)
-        | Instruction::Sub(_)
-        | Instruction::Sll(_)
-        | Instruction::Slt(_)
-        | Instruction::Sltu(_)
-        | Instruction::Xor(_)
-        | Instruction::Srl(_)
-        | Instruction::Sra(_)
-        | Instruction::Or(_)
-        | Instruction::And(_)
-        | Instruction::Addi(_)
-        | Instruction::Slti(_)
-        | Instruction::Sltiu(_)
-        | Instruction::Xori(_)
-        | Instruction::Ori(_)
-        | Instruction::Andi(_)
-        | Instruction::Slli(_)
-        | Instruction::Srli(_)
-        | Instruction::Srai(_)
-        | Instruction::Lb(_)
-        | Instruction::Lh(_)
-        | Instruction::Lw(_)
-        | Instruction::Lbu(_)
-        | Instruction::Lhu(_)
-        | Instruction::Sb(_)
-        | Instruction::Sh(_)
-        | Instruction::Sw(_)
-        | Instruction::Beq(_)
-        | Instruction::Bne(_)
-        | Instruction::Blt(_)
-        | Instruction::Bge(_)
-        | Instruction::Bltu(_)
-        | Instruction::Bgeu(_)
-        | Instruction::Jal(_)
-        | Instruction::Jalr(_)
-        | Instruction::Lui(_)
-        | Instruction::Auipc(_)
-        | Instruction::Addiw(_)
-        | Instruction::Slliw(_)
-        | Instruction::Srliw(_)
-        | Instruction::Sraiw(_)
-        | Instruction::Addw(_)
-        | Instruction::Subw(_)
-        | Instruction::Sllw(_)
-        | Instruction::Srlw(_)
-        | Instruction::Sraw(_)
-        | Instruction::Ld(_)
-        | Instruction::Lwu(_)
-        | Instruction::Sd(_) => lower_i_into(insn, current_pc, next_pc, builder),
-
-        // M instructions
-        #[cfg(feature = "ext_m")]
-        Instruction::Mul(_)
-        | Instruction::Mulh(_)
-        | Instruction::Mulhsu(_)
-        | Instruction::Mulhu(_)
-        | Instruction::Mulw(_)
-        | Instruction::Div(_)
-        | Instruction::Divu(_)
-        | Instruction::Rem(_)
-        | Instruction::Remu(_)
-        | Instruction::Divw(_)
-        | Instruction::Divuw(_)
-        | Instruction::Remw(_)
-        | Instruction::Remuw(_) => lower_m_into(insn, current_pc, next_pc, builder),
-
-        // A instructions
-        #[cfg(feature = "ext_a")]
-        Instruction::LrW(_)
-        | Instruction::ScW(_)
-        | Instruction::AmoSwapW(_)
-        | Instruction::AmoAddW(_)
-        | Instruction::AmoXorW(_)
-        | Instruction::AmoAndW(_)
-        | Instruction::AmoOrW(_)
-        | Instruction::AmoMinW(_)
-        | Instruction::AmoMaxW(_)
-        | Instruction::AmoMinuW(_)
-        | Instruction::AmoMaxuW(_)
-        | Instruction::LrD(_)
-        | Instruction::ScD(_)
-        | Instruction::AmoSwapD(_)
-        | Instruction::AmoAddD(_)
-        | Instruction::AmoXorD(_)
-        | Instruction::AmoAndD(_)
-        | Instruction::AmoOrD(_)
-        | Instruction::AmoMinD(_)
-        | Instruction::AmoMaxD(_)
-        | Instruction::AmoMinuD(_)
-        | Instruction::AmoMaxuD(_) => lower_a_into(insn, current_pc, next_pc, builder),
-
-        // Other instructions
-        _ => lower_i_into(insn, current_pc, next_pc, builder), // fallback to I for now
-    }
-}
+use crate::HostIO;
+use crate::{decode, VM};
 
 pub struct Runner {
     io: HostIO,
@@ -133,8 +21,7 @@ pub struct Runner {
 
 struct DecodedBlock {
     insns: Vec<(Instruction, bool)>,
-    terminated_by_branch: bool,
-    terminated_by_illegal: bool,
+    terminator: (Instruction, bool),
 }
 
 struct CachedBlock {
@@ -198,6 +85,7 @@ impl Runner {
                     if is_compressed {
                         (decode_compressed(insn), true)
                     } else {
+                        let insn = vm.load_u32(pc as usize);
                         let insn_upper = vm.load_u16((pc + 2) as usize);
                         let insn = (insn_upper as u32) << 16 | insn as u32;
                         (decode::decode(insn), false)
@@ -213,15 +101,15 @@ impl Runner {
             let is_branch = insn.is_branch_or_jmp();
             let is_illegal = matches!(insn, Instruction::Illegal(_));
             let is_halt = matches!(insn, Instruction::Ebreak);
-            block.push((insn, is_compressed));
 
             if is_branch || is_illegal || is_halt {
                 return DecodedBlock {
                     insns: block,
-                    terminated_by_branch: is_branch,
-                    terminated_by_illegal: is_illegal,
+                    terminator: (insn, is_compressed),
                 };
             }
+
+            block.push((insn, is_compressed));
 
             pc = pc.wrapping_add(if is_compressed { 2 } else { 4 });
         }
@@ -234,38 +122,27 @@ impl Runner {
 
         let mut pc = start_pc;
         let mut insn_count = 0u64;
-        let mut terminated = false;
 
+        builder.set_ret_suppressed(true);
         for (insn, is_compressed) in &block.insns {
             let current_pc = pc;
             let next_pc = current_pc.wrapping_add(if *is_compressed { 2 } else { 4 });
-            let is_branch = insn.is_branch_or_jmp();
-            let is_illegal = matches!(insn, Instruction::Illegal(_));
-            let is_halt = matches!(insn, Instruction::Ebreak);
 
-            builder.set_ret_suppressed(!is_branch && !is_illegal && !is_halt);
             lower_instruction_into(insn, current_pc, next_pc, &mut builder);
             insn_count = insn_count.wrapping_add(1);
-
-            if is_illegal || is_halt {
-                terminated = true;
-                break;
-            }
-
-            if is_branch {
-                terminated = true;
-                break;
-            }
 
             let next_pc_val = builder.imm_u64(next_pc);
             builder.set_pc(next_pc_val);
             pc = next_pc;
         }
 
-        if !terminated {
-            builder.set_ret_suppressed(false);
-            builder.ret();
-        }
+        let (insn, is_compressed) = &block.terminator;
+        let current_pc = pc;
+        let next_pc = current_pc.wrapping_add(if *is_compressed { 2 } else { 4 });
+
+        builder.set_ret_suppressed(false);
+        lower_instruction_into(insn, current_pc, next_pc, &mut builder);
+        insn_count = insn_count.wrapping_add(1);
 
         CachedBlock {
             ir: builder.finish(),
@@ -291,8 +168,6 @@ impl Runner {
         Self::execute_basic_block(&mut self.io, vm, &lowered.ir);
         self.cycles = self.cycles.wrapping_add(lowered.insn_count);
 
-        if block.terminated_by_branch {
-            self.basic_blocks.insert(leader, lowered);
-        }
+        self.basic_blocks.insert(leader, lowered);
     }
 }

@@ -495,7 +495,6 @@ impl InstrFlags {
             // System
             Instruction::Ecall => flags.is_ecall = true,
             Instruction::Ebreak => flags.is_ebreak = true,
-            Instruction::Fence => flags.is_fence = true,
             Instruction::Eother => {}
 
             // Remove when implemented

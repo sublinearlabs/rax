@@ -81,6 +81,12 @@ pub(crate) fn lower_csr(insn: &Instruction, builder: &mut IrBuilder, terminate: 
     }
 }
 
+pub(crate) fn lower_csr_into(insn: &Instruction, builder: &mut IrBuilder) {
+    if !lower_csr(insn, builder, true) {
+        panic!("IR lowering missing for {:?}", insn);
+    }
+}
+
 fn csr_from_imm(imm: i32) -> u32 {
     (imm as u32) & 0xfff
 }

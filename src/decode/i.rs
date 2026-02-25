@@ -204,5 +204,6 @@ pub(crate) fn decode_auipc(insn: u32) -> Instruction {
 }
 
 pub(crate) fn decode_fence(_insn: u32) -> Instruction {
-    Instruction::Fence
+    // system-reminder: was Fence
+    Instruction::Nop
 }

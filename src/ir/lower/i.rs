@@ -1,5 +1,4 @@
 use crate::decode::Instruction;
-use crate::ir::lower::csr::lower_csr;
 use crate::ir::{IrBuilder, IrFunction, IrType, ValueId};
 
 pub(crate) fn lower_i(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFunction {
@@ -18,10 +17,6 @@ pub(crate) fn lower_i_into(
     next_pc: u64,
     builder: &mut IrBuilder,
 ) {
-    if lower_csr(insn, builder, true) {
-        return;
-    }
-
     match insn {
         // Integer Register-Register
         Instruction::Add(r) => {
@@ -412,13 +407,7 @@ pub(crate) fn lower_i_into(
             builder.ebreak();
             builder.ret();
         }
-        Instruction::Nop
-        | Instruction::Mret
-        | Instruction::Sret
-        | Instruction::Uret
-        | Instruction::Wfi
-        | Instruction::SfenceVma
-        | Instruction::Fence => {
+        Instruction::Nop => {
             builder.ret();
         }
 
