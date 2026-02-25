@@ -1,3 +1,8 @@
-mod ir;
+mod cfg;
+mod display;
+mod ops;
+mod types;
 
-pub use ir::*;
+pub use cfg::*;
+pub use ops::*;
+pub use types::*;
