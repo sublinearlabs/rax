@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::decode::{I, Instruction};
+use crate::decode::{Instruction, I};
 
 /// Memory operation type for RV64IMAC.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -495,7 +495,6 @@ impl InstrFlags {
             // System
             Instruction::Ecall => flags.is_ecall = true,
             Instruction::Ebreak => flags.is_ebreak = true,
-            Instruction::Fence => flags.is_fence = true,
             Instruction::Eother => {}
 
             // Remove when implemented

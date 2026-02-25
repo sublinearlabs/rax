@@ -407,13 +407,7 @@ pub(crate) fn lower_i_into(
             builder.ebreak();
             builder.ret();
         }
-        Instruction::Nop
-        | Instruction::Mret
-        | Instruction::Sret
-        | Instruction::Uret
-        | Instruction::Wfi
-        | Instruction::SfenceVma
-        | Instruction::Fence => {
+        Instruction::Nop => {
             builder.ret();
         }
 
