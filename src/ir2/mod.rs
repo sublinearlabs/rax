@@ -1,5 +1,7 @@
 // Builder API (construction + validation)
 mod builder;
+// Interpreter execution
+mod interpreter;
 // Lowering from decoded instructions
 pub mod lower;
 // CFG structures (Op/Terminator/Block/IrFunction)
@@ -13,5 +15,6 @@ mod types;
 
 pub use builder::IrBuilder;
 pub use cfg::*;
+pub use interpreter::execute_ir;
 pub use ops::*;
 pub use types::*;
