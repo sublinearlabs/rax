@@ -1,20 +1,20 @@
 use std::collections::HashMap;
 
+use crate::HostIO;
+use crate::decode::Instruction;
 #[cfg(feature = "ext_c")]
 use crate::decode::compressed::decode_compressed;
-use crate::decode::Instruction;
+use crate::ir::IrFunction;
 use crate::ir::execute_ir;
 #[cfg(feature = "ext_a")]
 use crate::ir::lower::a::lower_a;
 use crate::ir::lower::i::lower_i;
 #[cfg(feature = "ext_m")]
 use crate::ir::lower::m::lower_m;
-use crate::ir::IrFunction;
 use crate::trace::Tracer;
 #[cfg(feature = "ext_c")]
 use crate::util::mask16;
-use crate::HostIO;
-use crate::{decode, VM};
+use crate::{VM, decode};
 
 fn lower_instruction(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFunction {
     match insn {
@@ -265,15 +265,10 @@ impl Runner {
         let leader = vm.pc();
         let block = self.decode_basic_block(vm, leader);
 
+        Self::execute_basic_block(&mut self.io, &mut self.cycles, vm, &block.insns);
+
         if block.terminated_by_branch {
             self.basic_blocks.insert(leader, block.insns);
-        } else {
-            Self::execute_basic_block(&mut self.io, &mut self.cycles, vm, &block.insns);
-            return;
-        }
-
-        if let Some(block) = self.basic_blocks.get(&vm.pc()) {
-            Self::execute_basic_block(&mut self.io, &mut self.cycles, vm, block);
         }
     }
 }
