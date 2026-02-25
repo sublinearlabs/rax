@@ -1,6 +1,7 @@
 use crate::ir2::{AtomicWidth, BlockId, IrBuilder, IrType, MemWidth, ValueId};
 
 impl IrBuilder {
+    // Assert a value has the expected IR type.
     pub(crate) fn expect_type(&self, v: ValueId, ty: IrType) {
         let actual = self.value_type(v);
         if actual != ty {
@@ -8,6 +9,7 @@ impl IrBuilder {
         }
     }
 
+    // Assert two values have the same IR type.
     pub(crate) fn expect_same_type(&self, a: ValueId, b: ValueId) {
         let a_ty = self.value_type(a);
         let b_ty = self.value_type(b);
@@ -16,6 +18,7 @@ impl IrBuilder {
         }
     }
 
+    // Assert block argument count and types match the target block signature.
     pub(crate) fn check_block_args(&self, block: BlockId, args: &[ValueId]) {
         let block = &self.func.blocks[block.0 as usize];
         if block.args.len() != args.len() {
@@ -33,6 +36,7 @@ impl IrBuilder {
         }
     }
 
+    // Assert the requested memory width maps to the provided IR type.
     pub(crate) fn expect_mem_width_type(&self, width: MemWidth, ty: IrType) {
         let expected = match width {
             MemWidth::W8 => IrType::I8,
@@ -48,6 +52,7 @@ impl IrBuilder {
         }
     }
 
+    // Assert the value type matches the requested memory width.
     pub(crate) fn expect_mem_width_value(&self, width: MemWidth, v: ValueId) {
         let expected = match width {
             MemWidth::W8 => IrType::I8,
@@ -58,6 +63,7 @@ impl IrBuilder {
         self.expect_type(v, expected);
     }
 
+    // Assert the atomic width maps to the provided IR type.
     pub(crate) fn expect_atomic_width_type(&self, width: AtomicWidth, ty: IrType) {
         let expected = match width {
             AtomicWidth::W => IrType::I32,
@@ -71,6 +77,7 @@ impl IrBuilder {
         }
     }
 
+    // Assert the value type matches the atomic width.
     pub(crate) fn expect_atomic_width_value(&self, width: AtomicWidth, v: ValueId) {
         let expected = match width {
             AtomicWidth::W => IrType::I32,
