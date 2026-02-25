@@ -22,8 +22,6 @@ pub struct Runner {
 struct DecodedBlock {
     insns: Vec<(Instruction, bool)>,
     terminator: (Instruction, bool, bool),
-    terminated_by_branch: bool,
-    terminated_by_illegal: bool,
 }
 
 struct CachedBlock {
@@ -108,8 +106,6 @@ impl Runner {
                 return DecodedBlock {
                     insns: block,
                     terminator: (insn, is_compressed, is_branch),
-                    terminated_by_branch: is_branch,
-                    terminated_by_illegal: is_illegal,
                 };
             }
 
@@ -172,7 +168,7 @@ impl Runner {
         Self::execute_basic_block(&mut self.io, vm, &lowered.ir);
         self.cycles = self.cycles.wrapping_add(lowered.insn_count);
 
-        if block.terminated_by_branch {
+        if block.terminator.2 {
             self.basic_blocks.insert(leader, lowered);
         }
     }
