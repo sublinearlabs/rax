@@ -193,6 +193,9 @@ pub enum EffectOp {
     },
     Ecall,
     Ebreak,
+    Halt {
+        code: u64,
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

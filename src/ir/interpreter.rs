@@ -294,6 +294,10 @@ fn exec_effect<T: Tracer>(op: &EffectOp, values: &mut [i64], vm: &mut VM<T>, io:
         EffectOp::Ecall | EffectOp::Ebreak => {
             handle_ecall(vm, io);
         }
+        EffectOp::Halt { code } => {
+            vm.exit_code = *code;
+            vm.halted = true;
+        }
     }
 }
 

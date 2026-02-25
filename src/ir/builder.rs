@@ -393,6 +393,10 @@ impl IrBuilder {
         self.push_op(Op::Effect(EffectOp::Ebreak));
     }
 
+    pub fn halt(&mut self, code: u64) {
+        self.push_op(Op::Effect(EffectOp::Halt { code }));
+    }
+
     pub fn br(&mut self, target: BlockId, args: Vec<ValueId>) {
         self.check_block_args(target, &args);
         self.set_term(Terminator::Br { target, args });

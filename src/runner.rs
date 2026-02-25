@@ -9,7 +9,7 @@ use crate::ir::lower::a::lower_a;
 use crate::ir::lower::i::lower_i;
 #[cfg(feature = "ext_m")]
 use crate::ir::lower::m::lower_m;
-use crate::ir::IrFunction;
+use crate::ir::{IrBuilder, IrFunction};
 use crate::trace::Tracer;
 #[cfg(feature = "ext_c")]
 use crate::util::mask16;
@@ -18,6 +18,14 @@ use crate::{decode, VM};
 
 fn lower_instruction(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFunction {
     match insn {
+        Instruction::Illegal(_) => {
+            let mut builder = IrBuilder::new();
+            let entry = builder.block();
+            builder.switch_to(entry);
+            builder.halt(1);
+            builder.ret();
+            builder.finish()
+        }
         // I instructions
         Instruction::Add(_)
         | Instruction::Sub(_)
