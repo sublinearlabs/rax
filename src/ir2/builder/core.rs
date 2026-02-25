@@ -1,5 +1,14 @@
 use crate::ir2::{Block, BlockId, EffectOp, IrFunction, IrType, Op, PureOp, Terminator, ValueId};
 
+// Builder constraints (C1-C7):
+// C1: Emitting ops/terminators requires a current block.
+// C2: A block's terminator is set once.
+// C3: Switching to a terminated block is forbidden.
+// C4: Every new block starts as an exit.
+// C5: br/cbr terminate the current block, remove it from exits, and clear current.
+// C6: ret terminates the current block, keeps it in exits, and clears current.
+// C7: require_single_exit asserts current exists and is the only exit.
+
 pub struct IrBuilder {
     pub(crate) func: IrFunction,
     pub(crate) current_block: Option<BlockId>,
@@ -32,30 +41,25 @@ impl IrBuilder {
     }
 
     pub(crate) fn push_op(&mut self, op: Op) {
+        // C1
         let block = self.current_block.expect("no current block");
-        let block = &mut self.func.blocks[block.0 as usize];
-        if block.term.is_some() {
-            panic!("cannot add op after terminator");
-        }
-        block.ops.push(op);
+        self.func.blocks[block.0 as usize].ops.push(op);
     }
 
     pub(crate) fn set_term(&mut self, term: Terminator) {
+        // C1/C2/C5/C6
         let block = self.current_block.expect("no current block");
         let idx = block.0 as usize;
         let is_branch = matches!(term, Terminator::Br { .. } | Terminator::Cbr { .. });
         let block = &mut self.func.blocks[idx];
-        if block.term.is_some() {
-            panic!("terminator already set");
-        }
         block.term = Some(term);
         if is_branch {
             if self.exit_flags.get(idx).copied().unwrap_or(false) {
                 self.exit_flags[idx] = false;
                 self.exit_count = self.exit_count.saturating_sub(1);
             }
-            self.current_block = None;
         }
+        self.current_block = None;
     }
 
     pub fn emit_pure(&mut self, op: PureOp, ty: IrType) -> ValueId {

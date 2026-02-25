@@ -21,8 +21,8 @@ mod tests {
         let entry = builder.block();
         builder.switch_to(entry);
         builder.emit_pure(PureOp::ConstI64(0), IrType::I64);
-        builder.ret();
         builder.require_single_exit();
+        builder.ret();
     }
 
     #[test]
@@ -30,33 +30,46 @@ mod tests {
     fn require_single_exit_panics_on_multiple_exits() {
         let mut builder = IrBuilder::new();
         let entry = builder.block();
-        let then_block = builder.block();
-        let else_block = builder.block();
+        let _other = builder.block();
 
         builder.switch_to(entry);
-        let cond = builder.emit_pure(PureOp::ConstI64(1), IrType::I1);
-        builder.cbr(cond, then_block, else_block, vec![], vec![]);
-
-        builder.switch_to(then_block);
-        builder.ret();
-        builder.switch_to(else_block);
-        builder.ret();
-
         builder.require_single_exit();
     }
 
     #[test]
-    #[should_panic(expected = "current block is not an exit")]
-    fn require_single_exit_panics_on_non_exit_current_block() {
+    #[should_panic(expected = "no current block")]
+    fn require_single_exit_panics_on_no_current_block() {
         let mut builder = IrBuilder::new();
         let entry = builder.block();
         let target = builder.block();
 
         builder.switch_to(entry);
         builder.br(target, vec![]);
-        builder.switch_to(entry);
-
         builder.require_single_exit();
+    }
+
+    #[test]
+    #[should_panic(expected = "no current block")]
+    fn emit_after_ret_panics_no_current_block() {
+        let mut builder = IrBuilder::new();
+        let entry = builder.block();
+        builder.switch_to(entry);
+        builder.ret();
+
+        builder.emit_pure(PureOp::ConstI64(1), IrType::I64);
+    }
+
+    #[test]
+    #[should_panic(expected = "no current block")]
+    fn emit_after_br_panics_no_current_block() {
+        let mut builder = IrBuilder::new();
+        let entry = builder.block();
+        let target = builder.block();
+
+        builder.switch_to(entry);
+        builder.br(target, vec![]);
+
+        builder.emit_pure(PureOp::ConstI64(1), IrType::I64);
     }
 
     #[test]

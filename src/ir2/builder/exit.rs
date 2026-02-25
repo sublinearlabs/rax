@@ -2,6 +2,7 @@ use crate::ir2::IrBuilder;
 
 impl IrBuilder {
     pub fn require_single_exit(&self) {
+        // C7
         let block = self.current_block.expect("no current block");
         if self.exit_count != 1 {
             panic!("expected single exit, found {}", self.exit_count);
