@@ -5,6 +5,7 @@ mod execute;
 mod host_io;
 mod instr_execute;
 pub mod ir;
+pub mod ir2;
 mod loader;
 mod memory;
 mod runner;
