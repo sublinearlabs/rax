@@ -128,23 +128,16 @@ pub enum EffectOp {
         val: ValueId,
         width: MemWidth,
     },
-    LoadReservedW {
+    LoadReserved {
         dst: ValueId,
         addr: ValueId,
+        width: AtomicWidth,
     },
-    LoadReservedD {
-        dst: ValueId,
-        addr: ValueId,
-    },
-    StoreConditionalW {
+    StoreConditional {
         dst: ValueId,
         addr: ValueId,
         val: ValueId,
-    },
-    StoreConditionalD {
-        dst: ValueId,
-        addr: ValueId,
-        val: ValueId,
+        width: AtomicWidth,
     },
     AtomicRmw {
         dst: ValueId,
