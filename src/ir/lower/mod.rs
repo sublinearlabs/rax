@@ -8,6 +8,7 @@ pub mod m;
 use crate::decode::Instruction;
 #[cfg(feature = "ext_a")]
 use crate::ir::lower::a::lower_a_into;
+use crate::ir::lower::csr::lower_csr_into;
 use crate::ir::lower::i::lower_i_into;
 #[cfg(feature = "ext_m")]
 use crate::ir::lower::m::lower_m_into;
@@ -24,6 +25,13 @@ pub fn lower_instruction_into(
             builder.halt(1);
             builder.ret();
         }
+        // CSR instructions
+        Instruction::Csrrw(_)
+        | Instruction::Csrrs(_)
+        | Instruction::Csrrc(_)
+        | Instruction::Csrrwi(_)
+        | Instruction::Csrrsi(_)
+        | Instruction::Csrrci(_) => lower_csr_into(insn, builder),
         // I instructions
         Instruction::Add(_)
         | Instruction::Sub(_)
