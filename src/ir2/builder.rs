@@ -3,6 +3,8 @@ use crate::ir2::{Block, BlockId, EffectOp, IrFunction, IrType, Op, PureOp, Termi
 pub struct IrBuilder {
     func: IrFunction,
     current_block: Option<BlockId>,
+    exit_flags: Vec<bool>,
+    exit_count: usize,
 }
 
 impl IrBuilder {
@@ -10,6 +12,8 @@ impl IrBuilder {
         Self {
             func: IrFunction::new(),
             current_block: None,
+            exit_flags: Vec::new(),
+            exit_count: 0,
         }
     }
 
@@ -28,6 +32,8 @@ impl IrBuilder {
             ops: Vec::new(),
             term: None,
         });
+        self.exit_flags.push(true);
+        self.exit_count += 1;
         id
     }
 
@@ -329,6 +335,17 @@ impl IrBuilder {
         self.set_term(Terminator::Ret);
     }
 
+    pub fn require_single_exit(&self) {
+        let block = self.current_block.expect("no current block");
+        if self.exit_count != 1 {
+            panic!("expected single exit, found {}", self.exit_count);
+        }
+        let idx = block.0 as usize;
+        if !self.exit_flags.get(idx).copied().unwrap_or(false) {
+            panic!("current block is not an exit");
+        }
+    }
+
     fn new_value(&mut self, ty: IrType) -> ValueId {
         let id = ValueId(self.func.value_types.len() as u32);
         self.func.value_types.push(ty);
@@ -350,11 +367,20 @@ impl IrBuilder {
 
     fn set_term(&mut self, term: Terminator) {
         let block = self.current_block.expect("no current block");
-        let block = &mut self.func.blocks[block.0 as usize];
+        let idx = block.0 as usize;
+        let is_branch = matches!(term, Terminator::Br { .. } | Terminator::Cbr { .. });
+        let block = &mut self.func.blocks[idx];
         if block.term.is_some() {
             panic!("terminator already set");
         }
         block.term = Some(term);
+        if is_branch {
+            if self.exit_flags.get(idx).copied().unwrap_or(false) {
+                self.exit_flags[idx] = false;
+                self.exit_count = self.exit_count.saturating_sub(1);
+            }
+            self.current_block = None;
+        }
     }
 
     fn expect_type(&self, v: ValueId, ty: IrType) {
@@ -452,5 +478,49 @@ mod tests {
         let func = builder.finish();
         assert_eq!(func.blocks.len(), 1);
         assert!(func.blocks[0].term.is_some());
+    }
+
+    #[test]
+    fn require_single_exit_ok() {
+        let mut builder = IrBuilder::new();
+        let entry = builder.block();
+        builder.switch_to(entry);
+        builder.emit_pure(PureOp::ConstI64(0), IrType::I64);
+        builder.ret();
+        builder.require_single_exit();
+    }
+
+    #[test]
+    #[should_panic(expected = "expected single exit")]
+    fn require_single_exit_panics_on_multiple_exits() {
+        let mut builder = IrBuilder::new();
+        let entry = builder.block();
+        let then_block = builder.block();
+        let else_block = builder.block();
+
+        builder.switch_to(entry);
+        let cond = builder.emit_pure(PureOp::ConstI64(1), IrType::I1);
+        builder.cbr(cond, then_block, else_block, vec![], vec![]);
+
+        builder.switch_to(then_block);
+        builder.ret();
+        builder.switch_to(else_block);
+        builder.ret();
+
+        builder.require_single_exit();
+    }
+
+    #[test]
+    #[should_panic(expected = "current block is not an exit")]
+    fn require_single_exit_panics_on_non_exit_current_block() {
+        let mut builder = IrBuilder::new();
+        let entry = builder.block();
+        let target = builder.block();
+
+        builder.switch_to(entry);
+        builder.br(target, vec![]);
+        builder.switch_to(entry);
+
+        builder.require_single_exit();
     }
 }
