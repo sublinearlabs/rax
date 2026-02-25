@@ -523,21 +523,27 @@ mod tests {
             0xb3, 0x81, 0x20, 0x00, // add x3, x1, x2
             0xb3, 0x00, 0x01, 0x00, // add x1, x2, x0
             0x33, 0x81, 0x01, 0x00, // add x2, x3, x0
+            // Halt
+            0x73, 0x00, 0x10, 0x00, // ebreak
         ];
 
         let mut vm = VM::<NoopTracer>::init();
         vm.write_bytes(0, &fib_prog);
         vm.reg_mut(1, 1);
         vm.reg_mut(2, 1);
+        vm.reg_mut(17, crate::ecall::constants::ECALL_HALT);
 
         let mut runner = Runner::new();
         runner.step(&mut vm);
         assert_eq!(vm.reg(2), 5);
 
-        assert_eq!(runner.cycles(), 9);
+        assert_eq!(vm.exit_code, 0);
+
+        assert_eq!(runner.cycles(), 10);
     }
 
     #[test]
+    #[ignore = "re-enable once we add back tracing"]
     fn test_tracing_vm() {
         let fib_prog = [
             0xb3, 0x81, 0x20, 0x00, // add x3, x1, x2
