@@ -1,11 +1,22 @@
 use crate::decode::Instruction;
 use crate::ir::{IrBuilder, IrFunction, IrType, ValueId};
 
-pub(crate) fn lower_m(insn: &Instruction, _current_pc: u64, _next_pc: u64) -> IrFunction {
+pub(crate) fn lower_m(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFunction {
     let mut builder = IrBuilder::new();
     let entry = builder.block();
     builder.switch_to(entry);
 
+    lower_m_into(insn, current_pc, next_pc, &mut builder);
+
+    builder.finish()
+}
+
+pub(crate) fn lower_m_into(
+    insn: &Instruction,
+    _current_pc: u64,
+    _next_pc: u64,
+    builder: &mut IrBuilder,
+) {
     match insn {
         // Multiplication
         Instruction::Mul(r) => {
@@ -18,13 +29,13 @@ pub(crate) fn lower_m(insn: &Instruction, _current_pc: u64, _next_pc: u64) -> Ir
         Instruction::Mulw(r) => {
             let rs1 = builder.reg(r.rs1);
             let rs2 = builder.reg(r.rs2);
-            let rs1_trunc = trunc_i32(&mut builder, rs1);
-            let rs2_trunc = trunc_i32(&mut builder, rs2);
-            let a = sext_i32(&mut builder, rs1_trunc);
-            let b = sext_i32(&mut builder, rs2_trunc);
+            let rs1_trunc = trunc_i32(builder, rs1);
+            let rs2_trunc = trunc_i32(builder, rs2);
+            let a = sext_i32(builder, rs1_trunc);
+            let b = sext_i32(builder, rs2_trunc);
             let prod = builder.mul(a, b);
-            let trunc = trunc_i32(&mut builder, prod);
-            let v = sext_i32(&mut builder, trunc);
+            let trunc = trunc_i32(builder, prod);
+            let v = sext_i32(builder, trunc);
             builder.set_reg_idx(r.rd, v);
             builder.ret();
         }
@@ -61,13 +72,13 @@ pub(crate) fn lower_m(insn: &Instruction, _current_pc: u64, _next_pc: u64) -> Ir
         Instruction::Divw(r) => {
             let rs1 = builder.reg(r.rs1);
             let rs2 = builder.reg(r.rs2);
-            let rs1_trunc = trunc_i32(&mut builder, rs1);
-            let rs2_trunc = trunc_i32(&mut builder, rs2);
-            let a = sext_i32(&mut builder, rs1_trunc);
-            let b = sext_i32(&mut builder, rs2_trunc);
+            let rs1_trunc = trunc_i32(builder, rs1);
+            let rs2_trunc = trunc_i32(builder, rs2);
+            let a = sext_i32(builder, rs1_trunc);
+            let b = sext_i32(builder, rs2_trunc);
             let quot = builder.div(a, b);
-            let trunc = trunc_i32(&mut builder, quot);
-            let v = sext_i32(&mut builder, trunc);
+            let trunc = trunc_i32(builder, quot);
+            let v = sext_i32(builder, trunc);
             builder.set_reg_idx(r.rd, v);
             builder.ret();
         }
@@ -81,13 +92,13 @@ pub(crate) fn lower_m(insn: &Instruction, _current_pc: u64, _next_pc: u64) -> Ir
         Instruction::Divuw(r) => {
             let rs1 = builder.reg(r.rs1);
             let rs2 = builder.reg(r.rs2);
-            let rs1_trunc = trunc_i32(&mut builder, rs1);
-            let rs2_trunc = trunc_i32(&mut builder, rs2);
-            let a = zext_i32(&mut builder, rs1_trunc);
-            let b = zext_i32(&mut builder, rs2_trunc);
+            let rs1_trunc = trunc_i32(builder, rs1);
+            let rs2_trunc = trunc_i32(builder, rs2);
+            let a = zext_i32(builder, rs1_trunc);
+            let b = zext_i32(builder, rs2_trunc);
             let quot = builder.divu(a, b);
-            let trunc = trunc_i32(&mut builder, quot);
-            let v = sext_i32(&mut builder, trunc);
+            let trunc = trunc_i32(builder, quot);
+            let v = sext_i32(builder, trunc);
             builder.set_reg_idx(r.rd, v);
             builder.ret();
         }
@@ -103,13 +114,13 @@ pub(crate) fn lower_m(insn: &Instruction, _current_pc: u64, _next_pc: u64) -> Ir
         Instruction::Remw(r) => {
             let rs1 = builder.reg(r.rs1);
             let rs2 = builder.reg(r.rs2);
-            let rs1_trunc = trunc_i32(&mut builder, rs1);
-            let rs2_trunc = trunc_i32(&mut builder, rs2);
-            let a = sext_i32(&mut builder, rs1_trunc);
-            let b = sext_i32(&mut builder, rs2_trunc);
+            let rs1_trunc = trunc_i32(builder, rs1);
+            let rs2_trunc = trunc_i32(builder, rs2);
+            let a = sext_i32(builder, rs1_trunc);
+            let b = sext_i32(builder, rs2_trunc);
             let rem = builder.rem(a, b);
-            let trunc = trunc_i32(&mut builder, rem);
-            let v = sext_i32(&mut builder, trunc);
+            let trunc = trunc_i32(builder, rem);
+            let v = sext_i32(builder, trunc);
             builder.set_reg_idx(r.rd, v);
             builder.ret();
         }
@@ -123,21 +134,19 @@ pub(crate) fn lower_m(insn: &Instruction, _current_pc: u64, _next_pc: u64) -> Ir
         Instruction::Remuw(r) => {
             let rs1 = builder.reg(r.rs1);
             let rs2 = builder.reg(r.rs2);
-            let rs1_trunc = trunc_i32(&mut builder, rs1);
-            let rs2_trunc = trunc_i32(&mut builder, rs2);
-            let a = zext_i32(&mut builder, rs1_trunc);
-            let b = zext_i32(&mut builder, rs2_trunc);
+            let rs1_trunc = trunc_i32(builder, rs1);
+            let rs2_trunc = trunc_i32(builder, rs2);
+            let a = zext_i32(builder, rs1_trunc);
+            let b = zext_i32(builder, rs2_trunc);
             let rem = builder.remu(a, b);
-            let trunc = trunc_i32(&mut builder, rem);
-            let v = sext_i32(&mut builder, trunc);
+            let trunc = trunc_i32(builder, rem);
+            let v = sext_i32(builder, trunc);
             builder.set_reg_idx(r.rd, v);
             builder.ret();
         }
 
         _ => panic!("IR lowering missing for M instruction {:?}", insn),
     }
-
-    builder.finish()
 }
 
 fn trunc_i32(builder: &mut IrBuilder, value: ValueId) -> ValueId {

@@ -1,30 +1,31 @@
 use std::collections::HashMap;
 
+use crate::HostIO;
+use crate::decode::Instruction;
 #[cfg(feature = "ext_c")]
 use crate::decode::compressed::decode_compressed;
-use crate::decode::Instruction;
 use crate::ir::execute_ir;
 #[cfg(feature = "ext_a")]
-use crate::ir::lower::a::lower_a;
-use crate::ir::lower::i::lower_i;
+use crate::ir::lower::a::lower_a_into;
+use crate::ir::lower::i::lower_i_into;
 #[cfg(feature = "ext_m")]
-use crate::ir::lower::m::lower_m;
+use crate::ir::lower::m::lower_m_into;
 use crate::ir::{IrBuilder, IrFunction};
 use crate::trace::Tracer;
 #[cfg(feature = "ext_c")]
 use crate::util::mask16;
-use crate::HostIO;
-use crate::{decode, VM};
+use crate::{VM, decode};
 
-fn lower_instruction(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFunction {
+fn lower_instruction_into(
+    insn: &Instruction,
+    current_pc: u64,
+    next_pc: u64,
+    builder: &mut IrBuilder,
+) {
     match insn {
         Instruction::Illegal(_) => {
-            let mut builder = IrBuilder::new();
-            let entry = builder.block();
-            builder.switch_to(entry);
             builder.halt(1);
             builder.ret();
-            builder.finish()
         }
         // I instructions
         Instruction::Add(_)
@@ -75,7 +76,7 @@ fn lower_instruction(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFun
         | Instruction::Sraw(_)
         | Instruction::Ld(_)
         | Instruction::Lwu(_)
-        | Instruction::Sd(_) => lower_i(insn, current_pc, next_pc),
+        | Instruction::Sd(_) => lower_i_into(insn, current_pc, next_pc, builder),
 
         // M instructions
         #[cfg(feature = "ext_m")]
@@ -91,7 +92,7 @@ fn lower_instruction(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFun
         | Instruction::Divw(_)
         | Instruction::Divuw(_)
         | Instruction::Remw(_)
-        | Instruction::Remuw(_) => lower_m(insn, current_pc, next_pc),
+        | Instruction::Remuw(_) => lower_m_into(insn, current_pc, next_pc, builder),
 
         // A instructions
         #[cfg(feature = "ext_a")]
@@ -116,16 +117,16 @@ fn lower_instruction(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFun
         | Instruction::AmoMinD(_)
         | Instruction::AmoMaxD(_)
         | Instruction::AmoMinuD(_)
-        | Instruction::AmoMaxuD(_) => lower_a(insn, current_pc, next_pc),
+        | Instruction::AmoMaxuD(_) => lower_a_into(insn, current_pc, next_pc, builder),
 
         // Other instructions
-        _ => lower_i(insn, current_pc, next_pc), // fallback to I for now
+        _ => lower_i_into(insn, current_pc, next_pc, builder), // fallback to I for now
     }
 }
 
 pub struct Runner {
     io: HostIO,
-    basic_blocks: HashMap<u64, Vec<(IrFunction, bool)>>,
+    basic_blocks: HashMap<u64, CachedBlock>,
     cycles: u64,
     elapsed: std::time::Duration,
 }
@@ -134,6 +135,11 @@ struct DecodedBlock {
     insns: Vec<(Instruction, bool)>,
     terminated_by_branch: bool,
     terminated_by_illegal: bool,
+}
+
+struct CachedBlock {
+    ir: IrFunction,
+    insn_count: u64,
 }
 
 impl Runner {
@@ -206,9 +212,10 @@ impl Runner {
 
             let is_branch = insn.is_branch_or_jmp();
             let is_illegal = matches!(insn, Instruction::Illegal(_));
+            let is_halt = matches!(insn, Instruction::Ebreak);
             block.push((insn, is_compressed));
 
-            if is_branch || is_illegal {
+            if is_branch || is_illegal || is_halt {
                 return DecodedBlock {
                     insns: block,
                     terminated_by_branch: is_branch,
@@ -220,44 +227,60 @@ impl Runner {
         }
     }
 
-    fn lower_basic_block(&self, start_pc: u64, block: &DecodedBlock) -> Vec<(IrFunction, bool)> {
+    fn lower_basic_block(&self, start_pc: u64, block: &DecodedBlock) -> CachedBlock {
+        let mut builder = IrBuilder::new();
+        let entry = builder.block();
+        builder.switch_to(entry);
+
         let mut pc = start_pc;
-        let mut lowered = Vec::with_capacity(block.insns.len());
+        let mut insn_count = 0u64;
+        let mut terminated = false;
 
         for (insn, is_compressed) in &block.insns {
             let current_pc = pc;
             let next_pc = current_pc.wrapping_add(if *is_compressed { 2 } else { 4 });
-            lowered.push((lower_instruction(insn, current_pc, next_pc), *is_compressed));
+            let is_branch = insn.is_branch_or_jmp();
+            let is_illegal = matches!(insn, Instruction::Illegal(_));
+            let is_halt = matches!(insn, Instruction::Ebreak);
+
+            builder.set_ret_suppressed(!is_branch && !is_illegal && !is_halt);
+            lower_instruction_into(insn, current_pc, next_pc, &mut builder);
+            insn_count = insn_count.wrapping_add(1);
+
+            if is_illegal || is_halt {
+                terminated = true;
+                break;
+            }
+
+            if is_branch {
+                terminated = true;
+                break;
+            }
+
+            let next_pc_val = builder.imm_u64(next_pc);
+            builder.set_pc(next_pc_val);
             pc = next_pc;
         }
 
-        lowered
+        if !terminated {
+            builder.set_ret_suppressed(false);
+            builder.ret();
+        }
+
+        CachedBlock {
+            ir: builder.finish(),
+            insn_count,
+        }
     }
 
-    fn execute_basic_block<T: Tracer>(
-        io: &mut HostIO,
-        cycles: &mut u64,
-        vm: &mut VM<T>,
-        block: &[(IrFunction, bool)],
-    ) {
-        for (func, is_compressed) in block.iter() {
-            let current_pc = vm.pc();
-            let next_pc = current_pc.wrapping_add(if *is_compressed { 2 } else { 4 });
-
-            vm.set_pc(next_pc);
-            execute_ir(func, vm, io);
-
-            *cycles = cycles.wrapping_add(1);
-
-            if vm.halted {
-                break;
-            }
-        }
+    fn execute_basic_block<T: Tracer>(io: &mut HostIO, vm: &mut VM<T>, block: &IrFunction) {
+        execute_ir(block, vm, io);
     }
 
     pub fn step<T: Tracer>(&mut self, vm: &mut VM<T>) {
         if let Some(block) = self.basic_blocks.get(&vm.pc()) {
-            Self::execute_basic_block(&mut self.io, &mut self.cycles, vm, block);
+            Self::execute_basic_block(&mut self.io, vm, &block.ir);
+            self.cycles = self.cycles.wrapping_add(block.insn_count);
             return;
         }
 
@@ -265,7 +288,8 @@ impl Runner {
         let block = self.decode_basic_block(vm, leader);
         let lowered = self.lower_basic_block(leader, &block);
 
-        Self::execute_basic_block(&mut self.io, &mut self.cycles, vm, &lowered);
+        Self::execute_basic_block(&mut self.io, vm, &lowered.ir);
+        self.cycles = self.cycles.wrapping_add(lowered.insn_count);
 
         if block.terminated_by_branch {
             self.basic_blocks.insert(leader, lowered);
