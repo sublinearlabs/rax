@@ -171,7 +171,7 @@ impl Runner {
         )
     }
 
-    fn decode_basic_block<T: Tracer>(&self, vm: &VM<T>, start_pc: u64) -> DecodedBlock {
+    fn decode_basic_block<T: Tracer>(&self, vm: &mut VM<T>, start_pc: u64) -> DecodedBlock {
         let mut block = vec![];
         let mut pc = start_pc;
 
@@ -213,7 +213,8 @@ impl Runner {
     }
 
     fn execute_basic_block<T: Tracer>(
-        &mut self,
+        io: &mut HostIO,
+        cycles: &mut u64,
         vm: &mut VM<T>,
         block: &[(Instruction, u32, bool)],
     ) {
@@ -228,7 +229,7 @@ impl Runner {
             let next_pc = current_pc.wrapping_add(if *is_compressed { 2 } else { 4 });
 
             vm.tracer.begin_instruction(
-                self.cycles,
+                *cycles,
                 current_pc,
                 &vm.registers,
                 &vm.f_reg,
@@ -239,11 +240,11 @@ impl Runner {
             vm.set_pc(next_pc);
 
             let func = lower_instruction(insn, current_pc, next_pc);
-            execute_ir(&func, vm, &mut self.io);
+            execute_ir(&func, vm, io);
 
             vm.tracer.record_next_pc(vm.pc());
 
-            self.cycles = self.cycles.wrapping_add(1);
+            *cycles = cycles.wrapping_add(1);
 
             if vm.halted {
                 vm.tracer.record_halt();
@@ -257,7 +258,7 @@ impl Runner {
 
     pub fn step<T: Tracer>(&mut self, vm: &mut VM<T>) {
         if let Some(block) = self.basic_blocks.get(&vm.pc()) {
-            self.execute_basic_block(vm, block);
+            Self::execute_basic_block(&mut self.io, &mut self.cycles, vm, block);
             return;
         }
 
@@ -267,12 +268,12 @@ impl Runner {
         if block.terminated_by_branch {
             self.basic_blocks.insert(leader, block.insns);
         } else {
-            self.execute_basic_block(vm, &block.insns);
+            Self::execute_basic_block(&mut self.io, &mut self.cycles, vm, &block.insns);
             return;
         }
 
         if let Some(block) = self.basic_blocks.get(&vm.pc()) {
-            self.execute_basic_block(vm, block);
+            Self::execute_basic_block(&mut self.io, &mut self.cycles, vm, block);
         }
     }
 }
