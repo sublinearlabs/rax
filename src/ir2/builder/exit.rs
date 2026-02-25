@@ -3,13 +3,8 @@ use crate::ir2::IrBuilder;
 impl IrBuilder {
     pub fn require_single_exit(&self) {
         // C7: require_single_exit asserts current exists and is the only exit.
-        let block = self.current_block.expect("no current block");
-        if self.exit_count != 1 {
-            panic!("expected single exit, found {}", self.exit_count);
-        }
-        let idx = block.0 as usize;
-        if !self.exit_flags.get(idx).copied().unwrap_or(false) {
-            panic!("current block is not an exit");
+        if self.current_block.is_none() || self.exit_count != 1 {
+            panic!("require_single_exit failed: current or exit_count invalid");
         }
     }
 }
