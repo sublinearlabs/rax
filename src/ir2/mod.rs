@@ -1,7 +1,12 @@
+// Builder API (construction + validation)
 mod builder;
+// CFG structures (Op/Terminator/Block/IrFunction)
 mod cfg;
+// Display impl + IR formatting tests
 mod display;
+// Pure/effect op enums + widths/sign
 mod ops;
+// Base types and IDs
 mod types;
 
 pub use builder::IrBuilder;
