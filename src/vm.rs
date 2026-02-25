@@ -534,6 +534,8 @@ mod tests {
         runner.step(&mut vm);
         assert_eq!(vm.reg(2), 5);
 
+        assert_eq!(vm.exit_code, 0);
+
         assert_eq!(runner.cycles(), 9);
     }
 
