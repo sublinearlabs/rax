@@ -21,6 +21,7 @@ pub struct Runner {
 
 struct DecodedBlock {
     insns: Vec<(Instruction, bool)>,
+    terminator: (Instruction, bool, bool),
     terminated_by_branch: bool,
     terminated_by_illegal: bool,
 }
@@ -86,6 +87,7 @@ impl Runner {
                     if is_compressed {
                         (decode_compressed(insn), true)
                     } else {
+                        let insn = vm.load_u32(pc as usize);
                         let insn_upper = vm.load_u16((pc + 2) as usize);
                         let insn = (insn_upper as u32) << 16 | insn as u32;
                         (decode::decode(insn), false)
@@ -101,15 +103,17 @@ impl Runner {
             let is_branch = insn.is_branch_or_jmp();
             let is_illegal = matches!(insn, Instruction::Illegal(_));
             let is_halt = matches!(insn, Instruction::Ebreak);
-            block.push((insn, is_compressed));
 
             if is_branch || is_illegal || is_halt {
                 return DecodedBlock {
                     insns: block,
+                    terminator: (insn, is_compressed, is_branch),
                     terminated_by_branch: is_branch,
                     terminated_by_illegal: is_illegal,
                 };
             }
+
+            block.push((insn, is_compressed));
 
             pc = pc.wrapping_add(if is_compressed { 2 } else { 4 });
         }
@@ -122,38 +126,27 @@ impl Runner {
 
         let mut pc = start_pc;
         let mut insn_count = 0u64;
-        let mut terminated = false;
 
         for (insn, is_compressed) in &block.insns {
             let current_pc = pc;
             let next_pc = current_pc.wrapping_add(if *is_compressed { 2 } else { 4 });
-            let is_branch = insn.is_branch_or_jmp();
-            let is_illegal = matches!(insn, Instruction::Illegal(_));
-            let is_halt = matches!(insn, Instruction::Ebreak);
 
-            builder.set_ret_suppressed(!is_branch && !is_illegal && !is_halt);
+            builder.set_ret_suppressed(true);
             lower_instruction_into(insn, current_pc, next_pc, &mut builder);
             insn_count = insn_count.wrapping_add(1);
-
-            if is_illegal || is_halt {
-                terminated = true;
-                break;
-            }
-
-            if is_branch {
-                terminated = true;
-                break;
-            }
 
             let next_pc_val = builder.imm_u64(next_pc);
             builder.set_pc(next_pc_val);
             pc = next_pc;
         }
 
-        if !terminated {
-            builder.set_ret_suppressed(false);
-            builder.ret();
-        }
+        let (insn, is_compressed, _) = &block.terminator;
+        let current_pc = pc;
+        let next_pc = current_pc.wrapping_add(if *is_compressed { 2 } else { 4 });
+
+        builder.set_ret_suppressed(false);
+        lower_instruction_into(insn, current_pc, next_pc, &mut builder);
+        insn_count = insn_count.wrapping_add(1);
 
         CachedBlock {
             ir: builder.finish(),
