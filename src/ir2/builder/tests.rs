@@ -58,4 +58,15 @@ mod tests {
 
         builder.require_single_exit();
     }
+
+    #[test]
+    #[should_panic(expected = "cannot switch to terminated block")]
+    fn switch_to_panics_on_terminated_block() {
+        let mut builder = IrBuilder::new();
+        let entry = builder.block();
+        builder.switch_to(entry);
+        builder.ret();
+
+        builder.switch_to(entry);
+    }
 }

@@ -26,6 +26,10 @@ impl IrBuilder {
     }
 
     pub fn switch_to(&mut self, block: BlockId) {
+        let target = &self.func.blocks[block.0 as usize];
+        if target.term.is_some() {
+            panic!("cannot switch to terminated block");
+        }
         self.current_block = Some(block);
     }
 }
