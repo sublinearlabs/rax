@@ -38,12 +38,12 @@ impl fmt::Display for IrFunction {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ir2::{Block, EffectOp, IrType, PureOp, Terminator, ValueId};
+    use crate::ir2::{Block, ConstVal, EffectOp, IrType, PureOp, Terminator, ValueId};
 
     #[test]
     fn display_formats_block_and_ops() {
         let mut func = IrFunction::new();
-        func.value_types = vec![IrType::I64, IrType::I64, IrType::I1];
+        func.value_types = vec![IrType::I64, IrType::I64, IrType::I64];
 
         let block = Block {
             args: vec![ValueId(0)],
@@ -51,6 +51,10 @@ mod tests {
                 Op::Pure {
                     dst: ValueId(1),
                     op: PureOp::Add(ValueId(0), ValueId(0)),
+                },
+                Op::Pure {
+                    dst: ValueId(2),
+                    op: PureOp::Const(ConstVal::I64(7)),
                 },
                 Op::Effect(EffectOp::SetPc { val: ValueId(1) }),
             ],
@@ -62,6 +66,7 @@ mod tests {
         let text = format!("{}", func);
         assert!(text.contains("bb0(v0: I64):"));
         assert!(text.contains("v1 = Add(ValueId(0), ValueId(0))"));
+        assert!(text.contains("Const(I64(7))"));
         assert!(text.contains("SetPc"));
         assert!(text.contains("Ret"));
     }

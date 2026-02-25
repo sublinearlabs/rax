@@ -48,3 +48,12 @@ pub enum Reg {
     X30,
     X31,
 }
+
+#[derive(Clone, Debug)]
+pub enum ConstVal {
+    I1(bool),
+    I8(i8),
+    I16(i16),
+    I32(i32),
+    I64(i64),
+}
