@@ -41,13 +41,16 @@ impl IrBuilder {
     }
 
     pub(crate) fn push_op(&mut self, op: Op) {
-        // C1
+        // C1: Emitting ops/terminators requires a current block.
         let block = self.current_block.expect("no current block");
         self.func.blocks[block.0 as usize].ops.push(op);
     }
 
     pub(crate) fn set_term(&mut self, term: Terminator) {
-        // C1/C2/C5/C6
+        // C1: Emitting ops/terminators requires a current block.
+        // C2: A block's terminator is set once.
+        // C5: br/cbr terminate the current block, remove it from exits, and clear current.
+        // C6: ret terminates the current block, keeps it in exits, and clears current.
         let block = self.current_block.expect("no current block");
         let idx = block.0 as usize;
         let is_branch = matches!(term, Terminator::Br { .. } | Terminator::Cbr { .. });
