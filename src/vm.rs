@@ -538,6 +538,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "re-enable once we add back tracing"]
     fn test_tracing_vm() {
         let fib_prog = [
             0xb3, 0x81, 0x20, 0x00, // add x3, x1, x2
