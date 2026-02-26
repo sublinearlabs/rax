@@ -10,18 +10,6 @@ fn vm_ptr<'a>(vm: *mut VM<NoopTracer>) -> &'a mut VM<NoopTracer> {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn jit_get_csr(vm: *mut VM<NoopTracer>, csr: u32) -> u64 {
-    let vm = vm_ptr(vm);
-    vm.read_csr(csr) as u64
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn jit_set_csr(vm: *mut VM<NoopTracer>, csr: u32, val: u64) {
-    let vm = vm_ptr(vm);
-    vm.set_csr(csr, val as u32);
-}
-
-#[unsafe(no_mangle)]
 pub extern "C" fn jit_load_u8(vm: *mut VM<NoopTracer>, addr: u64) -> u64 {
     let vm = vm_ptr(vm);
     vm.load_u8(addr as usize) as u64

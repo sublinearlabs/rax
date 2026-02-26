@@ -2,7 +2,7 @@ use cranelift_codegen::ir::{condcodes::IntCC, types, InstBuilder, MemFlags, Valu
 use cranelift_frontend::FunctionBuilder;
 
 use crate::ir::{AtomicWidth, EffectOp, MemWidth};
-use crate::vm::{VM_PC_OFFSET, VM_REGS_OFFSET};
+use crate::vm::{VM_FCSR_OFFSET, VM_PC_OFFSET, VM_REGS_OFFSET};
 
 use super::pure::atomic_rmw_tag_value;
 use super::HelperFuncRefs;
@@ -38,17 +38,47 @@ pub fn lower_effect(
             None
         }
         EffectOp::GetCsr { dst, csr } => {
-            let csr_val = builder.ins().iconst(types::I32, *csr as i64);
-            let call = builder.ins().call(helpers.get_csr, &[vm_value, csr_val]);
-            let value = builder.inst_results(call)[0];
+            let addr = builder.ins().iadd_imm(vm_value, VM_FCSR_OFFSET as i64);
+            let fcsr = builder.ins().load(types::I32, MemFlags::trusted(), addr, 0);
+            let value = match *csr {
+                0x1 => builder.ins().band_imm(fcsr, 0x1f),
+                0x2 => {
+                    let shifted = builder.ins().ushr_imm(fcsr, 5);
+                    builder.ins().band_imm(shifted, 0x7)
+                }
+                0x3 => builder.ins().band_imm(fcsr, 0xff),
+                _ => builder.ins().iconst(types::I32, 0),
+            };
+            let value = builder.ins().uextend(types::I64, value);
             Some((*dst, value))
         }
         EffectOp::SetCsr { csr, val } => {
-            let csr_val = builder.ins().iconst(types::I32, *csr as i64);
             let value = value_for(values, *val);
-            builder
-                .ins()
-                .call(helpers.set_csr, &[vm_value, csr_val, value]);
+            let value = builder.ins().ireduce(types::I32, value);
+            let addr = builder.ins().iadd_imm(vm_value, VM_FCSR_OFFSET as i64);
+            let fcsr = builder.ins().load(types::I32, MemFlags::trusted(), addr, 0);
+            let updated = match *csr {
+                0x1 => {
+                    let cleared = builder.ins().band_imm(fcsr, 0xffff_ffe0u64 as i64);
+                    let masked = builder.ins().band_imm(value, 0x1f);
+                    builder.ins().bor(cleared, masked)
+                }
+                0x2 => {
+                    let cleared = builder.ins().band_imm(fcsr, 0xffff_ff1fu64 as i64);
+                    let masked = builder.ins().band_imm(value, 0x7);
+                    let shifted = builder.ins().ishl_imm(masked, 5);
+                    builder.ins().bor(cleared, shifted)
+                }
+                0x3 => {
+                    let cleared = builder.ins().band_imm(fcsr, 0xffff_ff00u64 as i64);
+                    let masked = builder.ins().band_imm(value, 0xff);
+                    builder.ins().bor(cleared, masked)
+                }
+                _ => fcsr,
+            };
+            if matches!(*csr, 0x1 | 0x2 | 0x3) {
+                builder.ins().store(MemFlags::trusted(), updated, addr, 0);
+            }
             None
         }
         EffectOp::GetPc { dst } => {
