@@ -1,4 +1,4 @@
-use crate::{trace::Tracer, VM};
+use crate::{VM, trace::Tracer};
 
 pub fn handle_halt<T: Tracer>(vm: &mut VM<T>) {
     vm.halted = true;
