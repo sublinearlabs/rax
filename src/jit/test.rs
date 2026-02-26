@@ -1,14 +1,17 @@
-use crate::ir::{IrBuilder, IrFunction, IrType, MemWidth, Reg, execute_ir};
+use crate::ir::{execute_ir, IrBuilder, IrFunction, IrType, MemWidth, Reg};
 use crate::jit::compile::compile_ir_function;
-use crate::jit::jit_module::build_jit_module;
+use crate::jit::jit_module::{build_jit_module, declare_helpers};
 use crate::trace::NoopTracer;
 use crate::{HostIO, VM};
+use cranelift_module::Module;
 
 #[test]
 fn lower_ir_function_matches_interpreter() {
     let ir = build_test_ir();
     let mut jit = build_jit_module();
-    let jit_fn = compile_ir_function(&mut jit, &ir);
+    let ptr_ty = jit.isa().pointer_type();
+    let helper_ids = declare_helpers(&mut jit, ptr_ty);
+    let jit_fn = compile_ir_function(&mut jit, &helper_ids, &ir, "test_ir_entry");
 
     let mut vm_ir = VM::<NoopTracer>::init();
     let mut io_ir = HostIO::new();

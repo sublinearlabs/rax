@@ -4,14 +4,19 @@ use cranelift_jit::JITModule;
 use cranelift_module::{Linkage, Module};
 
 use crate::ir::IrFunction;
-use crate::jit::jit_module::{declare_helpers, HelperFuncIds};
+use crate::jit::jit_module::HelperFuncIds;
 use crate::jit::lower::{lower_ir_function, HelperFuncRefs};
 use crate::trace::NoopTracer;
 use crate::{HostIO, VM};
 
 pub type JitFn = unsafe extern "C" fn(*mut VM<NoopTracer>, *mut HostIO);
 
-pub fn compile_ir_function(module: &mut JITModule, ir: &IrFunction) -> JitFn {
+pub fn compile_ir_function(
+    module: &mut JITModule,
+    helper_ids: &HelperFuncIds,
+    ir: &IrFunction,
+    name: &str,
+) -> JitFn {
     let ptr_ty = module.isa().pointer_type();
     let mut ctx = module.make_context();
     ctx.func.signature.params.push(AbiParam::new(ptr_ty));
@@ -19,11 +24,10 @@ pub fn compile_ir_function(module: &mut JITModule, ir: &IrFunction) -> JitFn {
     ctx.func.signature.call_conv = module.isa().default_call_conv();
 
     let func_id = module
-        .declare_function("ir_entry", Linkage::Local, &ctx.func.signature)
+        .declare_function(name, Linkage::Local, &ctx.func.signature)
         .expect("declare function");
 
-    let helper_ids = declare_helpers(module, ptr_ty);
-    let helper_refs = build_helper_refs(module, &mut ctx.func, &helper_ids);
+    let helper_refs = build_helper_refs(module, &mut ctx.func, helper_ids);
 
     let mut builder_ctx = FunctionBuilderContext::new();
     lower_ir_function(ir, &mut ctx.func, &mut builder_ctx, &helper_refs);
