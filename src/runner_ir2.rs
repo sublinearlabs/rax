@@ -131,6 +131,7 @@ impl RunnerIr2 {
 
             let next_pc_val = builder.const_i64(next_pc as i64);
             builder.set_pc(next_pc_val);
+            builder.require_single_exit();
             pc = next_pc;
         }
 
