@@ -565,3 +565,319 @@ fn reg_index(reg: crate::ir::Reg) -> u8 {
         crate::ir::Reg::X31 => 31,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use cranelift_codegen::ir::{types, AbiParam, Signature};
+    use cranelift_jit::{JITBuilder, JITModule};
+    use cranelift_module::{Linkage, Module};
+
+    use crate::ir::{execute_ir, IrBuilder, IrFunction, IrType, MemWidth, Reg};
+    use crate::jit::helpers;
+    use crate::trace::NoopTracer;
+    use crate::{HostIO, VM};
+
+    use super::{lower_ir_function, HelperFuncRefs};
+
+    type JitFn = unsafe extern "C" fn(*mut VM<NoopTracer>, *mut HostIO);
+
+    #[test]
+    fn lower_ir_function_matches_interpreter() {
+        let ir = build_test_ir();
+        let mut jit = build_jit();
+        let jit_fn = compile_ir(&mut jit, &ir);
+
+        let mut vm_ir = VM::<NoopTracer>::init();
+        let mut io_ir = HostIO::new();
+        vm_ir.reg_mut(1, 10);
+        vm_ir.reg_mut(2, 10);
+        execute_ir(&ir, &mut vm_ir, &mut io_ir);
+
+        let mut vm_jit = VM::<NoopTracer>::init();
+        let mut io_jit = HostIO::new();
+        vm_jit.reg_mut(1, 10);
+        vm_jit.reg_mut(2, 10);
+        unsafe {
+            jit_fn(&mut vm_jit as *mut _, &mut io_jit as *mut _);
+        }
+        assert_vm_matches(&mut vm_ir, &mut vm_jit);
+
+        let mut vm_ir = VM::<NoopTracer>::init();
+        let mut io_ir = HostIO::new();
+        vm_ir.reg_mut(1, 5);
+        vm_ir.reg_mut(2, 9);
+        execute_ir(&ir, &mut vm_ir, &mut io_ir);
+
+        let mut vm_jit = VM::<NoopTracer>::init();
+        let mut io_jit = HostIO::new();
+        vm_jit.reg_mut(1, 5);
+        vm_jit.reg_mut(2, 9);
+        unsafe {
+            jit_fn(&mut vm_jit as *mut _, &mut io_jit as *mut _);
+        }
+        assert_vm_matches(&mut vm_ir, &mut vm_jit);
+    }
+
+    fn build_test_ir() -> IrFunction {
+        let mut builder = IrBuilder::new();
+        let entry = builder.block();
+        let then_block = builder.block_with_args(&[IrType::I64]);
+        let else_block = builder.block_with_args(&[IrType::I64]);
+
+        builder.switch_to(entry);
+        let x1 = builder.get_reg(Reg::X1);
+        let x2 = builder.get_reg(Reg::X2);
+        let cond = builder.eq(x1, x2);
+        builder.cbr(cond, then_block, else_block, vec![x1], vec![x2]);
+
+        builder.switch_to(then_block);
+        let arg = builder.block_arg(then_block, 0);
+        let five = builder.const_i64(5);
+        let val = builder.add(arg, five, IrType::I64);
+        builder.set_reg(Reg::X3, val);
+        let addr = builder.const_i64(0x100);
+        builder.store(addr, val, MemWidth::W64);
+        let pc = builder.const_i64(0x200);
+        builder.set_pc(pc);
+        builder.halt(0);
+        builder.ret();
+
+        builder.switch_to(else_block);
+        let arg = builder.block_arg(else_block, 0);
+        let seven = builder.const_i64(7);
+        let val = builder.add(arg, seven, IrType::I64);
+        builder.set_reg(Reg::X3, val);
+        let addr = builder.const_i64(0x100);
+        builder.store(addr, val, MemWidth::W64);
+        let pc = builder.const_i64(0x300);
+        builder.set_pc(pc);
+        builder.halt(1);
+        builder.ret();
+
+        builder.finish()
+    }
+
+    fn build_jit() -> JITModule {
+        let mut builder =
+            JITBuilder::new(cranelift_module::default_libcall_names()).expect("jit builder");
+        builder.symbol("jit_get_reg", helpers::jit_get_reg as *const u8);
+        builder.symbol("jit_set_reg", helpers::jit_set_reg as *const u8);
+        builder.symbol("jit_get_pc", helpers::jit_get_pc as *const u8);
+        builder.symbol("jit_set_pc", helpers::jit_set_pc as *const u8);
+        builder.symbol("jit_get_csr", helpers::jit_get_csr as *const u8);
+        builder.symbol("jit_set_csr", helpers::jit_set_csr as *const u8);
+        builder.symbol("jit_load_u8", helpers::jit_load_u8 as *const u8);
+        builder.symbol("jit_load_u16", helpers::jit_load_u16 as *const u8);
+        builder.symbol("jit_load_u32", helpers::jit_load_u32 as *const u8);
+        builder.symbol("jit_load_u64", helpers::jit_load_u64 as *const u8);
+        builder.symbol("jit_store_u8", helpers::jit_store_u8 as *const u8);
+        builder.symbol("jit_store_u16", helpers::jit_store_u16 as *const u8);
+        builder.symbol("jit_store_u32", helpers::jit_store_u32 as *const u8);
+        builder.symbol("jit_store_u64", helpers::jit_store_u64 as *const u8);
+        builder.symbol(
+            "jit_load_reserved_w",
+            helpers::jit_load_reserved_w as *const u8,
+        );
+        builder.symbol(
+            "jit_load_reserved_d",
+            helpers::jit_load_reserved_d as *const u8,
+        );
+        builder.symbol(
+            "jit_store_conditional_w",
+            helpers::jit_store_conditional_w as *const u8,
+        );
+        builder.symbol(
+            "jit_store_conditional_d",
+            helpers::jit_store_conditional_d as *const u8,
+        );
+        builder.symbol("jit_atomic_rmw_w", helpers::jit_atomic_rmw_w as *const u8);
+        builder.symbol("jit_atomic_rmw_d", helpers::jit_atomic_rmw_d as *const u8);
+        builder.symbol("jit_ecall", helpers::jit_ecall as *const u8);
+        builder.symbol("jit_ebreak", helpers::jit_ebreak as *const u8);
+        builder.symbol("jit_halt", helpers::jit_halt as *const u8);
+        builder.symbol("jit_div_s", helpers::jit_div_s as *const u8);
+        builder.symbol("jit_div_u", helpers::jit_div_u as *const u8);
+        builder.symbol("jit_rem_s", helpers::jit_rem_s as *const u8);
+        builder.symbol("jit_rem_u", helpers::jit_rem_u as *const u8);
+        JITModule::new(builder)
+    }
+
+    fn compile_ir(module: &mut JITModule, ir: &IrFunction) -> JitFn {
+        let ptr_ty = module.isa().pointer_type();
+        let mut ctx = module.make_context();
+        ctx.func.signature = Signature {
+            call_conv: module.isa().default_call_conv(),
+            params: vec![AbiParam::new(ptr_ty), AbiParam::new(ptr_ty)],
+            returns: Vec::new(),
+        };
+        let func_id = module
+            .declare_function("test_ir_entry", Linkage::Local, &ctx.func.signature)
+            .expect("declare function");
+
+        let helper_ids = declare_helpers(module, ptr_ty);
+        let helper_refs = build_helper_refs(module, &mut ctx.func, &helper_ids);
+
+        let mut builder_ctx = cranelift_frontend::FunctionBuilderContext::new();
+        lower_ir_function(ir, &mut ctx.func, &mut builder_ctx, &helper_refs);
+
+        module
+            .define_function(func_id, &mut ctx)
+            .expect("define function");
+        module.clear_context(&mut ctx);
+        module.finalize_definitions().expect("finalize");
+        let code_ptr = module.get_finalized_function(func_id);
+        unsafe { std::mem::transmute::<*const u8, JitFn>(code_ptr) }
+    }
+
+    struct HelperFuncIds {
+        get_reg: cranelift_module::FuncId,
+        set_reg: cranelift_module::FuncId,
+        get_pc: cranelift_module::FuncId,
+        set_pc: cranelift_module::FuncId,
+        get_csr: cranelift_module::FuncId,
+        set_csr: cranelift_module::FuncId,
+        load_u8: cranelift_module::FuncId,
+        load_u16: cranelift_module::FuncId,
+        load_u32: cranelift_module::FuncId,
+        load_u64: cranelift_module::FuncId,
+        store_u8: cranelift_module::FuncId,
+        store_u16: cranelift_module::FuncId,
+        store_u32: cranelift_module::FuncId,
+        store_u64: cranelift_module::FuncId,
+        load_reserved_w: cranelift_module::FuncId,
+        load_reserved_d: cranelift_module::FuncId,
+        store_conditional_w: cranelift_module::FuncId,
+        store_conditional_d: cranelift_module::FuncId,
+        atomic_rmw_w: cranelift_module::FuncId,
+        atomic_rmw_d: cranelift_module::FuncId,
+        ecall: cranelift_module::FuncId,
+        ebreak: cranelift_module::FuncId,
+        halt: cranelift_module::FuncId,
+        div_s: cranelift_module::FuncId,
+        div_u: cranelift_module::FuncId,
+        rem_s: cranelift_module::FuncId,
+        rem_u: cranelift_module::FuncId,
+    }
+
+    fn declare_helpers(module: &mut JITModule, ptr_ty: types::Type) -> HelperFuncIds {
+        fn declare(
+            module: &mut JITModule,
+            name: &str,
+            params: &[types::Type],
+            ret: Option<types::Type>,
+        ) -> cranelift_module::FuncId {
+            let mut sig = module.make_signature();
+            for &param in params {
+                sig.params.push(AbiParam::new(param));
+            }
+            if let Some(ret) = ret {
+                sig.returns.push(AbiParam::new(ret));
+            }
+            module
+                .declare_function(name, Linkage::Import, &sig)
+                .expect("declare helper")
+        }
+
+        let i8 = types::I8;
+        let i32 = types::I32;
+        let i64 = types::I64;
+
+        HelperFuncIds {
+            get_reg: declare(module, "jit_get_reg", &[ptr_ty, i8], Some(i64)),
+            set_reg: declare(module, "jit_set_reg", &[ptr_ty, i8, i64], None),
+            get_pc: declare(module, "jit_get_pc", &[ptr_ty], Some(i64)),
+            set_pc: declare(module, "jit_set_pc", &[ptr_ty, i64], None),
+            get_csr: declare(module, "jit_get_csr", &[ptr_ty, i32], Some(i64)),
+            set_csr: declare(module, "jit_set_csr", &[ptr_ty, i32, i64], None),
+            load_u8: declare(module, "jit_load_u8", &[ptr_ty, i64], Some(i64)),
+            load_u16: declare(module, "jit_load_u16", &[ptr_ty, i64], Some(i64)),
+            load_u32: declare(module, "jit_load_u32", &[ptr_ty, i64], Some(i64)),
+            load_u64: declare(module, "jit_load_u64", &[ptr_ty, i64], Some(i64)),
+            store_u8: declare(module, "jit_store_u8", &[ptr_ty, i64, i64], None),
+            store_u16: declare(module, "jit_store_u16", &[ptr_ty, i64, i64], None),
+            store_u32: declare(module, "jit_store_u32", &[ptr_ty, i64, i64], None),
+            store_u64: declare(module, "jit_store_u64", &[ptr_ty, i64, i64], None),
+            load_reserved_w: declare(module, "jit_load_reserved_w", &[ptr_ty, i64], Some(i64)),
+            load_reserved_d: declare(module, "jit_load_reserved_d", &[ptr_ty, i64], Some(i64)),
+            store_conditional_w: declare(
+                module,
+                "jit_store_conditional_w",
+                &[ptr_ty, i64, i64],
+                Some(i64),
+            ),
+            store_conditional_d: declare(
+                module,
+                "jit_store_conditional_d",
+                &[ptr_ty, i64, i64],
+                Some(i64),
+            ),
+            atomic_rmw_w: declare(
+                module,
+                "jit_atomic_rmw_w",
+                &[ptr_ty, i64, i64, i32],
+                Some(i64),
+            ),
+            atomic_rmw_d: declare(
+                module,
+                "jit_atomic_rmw_d",
+                &[ptr_ty, i64, i64, i32],
+                Some(i64),
+            ),
+            ecall: declare(module, "jit_ecall", &[ptr_ty, ptr_ty], None),
+            ebreak: declare(module, "jit_ebreak", &[ptr_ty, ptr_ty], None),
+            halt: declare(module, "jit_halt", &[ptr_ty, i64], None),
+            div_s: declare(module, "jit_div_s", &[i8, i64, i64], Some(i64)),
+            div_u: declare(module, "jit_div_u", &[i8, i64, i64], Some(i64)),
+            rem_s: declare(module, "jit_rem_s", &[i8, i64, i64], Some(i64)),
+            rem_u: declare(module, "jit_rem_u", &[i8, i64, i64], Some(i64)),
+        }
+    }
+
+    fn build_helper_refs(
+        module: &mut JITModule,
+        func: &mut cranelift_codegen::ir::Function,
+        ids: &HelperFuncIds,
+    ) -> HelperFuncRefs {
+        HelperFuncRefs {
+            get_reg: module.declare_func_in_func(ids.get_reg, func),
+            set_reg: module.declare_func_in_func(ids.set_reg, func),
+            get_pc: module.declare_func_in_func(ids.get_pc, func),
+            set_pc: module.declare_func_in_func(ids.set_pc, func),
+            get_csr: module.declare_func_in_func(ids.get_csr, func),
+            set_csr: module.declare_func_in_func(ids.set_csr, func),
+            load_u8: module.declare_func_in_func(ids.load_u8, func),
+            load_u16: module.declare_func_in_func(ids.load_u16, func),
+            load_u32: module.declare_func_in_func(ids.load_u32, func),
+            load_u64: module.declare_func_in_func(ids.load_u64, func),
+            store_u8: module.declare_func_in_func(ids.store_u8, func),
+            store_u16: module.declare_func_in_func(ids.store_u16, func),
+            store_u32: module.declare_func_in_func(ids.store_u32, func),
+            store_u64: module.declare_func_in_func(ids.store_u64, func),
+            load_reserved_w: module.declare_func_in_func(ids.load_reserved_w, func),
+            load_reserved_d: module.declare_func_in_func(ids.load_reserved_d, func),
+            store_conditional_w: module.declare_func_in_func(ids.store_conditional_w, func),
+            store_conditional_d: module.declare_func_in_func(ids.store_conditional_d, func),
+            atomic_rmw_w: module.declare_func_in_func(ids.atomic_rmw_w, func),
+            atomic_rmw_d: module.declare_func_in_func(ids.atomic_rmw_d, func),
+            ecall: module.declare_func_in_func(ids.ecall, func),
+            ebreak: module.declare_func_in_func(ids.ebreak, func),
+            halt: module.declare_func_in_func(ids.halt, func),
+            div_s: module.declare_func_in_func(ids.div_s, func),
+            div_u: module.declare_func_in_func(ids.div_u, func),
+            rem_s: module.declare_func_in_func(ids.rem_s, func),
+            rem_u: module.declare_func_in_func(ids.rem_u, func),
+        }
+    }
+
+    fn assert_vm_matches(vm_ir: &mut VM<NoopTracer>, vm_jit: &mut VM<NoopTracer>) {
+        assert_eq!(vm_ir.halted, vm_jit.halted, "halted mismatch");
+        assert_eq!(vm_ir.exit_code, vm_jit.exit_code, "exit code mismatch");
+        assert_eq!(vm_ir.pc(), vm_jit.pc(), "pc mismatch");
+        assert_eq!(vm_ir.reg(3), vm_jit.reg(3), "x3 mismatch");
+        assert_eq!(
+            vm_ir.load_u64(0x100),
+            vm_jit.load_u64(0x100),
+            "memory mismatch"
+        );
+    }
+}
