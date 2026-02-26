@@ -5,7 +5,6 @@ use crate::ir2::lower::i::lower_i_into;
 use crate::ir2::lower::system::lower_system_into;
 use crate::ir2::IrBuilder;
 
-pub mod i;
 pub mod system;
 
 pub fn lower_instruction_into(
