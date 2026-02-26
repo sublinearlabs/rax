@@ -1,8 +1,8 @@
 pub mod i;
 
 use crate::decode::Instruction;
-use crate::ir2::lower::i::lower_i_into;
 use crate::ir2::IrBuilder;
+use crate::ir2::lower::i::lower_i_into;
 
 pub fn lower_instruction_into(
     insn: &Instruction,
