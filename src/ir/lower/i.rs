@@ -1,5 +1,5 @@
 use crate::decode::Instruction;
-use crate::ir::{IrBuilder, IrType, LoadSign, MemWidth, Reg, ValueId};
+use crate::ir::{IrBuilder, IrType, MemWidth, Reg, ValueId};
 
 pub(crate) fn lower_i_into(
     insn: &Instruction,
@@ -141,7 +141,7 @@ pub(crate) fn lower_i_into(
             let rs1 = builder.get_reg(reg_from_u8(i.rs1));
             let imm = builder.const_i64(i.imm as i64);
             let addr = builder.add(rs1, imm, IrType::I64);
-            let raw = builder.load(addr, MemWidth::W8, LoadSign::Signed, IrType::I8);
+            let raw = builder.load(addr, MemWidth::W8, IrType::I8);
             let v = builder.sext(raw, IrType::I8, IrType::I64);
             builder.set_reg(reg_from_u8(i.rd), v);
         }
@@ -149,7 +149,7 @@ pub(crate) fn lower_i_into(
             let rs1 = builder.get_reg(reg_from_u8(i.rs1));
             let imm = builder.const_i64(i.imm as i64);
             let addr = builder.add(rs1, imm, IrType::I64);
-            let raw = builder.load(addr, MemWidth::W8, LoadSign::Unsigned, IrType::I8);
+            let raw = builder.load(addr, MemWidth::W8, IrType::I8);
             let v = builder.zext(raw, IrType::I8, IrType::I64);
             builder.set_reg(reg_from_u8(i.rd), v);
         }
@@ -157,7 +157,7 @@ pub(crate) fn lower_i_into(
             let rs1 = builder.get_reg(reg_from_u8(i.rs1));
             let imm = builder.const_i64(i.imm as i64);
             let addr = builder.add(rs1, imm, IrType::I64);
-            let raw = builder.load(addr, MemWidth::W16, LoadSign::Signed, IrType::I16);
+            let raw = builder.load(addr, MemWidth::W16, IrType::I16);
             let v = builder.sext(raw, IrType::I16, IrType::I64);
             builder.set_reg(reg_from_u8(i.rd), v);
         }
@@ -165,7 +165,7 @@ pub(crate) fn lower_i_into(
             let rs1 = builder.get_reg(reg_from_u8(i.rs1));
             let imm = builder.const_i64(i.imm as i64);
             let addr = builder.add(rs1, imm, IrType::I64);
-            let raw = builder.load(addr, MemWidth::W16, LoadSign::Unsigned, IrType::I16);
+            let raw = builder.load(addr, MemWidth::W16, IrType::I16);
             let v = builder.zext(raw, IrType::I16, IrType::I64);
             builder.set_reg(reg_from_u8(i.rd), v);
         }
@@ -173,7 +173,7 @@ pub(crate) fn lower_i_into(
             let rs1 = builder.get_reg(reg_from_u8(i.rs1));
             let imm = builder.const_i64(i.imm as i64);
             let addr = builder.add(rs1, imm, IrType::I64);
-            let raw = builder.load(addr, MemWidth::W32, LoadSign::Signed, IrType::I32);
+            let raw = builder.load(addr, MemWidth::W32, IrType::I32);
             let v = builder.sext(raw, IrType::I32, IrType::I64);
             builder.set_reg(reg_from_u8(i.rd), v);
         }
@@ -181,7 +181,7 @@ pub(crate) fn lower_i_into(
             let rs1 = builder.get_reg(reg_from_u8(i.rs1));
             let imm = builder.const_i64(i.imm as i64);
             let addr = builder.add(rs1, imm, IrType::I64);
-            let raw = builder.load(addr, MemWidth::W32, LoadSign::Unsigned, IrType::I32);
+            let raw = builder.load(addr, MemWidth::W32, IrType::I32);
             let v = builder.zext(raw, IrType::I32, IrType::I64);
             builder.set_reg(reg_from_u8(i.rd), v);
         }
@@ -189,7 +189,7 @@ pub(crate) fn lower_i_into(
             let rs1 = builder.get_reg(reg_from_u8(i.rs1));
             let imm = builder.const_i64(i.imm as i64);
             let addr = builder.add(rs1, imm, IrType::I64);
-            let v = builder.load(addr, MemWidth::W64, LoadSign::Signed, IrType::I64);
+            let v = builder.load(addr, MemWidth::W64, IrType::I64);
             builder.set_reg(reg_from_u8(i.rd), v);
         }
 

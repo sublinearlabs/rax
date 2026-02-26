@@ -72,7 +72,6 @@ pub enum EffectOp {
         dst: ValueId,
         addr: ValueId,
         width: MemWidth,
-        signed: LoadSign,
     },
     Store {
         addr: ValueId,
@@ -129,10 +128,4 @@ pub enum MemWidth {
     W16,
     W32,
     W64,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum LoadSign {
-    Signed,
-    Unsigned,
 }

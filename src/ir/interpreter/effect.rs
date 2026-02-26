@@ -34,12 +34,7 @@ pub(crate) fn exec_effect<T: Tracer>(
         EffectOp::SetPc { val } => {
             vm.set_pc(values[val.0 as usize]);
         }
-        EffectOp::Load {
-            dst,
-            addr,
-            width,
-            signed: _,
-        } => {
+        EffectOp::Load { dst, addr, width } => {
             let addr = values[addr.0 as usize] as usize;
             let value = match width {
                 MemWidth::W8 => vm.load_u8(addr) as u64,
