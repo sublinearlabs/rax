@@ -11,6 +11,13 @@ panic = "abort"
 [features]
 default = ["gc"]
 trace = []
+jit = [
+    "cranelift-codegen",
+    "cranelift-jit",
+    "cranelift-module",
+    "cranelift-native",
+    "cranelift-frontend",
+]
 ext_i = []
 ext_m = []
 ext_a = []
@@ -25,6 +32,11 @@ elf = "0.8.0"
 serde = { version = "1.0", features = ["derive"] }
 hex = "0.4.3"
 fxhash = "0.2.1"
+cranelift-codegen = { version = "0.104", optional = true }
+cranelift-jit = { version = "0.104", optional = true }
+cranelift-module = { version = "0.104", optional = true }
+cranelift-native = { version = "0.104", optional = true }
+cranelift-frontend = { version = "0.104", optional = true }
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
