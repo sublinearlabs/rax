@@ -1,9 +1,9 @@
 use cranelift_codegen::ir::{
-    condcodes::IntCC, types, BlockArg, FuncRef, Function, InstBuilder, Value,
+    BlockArg, FuncRef, Function, InstBuilder, Value, condcodes::IntCC, types,
 };
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 
-use crate::ir::{EffectOp, IrFunction, IrType, Op, PureOp, Terminator};
+use crate::ir::{IrFunction, Op, Terminator};
 
 mod effect;
 mod pure;
