@@ -1,7 +1,7 @@
 use cranelift_codegen::ir::{types, InstBuilder, Value};
 use cranelift_frontend::FunctionBuilder;
 
-use crate::ir::{AtomicWidth, EffectOp, IrType, MemWidth};
+use crate::ir::{AtomicWidth, EffectOp, MemWidth};
 
 use super::pure::atomic_rmw_tag_value;
 use super::HelperFuncRefs;
@@ -10,7 +10,6 @@ pub fn lower_effect(
     builder: &mut FunctionBuilder,
     op: &EffectOp,
     values: &[Option<Value>],
-    _types: &[IrType],
     helpers: &HelperFuncRefs,
     vm_value: Value,
     io_value: Value,

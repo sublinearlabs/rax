@@ -1,4 +1,6 @@
-use cranelift_codegen::ir::{condcodes::IntCC, types, BlockArg, FuncRef, Function, InstBuilder, Value};
+use cranelift_codegen::ir::{
+    condcodes::IntCC, types, BlockArg, FuncRef, Function, InstBuilder, Value,
+};
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 
 use crate::ir::{EffectOp, IrFunction, IrType, Op, PureOp, Terminator};
@@ -55,14 +57,8 @@ pub fn lower_ir_function(
     let entry_block = block_map[0];
     builder.append_block_params_for_function_params(entry_block);
     let entry_params = builder.block_params(entry_block);
-    let vm_value = entry_params
-        .get(0)
-        .copied()
-        .expect("missing vm param");
-    let io_value = entry_params
-        .get(1)
-        .copied()
-        .expect("missing io param");
+    let vm_value = entry_params.get(0).copied().expect("missing vm param");
+    let io_value = entry_params.get(1).copied().expect("missing io param");
 
     for (block_id, block) in ir.blocks.iter().enumerate() {
         let clif_block = block_map[block_id];
@@ -86,13 +82,7 @@ pub fn lower_ir_function(
         for op in &block.ops {
             match op {
                 Op::Pure { dst, op } => {
-                    let value = lower_pure(
-                        &mut builder,
-                        op,
-                        &value_map,
-                        &ir.value_types,
-                        helpers,
-                    );
+                    let value = lower_pure(&mut builder, op, &value_map, &ir.value_types, helpers);
                     let ty = ir.value_type(*dst);
                     let value = mask_value(&mut builder, value, ty);
                     value_map[dst.0 as usize] = Some(value);
@@ -102,7 +92,6 @@ pub fn lower_ir_function(
                         &mut builder,
                         effect,
                         &value_map,
-                        &ir.value_types,
                         helpers,
                         vm_value,
                         io_value,
@@ -122,7 +111,9 @@ pub fn lower_ir_function(
                     let value = value_map[arg.0 as usize].expect("missing arg value");
                     params.push(BlockArg::Value(value));
                 }
-                builder.ins().jump(block_map[target.0 as usize], params.iter());
+                builder
+                    .ins()
+                    .jump(block_map[target.0 as usize], params.iter());
             }
             Terminator::Cbr {
                 cond,
@@ -132,9 +123,7 @@ pub fn lower_ir_function(
                 f_args,
             } => {
                 let cond_val = value_map[cond.0 as usize].expect("missing cond value");
-                let cond_is_true = builder
-                    .ins()
-                    .icmp_imm(IntCC::NotEqual, cond_val, 0);
+                let cond_is_true = builder.ins().icmp_imm(IntCC::NotEqual, cond_val, 0);
 
                 let mut t_params = Vec::with_capacity(t_args.len());
                 for arg in t_args {
