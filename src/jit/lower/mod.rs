@@ -1,5 +1,5 @@
 use cranelift_codegen::ir::{
-    BlockArg, FuncRef, Function, InstBuilder, Value, condcodes::IntCC, types,
+    condcodes::IntCC, types, BlockArg, FuncRef, Function, InstBuilder, Value,
 };
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 
@@ -13,10 +13,6 @@ use pure::{lower_pure, mask_value};
 
 #[derive(Clone, Copy)]
 pub struct HelperFuncRefs {
-    pub get_reg: FuncRef,
-    pub set_reg: FuncRef,
-    pub get_pc: FuncRef,
-    pub set_pc: FuncRef,
     pub get_csr: FuncRef,
     pub set_csr: FuncRef,
     pub load_u8: FuncRef,

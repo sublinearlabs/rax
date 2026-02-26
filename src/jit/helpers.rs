@@ -10,30 +10,6 @@ fn vm_ptr<'a>(vm: *mut VM<NoopTracer>) -> &'a mut VM<NoopTracer> {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn jit_get_reg(vm: *mut VM<NoopTracer>, reg: u8) -> u64 {
-    let vm = vm_ptr(vm);
-    vm.reg(reg)
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn jit_set_reg(vm: *mut VM<NoopTracer>, reg: u8, val: u64) {
-    let vm = vm_ptr(vm);
-    vm.reg_mut(reg, val);
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn jit_get_pc(vm: *mut VM<NoopTracer>) -> u64 {
-    let vm = vm_ptr(vm);
-    vm.pc()
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn jit_set_pc(vm: *mut VM<NoopTracer>, pc: u64) {
-    let vm = vm_ptr(vm);
-    vm.set_pc(pc);
-}
-
-#[unsafe(no_mangle)]
 pub extern "C" fn jit_get_csr(vm: *mut VM<NoopTracer>, csr: u32) -> u64 {
     let vm = vm_ptr(vm);
     vm.read_csr(csr) as u64
@@ -117,7 +93,11 @@ pub extern "C" fn jit_store_conditional_w(vm: *mut VM<NoopTracer>, addr: u64, va
         vm.store_u32(addr as usize, val as u32);
     }
     vm.reservation_set = 0;
-    if success { 0 } else { 1 }
+    if success {
+        0
+    } else {
+        1
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -128,7 +108,11 @@ pub extern "C" fn jit_store_conditional_d(vm: *mut VM<NoopTracer>, addr: u64, va
         vm.store_u64(addr as usize, val);
     }
     vm.reservation_set = 0;
-    if success { 0 } else { 1 }
+    if success {
+        0
+    } else {
+        1
+    }
 }
 
 #[unsafe(no_mangle)]

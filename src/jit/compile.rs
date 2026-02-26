@@ -5,7 +5,7 @@ use cranelift_module::{Linkage, Module};
 
 use crate::ir::IrFunction;
 use crate::jit::jit_module::HelperFuncIds;
-use crate::jit::lower::{HelperFuncRefs, lower_ir_function};
+use crate::jit::lower::{lower_ir_function, HelperFuncRefs};
 use crate::trace::NoopTracer;
 use crate::{HostIO, VM};
 
@@ -47,10 +47,6 @@ fn build_helper_refs(
     ids: &HelperFuncIds,
 ) -> HelperFuncRefs {
     HelperFuncRefs {
-        get_reg: module.declare_func_in_func(ids.get_reg, func),
-        set_reg: module.declare_func_in_func(ids.set_reg, func),
-        get_pc: module.declare_func_in_func(ids.get_pc, func),
-        set_pc: module.declare_func_in_func(ids.set_pc, func),
         get_csr: module.declare_func_in_func(ids.get_csr, func),
         set_csr: module.declare_func_in_func(ids.set_csr, func),
         load_u8: module.declare_func_in_func(ids.load_u8, func),

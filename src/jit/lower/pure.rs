@@ -1,4 +1,4 @@
-use cranelift_codegen::ir::{FuncRef, InstBuilder, Value, condcodes::IntCC, types};
+use cranelift_codegen::ir::{condcodes::IntCC, types, FuncRef, InstBuilder, Value};
 use cranelift_frontend::FunctionBuilder;
 
 use crate::ir::{AtomicRmwOp, ConstVal, IrType, PureOp};
