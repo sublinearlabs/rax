@@ -145,7 +145,7 @@ pub fn declare_helpers(module: &mut JITModule, ptr_ty: types::Type) -> HelperFun
             &[ptr_ty, i64, i64, i32],
             Some(i64),
         ),
-        ecall: declare(module, "jit_ecall", &[ptr_ty, ptr_ty], None),
+        ecall: declare(module, "jit_ecall", &[ptr_ty, ptr_ty], Some(i64)),
         ebreak: declare(module, "jit_ebreak", &[ptr_ty, ptr_ty], None),
         halt: declare(module, "jit_halt", &[ptr_ty, i64], None),
         div_s: declare(module, "jit_div_s", &[i8, i64, i64], Some(i64)),

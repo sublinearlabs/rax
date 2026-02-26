@@ -1,3 +1,4 @@
+use crate::ecall::constants;
 use crate::ir::{execute_ir, IrBuilder, IrFunction, IrType, MemWidth, Reg};
 use crate::jit::compile::compile_ir_function;
 use crate::jit::jit_module::{build_jit_module, declare_helpers};
@@ -93,4 +94,40 @@ fn assert_vm_matches(vm_ir: &mut VM<NoopTracer>, vm_jit: &mut VM<NoopTracer>) {
         vm_jit.load_u64(0x100),
         "memory mismatch"
     );
+}
+
+#[test]
+fn jit_ecall_halt_stops_following_effects() {
+    let mut builder = IrBuilder::new();
+    let entry = builder.block();
+    builder.switch_to(entry);
+
+    let halt_id = builder.const_i64(constants::ECALL_HALT as i64);
+    builder.set_reg(Reg::X17, halt_id);
+    let exit_code = builder.const_i64(5);
+    builder.set_reg(Reg::X10, exit_code);
+    builder.ecall();
+
+    let should_not_run = builder.const_i64(7);
+    builder.set_reg(Reg::X3, should_not_run);
+    builder.ret();
+
+    let func = builder.finish();
+
+    let mut vm_ir = VM::<NoopTracer>::init();
+    let mut io_ir = HostIO::new();
+    execute_ir(&func, &mut vm_ir, &mut io_ir);
+
+    let mut vm_jit = VM::<NoopTracer>::init();
+    let mut io_jit = HostIO::new();
+    let mut jit = build_jit_module();
+    let ptr_ty = jit.isa().pointer_type();
+    let helper_ids = declare_helpers(&mut jit, ptr_ty);
+    let jit_fn = compile_ir_function(&mut jit, &helper_ids, &func, "test_ecall_halt");
+    unsafe {
+        jit_fn(&mut vm_jit as *mut _, &mut io_jit as *mut _);
+    }
+
+    assert_vm_matches(&mut vm_ir, &mut vm_jit);
+    assert_eq!(vm_jit.reg(3), 0, "x3 should not be set after halt");
 }
