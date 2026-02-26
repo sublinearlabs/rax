@@ -1,4 +1,4 @@
-use crate::ir2::IrBuilder;
+use crate::ir::IrBuilder;
 
 impl IrBuilder {
     pub fn require_single_exit(&self) {

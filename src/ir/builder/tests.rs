@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::ir2::IrBuilder;
+    use crate::ir::IrBuilder;
 
     #[test]
     fn build_single_block_with_ret() {

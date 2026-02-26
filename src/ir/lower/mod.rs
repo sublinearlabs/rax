@@ -1,18 +1,15 @@
-#[cfg(feature = "ext_a")]
-pub mod a;
-pub mod csr;
 pub mod i;
-#[cfg(feature = "ext_m")]
-pub mod m;
 
 use crate::decode::Instruction;
-use crate::ir::IrBuilder;
-#[cfg(feature = "ext_a")]
 use crate::ir::lower::a::lower_a_into;
-use crate::ir::lower::csr::lower_csr_into;
 use crate::ir::lower::i::lower_i_into;
-#[cfg(feature = "ext_m")]
 use crate::ir::lower::m::lower_m_into;
+use crate::ir::lower::system::lower_system_into;
+use crate::ir::IrBuilder;
+
+pub mod a;
+pub mod m;
+pub mod system;
 
 pub fn lower_instruction_into(
     insn: &Instruction,
@@ -25,14 +22,6 @@ pub fn lower_instruction_into(
             builder.halt(1);
             builder.ret();
         }
-        // CSR instructions
-        Instruction::Csrrw(_)
-        | Instruction::Csrrs(_)
-        | Instruction::Csrrc(_)
-        | Instruction::Csrrwi(_)
-        | Instruction::Csrrsi(_)
-        | Instruction::Csrrci(_) => lower_csr_into(insn, builder),
-        // I instructions
         Instruction::Add(_)
         | Instruction::Sub(_)
         | Instruction::Sll(_)
@@ -82,30 +71,24 @@ pub fn lower_instruction_into(
         | Instruction::Ld(_)
         | Instruction::Lwu(_)
         | Instruction::Sd(_)
-        | Instruction::Nop
-        | Instruction::Ecall
-        | Instruction::Ebreak => lower_i_into(insn, current_pc, next_pc, builder),
-
-        // M instructions
-        #[cfg(feature = "ext_m")]
+        | Instruction::Nop => lower_i_into(insn, current_pc, next_pc, builder),
         Instruction::Mul(_)
         | Instruction::Mulh(_)
         | Instruction::Mulhsu(_)
         | Instruction::Mulhu(_)
-        | Instruction::Mulw(_)
         | Instruction::Div(_)
         | Instruction::Divu(_)
         | Instruction::Rem(_)
         | Instruction::Remu(_)
+        | Instruction::Mulw(_)
         | Instruction::Divw(_)
         | Instruction::Divuw(_)
         | Instruction::Remw(_)
-        | Instruction::Remuw(_) => lower_m_into(insn, current_pc, next_pc, builder),
-
-        // A instructions
-        #[cfg(feature = "ext_a")]
+        | Instruction::Remuw(_) => lower_m_into(insn, builder),
         Instruction::LrW(_)
+        | Instruction::LrD(_)
         | Instruction::ScW(_)
+        | Instruction::ScD(_)
         | Instruction::AmoSwapW(_)
         | Instruction::AmoAddW(_)
         | Instruction::AmoXorW(_)
@@ -115,8 +98,6 @@ pub fn lower_instruction_into(
         | Instruction::AmoMaxW(_)
         | Instruction::AmoMinuW(_)
         | Instruction::AmoMaxuW(_)
-        | Instruction::LrD(_)
-        | Instruction::ScD(_)
         | Instruction::AmoSwapD(_)
         | Instruction::AmoAddD(_)
         | Instruction::AmoXorD(_)
@@ -125,9 +106,15 @@ pub fn lower_instruction_into(
         | Instruction::AmoMinD(_)
         | Instruction::AmoMaxD(_)
         | Instruction::AmoMinuD(_)
-        | Instruction::AmoMaxuD(_) => lower_a_into(insn, current_pc, next_pc, builder),
-
-        // Other instructions
+        | Instruction::AmoMaxuD(_) => lower_a_into(insn, builder),
+        Instruction::Ecall
+        | Instruction::Ebreak
+        | Instruction::Csrrw(_)
+        | Instruction::Csrrs(_)
+        | Instruction::Csrrc(_)
+        | Instruction::Csrrwi(_)
+        | Instruction::Csrrsi(_)
+        | Instruction::Csrrci(_) => lower_system_into(insn, builder),
         _ => panic!("no lowering found for {:?}", insn),
     }
 }

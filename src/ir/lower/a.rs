@@ -1,142 +1,105 @@
 use crate::decode::Instruction;
-use crate::ir::{AtomicRmwOp, AtomicWidth, IrBuilder, IrFunction, IrType};
+use crate::ir::{AtomicRmwOp, AtomicWidth, IrBuilder, IrType, Reg};
 
-pub(crate) fn lower_a(insn: &Instruction, current_pc: u64, next_pc: u64) -> IrFunction {
-    let mut builder = IrBuilder::new();
-    let entry = builder.block();
-    builder.switch_to(entry);
-
-    lower_a_into(insn, current_pc, next_pc, &mut builder);
-
-    builder.finish()
-}
-
-pub(crate) fn lower_a_into(
-    insn: &Instruction,
-    _current_pc: u64,
-    _next_pc: u64,
-    builder: &mut IrBuilder,
-) {
+pub(crate) fn lower_a_into(insn: &Instruction, builder: &mut IrBuilder) {
     match insn {
         Instruction::LrW(r) => {
-            let addr = builder.reg(r.rs1);
-            let value = builder.lr_w(addr);
-            builder.set_reg_idx(r.rd, value);
-            builder.ret();
+            let addr = builder.get_reg(reg_from_u8(r.rs1));
+            let value = builder.load_reserved(addr, AtomicWidth::W, IrType::I32);
+            let value = builder.sext(value, IrType::I32, IrType::I64);
+            builder.set_reg(reg_from_u8(r.rd), value);
         }
         Instruction::LrD(r) => {
-            let addr = builder.reg(r.rs1);
-            let value = builder.lr_d(addr);
-            builder.set_reg_idx(r.rd, value);
-            builder.ret();
+            let addr = builder.get_reg(reg_from_u8(r.rs1));
+            let value = builder.load_reserved(addr, AtomicWidth::D, IrType::I64);
+            builder.set_reg(reg_from_u8(r.rd), value);
         }
         Instruction::ScW(r) => {
-            let addr = builder.reg(r.rs1);
-            let value = builder.reg(r.rs2);
-            let result = builder.sc_w(addr, value);
-            builder.set_reg_idx(r.rd, result);
-            builder.ret();
+            let addr = builder.get_reg(reg_from_u8(r.rs1));
+            let val = builder.get_reg(reg_from_u8(r.rs2));
+            let val = builder.trunc(val, IrType::I64, IrType::I32);
+            let result = builder.store_conditional(addr, val, AtomicWidth::W, IrType::I32);
+            let result = builder.sext(result, IrType::I32, IrType::I64);
+            builder.set_reg(reg_from_u8(r.rd), result);
         }
         Instruction::ScD(r) => {
-            let addr = builder.reg(r.rs1);
-            let value = builder.reg(r.rs2);
-            let result = builder.sc_d(addr, value);
-            builder.set_reg_idx(r.rd, result);
-            builder.ret();
+            let addr = builder.get_reg(reg_from_u8(r.rs1));
+            let val = builder.get_reg(reg_from_u8(r.rs2));
+            let result = builder.store_conditional(addr, val, AtomicWidth::D, IrType::I64);
+            builder.set_reg(reg_from_u8(r.rd), result);
         }
-        Instruction::AmoSwapW(r) => amo_w(builder, r, AtomicRmwOp::Xchg),
-        Instruction::AmoAddW(r) => amo_w(builder, r, AtomicRmwOp::Add),
-        Instruction::AmoXorW(r) => amo_w(builder, r, AtomicRmwOp::Xor),
-        Instruction::AmoAndW(r) => amo_w(builder, r, AtomicRmwOp::And),
-        Instruction::AmoOrW(r) => amo_w(builder, r, AtomicRmwOp::Or),
-        Instruction::AmoMinW(r) => amo_w(builder, r, AtomicRmwOp::Min),
-        Instruction::AmoMaxW(r) => amo_w(builder, r, AtomicRmwOp::Max),
-        Instruction::AmoMinuW(r) => amo_w(builder, r, AtomicRmwOp::Umin),
-        Instruction::AmoMaxuW(r) => amo_w(builder, r, AtomicRmwOp::Umax),
-        Instruction::AmoSwapD(r) => amo_d(builder, r, AtomicRmwOp::Xchg),
-        Instruction::AmoAddD(r) => amo_d(builder, r, AtomicRmwOp::Add),
-        Instruction::AmoXorD(r) => amo_d(builder, r, AtomicRmwOp::Xor),
-        Instruction::AmoAndD(r) => amo_d(builder, r, AtomicRmwOp::And),
-        Instruction::AmoOrD(r) => amo_d(builder, r, AtomicRmwOp::Or),
-        Instruction::AmoMinD(r) => amo_d(builder, r, AtomicRmwOp::Min),
-        Instruction::AmoMaxD(r) => amo_d(builder, r, AtomicRmwOp::Max),
-        Instruction::AmoMinuD(r) => amo_d(builder, r, AtomicRmwOp::Umin),
-        Instruction::AmoMaxuD(r) => amo_d(builder, r, AtomicRmwOp::Umax),
-        _ => panic!("IR lowering missing for A instruction {:?}", insn),
+        Instruction::AmoSwapW(r) => lower_amo_w(builder, AtomicRmwOp::Xchg, r.rd, r.rs1, r.rs2),
+        Instruction::AmoAddW(r) => lower_amo_w(builder, AtomicRmwOp::Add, r.rd, r.rs1, r.rs2),
+        Instruction::AmoXorW(r) => lower_amo_w(builder, AtomicRmwOp::Xor, r.rd, r.rs1, r.rs2),
+        Instruction::AmoAndW(r) => lower_amo_w(builder, AtomicRmwOp::And, r.rd, r.rs1, r.rs2),
+        Instruction::AmoOrW(r) => lower_amo_w(builder, AtomicRmwOp::Or, r.rd, r.rs1, r.rs2),
+        Instruction::AmoMinW(r) => lower_amo_w(builder, AtomicRmwOp::Min, r.rd, r.rs1, r.rs2),
+        Instruction::AmoMaxW(r) => lower_amo_w(builder, AtomicRmwOp::Max, r.rd, r.rs1, r.rs2),
+        Instruction::AmoMinuW(r) => lower_amo_w(builder, AtomicRmwOp::Umin, r.rd, r.rs1, r.rs2),
+        Instruction::AmoMaxuW(r) => lower_amo_w(builder, AtomicRmwOp::Umax, r.rd, r.rs1, r.rs2),
+        Instruction::AmoSwapD(r) => lower_amo_d(builder, AtomicRmwOp::Xchg, r.rd, r.rs1, r.rs2),
+        Instruction::AmoAddD(r) => lower_amo_d(builder, AtomicRmwOp::Add, r.rd, r.rs1, r.rs2),
+        Instruction::AmoXorD(r) => lower_amo_d(builder, AtomicRmwOp::Xor, r.rd, r.rs1, r.rs2),
+        Instruction::AmoAndD(r) => lower_amo_d(builder, AtomicRmwOp::And, r.rd, r.rs1, r.rs2),
+        Instruction::AmoOrD(r) => lower_amo_d(builder, AtomicRmwOp::Or, r.rd, r.rs1, r.rs2),
+        Instruction::AmoMinD(r) => lower_amo_d(builder, AtomicRmwOp::Min, r.rd, r.rs1, r.rs2),
+        Instruction::AmoMaxD(r) => lower_amo_d(builder, AtomicRmwOp::Max, r.rd, r.rs1, r.rs2),
+        Instruction::AmoMinuD(r) => lower_amo_d(builder, AtomicRmwOp::Umin, r.rd, r.rs1, r.rs2),
+        Instruction::AmoMaxuD(r) => lower_amo_d(builder, AtomicRmwOp::Umax, r.rd, r.rs1, r.rs2),
+        _ => panic!("IR2 A lowering missing for {:?}", insn),
     }
 }
 
-fn amo_w(builder: &mut IrBuilder, r: &crate::decode::R, op: AtomicRmwOp) {
-    let addr = builder.reg(r.rs1);
-    let value = builder.reg(r.rs2);
-    let read = builder.atomic_rmw(op, AtomicWidth::W, addr, value);
-    let read64 = builder.sext(read, IrType::I32, IrType::I64);
-    builder.set_reg_idx(r.rd, read64);
-    builder.ret();
+fn lower_amo_w(builder: &mut IrBuilder, op: AtomicRmwOp, rd: u8, rs1: u8, rs2: u8) {
+    let addr = builder.get_reg(reg_from_u8(rs1));
+    let val = builder.get_reg(reg_from_u8(rs2));
+    let val = builder.trunc(val, IrType::I64, IrType::I32);
+    let old = builder.atomic_rmw(op, AtomicWidth::W, addr, val, IrType::I32);
+    let old = builder.sext(old, IrType::I32, IrType::I64);
+    builder.set_reg(reg_from_u8(rd), old);
 }
 
-fn amo_d(builder: &mut IrBuilder, r: &crate::decode::R, op: AtomicRmwOp) {
-    let addr = builder.reg(r.rs1);
-    let value = builder.reg(r.rs2);
-    let read = builder.atomic_rmw(op, AtomicWidth::D, addr, value);
-    builder.set_reg_idx(r.rd, read);
-    builder.ret();
+fn lower_amo_d(builder: &mut IrBuilder, op: AtomicRmwOp, rd: u8, rs1: u8, rs2: u8) {
+    let addr = builder.get_reg(reg_from_u8(rs1));
+    let val = builder.get_reg(reg_from_u8(rs2));
+    let old = builder.atomic_rmw(op, AtomicWidth::D, addr, val, IrType::I64);
+    builder.set_reg(reg_from_u8(rd), old);
 }
 
-#[cfg(test)]
-mod tests {
-    use super::lower_a;
-    use crate::decode::{Instruction, R};
-    use crate::ir::execute_ir;
-    use crate::trace::NoopTracer;
-    use crate::{HostIO, VM};
-
-    #[test]
-    fn lower_lr_sc_w_round_trip() {
-        let lr = Instruction::LrW(R {
-            rd: 1,
-            rs1: 2,
-            rs2: 0,
-        });
-        let sc = Instruction::ScW(R {
-            rd: 3,
-            rs1: 2,
-            rs2: 4,
-        });
-
-        let func_lr = lower_a(&lr, 0, 4);
-        let func_sc = lower_a(&sc, 0, 4);
-
-        let mut vm = VM::<NoopTracer>::init();
-        vm.reg_mut(2, 0x10);
-        vm.reg_mut(4, 7);
-        vm.store_u32(0x10, 1);
-        let mut io = HostIO::new();
-        execute_ir(&func_lr, &mut vm, &mut io);
-        execute_ir(&func_sc, &mut vm, &mut io);
-
-        assert_eq!(vm.load_u32(0x10), 7);
-        assert_eq!(vm.reg(3), 0);
-    }
-
-    #[test]
-    fn lower_amo_add_d_updates_memory() {
-        let amo = Instruction::AmoAddD(R {
-            rd: 1,
-            rs1: 2,
-            rs2: 3,
-        });
-
-        let func = lower_a(&amo, 0, 4);
-
-        let mut vm = VM::<NoopTracer>::init();
-        vm.reg_mut(2, 0x20);
-        vm.reg_mut(3, 5);
-        vm.store_u64(0x20, 10);
-        let mut io = HostIO::new();
-        execute_ir(&func, &mut vm, &mut io);
-
-        assert_eq!(vm.load_u64(0x20), 15);
-        assert_eq!(vm.reg(1), 10);
+fn reg_from_u8(idx: u8) -> Reg {
+    match idx {
+        0 => Reg::X0,
+        1 => Reg::X1,
+        2 => Reg::X2,
+        3 => Reg::X3,
+        4 => Reg::X4,
+        5 => Reg::X5,
+        6 => Reg::X6,
+        7 => Reg::X7,
+        8 => Reg::X8,
+        9 => Reg::X9,
+        10 => Reg::X10,
+        11 => Reg::X11,
+        12 => Reg::X12,
+        13 => Reg::X13,
+        14 => Reg::X14,
+        15 => Reg::X15,
+        16 => Reg::X16,
+        17 => Reg::X17,
+        18 => Reg::X18,
+        19 => Reg::X19,
+        20 => Reg::X20,
+        21 => Reg::X21,
+        22 => Reg::X22,
+        23 => Reg::X23,
+        24 => Reg::X24,
+        25 => Reg::X25,
+        26 => Reg::X26,
+        27 => Reg::X27,
+        28 => Reg::X28,
+        29 => Reg::X29,
+        30 => Reg::X30,
+        31 => Reg::X31,
+        _ => panic!("invalid register index: {}", idx),
     }
 }

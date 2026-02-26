@@ -1,4 +1,4 @@
-use crate::ir2::{BlockId, EffectOp, IrType, PureOp, ValueId};
+use crate::ir::{BlockId, EffectOp, IrType, PureOp, ValueId};
 
 #[derive(Clone, Debug)]
 pub enum Op {

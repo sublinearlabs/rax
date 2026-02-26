@@ -1,5 +1,5 @@
 use crate::ecall::handle_ecall;
-use crate::ir2::{AtomicRmwOp, AtomicWidth, EffectOp, IrType, MemWidth, Reg};
+use crate::ir::{AtomicRmwOp, AtomicWidth, EffectOp, IrType, MemWidth, Reg};
 use crate::trace::Tracer;
 use crate::util::mask;
 use crate::{HostIO, VM};

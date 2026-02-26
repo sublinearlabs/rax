@@ -1,4 +1,4 @@
-use crate::ir2::{
+use crate::ir::{
     AtomicRmwOp, AtomicWidth, EffectOp, IrBuilder, IrType, LoadSign, MemWidth, Reg, ValueId,
 };
 

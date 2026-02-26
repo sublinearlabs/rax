@@ -1,9 +1,9 @@
 // M Extension - Multiplication
 
-use crate::VM;
 use crate::decode::R;
 use crate::trace::Tracer;
 use crate::util::{mask, sext};
+use crate::VM;
 
 #[inline(always)]
 pub(crate) fn execute_mul<T: Tracer>(vm: &mut VM<T>, insn: &R) {

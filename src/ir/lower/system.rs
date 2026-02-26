@@ -1,5 +1,5 @@
 use crate::decode::Instruction;
-use crate::ir2::{IrBuilder, IrType, Reg};
+use crate::ir::{IrBuilder, IrType, Reg};
 
 pub(crate) fn lower_system_into(insn: &Instruction, builder: &mut IrBuilder) {
     match insn {

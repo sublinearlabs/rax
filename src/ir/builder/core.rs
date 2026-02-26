@@ -1,4 +1,4 @@
-use crate::ir2::{Block, BlockId, EffectOp, IrFunction, IrType, Op, PureOp, Terminator, ValueId};
+use crate::ir::{Block, BlockId, EffectOp, IrFunction, IrType, Op, PureOp, Terminator, ValueId};
 
 // Builder constraints (C1-C7):
 // C1: Emitting ops/terminators requires a current block.

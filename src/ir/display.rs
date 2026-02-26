@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::ir2::{IrFunction, Op};
+use crate::ir::{IrFunction, Op};
 
 impl fmt::Display for IrFunction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -38,7 +38,7 @@ impl fmt::Display for IrFunction {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ir2::{Block, ConstVal, EffectOp, IrType, PureOp, Terminator, ValueId};
+    use crate::ir::{Block, ConstVal, EffectOp, IrType, PureOp, Terminator, ValueId};
 
     #[test]
     fn display_formats_block_and_ops() {
