@@ -1,16 +1,16 @@
 use std::collections::HashMap;
 
-use crate::HostIO;
-use crate::decode::Instruction;
 #[cfg(feature = "ext_c")]
 use crate::decode::compressed::decode_compressed;
+use crate::decode::Instruction;
 use crate::ir2::execute_ir;
 use crate::ir2::lower::lower_instruction_into;
 use crate::ir2::{IrBuilder, IrFunction};
 use crate::trace::Tracer;
 #[cfg(feature = "ext_c")]
 use crate::util::mask16;
-use crate::{VM, decode};
+use crate::HostIO;
+use crate::{decode, VM};
 
 pub struct RunnerIr2 {
     io: HostIO,
@@ -122,7 +122,6 @@ impl RunnerIr2 {
         let mut pc = start_pc;
         let mut insn_count = 0u64;
 
-        builder.set_ret_suppressed(true);
         for (insn, is_compressed) in &block.insns {
             let current_pc = pc;
             let next_pc = current_pc.wrapping_add(if *is_compressed { 2 } else { 4 });
@@ -139,7 +138,6 @@ impl RunnerIr2 {
         let current_pc = pc;
         let next_pc = current_pc.wrapping_add(if *is_compressed { 2 } else { 4 });
 
-        builder.set_ret_suppressed(false);
         lower_instruction_into(insn, current_pc, next_pc, &mut builder);
         insn_count = insn_count.wrapping_add(1);
 
