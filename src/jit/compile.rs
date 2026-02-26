@@ -47,10 +47,6 @@ fn build_helper_refs(
     ids: &HelperFuncIds,
 ) -> HelperFuncRefs {
     HelperFuncRefs {
-        get_reg: module.declare_func_in_func(ids.get_reg, func),
-        set_reg: module.declare_func_in_func(ids.set_reg, func),
-        get_pc: module.declare_func_in_func(ids.get_pc, func),
-        set_pc: module.declare_func_in_func(ids.set_pc, func),
         get_csr: module.declare_func_in_func(ids.get_csr, func),
         set_csr: module.declare_func_in_func(ids.set_csr, func),
         load_u8: module.declare_func_in_func(ids.load_u8, func),

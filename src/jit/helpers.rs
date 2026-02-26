@@ -10,30 +10,6 @@ fn vm_ptr<'a>(vm: *mut VM<NoopTracer>) -> &'a mut VM<NoopTracer> {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn jit_get_reg(vm: *mut VM<NoopTracer>, reg: u8) -> u64 {
-    let vm = vm_ptr(vm);
-    vm.reg(reg)
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn jit_set_reg(vm: *mut VM<NoopTracer>, reg: u8, val: u64) {
-    let vm = vm_ptr(vm);
-    vm.reg_mut(reg, val);
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn jit_get_pc(vm: *mut VM<NoopTracer>) -> u64 {
-    let vm = vm_ptr(vm);
-    vm.pc()
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn jit_set_pc(vm: *mut VM<NoopTracer>, pc: u64) {
-    let vm = vm_ptr(vm);
-    vm.set_pc(pc);
-}
-
-#[unsafe(no_mangle)]
 pub extern "C" fn jit_get_csr(vm: *mut VM<NoopTracer>, csr: u32) -> u64 {
     let vm = vm_ptr(vm);
     vm.read_csr(csr) as u64

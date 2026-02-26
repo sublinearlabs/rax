@@ -1,23 +1,33 @@
 use crate::memory::MemoryDefault;
-use crate::trace::{DefaultTracer, Tracer};
+use crate::trace::{DefaultTracer, NoopTracer, Tracer};
 use crate::util::{is_snan_f32, is_snan_f64, is_subnormal_f32, is_subnormal_f64};
+use std::mem::offset_of;
 
 /// RISC-V Virtual Machine with configurable tracing.
 ///
 /// The VM is generic over a `Tracer` type, enabling zero-cost abstraction:
 /// - `NoopTracer`: All tracing calls are optimized away (zero overhead)
 /// - `FullTracer`: Complete execution trace is captured
+#[repr(C)]
 pub struct VM<T: Tracer = DefaultTracer> {
     pub(crate) registers: [u64; 32],
+    pc: u64,
     pub(crate) f_reg: [u64; 32],
-    memory: MemoryDefault,
     pub(crate) fcsr_reg: u32,
     pub(crate) reservation_set: u64,
-    pc: u64,
     pub halted: bool,
     pub exit_code: u64,
+    memory: MemoryDefault,
     pub(crate) tracer: T,
 }
+
+pub(crate) const VM_REGS_OFFSET: usize = offset_of!(VM<NoopTracer>, registers);
+pub(crate) const VM_PC_OFFSET: usize = offset_of!(VM<NoopTracer>, pc);
+pub(crate) const VM_FREGS_OFFSET: usize = offset_of!(VM<NoopTracer>, f_reg);
+pub(crate) const VM_FCSR_OFFSET: usize = offset_of!(VM<NoopTracer>, fcsr_reg);
+pub(crate) const VM_RESERVATION_OFFSET: usize = offset_of!(VM<NoopTracer>, reservation_set);
+pub(crate) const VM_HALTED_OFFSET: usize = offset_of!(VM<NoopTracer>, halted);
+pub(crate) const VM_EXIT_CODE_OFFSET: usize = offset_of!(VM<NoopTracer>, exit_code);
 
 impl<T: Tracer> Default for VM<T> {
     fn default() -> Self {
@@ -449,6 +459,25 @@ impl<T: Tracer> VM<T> {
 
         self.fcsr_reg |= flags;
         self.tracer.record_csr_reg(self.fcsr_reg);
+    }
+}
+
+#[cfg(test)]
+mod layout_tests {
+    use super::{
+        VM_EXIT_CODE_OFFSET, VM_FCSR_OFFSET, VM_FREGS_OFFSET, VM_HALTED_OFFSET, VM_PC_OFFSET,
+        VM_REGS_OFFSET, VM_RESERVATION_OFFSET,
+    };
+
+    #[test]
+    fn vm_layout_offsets_match_expected() {
+        assert_eq!(VM_REGS_OFFSET, 0, "registers offset changed");
+        assert_eq!(VM_PC_OFFSET, 256, "pc offset changed");
+        assert_eq!(VM_FREGS_OFFSET, 264, "f_reg offset changed");
+        assert_eq!(VM_FCSR_OFFSET, 520, "fcsr_reg offset changed");
+        assert_eq!(VM_RESERVATION_OFFSET, 528, "reservation_set offset changed");
+        assert_eq!(VM_HALTED_OFFSET, 536, "halted offset changed");
+        assert_eq!(VM_EXIT_CODE_OFFSET, 544, "exit_code offset changed");
     }
 }
 

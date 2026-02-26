@@ -1,7 +1,8 @@
-use cranelift_codegen::ir::{condcodes::IntCC, types, InstBuilder, Value};
+use cranelift_codegen::ir::{condcodes::IntCC, types, InstBuilder, MemFlags, Value};
 use cranelift_frontend::FunctionBuilder;
 
 use crate::ir::{AtomicWidth, EffectOp, MemWidth};
+use crate::vm::{VM_PC_OFFSET, VM_REGS_OFFSET};
 
 use super::pure::atomic_rmw_tag_value;
 use super::HelperFuncRefs;
@@ -16,17 +17,24 @@ pub fn lower_effect(
 ) -> Option<(crate::ir::ValueId, Value)> {
     match op {
         EffectOp::GetReg { dst, reg } => {
-            let reg_val = builder.ins().iconst(types::I8, reg_index(*reg) as i64);
-            let call = builder.ins().call(helpers.get_reg, &[vm_value, reg_val]);
-            let value = builder.inst_results(call)[0];
+            let reg_idx = reg_index(*reg);
+            let value = if reg_idx == 0 {
+                builder.ins().iconst(types::I64, 0)
+            } else {
+                let offset = (VM_REGS_OFFSET as i64) + (reg_idx as i64 * 8);
+                let addr = builder.ins().iadd_imm(vm_value, offset);
+                builder.ins().load(types::I64, MemFlags::trusted(), addr, 0)
+            };
             Some((*dst, value))
         }
         EffectOp::SetReg { reg, val } => {
-            let reg_val = builder.ins().iconst(types::I8, reg_index(*reg) as i64);
-            let value = value_for(values, *val);
-            builder
-                .ins()
-                .call(helpers.set_reg, &[vm_value, reg_val, value]);
+            let reg_idx = reg_index(*reg);
+            if reg_idx != 0 {
+                let value = value_for(values, *val);
+                let offset = (VM_REGS_OFFSET as i64) + (reg_idx as i64 * 8);
+                let addr = builder.ins().iadd_imm(vm_value, offset);
+                builder.ins().store(MemFlags::trusted(), value, addr, 0);
+            }
             None
         }
         EffectOp::GetCsr { dst, csr } => {
@@ -44,13 +52,14 @@ pub fn lower_effect(
             None
         }
         EffectOp::GetPc { dst } => {
-            let call = builder.ins().call(helpers.get_pc, &[vm_value]);
-            let value = builder.inst_results(call)[0];
+            let addr = builder.ins().iadd_imm(vm_value, VM_PC_OFFSET as i64);
+            let value = builder.ins().load(types::I64, MemFlags::trusted(), addr, 0);
             Some((*dst, value))
         }
         EffectOp::SetPc { val } => {
             let value = value_for(values, *val);
-            builder.ins().call(helpers.set_pc, &[vm_value, value]);
+            let addr = builder.ins().iadd_imm(vm_value, VM_PC_OFFSET as i64);
+            builder.ins().store(MemFlags::trusted(), value, addr, 0);
             None
         }
         EffectOp::Load { dst, addr, width } => {
