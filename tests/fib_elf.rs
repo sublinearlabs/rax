@@ -17,7 +17,6 @@ fn run_test_fib_elf(path: String) {
     assert_eq!(vm.exit_code, 0);
 }
 #[test]
-#[ignore]
 fn test_rv64_fib() {
     let _ = fs::read_dir("test-bin/rust-bin/fib")
         .expect("Failed to read directory")

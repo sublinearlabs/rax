@@ -3,13 +3,11 @@ use std::collections::HashMap;
 #[cfg(feature = "ext_c")]
 use crate::decode::compressed::decode_compressed;
 use crate::decode::Instruction;
-use crate::ir::execute_ir;
 use crate::ir::lower::lower_instruction_into;
 use crate::ir::{IrBuilder, IrFunction};
 use crate::jit::compile::{compile_ir_function, JitFn};
 use crate::jit::jit_module::{build_jit_module, declare_helpers, HelperFuncIds};
 use crate::trace::NoopTracer;
-use crate::trace::Tracer;
 #[cfg(feature = "ext_c")]
 use crate::util::mask16;
 use crate::HostIO;
@@ -69,7 +67,7 @@ impl Runner {
         self.elapsed
     }
 
-    pub fn run<T: Tracer + 'static>(&mut self, vm: &mut VM<T>) {
+    pub fn run(&mut self, vm: &mut VM<NoopTracer>) {
         let start = std::time::Instant::now();
         while !vm.halted {
             self.step(vm);
@@ -77,7 +75,7 @@ impl Runner {
         self.elapsed = start.elapsed();
     }
 
-    pub fn run_with_timing<T: Tracer + 'static>(&mut self, vm: &mut VM<T>) {
+    pub fn run_with_timing(&mut self, vm: &mut VM<NoopTracer>) {
         self.run(vm);
         println!("run took: {:?}ms", self.elapsed.as_micros());
         println!("run took: {:?}s", self.elapsed.as_secs_f64());
@@ -89,7 +87,7 @@ impl Runner {
         )
     }
 
-    fn decode_basic_block<T: Tracer>(&self, vm: &mut VM<T>, start_pc: u64) -> DecodedBlock {
+    fn decode_basic_block(&self, vm: &mut VM<NoopTracer>, start_pc: u64) -> DecodedBlock {
         let mut block = vec![];
         let mut pc = start_pc;
 
@@ -166,44 +164,37 @@ impl Runner {
         }
     }
 
-    pub fn step<T: Tracer + 'static>(&mut self, vm: &mut VM<T>) {
-        let is_noop = std::any::TypeId::of::<T>() == std::any::TypeId::of::<NoopTracer>();
-        if is_noop {
-            if let Some(block) = self.jit_cache.get(&vm.pc()) {
-                let vm_ptr = vm as *mut VM<T> as *mut VM<NoopTracer>;
-                let io_ptr = &mut self.io as *mut HostIO;
-                unsafe {
-                    (block.func)(vm_ptr, io_ptr);
-                }
-                self.cycles = self.cycles.wrapping_add(block.insn_count);
-                return;
+    pub fn step(&mut self, vm: &mut VM<NoopTracer>) {
+        if let Some(block) = self.jit_cache.get(&vm.pc()) {
+            let vm_ptr = vm as *mut VM<NoopTracer>;
+            let io_ptr = &mut self.io as *mut HostIO;
+            unsafe {
+                (block.func)(vm_ptr, io_ptr);
             }
+            self.cycles = self.cycles.wrapping_add(block.insn_count);
+            return;
         }
 
         let leader = vm.pc();
         let block = self.decode_basic_block(vm, leader);
         let lowered = self.lower_basic_block(leader, &block);
 
-        if is_noop {
-            let name = format!("ir_entry_{:x}", self.jit_counter);
-            self.jit_counter = self.jit_counter.wrapping_add(1);
-            let jit_fn =
-                compile_ir_function(&mut self.jit_module, &self.helper_ids, &lowered.ir, &name);
-            let vm_ptr = vm as *mut VM<T> as *mut VM<NoopTracer>;
-            let io_ptr = &mut self.io as *mut HostIO;
-            unsafe {
-                jit_fn(vm_ptr, io_ptr);
-            }
-            self.jit_cache.insert(
-                leader,
-                JitBlock {
-                    func: jit_fn,
-                    insn_count: lowered.insn_count,
-                },
-            );
-        } else {
-            execute_ir(&lowered.ir, vm, &mut self.io);
+        let name = format!("ir_entry_{:x}", self.jit_counter);
+        self.jit_counter = self.jit_counter.wrapping_add(1);
+        let jit_fn =
+            compile_ir_function(&mut self.jit_module, &self.helper_ids, &lowered.ir, &name);
+        let vm_ptr = vm as *mut VM<NoopTracer>;
+        let io_ptr = &mut self.io as *mut HostIO;
+        unsafe {
+            jit_fn(vm_ptr, io_ptr);
         }
+        self.jit_cache.insert(
+            leader,
+            JitBlock {
+                func: jit_fn,
+                insn_count: lowered.insn_count,
+            },
+        );
 
         self.cycles = self.cycles.wrapping_add(lowered.insn_count);
     }
