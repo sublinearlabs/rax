@@ -57,6 +57,7 @@ pub fn lower_ir_function(
     let entry_block = block_map[0];
     builder.append_block_params_for_function_params(entry_block);
     let entry_params = builder.block_params(entry_block);
+    let entry_param_count = entry_params.len();
     let vm_value = entry_params.get(0).copied().expect("missing vm param");
     let io_value = entry_params.get(1).copied().expect("missing io param");
 
@@ -74,7 +75,7 @@ pub fn lower_ir_function(
         builder.switch_to_block(clif_block);
 
         let params = builder.block_params(clif_block);
-        let param_offset = if block_id == 0 { 2 } else { 0 };
+        let param_offset = if block_id == 0 { entry_param_count } else { 0 };
         for (arg_idx, arg) in block.args.iter().enumerate() {
             value_map[arg.0 as usize] = Some(params[param_offset + arg_idx]);
         }
