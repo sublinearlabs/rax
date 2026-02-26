@@ -387,6 +387,70 @@ pub(crate) fn lower_i_into(
             builder.set_reg(reg_from_u8(r.rd), v);
         }
 
+        // CSR
+        Instruction::Csrrw(i) => {
+            let csr = (i.imm as u32) & 0x0fff;
+            let old = builder.get_csr(csr);
+            let rs1 = builder.get_reg(reg_from_u8(i.rs1));
+            builder.set_csr(csr, rs1);
+            if i.rd != 0 {
+                builder.set_reg(reg_from_u8(i.rd), old);
+            }
+        }
+        Instruction::Csrrs(i) => {
+            let csr = (i.imm as u32) & 0x0fff;
+            let old = builder.get_csr(csr);
+            let rs1 = builder.get_reg(reg_from_u8(i.rs1));
+            let new_val = builder.or(old, rs1, IrType::I64);
+            builder.set_csr(csr, new_val);
+            if i.rd != 0 {
+                builder.set_reg(reg_from_u8(i.rd), old);
+            }
+        }
+        Instruction::Csrrc(i) => {
+            let csr = (i.imm as u32) & 0x0fff;
+            let old = builder.get_csr(csr);
+            let rs1 = builder.get_reg(reg_from_u8(i.rs1));
+            let ones = builder.const_i64(-1);
+            let not_rs1 = builder.xor(rs1, ones, IrType::I64);
+            let new_val = builder.and(old, not_rs1, IrType::I64);
+            builder.set_csr(csr, new_val);
+            if i.rd != 0 {
+                builder.set_reg(reg_from_u8(i.rd), old);
+            }
+        }
+        Instruction::Csrrwi(i) => {
+            let csr = (i.imm as u32) & 0x0fff;
+            let old = builder.get_csr(csr);
+            let imm = builder.const_i64((i.rs1 & 0x1f) as i64);
+            builder.set_csr(csr, imm);
+            if i.rd != 0 {
+                builder.set_reg(reg_from_u8(i.rd), old);
+            }
+        }
+        Instruction::Csrrsi(i) => {
+            let csr = (i.imm as u32) & 0x0fff;
+            let old = builder.get_csr(csr);
+            let imm = builder.const_i64((i.rs1 & 0x1f) as i64);
+            let new_val = builder.or(old, imm, IrType::I64);
+            builder.set_csr(csr, new_val);
+            if i.rd != 0 {
+                builder.set_reg(reg_from_u8(i.rd), old);
+            }
+        }
+        Instruction::Csrrci(i) => {
+            let csr = (i.imm as u32) & 0x0fff;
+            let old = builder.get_csr(csr);
+            let imm = builder.const_i64((i.rs1 & 0x1f) as i64);
+            let ones = builder.const_i64(-1);
+            let not_imm = builder.xor(imm, ones, IrType::I64);
+            let new_val = builder.and(old, not_imm, IrType::I64);
+            builder.set_csr(csr, new_val);
+            if i.rd != 0 {
+                builder.set_reg(reg_from_u8(i.rd), old);
+            }
+        }
+
         // System
         Instruction::Ecall => {
             builder.ecall();
