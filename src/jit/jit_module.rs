@@ -34,6 +34,7 @@ pub struct HelperFuncIds {
     pub rem_u: FuncId,
 }
 
+// Registers helper symbols (name -> address) for JIT linking.
 pub fn build_jit_module() -> JITModule {
     let mut builder =
         JITBuilder::new(cranelift_module::default_libcall_names()).expect("jit builder");
@@ -79,6 +80,7 @@ pub fn build_jit_module() -> JITModule {
     JITModule::new(builder)
 }
 
+// Declares helper signatures so Cranelift can emit correct calls.
 pub fn declare_helpers(module: &mut JITModule, ptr_ty: types::Type) -> HelperFuncIds {
     fn declare(
         module: &mut JITModule,
