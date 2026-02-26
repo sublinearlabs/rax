@@ -1,4 +1,4 @@
-use crate::ir2::{ConstVal, IrType, PureOp};
+use crate::ir::{ConstVal, IrType, PureOp};
 use crate::util::mask;
 
 pub(crate) fn eval_pure(op: &PureOp, values: &[u64], types: &[IrType]) -> u64 {

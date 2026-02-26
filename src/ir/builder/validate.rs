@@ -1,4 +1,4 @@
-use crate::ir2::{AtomicWidth, BlockId, IrBuilder, IrType, MemWidth, ValueId};
+use crate::ir::{AtomicWidth, BlockId, IrBuilder, IrType, MemWidth, ValueId};
 
 impl IrBuilder {
     // Assert a value has the expected IR type.

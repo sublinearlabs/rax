@@ -1,4 +1,4 @@
-use crate::ir2::{ConstVal, IrBuilder, IrType, PureOp, ValueId};
+use crate::ir::{ConstVal, IrBuilder, IrType, PureOp, ValueId};
 
 impl IrBuilder {
     pub fn const_i1(&mut self, value: bool) -> ValueId {

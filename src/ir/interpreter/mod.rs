@@ -1,4 +1,4 @@
-use crate::ir2::{BlockId, IrFunction, Op, Terminator};
+use crate::ir::{BlockId, IrFunction, Op, Terminator};
 use crate::trace::Tracer;
 use crate::{HostIO, VM};
 
@@ -89,8 +89,8 @@ pub fn execute_ir<T: Tracer>(func: &IrFunction, vm: &mut VM<T>, io: &mut HostIO)
 mod tests {
     use super::execute_ir;
     use crate::decode::{B, I, Instruction};
-    use crate::ir2::IrBuilder;
-    use crate::ir2::lower::lower_instruction_into;
+    use crate::ir::IrBuilder;
+    use crate::ir::lower::lower_instruction_into;
     use crate::trace::NoopTracer;
     use crate::{HostIO, VM};
 

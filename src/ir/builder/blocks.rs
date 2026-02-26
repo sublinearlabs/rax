@@ -1,4 +1,4 @@
-use crate::ir2::{Block, BlockId, IrBuilder, IrType, ValueId};
+use crate::ir::{Block, BlockId, IrBuilder, IrType, ValueId};
 
 impl IrBuilder {
     pub fn block_with_args(&mut self, arg_types: &[IrType]) -> BlockId {

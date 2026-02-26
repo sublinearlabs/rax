@@ -65,7 +65,6 @@ impl Runner {
         println!("run took: {:?}s", self.elapsed.as_secs_f64());
 
         println!("cycles: {}", self.cycles);
-        // cycles / microseconds = Mhz
         println!(
             "{:.2} Mhz",
             self.cycles as f64 / self.elapsed.as_micros() as f64
@@ -123,7 +122,6 @@ impl Runner {
         let mut pc = start_pc;
         let mut insn_count = 0u64;
 
-        builder.set_ret_suppressed(true);
         for (insn, is_compressed) in &block.insns {
             let current_pc = pc;
             let next_pc = current_pc.wrapping_add(if *is_compressed { 2 } else { 4 });
@@ -131,8 +129,9 @@ impl Runner {
             lower_instruction_into(insn, current_pc, next_pc, &mut builder);
             insn_count = insn_count.wrapping_add(1);
 
-            let next_pc_val = builder.imm_u64(next_pc);
+            let next_pc_val = builder.const_i64(next_pc as i64);
             builder.set_pc(next_pc_val);
+            builder.require_single_exit();
             pc = next_pc;
         }
 
@@ -140,7 +139,6 @@ impl Runner {
         let current_pc = pc;
         let next_pc = current_pc.wrapping_add(if *is_compressed { 2 } else { 4 });
 
-        builder.set_ret_suppressed(false);
         lower_instruction_into(insn, current_pc, next_pc, &mut builder);
         insn_count = insn_count.wrapping_add(1);
 
