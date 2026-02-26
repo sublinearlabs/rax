@@ -1,11 +1,13 @@
 pub mod i;
 
 use crate::decode::Instruction;
-use crate::ir2::IrBuilder;
+use crate::ir2::lower::a::lower_a_into;
 use crate::ir2::lower::i::lower_i_into;
 use crate::ir2::lower::m::lower_m_into;
 use crate::ir2::lower::system::lower_system_into;
+use crate::ir2::IrBuilder;
 
+pub mod a;
 pub mod m;
 pub mod system;
 
@@ -83,6 +85,28 @@ pub fn lower_instruction_into(
         | Instruction::Divuw(_)
         | Instruction::Remw(_)
         | Instruction::Remuw(_) => lower_m_into(insn, builder),
+        Instruction::LrW(_)
+        | Instruction::LrD(_)
+        | Instruction::ScW(_)
+        | Instruction::ScD(_)
+        | Instruction::AmoSwapW(_)
+        | Instruction::AmoAddW(_)
+        | Instruction::AmoXorW(_)
+        | Instruction::AmoAndW(_)
+        | Instruction::AmoOrW(_)
+        | Instruction::AmoMinW(_)
+        | Instruction::AmoMaxW(_)
+        | Instruction::AmoMinuW(_)
+        | Instruction::AmoMaxuW(_)
+        | Instruction::AmoSwapD(_)
+        | Instruction::AmoAddD(_)
+        | Instruction::AmoXorD(_)
+        | Instruction::AmoAndD(_)
+        | Instruction::AmoOrD(_)
+        | Instruction::AmoMinD(_)
+        | Instruction::AmoMaxD(_)
+        | Instruction::AmoMinuD(_)
+        | Instruction::AmoMaxuD(_) => lower_a_into(insn, builder),
         Instruction::Ecall
         | Instruction::Ebreak
         | Instruction::Csrrw(_)
