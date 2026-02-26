@@ -2,7 +2,11 @@ pub mod i;
 
 use crate::decode::Instruction;
 use crate::ir2::lower::i::lower_i_into;
+use crate::ir2::lower::system::lower_system_into;
 use crate::ir2::IrBuilder;
+
+pub mod i;
+pub mod system;
 
 pub fn lower_instruction_into(
     insn: &Instruction,
@@ -64,15 +68,15 @@ pub fn lower_instruction_into(
         | Instruction::Ld(_)
         | Instruction::Lwu(_)
         | Instruction::Sd(_)
-        | Instruction::Nop
-        | Instruction::Ecall
+        | Instruction::Nop => lower_i_into(insn, current_pc, next_pc, builder),
+        Instruction::Ecall
         | Instruction::Ebreak
         | Instruction::Csrrw(_)
         | Instruction::Csrrs(_)
         | Instruction::Csrrc(_)
         | Instruction::Csrrwi(_)
         | Instruction::Csrrsi(_)
-        | Instruction::Csrrci(_) => lower_i_into(insn, current_pc, next_pc, builder),
+        | Instruction::Csrrci(_) => lower_system_into(insn, builder),
         _ => panic!("no lowering found for {:?}", insn),
     }
 }
