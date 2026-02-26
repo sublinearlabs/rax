@@ -5,7 +5,6 @@ mod execute;
 mod host_io;
 mod instr_execute;
 pub mod ir;
-#[cfg(feature = "jit")]
 pub mod jit;
 mod loader;
 mod memory;
