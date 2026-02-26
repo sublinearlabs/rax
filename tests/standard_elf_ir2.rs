@@ -1,9 +1,8 @@
 use std::fs;
 
 use riscv::{
-    init_from_elf,
+    RunnerIr2, VM, init_from_elf,
     trace::{FullTracer, NoopTracer},
-    RunnerIr2, VM,
 };
 
 /// VM with no tracing (zero overhead)

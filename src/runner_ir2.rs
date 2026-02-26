@@ -1,16 +1,16 @@
 use std::collections::HashMap;
 
+use crate::HostIO;
+use crate::decode::Instruction;
 #[cfg(feature = "ext_c")]
 use crate::decode::compressed::decode_compressed;
-use crate::decode::Instruction;
 use crate::ir2::execute_ir;
 use crate::ir2::lower::lower_instruction_into;
 use crate::ir2::{IrBuilder, IrFunction};
 use crate::trace::Tracer;
 #[cfg(feature = "ext_c")]
 use crate::util::mask16;
-use crate::HostIO;
-use crate::{decode, VM};
+use crate::{VM, decode};
 
 pub struct RunnerIr2 {
     io: HostIO,
