@@ -28,11 +28,23 @@ pub(crate) fn eval_pure(op: &PureOp, values: &[u64], types: &[IrType]) -> u64 {
             let b = mask_value(values[b.0 as usize], ty);
             div_value(a, b, ty)
         }
+        PureOp::Divu(a, b) => {
+            let ty = types[a.0 as usize];
+            let a = mask_value(values[a.0 as usize], ty);
+            let b = mask_value(values[b.0 as usize], ty);
+            divu_value(a, b, ty)
+        }
         PureOp::Rem(a, b) => {
             let ty = types[a.0 as usize];
             let a = mask_value(values[a.0 as usize], ty);
             let b = mask_value(values[b.0 as usize], ty);
             rem_value(a, b, ty)
+        }
+        PureOp::Remu(a, b) => {
+            let ty = types[a.0 as usize];
+            let a = mask_value(values[a.0 as usize], ty);
+            let b = mask_value(values[b.0 as usize], ty);
+            remu_value(a, b, ty)
         }
         PureOp::And(a, b) => {
             let ty = types[a.0 as usize];
@@ -141,7 +153,11 @@ fn const_value(c: &ConstVal) -> u64 {
 }
 
 fn bool_to_u64(v: bool) -> u64 {
-    if v { 1 } else { 0 }
+    if v {
+        1
+    } else {
+        0
+    }
 }
 
 fn ty_bits(ty: IrType) -> u8 {
@@ -191,6 +207,13 @@ fn div_value(a: u64, b: u64, ty: IrType) -> u64 {
     mask_value((a_signed / b_signed) as u64, ty)
 }
 
+fn divu_value(a: u64, b: u64, ty: IrType) -> u64 {
+    if b == 0 {
+        return ty_mask(ty);
+    }
+    mask_value(a / b, ty)
+}
+
 fn rem_value(a: u64, b: u64, ty: IrType) -> u64 {
     let bits = ty_bits(ty) as u32;
     let a_signed = sign_extend(a, ty);
@@ -203,6 +226,13 @@ fn rem_value(a: u64, b: u64, ty: IrType) -> u64 {
         return 0;
     }
     mask_value((a_signed % b_signed) as u64, ty)
+}
+
+fn remu_value(a: u64, b: u64, ty: IrType) -> u64 {
+    if b == 0 {
+        return mask_value(a, ty);
+    }
+    mask_value(a % b, ty)
 }
 
 fn signed_min(bits: u32) -> i64 {

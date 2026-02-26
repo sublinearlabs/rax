@@ -45,10 +45,22 @@ impl IrBuilder {
         self.emit_pure(PureOp::Div(a, b), ty)
     }
 
+    pub fn divu(&mut self, a: ValueId, b: ValueId, ty: IrType) -> ValueId {
+        self.expect_type(a, ty);
+        self.expect_type(b, ty);
+        self.emit_pure(PureOp::Divu(a, b), ty)
+    }
+
     pub fn rem(&mut self, a: ValueId, b: ValueId, ty: IrType) -> ValueId {
         self.expect_type(a, ty);
         self.expect_type(b, ty);
         self.emit_pure(PureOp::Rem(a, b), ty)
+    }
+
+    pub fn remu(&mut self, a: ValueId, b: ValueId, ty: IrType) -> ValueId {
+        self.expect_type(a, ty);
+        self.expect_type(b, ty);
+        self.emit_pure(PureOp::Remu(a, b), ty)
     }
 
     pub fn and(&mut self, a: ValueId, b: ValueId, ty: IrType) -> ValueId {

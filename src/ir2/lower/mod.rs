@@ -2,9 +2,11 @@ pub mod i;
 
 use crate::decode::Instruction;
 use crate::ir2::lower::i::lower_i_into;
+use crate::ir2::lower::m::lower_m_into;
 use crate::ir2::lower::system::lower_system_into;
 use crate::ir2::IrBuilder;
 
+pub mod m;
 pub mod system;
 
 pub fn lower_instruction_into(
@@ -68,6 +70,19 @@ pub fn lower_instruction_into(
         | Instruction::Lwu(_)
         | Instruction::Sd(_)
         | Instruction::Nop => lower_i_into(insn, current_pc, next_pc, builder),
+        Instruction::Mul(_)
+        | Instruction::Mulh(_)
+        | Instruction::Mulhsu(_)
+        | Instruction::Mulhu(_)
+        | Instruction::Div(_)
+        | Instruction::Divu(_)
+        | Instruction::Rem(_)
+        | Instruction::Remu(_)
+        | Instruction::Mulw(_)
+        | Instruction::Divw(_)
+        | Instruction::Divuw(_)
+        | Instruction::Remw(_)
+        | Instruction::Remuw(_) => lower_m_into(insn, builder),
         Instruction::Ecall
         | Instruction::Ebreak
         | Instruction::Csrrw(_)
