@@ -9,91 +9,91 @@ fn vm_ptr<'a>(vm: *mut VM<NoopTracer>) -> &'a mut VM<NoopTracer> {
     unsafe { &mut *vm }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn jit_get_reg(vm: *mut VM<NoopTracer>, reg: u8) -> u64 {
     let vm = vm_ptr(vm);
     vm.reg(reg)
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn jit_set_reg(vm: *mut VM<NoopTracer>, reg: u8, val: u64) {
     let vm = vm_ptr(vm);
     vm.reg_mut(reg, val);
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn jit_get_pc(vm: *mut VM<NoopTracer>) -> u64 {
     let vm = vm_ptr(vm);
     vm.pc()
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn jit_set_pc(vm: *mut VM<NoopTracer>, pc: u64) {
     let vm = vm_ptr(vm);
     vm.set_pc(pc);
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn jit_get_csr(vm: *mut VM<NoopTracer>, csr: u32) -> u64 {
     let vm = vm_ptr(vm);
     vm.read_csr(csr) as u64
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn jit_set_csr(vm: *mut VM<NoopTracer>, csr: u32, val: u64) {
     let vm = vm_ptr(vm);
     vm.set_csr(csr, val as u32);
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn jit_load_u8(vm: *mut VM<NoopTracer>, addr: u64) -> u64 {
     let vm = vm_ptr(vm);
     vm.load_u8(addr as usize) as u64
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn jit_load_u16(vm: *mut VM<NoopTracer>, addr: u64) -> u64 {
     let vm = vm_ptr(vm);
     vm.load_u16(addr as usize) as u64
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn jit_load_u32(vm: *mut VM<NoopTracer>, addr: u64) -> u64 {
     let vm = vm_ptr(vm);
     vm.load_u32(addr as usize) as u64
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn jit_load_u64(vm: *mut VM<NoopTracer>, addr: u64) -> u64 {
     let vm = vm_ptr(vm);
     vm.load_u64(addr as usize)
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn jit_store_u8(vm: *mut VM<NoopTracer>, addr: u64, val: u64) {
     let vm = vm_ptr(vm);
     vm.store_u8(addr as usize, val as u8);
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn jit_store_u16(vm: *mut VM<NoopTracer>, addr: u64, val: u64) {
     let vm = vm_ptr(vm);
     vm.store_u16(addr as usize, val as u16);
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn jit_store_u32(vm: *mut VM<NoopTracer>, addr: u64, val: u64) {
     let vm = vm_ptr(vm);
     vm.store_u32(addr as usize, val as u32);
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn jit_store_u64(vm: *mut VM<NoopTracer>, addr: u64, val: u64) {
     let vm = vm_ptr(vm);
     vm.store_u64(addr as usize, val);
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn jit_load_reserved_w(vm: *mut VM<NoopTracer>, addr: u64) -> u64 {
     let vm = vm_ptr(vm);
     let value = vm.load_u32(addr as usize) as u64;
@@ -101,7 +101,7 @@ pub extern "C" fn jit_load_reserved_w(vm: *mut VM<NoopTracer>, addr: u64) -> u64
     value & mask(32)
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn jit_load_reserved_d(vm: *mut VM<NoopTracer>, addr: u64) -> u64 {
     let vm = vm_ptr(vm);
     let value = vm.load_u64(addr as usize);
@@ -109,7 +109,7 @@ pub extern "C" fn jit_load_reserved_d(vm: *mut VM<NoopTracer>, addr: u64) -> u64
     value
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn jit_store_conditional_w(vm: *mut VM<NoopTracer>, addr: u64, val: u64) -> u64 {
     let vm = vm_ptr(vm);
     let success = addr == vm.reservation_set;
@@ -124,7 +124,7 @@ pub extern "C" fn jit_store_conditional_w(vm: *mut VM<NoopTracer>, addr: u64, va
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn jit_store_conditional_d(vm: *mut VM<NoopTracer>, addr: u64, val: u64) -> u64 {
     let vm = vm_ptr(vm);
     let success = addr == vm.reservation_set;
@@ -139,7 +139,7 @@ pub extern "C" fn jit_store_conditional_d(vm: *mut VM<NoopTracer>, addr: u64, va
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn jit_atomic_rmw_w(vm: *mut VM<NoopTracer>, addr: u64, val: u64, op: u32) -> u64 {
     let vm = vm_ptr(vm);
     let read_value = vm.load_u32(addr as usize) as u64;
@@ -150,7 +150,7 @@ pub extern "C" fn jit_atomic_rmw_w(vm: *mut VM<NoopTracer>, addr: u64, val: u64,
     read_value & mask(32)
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn jit_atomic_rmw_d(vm: *mut VM<NoopTracer>, addr: u64, val: u64, op: u32) -> u64 {
     let vm = vm_ptr(vm);
     let read_value = vm.load_u64(addr as usize);
@@ -160,34 +160,34 @@ pub extern "C" fn jit_atomic_rmw_d(vm: *mut VM<NoopTracer>, addr: u64, val: u64,
     read_value
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn jit_ecall(vm: *mut VM<NoopTracer>, io: *mut HostIO) {
     let vm = vm_ptr(vm);
     let io = unsafe { &mut *io };
     handle_ecall(vm, io);
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn jit_ebreak(vm: *mut VM<NoopTracer>, io: *mut HostIO) {
     let vm = vm_ptr(vm);
     let io = unsafe { &mut *io };
     handle_ecall(vm, io);
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn jit_halt(vm: *mut VM<NoopTracer>, code: u64) {
     let vm = vm_ptr(vm);
     vm.exit_code = code;
     vm.halted = true;
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn jit_div_s(ty_bits: u8, a: u64, b: u64) -> u64 {
     let bits = ty_bits as u32;
     let a_signed = sign_extend(a, bits);
     let b_signed = sign_extend(b, bits);
     if b_signed == 0 {
-        return mask(bits);
+        return mask(bits as u8);
     }
     let min = signed_min(bits);
     if a_signed == min && b_signed == -1 {
@@ -196,16 +196,16 @@ pub extern "C" fn jit_div_s(ty_bits: u8, a: u64, b: u64) -> u64 {
     mask_value((a_signed / b_signed) as u64, bits)
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn jit_div_u(ty_bits: u8, a: u64, b: u64) -> u64 {
     let bits = ty_bits as u32;
     if b == 0 {
-        return mask(bits);
+        return mask(bits as u8);
     }
     mask_value(a / b, bits)
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn jit_rem_s(ty_bits: u8, a: u64, b: u64) -> u64 {
     let bits = ty_bits as u32;
     let a_signed = sign_extend(a, bits);
@@ -220,7 +220,7 @@ pub extern "C" fn jit_rem_s(ty_bits: u8, a: u64, b: u64) -> u64 {
     mask_value((a_signed % b_signed) as u64, bits)
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn jit_rem_u(ty_bits: u8, a: u64, b: u64) -> u64 {
     let bits = ty_bits as u32;
     if b == 0 {
