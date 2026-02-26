@@ -387,14 +387,6 @@ pub(crate) fn lower_i_into(
             builder.set_reg(reg_from_u8(r.rd), v);
         }
 
-        // System
-        Instruction::Ecall => {
-            builder.ecall();
-        }
-        Instruction::Ebreak => {
-            builder.ebreak();
-            builder.ret();
-        }
         Instruction::Nop => {}
 
         _ => panic!("IR2 lowering missing for {:?}", insn),
