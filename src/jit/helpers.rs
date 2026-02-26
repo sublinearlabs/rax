@@ -161,10 +161,11 @@ pub extern "C" fn jit_atomic_rmw_d(vm: *mut VM<NoopTracer>, addr: u64, val: u64,
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn jit_ecall(vm: *mut VM<NoopTracer>, io: *mut HostIO) {
+pub extern "C" fn jit_ecall(vm: *mut VM<NoopTracer>, io: *mut HostIO) -> u64 {
     let vm = vm_ptr(vm);
     let io = unsafe { &mut *io };
     handle_ecall(vm, io);
+    vm.halted as u64
 }
 
 #[unsafe(no_mangle)]

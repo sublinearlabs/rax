@@ -454,9 +454,9 @@ impl<T: Tracer> VM<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::Runner;
     use crate::init_from_elf;
     use crate::trace::{FullTracer, NoopTracer};
+    use crate::Runner;
     use std::fs;
 
     use super::*;
@@ -542,30 +542,30 @@ mod tests {
         assert_eq!(runner.cycles(), 10);
     }
 
-    #[test]
-    #[ignore = "re-enable once we add back tracing"]
-    fn test_tracing_vm() {
-        let fib_prog = [
-            0xb3, 0x81, 0x20, 0x00, // add x3, x1, x2
-            0xb3, 0x00, 0x01, 0x00, // add x1, x2, x0
-            0x33, 0x81, 0x01, 0x00, // add x2, x3, x0
-        ];
-
-        let mut vm = TracingVM::init();
-        vm.write_bytes(0, &fib_prog);
-        vm.reg_mut(1, 1);
-        vm.reg_mut(2, 1);
-
-        assert!(vm.is_tracing());
-
-        let mut runner = Runner::new();
-        runner.step(&mut vm);
-
-        let trace = vm.take_trace().expect("Should have trace");
-
-        assert_eq!(trace.rows.len(), 3);
-        assert_eq!(trace.total_cycles, 3);
-    }
+    // #[test]
+    // #[ignore = "re-enable once we add back tracing"]
+    // fn test_tracing_vm() {
+    //     let fib_prog = [
+    //         0xb3, 0x81, 0x20, 0x00, // add x3, x1, x2
+    //         0xb3, 0x00, 0x01, 0x00, // add x1, x2, x0
+    //         0x33, 0x81, 0x01, 0x00, // add x2, x3, x0
+    //     ];
+    //
+    //     let mut vm = TracingVM::init();
+    //     vm.write_bytes(0, &fib_prog);
+    //     vm.reg_mut(1, 1);
+    //     vm.reg_mut(2, 1);
+    //
+    //     assert!(vm.is_tracing());
+    //
+    //     let mut runner = Runner::new();
+    //     runner.step(&mut vm);
+    //
+    //     let trace = vm.take_trace().expect("Should have trace");
+    //
+    //     assert_eq!(trace.rows.len(), 3);
+    //     assert_eq!(trace.total_cycles, 3);
+    // }
 
     #[test]
     fn test_fast_vm_no_trace() {

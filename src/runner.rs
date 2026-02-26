@@ -1,20 +1,25 @@
 use std::collections::HashMap;
 
-use crate::HostIO;
-use crate::decode::Instruction;
 #[cfg(feature = "ext_c")]
 use crate::decode::compressed::decode_compressed;
-use crate::ir::execute_ir;
+use crate::decode::Instruction;
 use crate::ir::lower::lower_instruction_into;
 use crate::ir::{IrBuilder, IrFunction};
-use crate::trace::Tracer;
+use crate::jit::compile::{compile_ir_function, JitFn};
+use crate::jit::jit_module::{build_jit_module, declare_helpers, HelperFuncIds};
+use crate::trace::NoopTracer;
 #[cfg(feature = "ext_c")]
 use crate::util::mask16;
-use crate::{VM, decode};
+use crate::HostIO;
+use crate::{decode, VM};
+use cranelift_module::Module;
 
 pub struct Runner {
     io: HostIO,
-    basic_blocks: HashMap<u64, CachedBlock>,
+    jit_module: cranelift_jit::JITModule,
+    helper_ids: HelperFuncIds,
+    jit_cache: HashMap<u64, JitBlock>,
+    jit_counter: u64,
     cycles: u64,
     elapsed: std::time::Duration,
 }
@@ -24,16 +29,27 @@ struct DecodedBlock {
     terminator: (Instruction, bool),
 }
 
-struct CachedBlock {
+struct JitBlock {
+    func: JitFn,
+    insn_count: u64,
+}
+
+struct LoweredBlock {
     ir: IrFunction,
     insn_count: u64,
 }
 
 impl Runner {
     pub fn new() -> Self {
+        let mut jit_module = build_jit_module();
+        let ptr_ty = jit_module.isa().pointer_type();
+        let helper_ids = declare_helpers(&mut jit_module, ptr_ty);
         Self {
             io: HostIO::new(),
-            basic_blocks: HashMap::new(),
+            jit_module,
+            helper_ids,
+            jit_cache: HashMap::new(),
+            jit_counter: 0,
             cycles: 0,
             elapsed: std::time::Duration::default(),
         }
@@ -51,7 +67,7 @@ impl Runner {
         self.elapsed
     }
 
-    pub fn run<T: Tracer>(&mut self, vm: &mut VM<T>) {
+    pub fn run(&mut self, vm: &mut VM<NoopTracer>) {
         let start = std::time::Instant::now();
         while !vm.halted {
             self.step(vm);
@@ -59,7 +75,7 @@ impl Runner {
         self.elapsed = start.elapsed();
     }
 
-    pub fn run_with_timing<T: Tracer>(&mut self, vm: &mut VM<T>) {
+    pub fn run_with_timing(&mut self, vm: &mut VM<NoopTracer>) {
         self.run(vm);
         println!("run took: {:?}ms", self.elapsed.as_micros());
         println!("run took: {:?}s", self.elapsed.as_secs_f64());
@@ -71,7 +87,7 @@ impl Runner {
         )
     }
 
-    fn decode_basic_block<T: Tracer>(&self, vm: &mut VM<T>, start_pc: u64) -> DecodedBlock {
+    fn decode_basic_block(&self, vm: &mut VM<NoopTracer>, start_pc: u64) -> DecodedBlock {
         let mut block = vec![];
         let mut pc = start_pc;
 
@@ -114,7 +130,7 @@ impl Runner {
         }
     }
 
-    fn lower_basic_block(&self, start_pc: u64, block: &DecodedBlock) -> CachedBlock {
+    fn lower_basic_block(&self, start_pc: u64, block: &DecodedBlock) -> LoweredBlock {
         let mut builder = IrBuilder::new();
         let entry = builder.block();
         builder.switch_to(entry);
@@ -142,19 +158,19 @@ impl Runner {
         lower_instruction_into(insn, current_pc, next_pc, &mut builder);
         insn_count = insn_count.wrapping_add(1);
 
-        CachedBlock {
+        LoweredBlock {
             ir: builder.finish(),
             insn_count,
         }
     }
 
-    fn execute_basic_block<T: Tracer>(io: &mut HostIO, vm: &mut VM<T>, block: &IrFunction) {
-        execute_ir(block, vm, io);
-    }
-
-    pub fn step<T: Tracer>(&mut self, vm: &mut VM<T>) {
-        if let Some(block) = self.basic_blocks.get(&vm.pc()) {
-            Self::execute_basic_block(&mut self.io, vm, &block.ir);
+    pub fn step(&mut self, vm: &mut VM<NoopTracer>) {
+        if let Some(block) = self.jit_cache.get(&vm.pc()) {
+            let vm_ptr = vm as *mut VM<NoopTracer>;
+            let io_ptr = &mut self.io as *mut HostIO;
+            unsafe {
+                (block.func)(vm_ptr, io_ptr);
+            }
             self.cycles = self.cycles.wrapping_add(block.insn_count);
             return;
         }
@@ -163,9 +179,23 @@ impl Runner {
         let block = self.decode_basic_block(vm, leader);
         let lowered = self.lower_basic_block(leader, &block);
 
-        Self::execute_basic_block(&mut self.io, vm, &lowered.ir);
-        self.cycles = self.cycles.wrapping_add(lowered.insn_count);
+        let name = format!("ir_entry_{:x}", self.jit_counter);
+        self.jit_counter = self.jit_counter.wrapping_add(1);
+        let jit_fn =
+            compile_ir_function(&mut self.jit_module, &self.helper_ids, &lowered.ir, &name);
+        let vm_ptr = vm as *mut VM<NoopTracer>;
+        let io_ptr = &mut self.io as *mut HostIO;
+        unsafe {
+            jit_fn(vm_ptr, io_ptr);
+        }
+        self.jit_cache.insert(
+            leader,
+            JitBlock {
+                func: jit_fn,
+                insn_count: lowered.insn_count,
+            },
+        );
 
-        self.basic_blocks.insert(leader, lowered);
+        self.cycles = self.cycles.wrapping_add(lowered.insn_count);
     }
 }

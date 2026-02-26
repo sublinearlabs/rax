@@ -1,4 +1,4 @@
-use cranelift_codegen::ir::{types, InstBuilder, Value};
+use cranelift_codegen::ir::{condcodes::IntCC, types, InstBuilder, Value};
 use cranelift_frontend::FunctionBuilder;
 
 use crate::ir::{AtomicWidth, EffectOp, MemWidth};
@@ -124,7 +124,17 @@ pub fn lower_effect(
             Some((*dst, value))
         }
         EffectOp::Ecall => {
-            builder.ins().call(helpers.ecall, &[vm_value, io_value]);
+            let call = builder.ins().call(helpers.ecall, &[vm_value, io_value]);
+            let halted = builder.inst_results(call)[0];
+            let halted = builder.ins().icmp_imm(IntCC::NotEqual, halted, 0);
+            let ret_block = builder.create_block();
+            let cont_block = builder.create_block();
+            builder.ins().brif(halted, ret_block, &[], cont_block, &[]);
+            builder.seal_block(ret_block);
+            builder.seal_block(cont_block);
+            builder.switch_to_block(ret_block);
+            builder.ins().return_(&[]);
+            builder.switch_to_block(cont_block);
             None
         }
         EffectOp::Ebreak => {

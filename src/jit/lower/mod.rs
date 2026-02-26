@@ -3,7 +3,7 @@ use cranelift_codegen::ir::{
 };
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 
-use crate::ir::{EffectOp, IrFunction, IrType, Op, PureOp, Terminator};
+use crate::ir::{IrFunction, Op, Terminator};
 
 mod effect;
 mod pure;
