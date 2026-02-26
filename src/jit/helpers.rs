@@ -34,15 +34,15 @@ pub extern "C" fn jit_set_pc(vm: *mut VM<NoopTracer>, pc: u64) {
 }
 
 #[no_mangle]
-pub extern "C" fn jit_get_csr(vm: *mut VM<NoopTracer>, csr: u32) -> u32 {
+pub extern "C" fn jit_get_csr(vm: *mut VM<NoopTracer>, csr: u32) -> u64 {
     let vm = vm_ptr(vm);
-    vm.read_csr(csr)
+    vm.read_csr(csr) as u64
 }
 
 #[no_mangle]
-pub extern "C" fn jit_set_csr(vm: *mut VM<NoopTracer>, csr: u32, val: u32) {
+pub extern "C" fn jit_set_csr(vm: *mut VM<NoopTracer>, csr: u32, val: u64) {
     let vm = vm_ptr(vm);
-    vm.set_csr(csr, val);
+    vm.set_csr(csr, val as u32);
 }
 
 #[no_mangle]
@@ -117,7 +117,11 @@ pub extern "C" fn jit_store_conditional_w(vm: *mut VM<NoopTracer>, addr: u64, va
         vm.store_u32(addr as usize, val as u32);
     }
     vm.reservation_set = 0;
-    if success { 0 } else { 1 }
+    if success {
+        0
+    } else {
+        1
+    }
 }
 
 #[no_mangle]
@@ -128,7 +132,11 @@ pub extern "C" fn jit_store_conditional_d(vm: *mut VM<NoopTracer>, addr: u64, va
         vm.store_u64(addr as usize, val);
     }
     vm.reservation_set = 0;
-    if success { 0 } else { 1 }
+    if success {
+        0
+    } else {
+        1
+    }
 }
 
 #[no_mangle]
