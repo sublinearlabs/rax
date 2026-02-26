@@ -1,6 +1,4 @@
-use crate::ir::{
-    AtomicRmwOp, AtomicWidth, EffectOp, IrBuilder, IrType, LoadSign, MemWidth, Reg, ValueId,
-};
+use crate::ir::{AtomicRmwOp, AtomicWidth, EffectOp, IrBuilder, IrType, MemWidth, Reg, ValueId};
 
 impl IrBuilder {
     pub fn get_reg(&mut self, reg: Reg) -> ValueId {
@@ -36,22 +34,11 @@ impl IrBuilder {
         self.emit_effect(EffectOp::SetCsr { csr, val });
     }
 
-    pub fn load(
-        &mut self,
-        addr: ValueId,
-        width: MemWidth,
-        signed: LoadSign,
-        ty: IrType,
-    ) -> ValueId {
+    pub fn load(&mut self, addr: ValueId, width: MemWidth, ty: IrType) -> ValueId {
         self.expect_type(addr, IrType::I64);
         self.expect_mem_width_type(width, ty);
         let dst = self.new_value(ty);
-        self.emit_effect(EffectOp::Load {
-            dst,
-            addr,
-            width,
-            signed,
-        });
+        self.emit_effect(EffectOp::Load { dst, addr, width });
         dst
     }
 
