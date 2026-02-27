@@ -5,8 +5,6 @@ use cranelift_module::{FuncId, Linkage, Module};
 use crate::jit::helpers;
 
 pub struct HelperFuncIds {
-    pub get_csr: FuncId,
-    pub set_csr: FuncId,
     pub load_u8: FuncId,
     pub load_u16: FuncId,
     pub load_u32: FuncId,
@@ -34,8 +32,6 @@ pub struct HelperFuncIds {
 pub fn build_jit_module() -> JITModule {
     let mut builder =
         JITBuilder::new(cranelift_module::default_libcall_names()).expect("jit builder");
-    builder.symbol("jit_get_csr", helpers::jit_get_csr as *const u8);
-    builder.symbol("jit_set_csr", helpers::jit_set_csr as *const u8);
     builder.symbol("jit_load_u8", helpers::jit_load_u8 as *const u8);
     builder.symbol("jit_load_u16", helpers::jit_load_u16 as *const u8);
     builder.symbol("jit_load_u32", helpers::jit_load_u32 as *const u8);
@@ -97,8 +93,6 @@ pub fn declare_helpers(module: &mut JITModule, ptr_ty: types::Type) -> HelperFun
     let i64 = types::I64;
 
     HelperFuncIds {
-        get_csr: declare(module, "jit_get_csr", &[ptr_ty, i32], Some(i64)),
-        set_csr: declare(module, "jit_set_csr", &[ptr_ty, i32, i64], None),
         load_u8: declare(module, "jit_load_u8", &[ptr_ty, i64], Some(i64)),
         load_u16: declare(module, "jit_load_u16", &[ptr_ty, i64], Some(i64)),
         load_u32: declare(module, "jit_load_u32", &[ptr_ty, i64], Some(i64)),

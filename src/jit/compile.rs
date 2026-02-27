@@ -47,8 +47,6 @@ fn build_helper_refs(
     ids: &HelperFuncIds,
 ) -> HelperFuncRefs {
     HelperFuncRefs {
-        get_csr: module.declare_func_in_func(ids.get_csr, func),
-        set_csr: module.declare_func_in_func(ids.set_csr, func),
         load_u8: module.declare_func_in_func(ids.load_u8, func),
         load_u16: module.declare_func_in_func(ids.load_u16, func),
         load_u32: module.declare_func_in_func(ids.load_u32, func),

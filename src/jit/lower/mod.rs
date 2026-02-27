@@ -13,8 +13,6 @@ use pure::{lower_pure, mask_value};
 
 #[derive(Clone, Copy)]
 pub struct HelperFuncRefs {
-    pub get_csr: FuncRef,
-    pub set_csr: FuncRef,
     pub load_u8: FuncRef,
     pub load_u16: FuncRef,
     pub load_u32: FuncRef,
