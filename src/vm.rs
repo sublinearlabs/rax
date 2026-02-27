@@ -221,7 +221,7 @@ impl<T: Tracer> VM<T> {
             // Read frm
             0x2 => (self.fcsr_reg >> 5) & 0x7,
             // Read csr
-            0x3 => self.fcsr_reg,
+            0x3 => self.fcsr_reg & 0xff,
             _ => 0,
         }
     }
