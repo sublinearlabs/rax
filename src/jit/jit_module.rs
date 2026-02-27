@@ -22,10 +22,6 @@ pub struct HelperFuncIds {
     pub ecall: FuncId,
     pub ebreak: FuncId,
     pub halt: FuncId,
-    pub div_s: FuncId,
-    pub div_u: FuncId,
-    pub rem_s: FuncId,
-    pub rem_u: FuncId,
 }
 
 // Registers helper symbols (name -> address) for JIT linking.
@@ -61,10 +57,6 @@ pub fn build_jit_module() -> JITModule {
     builder.symbol("jit_ecall", helpers::jit_ecall as *const u8);
     builder.symbol("jit_ebreak", helpers::jit_ebreak as *const u8);
     builder.symbol("jit_halt", helpers::jit_halt as *const u8);
-    builder.symbol("jit_div_s", helpers::jit_div_s as *const u8);
-    builder.symbol("jit_div_u", helpers::jit_div_u as *const u8);
-    builder.symbol("jit_rem_s", helpers::jit_rem_s as *const u8);
-    builder.symbol("jit_rem_u", helpers::jit_rem_u as *const u8);
     JITModule::new(builder)
 }
 
@@ -88,7 +80,6 @@ pub fn declare_helpers(module: &mut JITModule, ptr_ty: types::Type) -> HelperFun
             .expect("declare helper")
     }
 
-    let i8 = types::I8;
     let i32 = types::I32;
     let i64 = types::I64;
 
@@ -130,9 +121,5 @@ pub fn declare_helpers(module: &mut JITModule, ptr_ty: types::Type) -> HelperFun
         ecall: declare(module, "jit_ecall", &[ptr_ty, ptr_ty], Some(i64)),
         ebreak: declare(module, "jit_ebreak", &[ptr_ty, ptr_ty], None),
         halt: declare(module, "jit_halt", &[ptr_ty, i64], None),
-        div_s: declare(module, "jit_div_s", &[i8, i64, i64], Some(i64)),
-        div_u: declare(module, "jit_div_u", &[i8, i64, i64], Some(i64)),
-        rem_s: declare(module, "jit_rem_s", &[i8, i64, i64], Some(i64)),
-        rem_u: declare(module, "jit_rem_u", &[i8, i64, i64], Some(i64)),
     }
 }

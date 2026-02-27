@@ -1,16 +1,13 @@
-use cranelift_codegen::ir::{condcodes::IntCC, types, FuncRef, InstBuilder, Value};
+use cranelift_codegen::ir::{condcodes::IntCC, types, BlockArg, InstBuilder, Value};
 use cranelift_frontend::FunctionBuilder;
 
 use crate::ir::{AtomicRmwOp, ConstVal, IrType, PureOp};
-
-use super::HelperFuncRefs;
 
 pub fn lower_pure(
     builder: &mut FunctionBuilder,
     op: &PureOp,
     values: &[Option<Value>],
     types: &[IrType],
-    helpers: &HelperFuncRefs,
 ) -> Value {
     match op {
         PureOp::Const(c) => builder.ins().iconst(types::I64, const_value(c) as i64),
@@ -29,10 +26,10 @@ pub fn lower_pure(
             let b = value_for(values, *b);
             builder.ins().imul(a, b)
         }
-        PureOp::Div(a, b) => call_divrem(builder, helpers.div_s, values, types, *a, *b),
-        PureOp::Divu(a, b) => call_divrem(builder, helpers.div_u, values, types, *a, *b),
-        PureOp::Rem(a, b) => call_divrem(builder, helpers.rem_s, values, types, *a, *b),
-        PureOp::Remu(a, b) => call_divrem(builder, helpers.rem_u, values, types, *a, *b),
+        PureOp::Div(a, b) => inline_divrem(builder, values, types, *a, *b, true, false),
+        PureOp::Divu(a, b) => inline_divrem(builder, values, types, *a, *b, false, false),
+        PureOp::Rem(a, b) => inline_divrem(builder, values, types, *a, *b, true, true),
+        PureOp::Remu(a, b) => inline_divrem(builder, values, types, *a, *b, false, true),
         PureOp::And(a, b) => {
             let a = value_for(values, *a);
             let b = value_for(values, *b);
@@ -194,21 +191,166 @@ fn bool_to_i64(builder: &mut FunctionBuilder, cond: Value) -> Value {
     builder.ins().select(cond, one, zero)
 }
 
-fn call_divrem(
+fn inline_divrem(
     builder: &mut FunctionBuilder,
-    helper: FuncRef,
     values: &[Option<Value>],
     types: &[IrType],
     a: crate::ir::ValueId,
     b: crate::ir::ValueId,
+    signed: bool,
+    is_rem: bool,
 ) -> Value {
     let ty = types[a.0 as usize];
     let bits = ir_type_bits(ty);
-    let bits_val = builder.ins().iconst(types::I8, bits as i64);
     let lhs = value_for(values, a);
     let rhs = value_for(values, b);
-    let call = builder.ins().call(helper, &[bits_val, lhs, rhs]);
-    builder.inst_results(call)[0]
+    if signed {
+        inline_divrem_signed(builder, lhs, rhs, ty, bits, is_rem)
+    } else {
+        inline_divrem_unsigned(builder, lhs, rhs, ty, bits, is_rem)
+    }
+}
+
+fn inline_divrem_signed(
+    builder: &mut FunctionBuilder,
+    lhs: Value,
+    rhs: Value,
+    ty: IrType,
+    bits: u8,
+    is_rem: bool,
+) -> Value {
+    let lhs_masked = mask_value(builder, lhs, ty);
+    let rhs_masked = mask_value(builder, rhs, ty);
+    let lhs = sign_extend(builder, lhs_masked, ty);
+    let rhs = sign_extend(builder, rhs_masked, ty);
+    let is_zero = builder.ins().icmp_imm(IntCC::Equal, rhs, 0);
+
+    let min_val = signed_min(bits) as i64;
+    let min_const = builder.ins().iconst(types::I64, min_val);
+    let is_min = builder.ins().icmp(IntCC::Equal, lhs, min_const);
+    let is_neg1 = builder.ins().icmp_imm(IntCC::Equal, rhs, -1);
+    let is_overflow = builder.ins().band(is_min, is_neg1);
+
+    let result_block = builder.create_block();
+    builder.append_block_param(result_block, types::I64);
+    let zero_block = builder.create_block();
+    let check_block = builder.create_block();
+    let overflow_block = builder.create_block();
+    let normal_block = builder.create_block();
+
+    builder
+        .ins()
+        .brif(is_zero, zero_block, &[], check_block, &[]);
+
+    builder.switch_to_block(zero_block);
+    let zero_val = if is_rem {
+        mask_value(builder, lhs, ty)
+    } else {
+        builder.ins().iconst(types::I64, mask_bits(bits) as i64)
+    };
+    builder
+        .ins()
+        .jump(result_block, &[BlockArg::Value(zero_val)]);
+    builder.seal_block(zero_block);
+
+    builder.switch_to_block(check_block);
+    builder
+        .ins()
+        .brif(is_overflow, overflow_block, &[], normal_block, &[]);
+    builder.seal_block(check_block);
+
+    builder.switch_to_block(overflow_block);
+    let overflow_val = if is_rem {
+        builder.ins().iconst(types::I64, 0)
+    } else {
+        mask_value(builder, min_const, ty)
+    };
+    builder
+        .ins()
+        .jump(result_block, &[BlockArg::Value(overflow_val)]);
+    builder.seal_block(overflow_block);
+
+    builder.switch_to_block(normal_block);
+    let normal_val = if is_rem {
+        let rem_raw = builder.ins().srem(lhs, rhs);
+        mask_value(builder, rem_raw, ty)
+    } else {
+        let div_raw = builder.ins().sdiv(lhs, rhs);
+        mask_value(builder, div_raw, ty)
+    };
+    builder
+        .ins()
+        .jump(result_block, &[BlockArg::Value(normal_val)]);
+    builder.seal_block(normal_block);
+
+    builder.switch_to_block(result_block);
+    builder.seal_block(result_block);
+    builder.block_params(result_block)[0]
+}
+
+fn inline_divrem_unsigned(
+    builder: &mut FunctionBuilder,
+    lhs: Value,
+    rhs: Value,
+    ty: IrType,
+    bits: u8,
+    is_rem: bool,
+) -> Value {
+    let lhs = mask_value(builder, lhs, ty);
+    let rhs = mask_value(builder, rhs, ty);
+    let is_zero = builder.ins().icmp_imm(IntCC::Equal, rhs, 0);
+    let result_block = builder.create_block();
+    builder.append_block_param(result_block, types::I64);
+    let zero_block = builder.create_block();
+    let normal_block = builder.create_block();
+
+    builder
+        .ins()
+        .brif(is_zero, zero_block, &[], normal_block, &[]);
+
+    builder.switch_to_block(zero_block);
+    let zero_val = if is_rem {
+        mask_value(builder, lhs, ty)
+    } else {
+        builder.ins().iconst(types::I64, mask_bits(bits) as i64)
+    };
+    builder
+        .ins()
+        .jump(result_block, &[BlockArg::Value(zero_val)]);
+    builder.seal_block(zero_block);
+
+    builder.switch_to_block(normal_block);
+    let normal_val = if is_rem {
+        let rem_raw = builder.ins().urem(lhs, rhs);
+        mask_value(builder, rem_raw, ty)
+    } else {
+        let div_raw = builder.ins().udiv(lhs, rhs);
+        mask_value(builder, div_raw, ty)
+    };
+    builder
+        .ins()
+        .jump(result_block, &[BlockArg::Value(normal_val)]);
+    builder.seal_block(normal_block);
+
+    builder.switch_to_block(result_block);
+    builder.seal_block(result_block);
+    builder.block_params(result_block)[0]
+}
+
+fn mask_bits(bits: u8) -> u64 {
+    if bits >= 64 {
+        u64::MAX
+    } else {
+        (1u64 << bits) - 1
+    }
+}
+
+fn signed_min(bits: u8) -> i64 {
+    if bits >= 64 {
+        i64::MIN
+    } else {
+        -(1i64 << (bits - 1))
+    }
 }
 
 fn const_value(c: &ConstVal) -> u64 {

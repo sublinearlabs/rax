@@ -30,10 +30,6 @@ pub struct HelperFuncRefs {
     pub ecall: FuncRef,
     pub ebreak: FuncRef,
     pub halt: FuncRef,
-    pub div_s: FuncRef,
-    pub div_u: FuncRef,
-    pub rem_s: FuncRef,
-    pub rem_u: FuncRef,
 }
 
 pub fn lower_ir_function(
@@ -77,7 +73,7 @@ pub fn lower_ir_function(
         for op in &block.ops {
             match op {
                 Op::Pure { dst, op } => {
-                    let value = lower_pure(&mut builder, op, &value_map, &ir.value_types, helpers);
+                    let value = lower_pure(&mut builder, op, &value_map, &ir.value_types);
                     let ty = ir.value_type(*dst);
                     let value = mask_value(&mut builder, value, ty);
                     value_map[dst.0 as usize] = Some(value);

@@ -64,9 +64,5 @@ fn build_helper_refs(
         ecall: module.declare_func_in_func(ids.ecall, func),
         ebreak: module.declare_func_in_func(ids.ebreak, func),
         halt: module.declare_func_in_func(ids.halt, func),
-        div_s: module.declare_func_in_func(ids.div_s, func),
-        div_u: module.declare_func_in_func(ids.div_u, func),
-        rem_s: module.declare_func_in_func(ids.rem_s, func),
-        rem_u: module.declare_func_in_func(ids.rem_u, func),
     }
 }

@@ -146,54 +146,6 @@ pub extern "C" fn jit_halt(vm: *mut VM<NoopTracer>, code: u64) {
     vm.halted = true;
 }
 
-#[unsafe(no_mangle)]
-pub extern "C" fn jit_div_s(ty_bits: u8, a: u64, b: u64) -> u64 {
-    let bits = ty_bits as u32;
-    let a_signed = sign_extend(a, bits);
-    let b_signed = sign_extend(b, bits);
-    if b_signed == 0 {
-        return mask(bits as u8);
-    }
-    let min = signed_min(bits);
-    if a_signed == min && b_signed == -1 {
-        return mask_value(min as u64, bits);
-    }
-    mask_value((a_signed / b_signed) as u64, bits)
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn jit_div_u(ty_bits: u8, a: u64, b: u64) -> u64 {
-    let bits = ty_bits as u32;
-    if b == 0 {
-        return mask(bits as u8);
-    }
-    mask_value(a / b, bits)
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn jit_rem_s(ty_bits: u8, a: u64, b: u64) -> u64 {
-    let bits = ty_bits as u32;
-    let a_signed = sign_extend(a, bits);
-    let b_signed = sign_extend(b, bits);
-    if b_signed == 0 {
-        return mask_value(a_signed as u64, bits);
-    }
-    let min = signed_min(bits);
-    if a_signed == min && b_signed == -1 {
-        return 0;
-    }
-    mask_value((a_signed % b_signed) as u64, bits)
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn jit_rem_u(ty_bits: u8, a: u64, b: u64) -> u64 {
-    let bits = ty_bits as u32;
-    if b == 0 {
-        return mask_value(a, bits);
-    }
-    mask_value(a % b, bits)
-}
-
 fn decode_atomic_rmw_op(op: u32) -> AtomicRmwOp {
     match op {
         0 => AtomicRmwOp::Xchg,
@@ -236,26 +188,5 @@ fn atomic_rmw_d(read_value: u64, rs2_val: u64, op: AtomicRmwOp) -> u64 {
         AtomicRmwOp::Max => (read_value as i64).max(rs2_val as i64) as u64,
         AtomicRmwOp::Umin => read_value.min(rs2_val),
         AtomicRmwOp::Umax => read_value.max(rs2_val),
-    }
-}
-
-fn mask_value(value: u64, bits: u32) -> u64 {
-    value & mask(bits as u8)
-}
-
-fn sign_extend(value: u64, bits: u32) -> i64 {
-    if bits >= 64 {
-        value as i64
-    } else {
-        let shift = 64 - bits;
-        ((value << shift) as i64) >> shift
-    }
-}
-
-fn signed_min(bits: u32) -> i64 {
-    if bits >= 64 {
-        i64::MIN
-    } else {
-        -(1i64 << (bits - 1))
     }
 }
