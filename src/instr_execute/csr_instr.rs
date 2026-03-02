@@ -1,6 +1,6 @@
-use crate::decode::I;
 /// CSR instructions
 use crate::VM;
+use crate::decode::I;
 
 #[inline(always)]
 pub(crate) fn execute_csrrw(vm: &mut VM, insn: &I) {

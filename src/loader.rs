@@ -1,8 +1,8 @@
 use std::fs;
 use std::path::Path;
 
-use crate::elf::decode_elf;
 use crate::VM;
+use crate::elf::decode_elf;
 
 const DEFAULT_STACK_POINTER: u64 = 0x0800_0000;
 

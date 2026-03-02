@@ -1,8 +1,8 @@
 // M Extension - Multiplication
 
+use crate::VM;
 use crate::decode::R;
 use crate::util::{mask, sext};
-use crate::VM;
 
 #[inline(always)]
 pub(crate) fn execute_mul(vm: &mut VM, insn: &R) {

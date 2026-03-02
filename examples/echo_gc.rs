@@ -6,7 +6,7 @@
 //!
 use std::path::Path;
 
-use riscv::{init_from_elf, Runner};
+use riscv::{Runner, init_from_elf};
 
 #[path = "perf_stat.rs"]
 mod perf_stat;

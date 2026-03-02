@@ -1,4 +1,4 @@
-use crate::{ecall::constants, HostIO, VM};
+use crate::{HostIO, VM, ecall::constants};
 
 /// @dev this function would heavily be designed following the Linux ABI
 pub fn handle_stdin(vm: &mut VM, io: &mut HostIO) {

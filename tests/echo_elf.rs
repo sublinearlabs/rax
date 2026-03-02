@@ -1,6 +1,6 @@
 use std::fs;
 
-use riscv::{init_from_elf, Runner};
+use riscv::{Runner, init_from_elf};
 
 fn run_test_echo_elf(path: String) {
     println!("running test: {path}");

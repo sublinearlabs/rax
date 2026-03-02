@@ -1,8 +1,8 @@
 use elf::{
+    ElfBytes,
     abi::{EM_RISCV, ET_EXEC, PT_LOAD},
     endian::LittleEndian,
     file::Class,
-    ElfBytes,
 };
 
 use crate::memory::MemoryDefault;

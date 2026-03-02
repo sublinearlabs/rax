@@ -80,11 +80,7 @@ pub extern "C" fn jit_store_conditional_w(vm: *mut VM, addr: u64, val: u64) -> u
         vm.store_u32(addr as usize, val as u32);
     }
     vm.reservation_set = 0;
-    if success {
-        0
-    } else {
-        1
-    }
+    if success { 0 } else { 1 }
 }
 
 #[unsafe(no_mangle)]
@@ -95,11 +91,7 @@ pub extern "C" fn jit_store_conditional_d(vm: *mut VM, addr: u64, val: u64) -> u
         vm.store_u64(addr as usize, val);
     }
     vm.reservation_set = 0;
-    if success {
-        0
-    } else {
-        1
-    }
+    if success { 0 } else { 1 }
 }
 
 #[unsafe(no_mangle)]

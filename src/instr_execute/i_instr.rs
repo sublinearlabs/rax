@@ -1,8 +1,8 @@
 // Register Opcodes
 
-use crate::decode::{Sh, B, I, J, R, S, U};
-use crate::util::{mask, sext};
 use crate::VM;
+use crate::decode::{B, I, J, R, S, Sh, U};
+use crate::util::{mask, sext};
 
 #[inline(always)]
 pub(crate) fn execute_add(vm: &mut VM, insn: &R) {

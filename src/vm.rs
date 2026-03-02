@@ -433,8 +433,8 @@ mod layout_tests {
 
 #[cfg(test)]
 mod tests {
-    use crate::init_from_elf;
     use crate::Runner;
+    use crate::init_from_elf;
     use std::fs;
 
     use super::*;

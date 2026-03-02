@@ -1,4 +1,4 @@
-use crate::{ecall::constants, VM};
+use crate::{VM, ecall::constants};
 
 /// @dev this function would heavily be designed following the Linux ABI
 pub fn handle_stdout(vm: &mut VM) {

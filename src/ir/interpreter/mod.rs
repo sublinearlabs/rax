@@ -87,9 +87,9 @@ pub fn execute_ir(func: &IrFunction, vm: &mut VM, io: &mut HostIO) {
 #[cfg(test)]
 mod tests {
     use super::execute_ir;
-    use crate::decode::{Instruction, B, I};
-    use crate::ir::lower::lower_instruction_into;
+    use crate::decode::{B, I, Instruction};
     use crate::ir::IrBuilder;
+    use crate::ir::lower::lower_instruction_into;
     use crate::{HostIO, VM};
 
     #[test]
