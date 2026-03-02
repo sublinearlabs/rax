@@ -8,7 +8,6 @@
 //! (depends on how your workspace/crate features are configured).
 use std::path::Path;
 
-use riscv::trace::NoopTracer;
 use riscv::{Runner, init_from_elf};
 
 #[path = "perf_stat.rs"]
@@ -30,7 +29,7 @@ fn main() {
     }
 
     // Construct a VM using the FullTracer tracer implementation (same as original main).
-    let mut vm = init_from_elf::<NoopTracer>(ECHO_BINARY.to_string());
+    let mut vm = init_from_elf(ECHO_BINARY.to_string());
     let mut runner = Runner::new();
     runner.set_input_stream("Hola Riscv, buenos días".as_bytes().to_vec());
 

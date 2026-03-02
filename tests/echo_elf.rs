@@ -5,7 +5,7 @@ use riscv::{Runner, init_from_elf, trace::NoopTracer};
 fn run_test_echo_elf(path: String) {
     println!("running test: {path}");
 
-    let mut vm = init_from_elf::<NoopTracer>(path);
+    let mut vm = init_from_elf(path);
     let mut runner = Runner::new();
     runner.set_input_stream("Hola Riscv, buenos días".as_bytes().to_vec());
     runner.run(&mut vm);

@@ -2,18 +2,18 @@ use std::fs;
 
 use riscv::{
     Runner, VM, init_from_elf,
-    trace::{FullTracer, NoopTracer},
+    
 };
 
 /// VM with no tracing (zero overhead)
-pub type FastVM = VM<NoopTracer>;
+pub type FastVM = VM;
 /// VM with full execution tracing
-pub type TracingVM = VM<FullTracer>;
+pub type TracingVM = VM;
 
 fn run_test_elf(path: String) {
     println!("running test: {path}");
 
-    let mut vm = init_from_elf::<NoopTracer>(path);
+    let mut vm = init_from_elf(path);
     let mut runner = Runner::new();
     runner.run(&mut vm);
 

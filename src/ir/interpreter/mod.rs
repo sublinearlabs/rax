@@ -115,7 +115,7 @@ mod tests {
         lower_instruction_into(&beq, 4, 8, &mut builder);
 
         let func = builder.finish();
-        let mut vm = VM::<NoopTracer>::init();
+        let mut vm = VM::init();
         let mut io = HostIO::new();
         execute_ir(&func, &mut vm, &mut io);
 

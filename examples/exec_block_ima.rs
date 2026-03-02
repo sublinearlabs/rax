@@ -8,7 +8,6 @@
 use std::fs;
 use std::path::Path;
 
-use riscv::trace::NoopTracer;
 use riscv::{Runner, init_from_elf};
 
 #[path = "perf_stat.rs"]
@@ -32,7 +31,7 @@ fn main() {
     }
 
     // Construct a VM using the FullTracer tracer implementation (same as original main).
-    let mut vm = init_from_elf::<NoopTracer>(EXEC_BLOCK_BINARY.to_string());
+    let mut vm = init_from_elf(EXEC_BLOCK_BINARY.to_string());
 
     let input_hex_string = fs::read_to_string("examples/exec-block.input").unwrap();
     let input_hex_string = input_hex_string.trim();

@@ -21,13 +21,13 @@ pub struct VM<T: Tracer = DefaultTracer> {
     pub(crate) tracer: T,
 }
 
-pub(crate) const VM_REGS_OFFSET: usize = offset_of!(VM<NoopTracer>, registers);
-pub(crate) const VM_PC_OFFSET: usize = offset_of!(VM<NoopTracer>, pc);
-pub(crate) const VM_FREGS_OFFSET: usize = offset_of!(VM<NoopTracer>, f_reg);
-pub(crate) const VM_FCSR_OFFSET: usize = offset_of!(VM<NoopTracer>, fcsr_reg);
-pub(crate) const VM_RESERVATION_OFFSET: usize = offset_of!(VM<NoopTracer>, reservation_set);
-pub(crate) const VM_HALTED_OFFSET: usize = offset_of!(VM<NoopTracer>, halted);
-pub(crate) const VM_EXIT_CODE_OFFSET: usize = offset_of!(VM<NoopTracer>, exit_code);
+pub(crate) const VM_REGS_OFFSET: usize = offset_of!(VM, registers);
+pub(crate) const VM_PC_OFFSET: usize = offset_of!(VM, pc);
+pub(crate) const VM_FREGS_OFFSET: usize = offset_of!(VM, f_reg);
+pub(crate) const VM_FCSR_OFFSET: usize = offset_of!(VM, fcsr_reg);
+pub(crate) const VM_RESERVATION_OFFSET: usize = offset_of!(VM, reservation_set);
+pub(crate) const VM_HALTED_OFFSET: usize = offset_of!(VM, halted);
+pub(crate) const VM_EXIT_CODE_OFFSET: usize = offset_of!(VM, exit_code);
 
 impl<T: Tracer> Default for VM<T> {
     fn default() -> Self {
@@ -491,14 +491,14 @@ mod tests {
     use super::*;
 
     /// VM with no tracing (zero overhead)
-    pub type FastVM = VM<NoopTracer>;
+    pub type FastVM = VM;
 
     /// VM with full execution tracing
-    pub type TracingVM = VM<FullTracer>;
+    pub type TracingVM = VM;
 
     #[test]
     fn test_register_read_write() {
-        let mut vm = VM::<NoopTracer>::init();
+        let mut vm = VM::init();
 
         // read
         assert_eq!(vm.reg(5), 0);
@@ -512,7 +512,7 @@ mod tests {
 
     #[test]
     fn test_register_0_always_0() {
-        let mut vm = VM::<NoopTracer>::init();
+        let mut vm = VM::init();
         // read register 0
         assert_eq!(vm.reg(0), 0);
         // write to register 0
@@ -522,7 +522,7 @@ mod tests {
 
     #[test]
     fn test_memory_loading_le() {
-        let mut vm = VM::<NoopTracer>::init();
+        let mut vm = VM::init();
 
         let bytes = [
             0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0A, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -556,7 +556,7 @@ mod tests {
             0x73, 0x00, 0x10, 0x00, // ebreak
         ];
 
-        let mut vm = VM::<NoopTracer>::init();
+        let mut vm = VM::init();
         vm.write_bytes(0, &fib_prog);
         vm.reg_mut(1, 1);
         vm.reg_mut(2, 1);
@@ -614,7 +614,7 @@ mod tests {
         }
 
         // Initialize the VM from the echo ELF and provide some stdin.
-        let mut vm = init_from_elf::<NoopTracer>(echo_bin);
+        let mut vm = init_from_elf(echo_bin);
         let mut runner = Runner::new();
         runner.set_input_stream("Hola Riscv, buenos días".as_bytes().to_vec());
 
