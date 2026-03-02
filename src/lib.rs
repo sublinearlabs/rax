@@ -1,6 +1,7 @@
 mod decode;
 mod ecall;
 mod elf;
+pub mod eth;
 mod execute;
 mod host_io;
 mod instr_execute;

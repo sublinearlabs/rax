@@ -31,7 +31,7 @@ cranelift-module = "0.129.1"
 cranelift-native = "0.129.1"
 cranelift-frontend = "0.129.1"
 revm = { version = "14", features = ["std"] }
-alloy-primitives = "0.8"
+alloy-primitives = { version = "0.8", features = ["serde"] }
 alloy-rlp = "0.3"
 alloy-provider = "0.2"
 alloy-transport-http = "0.2"
