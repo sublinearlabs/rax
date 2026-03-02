@@ -1,16 +1,15 @@
 use crate::ecall::handle_ecall;
 use crate::ir::{AtomicRmwOp, AtomicWidth, EffectOp, IrType, MemWidth, Reg};
-use crate::trace::Tracer;
 use crate::util::mask;
 use crate::{HostIO, VM};
 
 use super::pure::mask_value;
 
-pub(crate) fn exec_effect<T: Tracer>(
+pub(crate) fn exec_effect(
     op: &EffectOp,
     values: &mut [u64],
     types: &[IrType],
-    vm: &mut VM<T>,
+    vm: &mut VM,
     io: &mut HostIO,
 ) {
     match op {

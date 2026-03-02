@@ -4,12 +4,10 @@
 //!  - Run this example (from the `riscv` crate root):
 //!      cargo run -p riscv --example exec_block_ima --release
 //!
-//! Note: enable the `trace` feature on the `riscv` crate if you want full tracing output.
 use std::fs;
 use std::path::Path;
 
-use riscv::trace::NoopTracer;
-use riscv::{Runner, init_from_elf};
+use riscv::{init_from_elf, Runner};
 
 #[path = "perf_stat.rs"]
 mod perf_stat;
@@ -31,8 +29,7 @@ fn main() {
         return;
     }
 
-    // Construct a VM using the FullTracer tracer implementation (same as original main).
-    let mut vm = init_from_elf::<NoopTracer>(EXEC_BLOCK_BINARY.to_string());
+    let mut vm = init_from_elf(EXEC_BLOCK_BINARY.to_string());
 
     let input_hex_string = fs::read_to_string("examples/exec-block.input").unwrap();
     let input_hex_string = input_hex_string.trim();

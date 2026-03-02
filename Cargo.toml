@@ -10,7 +10,6 @@ panic = "abort"
 
 [features]
 default = ["gc"]
-trace = []
 ext_i = []
 ext_m = []
 ext_a = []

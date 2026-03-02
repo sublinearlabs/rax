@@ -7,18 +7,12 @@ This is an implementation of the RISC-V RV64GC ISA which incorporates:
 - **D** - Double-Precision FLoating-Point Instructions
 - **C** - Compressed Instructions(16-bit)
 
-It supports trace generation for the execution of programs that can be compiled down to ELF.
+It runs programs compiled down to ELF.
 
-Tracing
 ```rust
-let mut vm = VM::<FullTracer>::init_from_elf(<path-to-elf>);
-vm.run_with_timing();
-```
-
-No Tracing
-```rust
-let mut vm = VM::<NoopTracer>::init_from_elf(<path-to-elf>);
-vm.run_with_timing();
+let mut vm = init_from_elf(<path-to-elf>);
+let mut runner = Runner::new();
+runner.run_with_timing(&mut vm);
 ```
 
 To run the Ethereum stateless block execution program, use this;

@@ -1,17 +1,16 @@
 use std::collections::HashMap;
 
-use crate::HostIO;
-use crate::decode::Instruction;
 #[cfg(feature = "ext_c")]
 use crate::decode::compressed::decode_compressed;
+use crate::decode::Instruction;
 use crate::ir::lower::lower_instruction_into;
 use crate::ir::{IrBuilder, IrFunction};
-use crate::jit::compile::{JitFn, compile_ir_function};
-use crate::jit::jit_module::{HelperFuncIds, build_jit_module, declare_helpers};
-use crate::trace::NoopTracer;
+use crate::jit::compile::{compile_ir_function, JitFn};
+use crate::jit::jit_module::{build_jit_module, declare_helpers, HelperFuncIds};
 #[cfg(feature = "ext_c")]
 use crate::util::mask16;
-use crate::{VM, decode};
+use crate::HostIO;
+use crate::{decode, VM};
 use cranelift_module::Module;
 
 pub struct Runner {
@@ -67,7 +66,7 @@ impl Runner {
         self.elapsed
     }
 
-    pub fn run(&mut self, vm: &mut VM<NoopTracer>) {
+    pub fn run(&mut self, vm: &mut VM) {
         let start = std::time::Instant::now();
         while !vm.halted {
             self.step(vm);
@@ -75,7 +74,7 @@ impl Runner {
         self.elapsed = start.elapsed();
     }
 
-    pub fn run_with_timing(&mut self, vm: &mut VM<NoopTracer>) {
+    pub fn run_with_timing(&mut self, vm: &mut VM) {
         self.run(vm);
         println!("run took: {:?}ms", self.elapsed.as_micros());
         println!("run took: {:?}s", self.elapsed.as_secs_f64());
@@ -87,7 +86,7 @@ impl Runner {
         )
     }
 
-    fn decode_basic_block(&self, vm: &mut VM<NoopTracer>, start_pc: u64) -> DecodedBlock {
+    fn decode_basic_block(&self, vm: &mut VM, start_pc: u64) -> DecodedBlock {
         let mut block = vec![];
         let mut pc = start_pc;
 
@@ -164,9 +163,9 @@ impl Runner {
         }
     }
 
-    pub fn step(&mut self, vm: &mut VM<NoopTracer>) {
+    pub fn step(&mut self, vm: &mut VM) {
         if let Some(block) = self.jit_cache.get(&vm.pc()) {
-            let vm_ptr = vm as *mut VM<NoopTracer>;
+            let vm_ptr = vm as *mut VM;
             let io_ptr = &mut self.io as *mut HostIO;
             unsafe {
                 (block.func)(vm_ptr, io_ptr);
@@ -183,7 +182,7 @@ impl Runner {
         self.jit_counter = self.jit_counter.wrapping_add(1);
         let jit_fn =
             compile_ir_function(&mut self.jit_module, &self.helper_ids, &lowered.ir, &name);
-        let vm_ptr = vm as *mut VM<NoopTracer>;
+        let vm_ptr = vm as *mut VM;
         let io_ptr = &mut self.io as *mut HostIO;
         unsafe {
             jit_fn(vm_ptr, io_ptr);

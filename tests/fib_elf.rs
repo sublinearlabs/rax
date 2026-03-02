@@ -1,11 +1,11 @@
 use std::fs;
 
-use riscv::{Runner, init_from_elf, trace::NoopTracer};
+use riscv::{init_from_elf, Runner};
 
 fn run_test_fib_elf(path: String) {
     println!("running test: {path}");
 
-    let mut vm = init_from_elf::<NoopTracer>(path);
+    let mut vm = init_from_elf(path);
     let mut runner = Runner::new();
     runner.run(&mut vm);
 

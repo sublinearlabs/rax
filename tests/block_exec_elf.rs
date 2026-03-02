@@ -1,11 +1,11 @@
 use std::fs;
 
-use riscv::{Runner, init_from_elf, trace::NoopTracer};
+use riscv::{init_from_elf, Runner};
 
 fn run_test_exec_block_elf(path: String) {
     println!("running test: {path}");
 
-    let mut vm = init_from_elf::<NoopTracer>(path);
+    let mut vm = init_from_elf(path);
     let input_hex_string = fs::read_to_string("examples/exec-block.input").unwrap();
     let input_hex_string = input_hex_string.trim();
     let bytes = hex::decode(input_hex_string).unwrap();
