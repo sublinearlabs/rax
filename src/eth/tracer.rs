@@ -7,7 +7,10 @@ use revm::Evm;
 use revm::InMemoryDB;
 use revm::primitives::{AccountInfo, Bytecode, TxEnv};
 
-use super::types::{AccountData, BlockData, BlockTrace, StateChange, TxResult, TxTrace, TxVerificationResult, VerificationDetails};
+use super::types::{
+    AccountData, BlockData, BlockTrace, StateChange, TxResult, TxTrace, TxVerificationResult,
+    VerificationDetails,
+};
 
 /// Generates execution traces for Ethereum blocks
 pub struct BlockTracer;

@@ -252,6 +252,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "alloy-rpc-types"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e6c31a3750b8f5a350d17354e46a52b0f2f19ec5f2006d816935af599dedc521"
+dependencies = [
+ "alloy-rpc-types-eth",
+ "alloy-serde",
+ "serde",
+]
+
+[[package]]
 name = "alloy-rpc-types-eth"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3064,6 +3075,7 @@ dependencies = [
  "alloy-primitives 0.8.26",
  "alloy-provider",
  "alloy-rlp",
+ "alloy-rpc-types",
  "alloy-transport-http",
  "anyhow",
  "cranelift-codegen",
@@ -3081,6 +3093,7 @@ dependencies = [
  "serde_json",
  "sha3",
  "tokio",
+ "url",
 ]
 
 [[package]]
