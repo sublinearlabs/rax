@@ -64,3 +64,26 @@ pub struct AccountData {
     pub code: Vec<u8>,
     pub storage: HashMap<U256, U256>,
 }
+
+/// Result of verifying a single transaction against its receipt
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TxVerificationResult {
+    pub tx_index: usize,
+    pub tx_hash: B256,
+    /// Did execution status match receipt status?
+    pub status_match: bool,
+    /// Did gas used match receipt gas used?
+    pub gas_match: bool,
+    /// Details of any mismatches
+    pub details: VerificationDetails,
+}
+
+/// Detailed verification information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VerificationDetails {
+    pub our_status: bool,
+    pub receipt_status: bool,
+    pub our_gas_used: u64,
+    pub receipt_gas_used: u64,
+    pub mismatch_reason: Option<String>,
+}

@@ -7,7 +7,7 @@ use revm::Evm;
 use revm::InMemoryDB;
 use revm::primitives::{AccountInfo, Bytecode, TxEnv};
 
-use super::types::{AccountData, BlockData, BlockTrace, StateChange, TxResult, TxTrace};
+use super::types::{AccountData, BlockData, BlockTrace, StateChange, TxResult, TxTrace, TxVerificationResult, VerificationDetails};
 
 /// Generates execution traces for Ethereum blocks
 pub struct BlockTracer;
@@ -416,6 +416,121 @@ impl BlockTracer {
             );
         }
         Ok(())
+    }
+
+    /// Verify Transaction Execution
+    ///
+    /// Compares our execution results against the on-chain receipt to ensure correctness.
+    /// This validates that we parsed and executed the transaction identically to Ethereum.
+    ///
+    /// # Arguments
+    /// * `tx_trace` - Our execution trace for this transaction
+    /// * `receipt` - On-chain receipt as JSON
+    /// * `tx_index` - Index of transaction in the block
+    ///
+    /// # Returns
+    /// Verification result showing what matched and what didn't
+    pub fn verify_tx_execution(
+        tx_trace: &TxTrace,
+        receipt: &serde_json::Value,
+        tx_index: usize,
+    ) -> Result<TxVerificationResult> {
+        // Step 1: Extract receipt fields
+        let receipt_status = receipt
+            .get("status")
+            .and_then(|s| s.as_str())
+            .and_then(|s| {
+                // Status is hex string like "0x1" (success) or "0x0" (failure)
+                u64::from_str_radix(s.strip_prefix("0x").unwrap_or(s), 16).ok()
+            })
+            .map(|v| v != 0)
+            .ok_or_else(|| anyhow::anyhow!("Missing or invalid receipt status"))?;
+
+        let receipt_gas_used = receipt
+            .get("gasUsed")
+            .and_then(|g| g.as_str())
+            .and_then(|g| {
+                // Gas is hex string like "0x5208"
+                u64::from_str_radix(g.strip_prefix("0x").unwrap_or(g), 16).ok()
+            })
+            .ok_or_else(|| anyhow::anyhow!("Missing or invalid receipt gas used"))?;
+
+        // Step 2: Compare our execution results with receipt
+        let our_status = tx_trace.result.success;
+        let our_gas_used = tx_trace.result.gas_used;
+
+        let status_match = our_status == receipt_status;
+        let gas_match = our_gas_used == receipt_gas_used;
+
+        // Step 3: Build mismatch reason if any
+        let mismatch_reason = if !status_match || !gas_match {
+            let mut reasons = Vec::new();
+
+            if !status_match {
+                reasons.push(format!(
+                    "Status mismatch: we got {}, receipt says {}",
+                    our_status, receipt_status
+                ));
+            }
+
+            if !gas_match {
+                reasons.push(format!(
+                    "Gas mismatch: we used {}, receipt says {}",
+                    our_gas_used, receipt_gas_used
+                ));
+            }
+
+            Some(reasons.join("; "))
+        } else {
+            None
+        };
+
+        // Step 4: Return verification result
+        Ok(TxVerificationResult {
+            tx_index,
+            tx_hash: tx_trace.tx_hash,
+            status_match,
+            gas_match,
+            details: VerificationDetails {
+                our_status,
+                receipt_status,
+                our_gas_used,
+                receipt_gas_used,
+                mismatch_reason,
+            },
+        })
+    }
+
+    /// Verify all transactions in a block
+    ///
+    /// Compares all transaction traces against their on-chain receipts.
+    ///
+    /// # Arguments
+    /// * `block_trace` - Complete block trace
+    /// * `receipts` - Array of receipt JSON objects
+    ///
+    /// # Returns
+    /// List of verification results for each transaction
+    pub fn verify_block_execution(
+        block_trace: &BlockTrace,
+        receipts: &[serde_json::Value],
+    ) -> Result<Vec<TxVerificationResult>> {
+        if block_trace.transactions.len() != receipts.len() {
+            anyhow::bail!(
+                "Transaction count mismatch: trace has {}, got {} receipts",
+                block_trace.transactions.len(),
+                receipts.len()
+            );
+        }
+
+        let mut results = Vec::new();
+
+        for (tx_trace, receipt) in block_trace.transactions.iter().zip(receipts.iter()) {
+            let result = Self::verify_tx_execution(tx_trace, receipt, tx_trace.tx_index)?;
+            results.push(result);
+        }
+
+        Ok(results)
     }
 }
 
