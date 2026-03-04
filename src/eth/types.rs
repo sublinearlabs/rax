@@ -87,3 +87,17 @@ pub struct VerificationDetails {
     pub receipt_gas_used: u64,
     pub mismatch_reason: Option<String>,
 }
+
+/// Result of verifying block state root
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StateRootVerification {
+    pub block_number: u64,
+    /// State root from on-chain block header
+    pub on_chain_state_root: B256,
+    /// State root computed from our execution
+    pub our_computed_state_root: B256,
+    /// Do they match?
+    pub matches: bool,
+    /// Error details if verification failed
+    pub error: Option<String>,
+}

@@ -8,8 +8,8 @@ use revm::InMemoryDB;
 use revm::primitives::{AccountInfo, Bytecode, TxEnv};
 
 use super::types::{
-    AccountData, BlockData, BlockTrace, StateChange, TxResult, TxTrace, TxVerificationResult,
-    VerificationDetails,
+    AccountData, BlockData, BlockTrace, StateChange, StateRootVerification, TxResult, TxTrace,
+    TxVerificationResult, VerificationDetails,
 };
 
 /// Generates execution traces for Ethereum blocks
@@ -534,6 +534,95 @@ impl BlockTracer {
         }
 
         Ok(results)
+    }
+
+    /// Verify Block State Root
+    ///
+    /// Compares the state root computed from our execution against the on-chain state root
+    /// from the block header. If they match, our execution is cryptographically proven correct.
+    ///
+    /// # Arguments
+    /// * `on_chain_state_root` - State root from the block header (on-chain)
+    /// * `our_computed_state_root` - State root from our execution
+    /// * `block_number` - Block number for reference
+    ///
+    /// # Returns
+    /// StateRootVerification with match status and any errors
+    pub fn verify_block_state_root(
+        on_chain_state_root: B256,
+        our_computed_state_root: B256,
+        block_number: u64,
+    ) -> StateRootVerification {
+        let matches = on_chain_state_root == our_computed_state_root;
+
+        let error = if !matches {
+            Some(format!(
+                "State root mismatch at block {}: on-chain={:?}, ours={:?}",
+                block_number, on_chain_state_root, our_computed_state_root
+            ))
+        } else {
+            None
+        };
+
+        StateRootVerification {
+            block_number,
+            on_chain_state_root,
+            our_computed_state_root,
+            matches,
+            error,
+        }
+    }
+
+    /// Extract State Root from Block Summary
+    ///
+    /// Parses the state root from a block summary.
+    ///
+    /// # Arguments
+    /// * `block_json` - Block JSON from eth_getBlockByNumber RPC call
+    ///
+    /// # Returns
+    /// The state root B256 or error if parsing fails
+    pub fn extract_state_root_from_block(block_json: &serde_json::Value) -> Result<B256> {
+        use std::str::FromStr;
+
+        let state_root_str = block_json
+            .get("stateRoot")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| anyhow::anyhow!("Missing stateRoot in block JSON"))?;
+
+        B256::from_str(state_root_str)
+            .map_err(|e| anyhow::anyhow!("Invalid state root format: {}", e))
+    }
+
+    /// Compute State Root from Account State
+    ///
+    /// Computes the Merkle tree root of all accounts in the given state.
+    /// This is simplified - a full implementation would need proper Merkle tree logic.
+    ///
+    /// # Arguments
+    /// * `accounts` - Map of account states
+    ///
+    /// # Returns
+    /// Computed state root (B256)
+    pub fn compute_state_root(accounts: &std::collections::HashMap<Address, AccountData>) -> B256 {
+        use sha3::{Digest, Sha3_256};
+
+        // For now, compute a simple hash of all accounts
+        // TODO: Implement proper Merkle tree computation
+        let mut hasher = Sha3_256::new();
+
+        let mut sorted_accounts: Vec<_> = accounts.iter().collect();
+        sorted_accounts.sort_by_key(|(addr, _)| *addr);
+
+        for (addr, account) in sorted_accounts {
+            hasher.update(addr.as_slice());
+            hasher.update(account.nonce.to_le_bytes());
+            hasher.update(&account.balance.to_le_bytes::<32>());
+            hasher.update(&account.code);
+        }
+
+        let result = hasher.finalize();
+        B256::from_slice(&result)
     }
 }
 
