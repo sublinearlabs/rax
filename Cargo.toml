@@ -33,6 +33,7 @@ cranelift-frontend = "0.129.1"
 revm = { version = "14", features = ["std"] }
 alloy-primitives = { version = "0.8", features = ["serde"] }
 alloy-rlp = "0.3"
+alloy-consensus = "0.2"
 alloy-provider = "0.2"
 alloy-transport-http = "0.2"
 alloy-rpc-types = "0.2"
@@ -42,6 +43,7 @@ serde_json = "1.0"
 anyhow = "1.0"
 reqwest = { version = "0.11", features = ["json"] }
 sha3 = "0.10"
+bincode = "1.3"
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
