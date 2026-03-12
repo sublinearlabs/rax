@@ -19,6 +19,7 @@ use std::path::Path;
 #[tokio::main]
 async fn main() {
     let witness_file_path = Some("examples/exec-live-block.input");
+    // let witness_file_path: Option<&str> = None;
     let block_number = 24628522u64;
 
     match witness_file_path {
