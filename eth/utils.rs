@@ -29,3 +29,19 @@ pub fn get_chain_config() -> serde_json::Value {
         "cancun_time": 1710338135,
     })
 }
+
+/// Parse a hex string to u64
+/// Strips the "0x" prefix if present and parses as hex. Returns 0 if parsing fails.
+pub fn parse_hex_u64(s: &str) -> u64 {
+    u64::from_str_radix(s.strip_prefix("0x").unwrap_or(s), 16).unwrap_or(0)
+}
+
+/// Parse a hex string to u256-like 64-character hex string
+/// Converts the input hex string to a formatted 0x-prefixed 64-character hex string.
+/// Returns a zero-padded hex string if parsing fails.
+pub fn parse_hex_u256(s: &str) -> String {
+    format!(
+        "0x{:064x}",
+        u128::from_str_radix(s.strip_prefix("0x").unwrap_or(s), 16).unwrap_or(0)
+    )
+}
