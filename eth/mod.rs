@@ -1,7 +1,9 @@
 pub mod fetcher;
 pub mod tracer;
 pub mod types;
+pub mod utils;
 
 pub use fetcher::EthFetcher;
 pub use tracer::BlockTracer;
 pub use types::BlockTrace;
+pub use utils::get_chain_config;
