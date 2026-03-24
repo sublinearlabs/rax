@@ -50,6 +50,10 @@ pub enum RiscvCommand {
         /// Output format (text, json, csv)
         #[arg(short, long, default_value = "text")]
         format: String,
+
+        /// Save output to file
+        #[arg(short, long)]
+        output: Option<String>,
     },
 
     /// Trace instruction execution

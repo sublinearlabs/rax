@@ -20,9 +20,13 @@ fn main() {
             riscv::cli::riscv_cli::commands::execute_run(&binary, trace, &format, output.as_deref())
         }
 
-        RiscvCommand::Inspect { binary, format } => {
+        RiscvCommand::Inspect {
+            binary,
+            format,
+            output,
+        } => {
             print_info(&format!("Inspecting RISC-V binary: {}", binary));
-            riscv::cli::riscv_cli::commands::execute_inspect(&binary, &format)
+            riscv::cli::riscv_cli::commands::execute_inspect(&binary, &format, output.as_deref())
         }
 
         RiscvCommand::Trace {

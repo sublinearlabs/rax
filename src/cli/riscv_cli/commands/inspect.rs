@@ -40,7 +40,7 @@ pub struct SegmentInfo {
 }
 
 /// Execute the inspect command
-pub fn execute_inspect(binary: &str, format: &str) -> CliResult<()> {
+pub fn execute_inspect(binary: &str, format: &str, output: Option<&str>) -> CliResult<()> {
     print_header("RISC-V CLI - ELF Binary Inspection");
 
     // Check file exists
@@ -103,8 +103,8 @@ pub fn execute_inspect(binary: &str, format: &str) -> CliResult<()> {
         segments,
     };
 
-    // Display results based on format
-    match format {
+    // Format output as string
+    let output_text = match format {
         "text" => format_inspect_text(&result)?,
         "json" => format_inspect_json(&result)?,
         "csv" => format_inspect_csv(&result)?,
@@ -114,6 +114,15 @@ pub fn execute_inspect(binary: &str, format: &str) -> CliResult<()> {
                 format
             )));
         }
+    };
+
+    // Display to stdout
+    println!("{}", output_text);
+
+    // Save to file if requested
+    if let Some(file_path) = output {
+        write_inspect_to_file(file_path, &output_text)?;
+        print_info(&format!("Inspect output written to: {}", file_path));
     }
 
     Ok(())
@@ -135,55 +144,63 @@ fn format_segment_type(ptype: u32) -> String {
 }
 
 /// Format inspect output as human-readable text
-fn format_inspect_text(result: &InspectResult) -> CliResult<()> {
-    println!("\n{}", "ELF Header Information".bold());
-    println!("{}", "-".repeat(80));
-    println!("  Architecture:       {}", result.architecture);
-    println!("  File Size:          {} bytes", result.file_size);
-    println!("  Entry Point:        0x{:x}", result.entry_point);
-    println!("  Sections:           {}", result.num_sections);
-    println!("  Segments:           {}", result.num_segments);
-    println!();
+fn format_inspect_text(result: &InspectResult) -> CliResult<String> {
+    let mut output = String::new();
+
+    output.push_str(&format!("\n{}\n", "ELF Header Information".bold()));
+    output.push_str(&format!("{}\n", "-".repeat(80)));
+    output.push_str(&format!("  Architecture:       {}\n", result.architecture));
+    output.push_str(&format!(
+        "  File Size:          {} bytes\n",
+        result.file_size
+    ));
+    output.push_str(&format!(
+        "  Entry Point:        0x{:x}\n",
+        result.entry_point
+    ));
+    output.push_str(&format!("  Sections:           {}\n", result.num_sections));
+    output.push_str(&format!("  Segments:           {}\n", result.num_segments));
+    output.push_str("\n");
 
     if !result.segments.is_empty() {
-        println!("{}", "Program Headers (Segments)".bold());
-        println!("{}", "-".repeat(80));
-        println!(
-            "{:<16} {:<12} {:<16} {:<10} {:<10}",
+        output.push_str(&format!("{}\n", "Program Headers (Segments)".bold()));
+        output.push_str(&format!("{}\n", "-".repeat(80)));
+        output.push_str(&format!(
+            "{:<16} {:<12} {:<16} {:<10} {:<10}\n",
             "Type", "Offset", "VAddr", "FileSize", "MemSize"
-        );
-        println!("{}", "-".repeat(80));
+        ));
+        output.push_str(&format!("{}\n", "-".repeat(80)));
         for seg in &result.segments {
-            println!(
-                "{:<16} 0x{:<10x} 0x{:<14x} {:<10} {:<10}",
+            output.push_str(&format!(
+                "{:<16} 0x{:<10x} 0x{:<14x} {:<10} {:<10}\n",
                 seg.ptype, seg.offset, seg.vaddr, seg.filesz, seg.memsz
-            );
+            ));
         }
-        println!();
+        output.push_str("\n");
     }
 
     if !result.sections.is_empty() {
-        println!("{}", "Sections".bold());
-        println!("{}", "-".repeat(80));
-        println!(
-            "{:<32} {:<16} {:<10} {:<12}",
+        output.push_str(&format!("{}\n", "Sections".bold()));
+        output.push_str(&format!("{}\n", "-".repeat(80)));
+        output.push_str(&format!(
+            "{:<32} {:<16} {:<10} {:<12}\n",
             "Name", "Address", "Size", "Offset"
-        );
-        println!("{}", "-".repeat(80));
+        ));
+        output.push_str(&format!("{}\n", "-".repeat(80)));
         for sec in &result.sections {
-            println!(
-                "{:<32} 0x{:<14x} {:<10} 0x{:<10x}",
+            output.push_str(&format!(
+                "{:<32} 0x{:<14x} {:<10} 0x{:<10x}\n",
                 sec.name, sec.addr, sec.size, sec.offset
-            );
+            ));
         }
     }
 
-    println!();
-    Ok(())
+    output.push_str("\n");
+    Ok(output)
 }
 
 /// Format inspect output as JSON
-fn format_inspect_json(result: &InspectResult) -> CliResult<()> {
+fn format_inspect_json(result: &InspectResult) -> CliResult<String> {
     let segments_json: Vec<_> = result
         .segments
         .iter()
@@ -223,42 +240,60 @@ fn format_inspect_json(result: &InspectResult) -> CliResult<()> {
         "sections": sections_json,
     });
 
-    println!("{}", serde_json::to_string_pretty(&json).unwrap());
-    Ok(())
+    Ok(serde_json::to_string_pretty(&json).unwrap())
 }
 
 /// Format inspect output as CSV
-fn format_inspect_csv(result: &InspectResult) -> CliResult<()> {
-    println!("# ELF Header");
-    println!("architecture,{}", result.architecture);
-    println!("file_size,{}", result.file_size);
-    println!("entry_point,0x{:x}", result.entry_point);
-    println!("num_sections,{}", result.num_sections);
-    println!("num_segments,{}", result.num_segments);
-    println!();
+fn format_inspect_csv(result: &InspectResult) -> CliResult<String> {
+    let mut output = String::new();
+
+    output.push_str("# ELF Header\n");
+    output.push_str(&format!("architecture,{}\n", result.architecture));
+    output.push_str(&format!("file_size,{}\n", result.file_size));
+    output.push_str(&format!("entry_point,0x{:x}\n", result.entry_point));
+    output.push_str(&format!("num_sections,{}\n", result.num_sections));
+    output.push_str(&format!("num_segments,{}\n", result.num_segments));
+    output.push_str("\n");
 
     if !result.segments.is_empty() {
-        println!("# Program Headers");
-        println!("type,offset,vaddr,filesz,memsz");
+        output.push_str("# Program Headers\n");
+        output.push_str("type,offset,vaddr,filesz,memsz\n");
         for seg in &result.segments {
-            println!(
-                "{},0x{:x},0x{:x},{},{}",
+            output.push_str(&format!(
+                "{},0x{:x},0x{:x},{},{}\n",
                 seg.ptype, seg.offset, seg.vaddr, seg.filesz, seg.memsz
-            );
+            ));
         }
-        println!();
+        output.push_str("\n");
     }
 
     if !result.sections.is_empty() {
-        println!("# Sections");
-        println!("name,addr,size,offset");
+        output.push_str("# Sections\n");
+        output.push_str("name,addr,size,offset\n");
         for sec in &result.sections {
-            println!(
-                "{},0x{:x},{},0x{:x}",
+            output.push_str(&format!(
+                "{},0x{:x},{},0x{:x}\n",
                 sec.name, sec.addr, sec.size, sec.offset
-            );
+            ));
         }
     }
+
+    Ok(output)
+}
+
+/// Write inspect output to a file
+fn write_inspect_to_file(file_path: &str, content: &str) -> CliResult<()> {
+    use std::io::Write;
+
+    let mut file = std::fs::File::create(file_path).map_err(|e| {
+        CliError::new(format!(
+            "Failed to create output file '{}': {}",
+            file_path, e
+        ))
+    })?;
+
+    file.write_all(content.as_bytes())
+        .map_err(|e| CliError::new(format!("Failed to write to file '{}': {}", file_path, e)))?;
 
     Ok(())
 }
