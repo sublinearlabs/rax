@@ -6,9 +6,9 @@
 //!
 //! Run with: `cargo bench`
 
-use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use riscv::trace::{FullTracer, NoopTracer};
-use riscv::{Runner, init_from_elf};
+use riscv::{init_from_elf, Runner};
 
 /// Path to the fibonacci binary
 const FIB_BINARY: &str = "test-bin/rust-bin/fib/fib-ima"; // I intend to change to the block exec program... I trust that data more :)
@@ -35,7 +35,7 @@ fn bench_fib_no_tracer(c: &mut Criterion) {
 fn bench_fib_with_tracer(c: &mut Criterion) {
     c.bench_function("fib_full_tracer", |b| {
         b.iter(|| {
-            let mut vm = init_from_elf::<FullTracer>(FIB_BINARY.to_string());
+            let mut vm = init_from_elf::<NoopTracer>(FIB_BINARY.to_string());
             let mut runner = Runner::new();
             runner.run(&mut vm);
             let trace = vm.take_trace();
@@ -62,7 +62,7 @@ fn bench_tracer_comparison(c: &mut Criterion) {
 
     group.bench_function(BenchmarkId::new("tracer", "full"), |b| {
         b.iter(|| {
-            let mut vm = init_from_elf::<FullTracer>(FIB_BINARY.to_string());
+            let mut vm = init_from_elf::<NoopTracer>(FIB_BINARY.to_string());
             let mut runner = Runner::new();
             runner.run(&mut vm);
             let trace = vm.take_trace();
@@ -95,7 +95,7 @@ fn bench_execution_only(c: &mut Criterion) {
 
     group.bench_function(BenchmarkId::new("execution", "full"), |b| {
         b.iter_batched(
-            || init_from_elf::<FullTracer>(FIB_BINARY.to_string()),
+            || init_from_elf::<NoopTracer>(FIB_BINARY.to_string()),
             |mut vm| {
                 let mut runner = Runner::new();
                 runner.run(&mut vm);
