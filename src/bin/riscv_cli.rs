@@ -25,9 +25,19 @@ fn main() {
             todo!()
         }
 
-        RiscvCommand::Trace { binary, filter, .. } => {
+        RiscvCommand::Trace {
+            binary,
+            filter,
+            format,
+            output,
+        } => {
             print_info(&format!("Tracing RISC-V binary: {}", binary));
-            todo!()
+            riscv::cli::riscv_cli::commands::execute_trace(
+                &binary,
+                filter.as_deref(),
+                &format,
+                output.as_deref(),
+            )
         }
 
         RiscvCommand::Benchmark {
