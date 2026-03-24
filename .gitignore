@@ -1,5 +1,6 @@
 target
 .DS_Store
+.env
 exec-block-input-cli
 baseline.txt
 compare.txt
