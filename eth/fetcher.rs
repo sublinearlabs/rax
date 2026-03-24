@@ -54,12 +54,8 @@ impl EthFetcher {
         let mut transactions = Vec::new();
         if let Some(txs) = block["transactions"].as_array() {
             for tx in txs {
-                // Store raw transaction data (we'll encode to RLP later)
-                if let Some(tx_str) = tx["input"].as_str().or(tx["data"].as_str()) {
-                    // For now, store the raw bytes from input field
-                    let tx_bytes = hex::decode(tx_str.strip_prefix("0x").unwrap_or(tx_str))?;
-                    transactions.push(tx_bytes);
-                }
+                // Store the transaction JSON object directly
+                transactions.push(tx.clone());
             }
         }
 
@@ -74,6 +70,7 @@ impl EthFetcher {
             state_root,
             transactions,
             accounts,
+            raw_block: block.clone(),
         })
     }
 
@@ -197,6 +194,37 @@ impl EthFetcher {
     /// Get the RPC URL being used
     pub fn rpc_url(&self) -> &str {
         &self.rpc_url
+    }
+
+    /// Fetch transaction receipt from the network
+    ///
+    /// Returns the on-chain receipt for a given transaction hash.
+    /// Used for verification against locally computed execution results.
+    pub async fn fetch_tx_receipt(&self, tx_hash: B256) -> Result<serde_json::Value> {
+        let receipt = self
+            .json_rpc_call::<serde_json::Value>(
+                "eth_getTransactionReceipt",
+                &[json!(format!("{:?}", tx_hash))],
+            )
+            .await?;
+
+        receipt.ok_or_else(|| anyhow::anyhow!("Receipt not found for tx: {}", tx_hash))
+    }
+
+    /// Fetch a block summary from the network
+    ///
+    /// Returns block data (hash, state root, transaction count) for verification.
+    /// For complete block data with account state, use fetch_block_data() instead.
+    pub async fn fetch_block_summary(&self, block_number: u64) -> Result<serde_json::Value> {
+        let block_hex = format!("0x{:x}", block_number);
+        let block = self
+            .json_rpc_call::<serde_json::Value>(
+                "eth_getBlockByNumber",
+                &[json!(block_hex), json!(false)],
+            )
+            .await?;
+
+        block.ok_or_else(|| anyhow::anyhow!("Block not found: {}", block_number))
     }
 }
 
