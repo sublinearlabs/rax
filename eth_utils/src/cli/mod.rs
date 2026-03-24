@@ -17,7 +17,7 @@ pub struct EthCli {
 
     /// Ethereum RPC endpoint
     #[arg(global = true, long)]
-    pub rpc_url: String,
+    pub rpc_url: Option<String>,
 
     /// Verbosity level (0=quiet, 1=normal, 2=verbose, 3=debug)
     #[arg(global = true, short = 'v', long, action = clap::ArgAction::Count)]

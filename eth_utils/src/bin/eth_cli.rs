@@ -9,7 +9,9 @@ fn main() {
     let cli = EthCli::parse();
     init_tracing(cli.verbose);
 
-    print_info(&format!("Using RPC endpoint: {}", cli.rpc_url));
+    if let Some(ref rpc_url) = cli.rpc_url {
+        print_info(&format!("Using RPC endpoint: {}", rpc_url));
+    }
 
     let result = match cli.command {
         EthCommand::Fetch {
@@ -20,7 +22,7 @@ fn main() {
             print_info(&format!("Fetching block: {}", block));
             eth_utils::cli::commands::execute_fetch(
                 &block,
-                &cli.rpc_url,
+                cli.rpc_url.as_deref(),
                 &format,
                 output.as_deref(),
             )
