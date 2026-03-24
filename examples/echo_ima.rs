@@ -9,7 +9,7 @@
 use std::path::Path;
 
 use riscv::trace::NoopTracer;
-use riscv::{Runner, init_from_elf};
+use riscv::{init_from_elf, Runner};
 
 #[path = "perf_stat.rs"]
 mod perf_stat;

@@ -1,11 +1,11 @@
 pub mod i;
 
 use crate::decode::Instruction;
-use crate::ir::IrBuilder;
 use crate::ir::lower::a::lower_a_into;
 use crate::ir::lower::i::lower_i_into;
 use crate::ir::lower::m::lower_m_into;
 use crate::ir::lower::system::lower_system_into;
+use crate::ir::IrBuilder;
 
 pub mod a;
 pub mod m;

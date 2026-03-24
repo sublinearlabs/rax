@@ -1,6 +1,6 @@
 use std::fs;
 
-use riscv::{Runner, init_from_elf, trace::NoopTracer};
+use riscv::{init_from_elf, trace::NoopTracer, Runner};
 
 fn run_test_exec_block_elf(path: String) {
     println!("running test: {path}");

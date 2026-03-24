@@ -1,8 +1,8 @@
-use crate::VM;
 /// A Extension - Load Reserved / Store Conditional
 use crate::decode::R;
 use crate::trace::{MemOp, Tracer};
 use crate::util::{mask, sext};
+use crate::VM;
 
 #[inline(always)]
 pub(crate) fn execute_lr_w<T: Tracer>(vm: &mut VM<T>, insn: &R) {

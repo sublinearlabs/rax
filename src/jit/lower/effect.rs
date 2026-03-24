@@ -1,11 +1,11 @@
-use cranelift_codegen::ir::{InstBuilder, MemFlags, Value, condcodes::IntCC, types};
+use cranelift_codegen::ir::{condcodes::IntCC, types, InstBuilder, MemFlags, Value};
 use cranelift_frontend::FunctionBuilder;
 
 use crate::ir::{AtomicWidth, EffectOp, MemWidth};
 use crate::vm::{VM_FCSR_OFFSET, VM_PC_OFFSET, VM_REGS_OFFSET};
 
-use super::HelperFuncRefs;
 use super::pure::atomic_rmw_tag_value;
+use super::HelperFuncRefs;
 
 pub fn lower_effect(
     builder: &mut FunctionBuilder,

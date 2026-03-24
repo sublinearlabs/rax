@@ -7,7 +7,7 @@
 /// ```bash
 /// ALCHEMY_API_KEY=your_key cargo run --example fetch_block
 /// ```
-use riscv::eth::EthFetcher;
+use eth_utils::EthFetcher;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

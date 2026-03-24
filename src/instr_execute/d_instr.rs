@@ -1,8 +1,8 @@
-/// D-extension
-use crate::VM;
 use crate::decode::{I, R4, RF, S};
 use crate::trace::{MemOp, Tracer};
 use crate::util::{classify64, is_snan_f32, is_snan_f64, mask};
+/// D-extension
+use crate::VM;
 
 #[inline(always)]
 pub(crate) fn execute_fmadd_d<T: Tracer>(vm: &mut VM<T>, insn: &R4) {

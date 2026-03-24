@@ -6,5 +6,5 @@ pub mod lower;
 #[cfg(test)]
 mod test;
 
-pub use compile::{JitFn, compile_ir_function};
+pub use compile::{compile_ir_function, JitFn};
 pub use lower::lower_ir_function;

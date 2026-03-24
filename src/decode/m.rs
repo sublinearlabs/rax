@@ -1,6 +1,6 @@
-use crate::decode::Instruction;
 use crate::decode::insn_formats::R;
 use crate::decode::util::{funct3, rd, rs1, rs2};
+use crate::decode::Instruction;
 
 pub(crate) fn decode_op(insn: u32) -> Instruction {
     let operands = R {
