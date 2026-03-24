@@ -19,7 +19,7 @@ pub fn execute_run(
     binary: &str,
     _trace: bool,
     format: &str,
-    _output: Option<&str>,
+    output: Option<&str>,
 ) -> CliResult<()> {
     print_header("RISC-V CLI - Run Command");
 
@@ -45,26 +45,40 @@ pub fn execute_run(
         instructions_per_cycle: runner.cycles() as f64 / elapsed.as_micros() as f64,
     };
 
-    // Display results based on format
-    format_output(format, &result)?;
+    // Format output as string
+    let output_text = format_output(format, &result)?;
+
+    // Display to stdout
+    println!("{}", output_text);
+
+    // Save to file if requested
+    if let Some(file_path) = output {
+        write_run_to_file(file_path, &output_text)?;
+        print_info(&format!("Run output written to: {}", file_path));
+    }
 
     Ok(())
 }
 
 /// Format and display execution results
-fn format_output(format: &str, result: &ExecutionResult) -> CliResult<()> {
+fn format_output(format: &str, result: &ExecutionResult) -> CliResult<String> {
     match format {
         "text" => {
-            println!("\n{}", "Execution Results".bold());
-            println!("{}", "-".repeat(60));
-            println!("  Exit Code:            {}", result.exit_code);
-            println!("  Total Cycles:         {}", result.cycles);
-            println!("  Elapsed Time:         {:.2} ms", result.elapsed_ms);
-            println!(
-                "  Instructions/Cycle:   {:.2} MHz",
+            let mut output = String::new();
+            output.push_str(&format!("\n{}\n", "Execution Results".bold()));
+            output.push_str(&format!("{}\n", "-".repeat(60)));
+            output.push_str(&format!("  Exit Code:            {}\n", result.exit_code));
+            output.push_str(&format!("  Total Cycles:         {}\n", result.cycles));
+            output.push_str(&format!(
+                "  Elapsed Time:         {:.2} ms\n",
+                result.elapsed_ms
+            ));
+            output.push_str(&format!(
+                "  Instructions/Cycle:   {:.2} MHz\n",
                 result.instructions_per_cycle
-            );
-            println!("{}", "-".repeat(60));
+            ));
+            output.push_str(&format!("{}\n", "-".repeat(60)));
+            Ok(output)
         }
         "json" => {
             let json = serde_json::json!({
@@ -73,14 +87,16 @@ fn format_output(format: &str, result: &ExecutionResult) -> CliResult<()> {
                 "elapsed_ms": result.elapsed_ms,
                 "instructions_per_cycle": result.instructions_per_cycle,
             });
-            println!("{}", serde_json::to_string_pretty(&json).unwrap());
+            Ok(serde_json::to_string_pretty(&json).unwrap())
         }
         "csv" => {
-            println!("exit_code,cycles,elapsed_ms,instructions_per_cycle");
-            println!(
-                "{},{},{:.2},{:.2}",
+            let mut output = String::new();
+            output.push_str("exit_code,cycles,elapsed_ms,instructions_per_cycle\n");
+            output.push_str(&format!(
+                "{},{},{:.2},{:.2}\n",
                 result.exit_code, result.cycles, result.elapsed_ms, result.instructions_per_cycle
-            );
+            ));
+            Ok(output)
         }
         _ => {
             return Err(CliError::new(format!(
@@ -89,5 +105,21 @@ fn format_output(format: &str, result: &ExecutionResult) -> CliResult<()> {
             )));
         }
     }
+}
+
+/// Write run output to a file
+fn write_run_to_file(file_path: &str, content: &str) -> CliResult<()> {
+    use std::io::Write;
+
+    let mut file = std::fs::File::create(file_path).map_err(|e| {
+        CliError::new(format!(
+            "Failed to create output file '{}': {}",
+            file_path, e
+        ))
+    })?;
+
+    file.write_all(content.as_bytes())
+        .map_err(|e| CliError::new(format!("Failed to write to file '{}': {}", file_path, e)))?;
+
     Ok(())
 }
