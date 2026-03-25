@@ -1,6 +1,6 @@
 //! Ethereum fetch command
 
-use crate::fetcher::EthFetcher;
+use super::common::fetch_block_data;
 use crate::types::BlockData;
 use colored::*;
 use riscv::cli::common::{print_header, print_info, CliError, CliResult};
@@ -32,30 +32,8 @@ pub fn execute_fetch(
     let rpc_url = rpc_url
         .ok_or_else(|| CliError::new("RPC URL is required. Use --rpc-url <URL>".to_string()))?;
 
-    // Create fetcher
-    print_info("Creating Ethereum RPC client...");
-    let fetcher = EthFetcher::new(rpc_url)
-        .map_err(|e| CliError::new(format!("Failed to create EthFetcher: {}", e)))?;
-
-    // Parse block number
-    print_info(&format!("Parsing block: {}", block));
-    let block_number: u64 = block.parse().map_err(|_| {
-        CliError::new(format!(
-            "Invalid block number '{}'. Expected a decimal number.",
-            block
-        ))
-    })?;
-
-    // Fetch block data asynchronously
-    print_info(&format!("Fetching block {} from RPC...", block_number));
-    let block_data = tokio::runtime::Runtime::new()
-        .map_err(|e| CliError::new(format!("Failed to create async runtime: {}", e)))?
-        .block_on(async {
-            fetcher
-                .fetch_block_data(block_number)
-                .await
-                .map_err(|e| CliError::new(format!("Failed to fetch block: {}", e)))
-        })?;
+    // Fetch block data
+    let block_data = fetch_block_data(block, rpc_url)?;
 
     // Extract summary information
     let result = extract_fetch_result(&block_data)?;
