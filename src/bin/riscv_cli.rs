@@ -53,6 +53,25 @@ fn main() {
             ));
             todo!()
         }
+
+        RiscvCommand::VerifyBlock {
+            block,
+            binary,
+            rpc_url,
+            witness,
+            format,
+            output,
+        } => {
+            print_info(&format!("Verifying Ethereum block {} on RISC-V", block));
+            riscv::cli::riscv_cli::commands::execute_verify_block(
+                &block,
+                &binary,
+                &rpc_url,
+                witness.as_deref(),
+                &format,
+                output.as_deref(),
+            )
+        }
     };
 
     match result {
