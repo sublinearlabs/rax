@@ -41,41 +41,11 @@ pub enum EthCommand {
         output: Option<String>,
     },
 
-    /// Inspect block details
-    Inspect {
-        /// Block number or hash
-        #[arg(value_name = "BLOCK")]
-        block: String,
-
-        /// Output format (text, json, csv)
-        #[arg(short, long, default_value = "text")]
-        format: String,
-
-        /// Show detailed transaction information
-        #[arg(short, long)]
-        detailed: bool,
-    },
-
     /// Generate execution witness for a block
     GenerateWitness {
         /// Block number or hash
         #[arg(value_name = "BLOCK")]
         block: String,
-
-        /// Output format (text, json, csv)
-        #[arg(short, long, default_value = "text")]
-        format: String,
-
-        /// Save output to file
-        #[arg(short, long)]
-        output: Option<String>,
-    },
-
-    /// Generate block statistics
-    Stats {
-        /// Block range (e.g., "100-200" or just "100")
-        #[arg(value_name = "RANGE")]
-        range: String,
 
         /// Output format (text, json, csv)
         #[arg(short, long, default_value = "text")]

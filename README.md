@@ -38,37 +38,6 @@ Options:
 riscv-cli run test-bin/rust-bin/fib/fib-imac --format json --output results.json
 ```
 
-##### `inspect` - Analyze ELF binary structure
-```bash
-riscv-cli inspect <BINARY> [OPTIONS]
-
-Options:
-  -f, --format <FORMAT>    Output format: text, json, csv [default: text]
-  -o, --output <FILE>      Save output to file
-  -v, --verbose...         Verbosity level (0-3)
-```
-
-**Example:**
-```bash
-riscv-cli inspect test-bin/rust-bin/exec-block/exec-block-imac --format json
-```
-
-##### `trace` - Generate execution trace
-```bash
-riscv-cli trace <BINARY> [OPTIONS]
-
-Options:
-  --filter <FILTER>        Filter by instruction type
-  -f, --format <FORMAT>    Output format: text, json, csv [default: text]
-  -o, --output <FILE>      Save output to file
-  -v, --verbose...         Verbosity level (0-3)
-```
-
-**Example:**
-```bash
-riscv-cli trace test-bin/rust-bin/echo/echo-imac --format text
-```
-
 ##### `verify-block` - Verify Ethereum block on RISC-V VM
 ```bash
 riscv-cli verify-block <BLOCK_NUMBER> [OPTIONS]
@@ -162,29 +131,6 @@ eth-cli generate-witness 24628522 \
 eth-cli generate-witness 24628522 \
   --rpc-url "https://eth.llamarpc.com" \
   --format json
-```
-
-##### `inspect` - Inspect block details
-```bash
-eth-cli inspect <BLOCK_NUMBER> --rpc-url <RPC_URL> [OPTIONS]
-
-Options:
-  --rpc-url <RPC_URL>      Ethereum RPC endpoint (required)
-  --detailed               Show detailed transaction information
-  -f, --format <FORMAT>    Output format: text, json, csv [default: text]
-  -o, --output <FILE>      Save output to file
-  -v, --verbose...         Verbosity level (0-3)
-```
-
-##### `stats` - Generate block range statistics
-```bash
-eth-cli stats <BLOCK_RANGE> --rpc-url <RPC_URL> [OPTIONS]
-
-Options:
-  --rpc-url <RPC_URL>      Ethereum RPC endpoint (required)
-  -f, --format <FORMAT>    Output format: text, json, csv [default: text]
-  -o, --output <FILE>      Save output to file
-  -v, --verbose...         Verbosity level (0-3)
 ```
 
 ## Tracing

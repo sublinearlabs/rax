@@ -28,15 +28,6 @@ fn main() {
             )
         }
 
-        EthCommand::Inspect {
-            block,
-            detailed,
-            format,
-        } => {
-            print_info(&format!("Inspecting block: {}", block));
-            todo!()
-        }
-
         EthCommand::GenerateWitness {
             block,
             format,
@@ -52,15 +43,6 @@ fn main() {
                 &format,
                 output.as_deref(),
             )
-        }
-
-        EthCommand::Stats {
-            range,
-            format,
-            output,
-        } => {
-            print_info(&format!("Generating statistics for range: {}", range));
-            todo!()
         }
     };
 
