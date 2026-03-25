@@ -56,8 +56,8 @@ pub enum EthCommand {
         detailed: bool,
     },
 
-    /// Trace block execution
-    Trace {
+    /// Generate execution witness for a block
+    GenerateWitness {
         /// Block number or hash
         #[arg(value_name = "BLOCK")]
         block: String,
