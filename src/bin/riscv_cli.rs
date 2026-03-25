@@ -20,40 +20,6 @@ fn main() {
             riscv::cli::riscv_cli::commands::execute_run(&binary, trace, &format, output.as_deref())
         }
 
-        RiscvCommand::Inspect {
-            binary,
-            format,
-            output,
-        } => {
-            print_info(&format!("Inspecting RISC-V binary: {}", binary));
-            riscv::cli::riscv_cli::commands::execute_inspect(&binary, &format, output.as_deref())
-        }
-
-        RiscvCommand::Trace {
-            binary,
-            filter,
-            format,
-            output,
-        } => {
-            print_info(&format!("Tracing RISC-V binary: {}", binary));
-            riscv::cli::riscv_cli::commands::execute_trace(
-                &binary,
-                filter.as_deref(),
-                &format,
-                output.as_deref(),
-            )
-        }
-
-        RiscvCommand::Benchmark {
-            binary, iterations, ..
-        } => {
-            print_info(&format!(
-                "Benchmarking RISC-V binary: {} ({} iterations)",
-                binary, iterations
-            ));
-            todo!()
-        }
-
         RiscvCommand::VerifyBlock {
             block,
             binary,
