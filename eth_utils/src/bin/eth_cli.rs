@@ -37,13 +37,21 @@ fn main() {
             todo!()
         }
 
-        EthCommand::Trace {
+        EthCommand::GenerateWitness {
             block,
             format,
             output,
         } => {
-            print_info(&format!("Tracing block: {}", block));
-            todo!()
+            print_info(&format!(
+                "Generating execution witness for block: {}",
+                block
+            ));
+            eth_utils::cli::commands::execute_generate_witness(
+                &block,
+                cli.rpc_url.as_deref(),
+                &format,
+                output.as_deref(),
+            )
         }
 
         EthCommand::Stats {
