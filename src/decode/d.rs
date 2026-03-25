@@ -1,8 +1,8 @@
-use crate::decode::Instruction;
 use crate::decode::fp_util::{fp_funct2, fp_funct7, fp_r4, fp_rf};
 use crate::decode::imm::{imm_i, imm_s};
 use crate::decode::insn_formats::{I, S};
 use crate::decode::util::{funct3, opcode, rd, rs1, rs2};
+use crate::decode::Instruction;
 
 pub(crate) fn decode_fp_load(insn: u32) -> Instruction {
     let operand = I {

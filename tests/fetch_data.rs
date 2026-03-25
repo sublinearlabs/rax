@@ -3,7 +3,7 @@
 //! Tests the JSON-RPC fetching functionality for Ethereum blocks and transactions.
 //! These functions are used to retrieve on-chain data for verification.
 
-use riscv::eth::EthFetcher;
+use eth_utils::EthFetcher;
 
 /// Test: Fetch transaction receipt from mainnet
 /// This test is skipped by default since it requires network access

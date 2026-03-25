@@ -5,7 +5,7 @@ use cranelift_module::{Linkage, Module};
 
 use crate::ir::IrFunction;
 use crate::jit::jit_module::HelperFuncIds;
-use crate::jit::lower::{HelperFuncRefs, lower_ir_function};
+use crate::jit::lower::{lower_ir_function, HelperFuncRefs};
 use crate::trace::NoopTracer;
 use crate::{HostIO, VM};
 

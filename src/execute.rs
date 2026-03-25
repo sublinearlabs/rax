@@ -1,5 +1,3 @@
-use crate::HostIO;
-use crate::VM;
 use crate::decode::Instruction;
 use crate::ecall::handle_ecall;
 #[cfg(feature = "ext_a")]
@@ -13,6 +11,8 @@ use crate::instr_execute::i_instr::*;
 #[cfg(feature = "ext_m")]
 use crate::instr_execute::m_instr::*;
 use crate::trace::Tracer;
+use crate::HostIO;
+use crate::VM;
 
 // TODO consider cleaning up sext logic
 impl<T: Tracer> VM<T> {

@@ -1,14 +1,14 @@
-use alloy_primitives::{Address, B256, U256, keccak256};
+use alloy_primitives::{keccak256, Address, B256, U256};
 use anyhow::Result;
 use std::collections::HashMap;
 
 use alloy_rlp::Encodable;
+use revm::primitives::{AccountInfo, Bytecode, TxEnv};
 use revm::Evm;
 use revm::InMemoryDB;
-use revm::primitives::{AccountInfo, Bytecode, TxEnv};
 
 use super::types::{AccountData, BlockData, BlockTrace, StateChange, TxResult, TxTrace};
-use super::utils::{EMPTY_CODE_HASH, get_chain_config, parse_hex_u64, parse_hex_u256};
+use super::utils::{get_chain_config, parse_hex_u256, parse_hex_u64, EMPTY_CODE_HASH};
 
 /// Generates execution traces for Ethereum blocks
 pub struct BlockTracer;

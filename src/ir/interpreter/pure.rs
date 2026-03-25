@@ -153,7 +153,11 @@ fn const_value(c: &ConstVal) -> u64 {
 }
 
 fn bool_to_u64(v: bool) -> u64 {
-    if v { 1 } else { 0 }
+    if v {
+        1
+    } else {
+        0
+    }
 }
 
 fn ty_bits(ty: IrType) -> u8 {

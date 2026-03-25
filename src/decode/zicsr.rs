@@ -1,7 +1,7 @@
-use crate::decode::Instruction;
 use crate::decode::imm::imm_i;
 use crate::decode::insn_formats::I;
 use crate::decode::util::{funct3, funct7, rd, rs1};
+use crate::decode::Instruction;
 
 pub(crate) fn decode_system(insn: u32) -> Instruction {
     let imm = imm_i(insn);

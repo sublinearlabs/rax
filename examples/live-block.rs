@@ -7,12 +7,9 @@
 //! 4. Serializes and saves for guest validator
 //! 5. Runs exec-block test binary with the witness
 
+use eth_utils::{BlockTracer, EthFetcher};
 use riscv::trace::NoopTracer;
-use riscv::{
-    Runner,
-    eth::{BlockTracer, EthFetcher},
-    init_from_elf,
-};
+use riscv::{init_from_elf, Runner};
 use std::fs;
 use std::path::Path;
 

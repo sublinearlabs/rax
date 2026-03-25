@@ -18,5 +18,4 @@ pub use loader::{init_from_elf, init_from_elf_with_tracer};
 pub use runner::Runner;
 pub use vm::VM;
 
-#[path = "../eth/mod.rs"]
-pub mod eth;
+pub mod cli;

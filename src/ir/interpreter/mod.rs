@@ -88,9 +88,9 @@ pub fn execute_ir<T: Tracer>(func: &IrFunction, vm: &mut VM<T>, io: &mut HostIO)
 #[cfg(test)]
 mod tests {
     use super::execute_ir;
-    use crate::decode::{B, I, Instruction};
-    use crate::ir::IrBuilder;
+    use crate::decode::{Instruction, B, I};
     use crate::ir::lower::lower_instruction_into;
+    use crate::ir::IrBuilder;
     use crate::trace::NoopTracer;
     use crate::{HostIO, VM};
 
