@@ -66,8 +66,7 @@ pub fn execute_generate_witness(
 
     // Save to file if requested
     if let Some(file_path) = output {
-        write_witness_to_file(file_path, &output_text)?;
-        print_info(&format!("Witness output written to: {}", file_path));
+        write_witness_to_file(file_path, &witness_json)?;
     }
 
     Ok(())
@@ -144,8 +143,17 @@ fn format_witness_csv(result: &GenerateWitnessResult) -> CliResult<String> {
     Ok(output)
 }
 
-/// Write witness output to a file
-fn write_witness_to_file(file_path: &str, content: &str) -> CliResult<()> {
+/// Write witness to file as hex-encoded bytes
+/// This allows direct use as input to RISC-V VM
+fn write_witness_to_file(file_path: &str, witness_json: &serde_json::Value) -> CliResult<()> {
+    // Serialize witness JSON to bytes
+    let witness_bytes = serde_json::to_vec(witness_json)
+        .map_err(|e| CliError::new(format!("Failed to serialize witness: {}", e)))?;
+
+    // Hex-encode the bytes
+    let witness_hex = hex::encode(&witness_bytes);
+
+    // Write to file
     let mut file = std::fs::File::create(file_path).map_err(|e| {
         CliError::new(format!(
             "Failed to create output file '{}': {}",
@@ -153,8 +161,9 @@ fn write_witness_to_file(file_path: &str, content: &str) -> CliResult<()> {
         ))
     })?;
 
-    file.write_all(content.as_bytes())
+    file.write_all(witness_hex.as_bytes())
         .map_err(|e| CliError::new(format!("Failed to write to file '{}': {}", file_path, e)))?;
 
+    print_info(&format!("Witness saved (hex-encoded) to: {}", file_path));
     Ok(())
 }

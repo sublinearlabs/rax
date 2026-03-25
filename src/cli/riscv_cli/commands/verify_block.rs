@@ -42,19 +42,32 @@ pub fn execute_verify_block(
     // Create witness file path - use provided path or default temp file
     let witness_file = witness
         .map(|p| p.to_string())
-        .unwrap_or_else(|| format!("/tmp/witness_{}.json", block));
+        .unwrap_or_else(|| format!("/tmp/witness_{}", block));
 
     // Check if witness file already exists
-    let witness_bytes = if fs::metadata(&witness_file).is_ok() {
+    let (witness_bytes, witness_json) = if fs::metadata(&witness_file).is_ok() {
         print_info(&format!("Using existing witness file: {}", witness_file));
-        fs::read(&witness_file)
-            .map_err(|e| CliError::new(format!("Failed to read witness file: {}", e)))?
+
+        // Read hex-encoded witness file
+        let hex_data = fs::read_to_string(&witness_file)
+            .map_err(|e| CliError::new(format!("Failed to read witness file: {}", e)))?;
+
+        // Decode from hex
+        let witness_bytes = hex::decode(&hex_data)
+            .map_err(|e| CliError::new(format!("Failed to decode witness hex: {}", e)))?;
+
+        // Parse JSON to extract metadata
+        let witness_json: serde_json::Value = serde_json::from_slice(&witness_bytes)
+            .map_err(|e| CliError::new(format!("Failed to parse witness JSON: {}", e)))?;
+
+        (witness_bytes, witness_json)
     } else {
         // Call eth-cli to generate witness
         print_info(&format!(
             "Generating witness for block {} via eth-cli...",
             block
         ));
+
         let eth_cli_status = Command::new("eth-cli")
             .args(&["generate-witness", block])
             .args(&["--rpc-url", rpc_url])
@@ -73,22 +86,34 @@ pub fn execute_verify_block(
             ));
         }
 
-        // Read the generated witness
+        // Read the hex-encoded witness file
         print_info("Reading witness from file...");
-        fs::read(&witness_file)
-            .map_err(|e| CliError::new(format!("Failed to read witness file: {}", e)))?
+        let hex_data = fs::read_to_string(&witness_file)
+            .map_err(|e| CliError::new(format!("Failed to read witness file: {}", e)))?;
+
+        // Decode from hex
+        let witness_bytes = hex::decode(&hex_data)
+            .map_err(|e| CliError::new(format!("Failed to decode witness hex: {}", e)))?;
+
+        // Parse JSON to extract metadata
+        let witness_json: serde_json::Value = serde_json::from_slice(&witness_bytes)
+            .map_err(|e| CliError::new(format!("Failed to parse witness JSON: {}", e)))?;
+
+        print_info(&format!("Witness saved to: {}", witness_file));
+
+        (witness_bytes, witness_json)
     };
 
-    // Parse witness JSON to get block info
-    let witness_json: serde_json::Value = serde_json::from_slice(&witness_bytes)
-        .map_err(|e| CliError::new(format!("Failed to parse witness JSON: {}", e)))?;
-
-    let block_number = witness_json["block"]["number"].as_u64().unwrap_or(0);
-    let block_hash = witness_json["block"]["hash"]
+    // Extract block information from witness JSON
+    let block_number = witness_json["block"]["header"]["number"]
+        .as_u64()
+        .unwrap_or(0);
+    let block_hash = witness_json["block"]["header"]["hash"]
         .as_str()
+        .or_else(|| witness_json["block"]["header"]["state_root"].as_str())
         .unwrap_or("unknown")
         .to_string();
-    let transactions_traced = witness_json["transactions"]
+    let transactions_traced = witness_json["block"]["body"]["transactions"]
         .as_array()
         .map(|arr| arr.len())
         .unwrap_or(0);
@@ -135,12 +160,8 @@ pub fn execute_verify_block(
         print_info(&format!("Verification output written to: {}", file_path));
     }
 
-    // Clean up temporary witness file if it was auto-generated (not user-specified)
-    if witness.is_none() {
-        let _ = fs::remove_file(&witness_file);
-    } else {
-        print_info(&format!("Witness saved to: {}", witness_file));
-    }
+    // Witness file is always kept for potential reuse
+    print_info(&format!("Witness file available at: {}", witness_file));
 
     Ok(())
 }
