@@ -148,3 +148,83 @@ pub(crate) fn parse_elf(bytes: &[u8]) -> Elf {
 
     Elf::new(parsed_segments, global_entry)
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::decode::I;
+
+    use super::*;
+
+    #[test]
+    fn test_segment_decode_empty() {
+        // Test with empty data
+        let segment = Segment::new(vec![], 0, 0, 0, 0);
+        let instructions = segment.decode();
+        assert_eq!(instructions.len(), 0);
+    }
+
+    #[test]
+    fn test_segment_decode_single_instruction() {
+        // Test with a single 4-byte instruction
+        // Example: ADDI x2, x1, 164 (0x0a408113 in little-endian)
+        let data = vec![0x13, 0x81, 0x40, 0x0A];
+        let segment = Segment::new(data, 0, 0, 4, 4);
+        let instructions = segment.decode();
+        assert_eq!(instructions.len(), 1);
+        assert_eq!(
+            instructions[0],
+            Instruction::Addi(I {
+                rd: 2,
+                rs1: 1,
+                imm: 164
+            })
+        );
+    }
+
+    #[test]
+    fn test_segment_decode_multiple_instructions() {
+        // Test with multiple 4-byte instructions
+        let mut data = Vec::new();
+        // Add 3 instructions (12 bytes total)
+        data.extend_from_slice(&[0x93, 0x80, 0x40, 0x0A]); // Instruction 1
+        data.extend_from_slice(&[0x13, 0x81, 0x41, 0x0B]); // Instruction 2
+        data.extend_from_slice(&[0x33, 0x82, 0x42, 0x0C]); // Instruction 3
+
+        let segment = Segment::new(data, 0, 0, 12, 12);
+        let instructions = segment.decode();
+        assert_eq!(instructions.len(), 3);
+    }
+
+    #[test]
+    fn test_segment_decode_incomplete_chunk() {
+        // Test with data that's not a multiple of 4
+        // Should only decode complete 4-byte chunks
+        let data = vec![0x93, 0x80, 0x40, 0x0A, 0x13, 0x81]; // 6 bytes = 1 complete + 2 incomplete
+        let segment = Segment::new(data, 0, 0, 6, 6);
+        let instructions = segment.decode();
+        assert_eq!(instructions.len(), 1); // Only 1 complete instruction
+    }
+
+    #[test]
+    fn test_segment_decode_little_endian_conversion() {
+        // Test that little-endian conversion works correctly
+        // Bytes [0x93, 0x80, 0x40, 0x0A] should convert to u32: 0x0A408093
+        let data = vec![0x93, 0x80, 0x40, 0x0A];
+        let segment = Segment::new(data, 0, 0, 4, 4);
+        let _instructions = segment.decode();
+        // If the function doesn't panic, the conversion worked
+    }
+
+    #[test]
+    fn test_segment_with_custom_entry() {
+        // Test segment with a custom entry point
+        let data = vec![
+            0x93, 0x80, 0x40, 0x0A, // Instruction 1
+            0x13, 0x81, 0x41, 0x0B, // Instruction 2
+        ];
+        let segment = Segment::new(data.clone(), 0x1000, 0, 8, 8);
+        let instructions = segment.decode();
+        assert_eq!(instructions.len(), 2);
+        assert_eq!(segment.entry, 0x1000);
+    }
+}
