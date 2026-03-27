@@ -5,7 +5,8 @@ use elf::{
     ElfBytes,
 };
 
-use crate::memory::MemoryDefault;
+use crate::decode::Instruction;
+use crate::{decode::decode, memory::MemoryDefault};
 
 /// Decodes the elf bytes,
 /// loads segments into memory and return the pc.
@@ -53,7 +54,7 @@ pub(crate) fn decode_elf(bytes: &[u8]) -> (MemoryDefault, u64) {
     (memory, entry)
 }
 
-struct Segment {
+pub(crate) struct Segment {
     data: Vec<u8>,
     entry: u64,
     offset: usize,
@@ -62,7 +63,13 @@ struct Segment {
 }
 
 impl Segment {
-    fn new(data: Vec<u8>, entry: u64, offset: usize, file_size: usize, mem_size: usize) -> Self {
+    pub(crate) fn new(
+        data: Vec<u8>,
+        entry: u64,
+        offset: usize,
+        file_size: usize,
+        mem_size: usize,
+    ) -> Self {
         Self {
             data,
             entry,
@@ -71,15 +78,30 @@ impl Segment {
             mem_size,
         }
     }
+
+    pub(crate) fn decode(&self) -> Vec<Instruction> {
+        let mut instructions = Vec::new();
+
+        for chunk in self.data.chunks(4) {
+            if chunk.len() == 4 {
+                let insn_bytes = [chunk[0], chunk[1], chunk[2], chunk[3]];
+                let insn_u32 = u32::from_le_bytes(insn_bytes);
+                let insn = decode(insn_u32);
+                instructions.push(insn);
+            }
+        }
+
+        instructions
+    }
 }
 
-struct Elf {
-    segments: Vec<Segment>,
-    global_entry: u64,
+pub(crate) struct Elf {
+    pub(crate) segments: Vec<Segment>,
+    pub(crate) global_entry: u64,
 }
 
 impl Elf {
-    fn new(segments: Vec<Segment>, global_entry: u64) -> Self {
+    pub(crate) fn new(segments: Vec<Segment>, global_entry: u64) -> Self {
         Self {
             segments,
             global_entry,
