@@ -56,6 +56,7 @@ pub(crate) fn decode_elf(bytes: &[u8]) -> (MemoryDefault, u64) {
 
 pub(crate) struct Segment {
     data: Vec<u8>,
+    insns: Vec<Instruction>,
     entry: u64,
     offset: usize,
     file_size: usize,
@@ -65,6 +66,7 @@ pub(crate) struct Segment {
 impl Segment {
     pub(crate) fn new(
         data: Vec<u8>,
+        insns: Vec<Instruction>,
         entry: u64,
         offset: usize,
         file_size: usize,
@@ -72,6 +74,7 @@ impl Segment {
     ) -> Self {
         Self {
             data,
+            insns,
             entry,
             offset,
             file_size,
@@ -79,19 +82,22 @@ impl Segment {
         }
     }
 
-    pub(crate) fn decode(&self) -> Vec<Instruction> {
+    pub(crate) fn decode(&mut self) {
         let mut instructions = Vec::new();
 
+        // TODO: For now, we assume we are not working with C extension
         for chunk in self.data.chunks(4) {
-            if chunk.len() == 4 {
-                let insn_bytes = [chunk[0], chunk[1], chunk[2], chunk[3]];
-                let insn_u32 = u32::from_le_bytes(insn_bytes);
-                let insn = decode(insn_u32);
-                instructions.push(insn);
+            let mut insn_bytes = [0u8; 4];
+            // Copy available bytes and pad with zeros if incomplete
+            for (i, &byte) in chunk.iter().enumerate() {
+                insn_bytes[i] = byte;
             }
+            let insn_u32 = u32::from_le_bytes(insn_bytes);
+            let insn = decode(insn_u32);
+            instructions.push(insn);
         }
 
-        instructions
+        self.insns = instructions;
     }
 }
 
@@ -141,7 +147,7 @@ pub(crate) fn parse_elf(bytes: &[u8]) -> Elf {
 
         if filesz > 0 {
             let data = &bytes[offset..offset + filesz];
-            let value = Segment::new(data.to_vec(), vaddr, offset, filesz, memsz);
+            let value = Segment::new(data.to_vec(), vec![], vaddr, offset, filesz, memsz);
             parsed_segments.push(value);
         }
     }
@@ -158,9 +164,9 @@ mod tests {
     #[test]
     fn test_segment_decode_empty() {
         // Test with empty data
-        let segment = Segment::new(vec![], 0, 0, 0, 0);
-        let instructions = segment.decode();
-        assert_eq!(instructions.len(), 0);
+        let mut segment = Segment::new(vec![], vec![], 0, 0, 0, 0);
+        segment.decode();
+        assert_eq!(segment.insns.len(), 0);
     }
 
     #[test]
@@ -168,11 +174,11 @@ mod tests {
         // Test with a single 4-byte instruction
         // Example: ADDI x2, x1, 164 (0x0a408113 in little-endian)
         let data = vec![0x13, 0x81, 0x40, 0x0A];
-        let segment = Segment::new(data, 0, 0, 4, 4);
-        let instructions = segment.decode();
-        assert_eq!(instructions.len(), 1);
+        let mut segment = Segment::new(data, vec![], 0, 0, 4, 4);
+        segment.decode();
+        assert_eq!(segment.insns.len(), 1);
         assert_eq!(
-            instructions[0],
+            segment.insns[0],
             Instruction::Addi(I {
                 rd: 2,
                 rs1: 1,
@@ -190,29 +196,49 @@ mod tests {
         data.extend_from_slice(&[0x13, 0x81, 0x41, 0x0B]); // Instruction 2
         data.extend_from_slice(&[0x33, 0x82, 0x42, 0x0C]); // Instruction 3
 
-        let segment = Segment::new(data, 0, 0, 12, 12);
-        let instructions = segment.decode();
-        assert_eq!(instructions.len(), 3);
+        let mut segment = Segment::new(data, vec![], 0, 0, 12, 12);
+        segment.decode();
+        assert_eq!(segment.insns.len(), 3);
     }
 
     #[test]
     fn test_segment_decode_incomplete_chunk() {
         // Test with data that's not a multiple of 4
-        // Should only decode complete 4-byte chunks
+        // Incomplete chunks should be padded with zeros and decoded
         let data = vec![0x93, 0x80, 0x40, 0x0A, 0x13, 0x81]; // 6 bytes = 1 complete + 2 incomplete
-        let segment = Segment::new(data, 0, 0, 6, 6);
-        let instructions = segment.decode();
-        assert_eq!(instructions.len(), 1); // Only 1 complete instruction
+        let mut segment = Segment::new(data, vec![], 0, 0, 6, 6);
+        segment.decode();
+        // Should decode 2 instructions: 1 complete + 1 padded with zeros
+        assert_eq!(segment.insns.len(), 2);
+        // First instruction is the complete one: ADDI x1, x1, 164
+        assert_eq!(
+            segment.insns[0],
+            Instruction::Addi(I {
+                rd: 1,
+                rs1: 1,
+                imm: 164
+            })
+        );
+        // Second instruction is padded: [0x13, 0x81, 0x00, 0x00]
     }
 
     #[test]
     fn test_segment_decode_little_endian_conversion() {
         // Test that little-endian conversion works correctly
         // Bytes [0x93, 0x80, 0x40, 0x0A] should convert to u32: 0x0A408093
+        // This is ADDI x1, x1, 164 (rd=1, rs1=1, imm=164)
         let data = vec![0x93, 0x80, 0x40, 0x0A];
-        let segment = Segment::new(data, 0, 0, 4, 4);
-        let _instructions = segment.decode();
-        // If the function doesn't panic, the conversion worked
+        let mut segment = Segment::new(data, vec![], 0, 0, 4, 4);
+        segment.decode();
+        assert_eq!(segment.insns.len(), 1);
+        assert_eq!(
+            segment.insns[0],
+            Instruction::Addi(I {
+                rd: 1,
+                rs1: 1,
+                imm: 164
+            })
+        );
     }
 
     #[test]
@@ -222,9 +248,9 @@ mod tests {
             0x93, 0x80, 0x40, 0x0A, // Instruction 1
             0x13, 0x81, 0x41, 0x0B, // Instruction 2
         ];
-        let segment = Segment::new(data.clone(), 0x1000, 0, 8, 8);
-        let instructions = segment.decode();
-        assert_eq!(instructions.len(), 2);
+        let mut segment = Segment::new(data.clone(), vec![], 0x1000, 0, 8, 8);
+        segment.decode();
+        assert_eq!(segment.insns.len(), 2);
         assert_eq!(segment.entry, 0x1000);
     }
 }
