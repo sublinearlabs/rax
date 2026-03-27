@@ -1,3 +1,4 @@
+mod aot;
 mod decode;
 mod ecall;
 mod elf;
