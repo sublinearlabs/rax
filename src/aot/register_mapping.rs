@@ -14,7 +14,7 @@ pub(crate) struct RegisterMapping {
 }
 
 /// Represents a valid RISCV register
-struct RiscvRegister(u8);
+pub(crate) struct RiscvRegister(u8);
 
 impl RiscvRegister {
     fn new(reg_index: u8) -> Self {
