@@ -13,6 +13,13 @@ pub(crate) struct RegisterMapping {
     map: [RegisterLocation; 32],
 }
 
+impl RegisterMapping {
+    /// Create a new register mapping from an array of register locations
+    pub fn new(map: [RegisterLocation; 32]) -> Self {
+        RegisterMapping { map }
+    }
+}
+
 /// Represents a valid RISCV register
 pub(crate) struct RiscvRegister(u8);
 
