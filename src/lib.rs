@@ -11,6 +11,7 @@ mod loader;
 mod memory;
 mod runner;
 pub mod trace;
+pub mod translate;
 mod util;
 mod vm;
 
