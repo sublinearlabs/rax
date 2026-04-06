@@ -1,15 +1,16 @@
 use std::ops::Index;
 
 /// Represents the different locations a RISCV register might be stored
-#[derive(Debug, PartialEq, Eq)]
-pub(crate) enum RegisterLocation {
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum RegisterLocation {
     ZERO, // useful if the compiler decides not to emit the zero register
     GPR(u8),
     XMM(u8, u8),
     MEM(u64),
 }
 
-pub(crate) struct RegisterMapping {
+#[derive(Debug, Clone)]
+pub struct RegisterMapping {
     map: [RegisterLocation; 32],
 }
 

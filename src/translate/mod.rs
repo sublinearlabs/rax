@@ -7,11 +7,9 @@ pub mod register_config;
 pub mod translator;
 pub mod x86_emitter;
 pub mod x86_insn;
-pub mod x86_register_map;
 
 // Re-export commonly used types
 pub use register_config::{RegisterAllocationConfig, RegisterAllocationStrategy};
 pub use translator::{RiscvToX86Translator, TranslationContext, TranslationPhase};
 pub use x86_emitter::X86Emitter;
 pub use x86_insn::{Operand, X86Instruction, X86Register};
-pub use x86_register_map::RegisterMap;

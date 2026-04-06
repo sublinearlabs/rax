@@ -120,6 +120,8 @@ impl RegisterAllocationConfig {
     fn create_allgpr_mapping(&self) -> RegisterMapping {
         let map = array::from_fn(|idx| {
             match idx {
+                // x0 is always zero in RISC-V
+                0 => RegisterLocation::ZERO,
                 // RISC-V ABI mapping to x86-64 GPRs
                 // All 16 GPRs are used;
                 1 => RegisterLocation::GPR(3),   // x1 (ra) -> RBX
@@ -214,7 +216,7 @@ mod tests {
     #[test]
     fn test_allgpr_strategy() {
         let config = RegisterAllocationConfig::allgpr();
-        let mapping = config.create_mapping();
+        let _mapping = config.create_mapping();
 
         // Verify some key mappings via debug output
         // RegisterMapping uses private fields, so we just verify it creates successfully
@@ -224,7 +226,7 @@ mod tests {
     #[test]
     fn test_gpr_and_xmm_strategy() {
         let config = RegisterAllocationConfig::gpr_and_xmm(12);
-        let mapping = config.create_mapping();
+        let _mapping = config.create_mapping();
 
         assert_eq!(config.strategy, RegisterAllocationStrategy::GPRAndXMM);
         assert_eq!(config.num_gprs, 12);
@@ -233,7 +235,7 @@ mod tests {
     #[test]
     fn test_only_xmm_strategy() {
         let config = RegisterAllocationConfig::only_xmm();
-        let mapping = config.create_mapping();
+        let _mapping = config.create_mapping();
 
         assert_eq!(config.strategy, RegisterAllocationStrategy::OnlyXMM);
     }
@@ -278,7 +280,7 @@ mod tests {
     fn test_allgpr_backwards_compat() {
         // AllGPR should produce valid mapping
         let allgpr_config = RegisterAllocationConfig::allgpr();
-        let allgpr_mapping = allgpr_config.create_mapping();
+        let _allgpr_mapping = allgpr_config.create_mapping();
 
         // Verify the mapping was created successfully
         assert_eq!(allgpr_config.strategy, RegisterAllocationStrategy::AllGPR);
