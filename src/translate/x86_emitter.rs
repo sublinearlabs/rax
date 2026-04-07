@@ -230,6 +230,54 @@ impl X86Emitter {
 
         Ok(())
     }
+
+    /// Emit ADD instruction
+    pub fn emit_add(&mut self, src: &Operand, dst: &Operand) -> Result<(), String> {
+        match (src, dst) {
+            // add r64, r64 - REX.W + 0x01 + ModRM
+            (Operand::Register(src_reg), Operand::Register(dst_reg)) => {
+                let src_code = src_reg.code();
+                let dst_code = dst_reg.code();
+
+                let src_ext = src_code >= 8;
+                let dst_ext = dst_code >= 8;
+
+                self.emit_rex(true, src_ext, false, dst_ext);
+                self.emit_byte(0x01); // ADD r64, r64
+                self.emit_modrm(0x3, src_code & 0x7, dst_code & 0x7);
+
+                Ok(())
+            }
+
+            // add r64, imm64 - REX.W + 0x81 + ModRM for imm32, or MOVABS + ADD for full imm64
+            (Operand::Immediate(imm), Operand::Register(dst_reg)) => {
+                let dst_code = dst_reg.code();
+                let dst_ext = dst_code >= 8;
+
+                // Check if immediate fits in 32-bit sign-extended form
+                if *imm >= i32::MIN as i64 && *imm <= i32::MAX as i64 {
+                    // Use direct ADD r64, imm32
+                    self.emit_rex(true, false, false, dst_ext);
+                    self.emit_byte(0x81);
+                    self.emit_modrm(0x3, 0, dst_code & 0x7); // 0 for ADD
+                    self.emit_i32(*imm as i32);
+                } else {
+                    // For full 64-bit immediate: load into RAX, then ADD dst, RAX
+                    // Save RAX first if needed, then restore
+                    // For simplicity: MOVABS RAX, imm64 then ADD dst, RAX
+                    self.emit_mov(
+                        &Operand::Immediate(*imm),
+                        &Operand::Register(X86Register::RAX),
+                    )?;
+                    self.emit_add(&Operand::Register(X86Register::RAX), dst)?;
+                }
+
+                Ok(())
+            }
+
+            _ => Err(format!("Invalid ADD operands: {} {}", src, dst)),
+        }
+    }
 }
 
 impl Default for X86Emitter {
