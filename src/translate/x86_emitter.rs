@@ -129,6 +129,107 @@ impl X86Emitter {
     pub fn emit_ret(&mut self) {
         self.emit_byte(0xC3);
     }
+
+    /// Emit MOV instruction: mov dst, src
+    /// Encoding: 0x89 /r for reg→reg, 0xC7 /0 for imm→reg, 0x8B for reg←mem, etc.
+    pub fn emit_mov(&mut self, src: &Operand, dst: &Operand) -> Result<(), String> {
+        match (src, dst) {
+            // mov reg64, imm64 - needs 0x48 REX + 0xB8-0xBF opcode
+            (Operand::Immediate(imm), Operand::Register(dst_reg)) => {
+                let reg_code = dst_reg.code();
+
+                // REX.W = 1 for 64-bit, REX.B for register extension
+                let needs_rex_b = *dst_reg as u8 > 7;
+                self.emit_rex(true, false, false, needs_rex_b);
+
+                // MOVABS: 0xB8 + reg_code (with REX.B adjustment)
+                self.emit_byte(0xB8 + (reg_code & 0x7));
+
+                // Emit 64-bit immediate
+                self.emit_i64(*imm);
+                Ok(())
+            }
+
+            // mov reg64, reg64 - REX.W + 0x89 + ModRM
+            (Operand::Register(src_reg), Operand::Register(dst_reg)) => {
+                let src_code = src_reg.code();
+                let dst_code = dst_reg.code();
+
+                let src_ext = src_code >= 8;
+                let dst_ext = dst_code >= 8;
+
+                self.emit_rex(true, src_ext, false, dst_ext);
+                self.emit_byte(0x89); // MOV r64, r64
+                self.emit_modrm(0x3, src_code & 0x7, dst_code & 0x7);
+
+                Ok(())
+            }
+
+            // mov r64, [mem] - REX.W + 0x8B + ModRM
+            (Operand::Memory { base, offset }, Operand::Register(dst_reg)) => {
+                let base_code = base.code();
+                let dst_code = dst_reg.code();
+
+                let base_ext = base_code >= 8;
+                let dst_ext = dst_code >= 8;
+
+                self.emit_rex(true, dst_ext, false, base_ext);
+                self.emit_byte(0x8B); // MOV r64, m64
+
+                // Handle displacement
+                if *offset == 0 {
+                    self.emit_modrm(0x0, dst_code & 0x7, base_code & 0x7);
+                } else if *offset >= -128 && *offset <= 127 {
+                    self.emit_modrm(0x1, dst_code & 0x7, base_code & 0x7);
+                    self.emit_byte(*offset as u8);
+                } else {
+                    self.emit_modrm(0x2, dst_code & 0x7, base_code & 0x7);
+                    self.emit_i32(*offset);
+                }
+
+                Ok(())
+            }
+
+            // mov [mem], r64 - REX.W + 0x89 + ModRM
+            (Operand::Register(src_reg), Operand::Memory { base, offset }) => {
+                let src_code = src_reg.code();
+                let base_code = base.code();
+
+                let src_ext = src_code >= 8;
+                let base_ext = base_code >= 8;
+
+                self.emit_rex(true, src_ext, false, base_ext);
+                self.emit_byte(0x89); // MOV m64, r64
+
+                // Handle displacement
+                if *offset == 0 {
+                    self.emit_modrm(0x0, src_code & 0x7, base_code & 0x7);
+                } else if *offset >= -128 && *offset <= 127 {
+                    self.emit_modrm(0x1, src_code & 0x7, base_code & 0x7);
+                    self.emit_byte(*offset as u8);
+                } else {
+                    self.emit_modrm(0x2, src_code & 0x7, base_code & 0x7);
+                    self.emit_i32(*offset);
+                }
+
+                Ok(())
+            }
+
+            _ => Err(format!("Invalid MOV operands: {} {}", src, dst)),
+        }
+    }
+
+    /// Emit JMP instruction (placeholder for label resolution)
+    pub fn emit_jmp(&mut self, target: &str) -> Result<(), String> {
+        self.relocations
+            .push((self.offset() + 1, target.to_string()));
+
+        // JMP rel32 - 0xE9 followed by 32-bit offset
+        self.emit_byte(0xE9);
+        self.emit_i32(0); // Placeholder, will be patched
+
+        Ok(())
+    }
 }
 
 impl Default for X86Emitter {
