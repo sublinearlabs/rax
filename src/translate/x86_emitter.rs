@@ -555,6 +555,156 @@ impl X86Emitter {
             _ => Err(format!("Invalid TEST operands: {} {}", src, dst)),
         }
     }
+
+    /// Emit JE instruction (Jump if Equal / Jump if Zero)
+    /// Uses ZF flag from previous comparison or test
+    pub fn emit_je(&mut self, target: &str) -> Result<(), String> {
+        self.relocations
+            .push((self.offset() + 2, target.to_string()));
+
+        // JE rel32 - 0x0F 0x84 followed by 32-bit offset
+        self.emit_byte(0x0F);
+        self.emit_byte(0x84);
+        self.emit_i32(0); // Placeholder, will be patched
+
+        Ok(())
+    }
+
+    /// Emit JNE instruction (Jump if Not Equal / Jump if Not Zero)
+    /// Uses ZF flag from previous comparison or test
+    pub fn emit_jne(&mut self, target: &str) -> Result<(), String> {
+        self.relocations
+            .push((self.offset() + 2, target.to_string()));
+
+        // JNE rel32 - 0x0F 0x85 followed by 32-bit offset
+        self.emit_byte(0x0F);
+        self.emit_byte(0x85);
+        self.emit_i32(0); // Placeholder, will be patched
+
+        Ok(())
+    }
+
+    /// Emit JL instruction (Jump if Less - signed comparison)
+    /// SF != OF (Sign Flag not equal to Overflow Flag)
+    pub fn emit_jl(&mut self, target: &str) -> Result<(), String> {
+        self.relocations
+            .push((self.offset() + 2, target.to_string()));
+
+        // JL rel32 - 0x0F 0x8C followed by 32-bit offset
+        self.emit_byte(0x0F);
+        self.emit_byte(0x8C);
+        self.emit_i32(0); // Placeholder, will be patched
+
+        Ok(())
+    }
+
+    /// Emit JLE instruction (Jump if Less or Equal - signed comparison)
+    /// ZF=1 or SF != OF
+    pub fn emit_jle(&mut self, target: &str) -> Result<(), String> {
+        self.relocations
+            .push((self.offset() + 2, target.to_string()));
+
+        // JLE rel32 - 0x0F 0x8E followed by 32-bit offset
+        self.emit_byte(0x0F);
+        self.emit_byte(0x8E);
+        self.emit_i32(0); // Placeholder, will be patched
+
+        Ok(())
+    }
+
+    /// Emit JG instruction (Jump if Greater - signed comparison)
+    /// ZF=0 and SF = OF
+    pub fn emit_jg(&mut self, target: &str) -> Result<(), String> {
+        self.relocations
+            .push((self.offset() + 2, target.to_string()));
+
+        // JG rel32 - 0x0F 0x8F followed by 32-bit offset
+        self.emit_byte(0x0F);
+        self.emit_byte(0x8F);
+        self.emit_i32(0); // Placeholder, will be patched
+
+        Ok(())
+    }
+
+    /// Emit JGE instruction (Jump if Greater or Equal - signed comparison)
+    /// SF = OF
+    pub fn emit_jge(&mut self, target: &str) -> Result<(), String> {
+        self.relocations
+            .push((self.offset() + 2, target.to_string()));
+
+        // JGE rel32 - 0x0F 0x8D followed by 32-bit offset
+        self.emit_byte(0x0F);
+        self.emit_byte(0x8D);
+        self.emit_i32(0); // Placeholder, will be patched
+
+        Ok(())
+    }
+
+    /// Emit JB instruction (Jump if Below - unsigned comparison)
+    /// CF = 1 (Carry Flag set)
+    pub fn emit_jb(&mut self, target: &str) -> Result<(), String> {
+        self.relocations
+            .push((self.offset() + 2, target.to_string()));
+
+        // JB rel32 - 0x0F 0x82 followed by 32-bit offset
+        self.emit_byte(0x0F);
+        self.emit_byte(0x82);
+        self.emit_i32(0); // Placeholder, will be patched
+
+        Ok(())
+    }
+
+    /// Emit JBE instruction (Jump if Below or Equal - unsigned comparison)
+    /// CF = 1 or ZF = 1
+    pub fn emit_jbe(&mut self, target: &str) -> Result<(), String> {
+        self.relocations
+            .push((self.offset() + 2, target.to_string()));
+
+        // JBE rel32 - 0x0F 0x86 followed by 32-bit offset
+        self.emit_byte(0x0F);
+        self.emit_byte(0x86);
+        self.emit_i32(0); // Placeholder, will be patched
+
+        Ok(())
+    }
+
+    /// Emit JA instruction (Jump if Above - unsigned comparison)
+    /// CF = 0 and ZF = 0
+    pub fn emit_ja(&mut self, target: &str) -> Result<(), String> {
+        self.relocations
+            .push((self.offset() + 2, target.to_string()));
+
+        // JA rel32 - 0x0F 0x87 followed by 32-bit offset
+        self.emit_byte(0x0F);
+        self.emit_byte(0x87);
+        self.emit_i32(0); // Placeholder, will be patched
+
+        Ok(())
+    }
+
+    /// Emit JAE instruction (Jump if Above or Equal - unsigned comparison)
+    /// CF = 0
+    pub fn emit_jae(&mut self, target: &str) -> Result<(), String> {
+        self.relocations
+            .push((self.offset() + 2, target.to_string()));
+
+        // JAE rel32 - 0x0F 0x83 followed by 32-bit offset
+        self.emit_byte(0x0F);
+        self.emit_byte(0x83);
+        self.emit_i32(0); // Placeholder, will be patched
+
+        Ok(())
+    }
+
+    /// Emit JZ instruction (Jump if Zero) - alias for JE
+    pub fn emit_jz(&mut self, target: &str) -> Result<(), String> {
+        self.emit_je(target)
+    }
+
+    /// Emit JNZ instruction (Jump if Not Zero) - alias for JNE
+    pub fn emit_jnz(&mut self, target: &str) -> Result<(), String> {
+        self.emit_jne(target)
+    }
 }
 
 impl Default for X86Emitter {
