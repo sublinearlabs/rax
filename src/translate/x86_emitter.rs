@@ -1008,6 +1008,339 @@ impl X86Emitter {
             )),
         }
     }
+
+    /// Emit memory load instructions (various sizes)
+    /// MOV r64, [mem] - already handled by emit_mov()
+    /// But we need explicit size-specific versions for type safety
+
+    /// Load 64-bit from memory: MOV r64, [base + offset]
+    pub fn emit_load64(
+        &mut self,
+        base: X86Register,
+        offset: i32,
+        dst: X86Register,
+    ) -> Result<(), String> {
+        let base_code = base.code();
+        let dst_code = dst.code();
+
+        let base_ext = base_code >= 8;
+        let dst_ext = dst_code >= 8;
+
+        self.emit_rex(true, dst_ext, false, base_ext);
+        self.emit_byte(0x8B); // MOV r64, m64
+
+        if offset == 0 {
+            self.emit_modrm(0x0, dst_code & 0x7, base_code & 0x7);
+        } else if offset >= -128 && offset <= 127 {
+            self.emit_modrm(0x1, dst_code & 0x7, base_code & 0x7);
+            self.emit_byte(offset as u8);
+        } else {
+            self.emit_modrm(0x2, dst_code & 0x7, base_code & 0x7);
+            self.emit_i32(offset);
+        }
+
+        Ok(())
+    }
+
+    /// Load 32-bit sign-extended to 64-bit: MOVSXD r64, [base + offset]
+    pub fn emit_load32_sext(
+        &mut self,
+        base: X86Register,
+        offset: i32,
+        dst: X86Register,
+    ) -> Result<(), String> {
+        let base_code = base.code();
+        let dst_code = dst.code();
+
+        let base_ext = base_code >= 8;
+        let dst_ext = dst_code >= 8;
+
+        self.emit_rex(true, dst_ext, false, base_ext);
+        self.emit_byte(0x63); // MOVSXD r64, m32
+
+        if offset == 0 {
+            self.emit_modrm(0x0, dst_code & 0x7, base_code & 0x7);
+        } else if offset >= -128 && offset <= 127 {
+            self.emit_modrm(0x1, dst_code & 0x7, base_code & 0x7);
+            self.emit_byte(offset as u8);
+        } else {
+            self.emit_modrm(0x2, dst_code & 0x7, base_code & 0x7);
+            self.emit_i32(offset);
+        }
+
+        Ok(())
+    }
+
+    /// Load 32-bit zero-extended to 64-bit: MOV r32, [base + offset]
+    /// (32-bit move automatically zero-extends to 64-bit)
+    pub fn emit_load32_zext(
+        &mut self,
+        base: X86Register,
+        offset: i32,
+        dst: X86Register,
+    ) -> Result<(), String> {
+        let base_code = base.code();
+        let dst_code = dst.code();
+
+        let base_ext = base_code >= 8;
+        let dst_ext = dst_code >= 8;
+
+        self.emit_rex(false, dst_ext, false, base_ext); // REX.W = 0 for 32-bit (zero-extends)
+        self.emit_byte(0x8B); // MOV r32, m32
+
+        if offset == 0 {
+            self.emit_modrm(0x0, dst_code & 0x7, base_code & 0x7);
+        } else if offset >= -128 && offset <= 127 {
+            self.emit_modrm(0x1, dst_code & 0x7, base_code & 0x7);
+            self.emit_byte(offset as u8);
+        } else {
+            self.emit_modrm(0x2, dst_code & 0x7, base_code & 0x7);
+            self.emit_i32(offset);
+        }
+
+        Ok(())
+    }
+
+    /// Load 16-bit sign-extended to 64-bit: MOVSX r64, [base + offset]
+    pub fn emit_load16_sext(
+        &mut self,
+        base: X86Register,
+        offset: i32,
+        dst: X86Register,
+    ) -> Result<(), String> {
+        let base_code = base.code();
+        let dst_code = dst.code();
+
+        let base_ext = base_code >= 8;
+        let dst_ext = dst_code >= 8;
+
+        self.emit_rex(true, dst_ext, false, base_ext);
+        self.emit_byte(0x0F);
+        self.emit_byte(0xBF); // MOVSX r64, m16
+
+        if offset == 0 {
+            self.emit_modrm(0x0, dst_code & 0x7, base_code & 0x7);
+        } else if offset >= -128 && offset <= 127 {
+            self.emit_modrm(0x1, dst_code & 0x7, base_code & 0x7);
+            self.emit_byte(offset as u8);
+        } else {
+            self.emit_modrm(0x2, dst_code & 0x7, base_code & 0x7);
+            self.emit_i32(offset);
+        }
+
+        Ok(())
+    }
+
+    /// Load 16-bit zero-extended to 64-bit: MOVZX r64, [base + offset]
+    pub fn emit_load16_zext(
+        &mut self,
+        base: X86Register,
+        offset: i32,
+        dst: X86Register,
+    ) -> Result<(), String> {
+        let base_code = base.code();
+        let dst_code = dst.code();
+
+        let base_ext = base_code >= 8;
+        let dst_ext = dst_code >= 8;
+
+        self.emit_rex(true, dst_ext, false, base_ext);
+        self.emit_byte(0x0F);
+        self.emit_byte(0xB7); // MOVZX r64, m16
+
+        if offset == 0 {
+            self.emit_modrm(0x0, dst_code & 0x7, base_code & 0x7);
+        } else if offset >= -128 && offset <= 127 {
+            self.emit_modrm(0x1, dst_code & 0x7, base_code & 0x7);
+            self.emit_byte(offset as u8);
+        } else {
+            self.emit_modrm(0x2, dst_code & 0x7, base_code & 0x7);
+            self.emit_i32(offset);
+        }
+
+        Ok(())
+    }
+
+    /// Load 8-bit sign-extended to 64-bit: MOVSX r64, [base + offset]
+    pub fn emit_load8_sext(
+        &mut self,
+        base: X86Register,
+        offset: i32,
+        dst: X86Register,
+    ) -> Result<(), String> {
+        let base_code = base.code();
+        let dst_code = dst.code();
+
+        let base_ext = base_code >= 8;
+        let dst_ext = dst_code >= 8;
+
+        self.emit_rex(true, dst_ext, false, base_ext);
+        self.emit_byte(0x0F);
+        self.emit_byte(0xBE); // MOVSX r64, m8
+
+        if offset == 0 {
+            self.emit_modrm(0x0, dst_code & 0x7, base_code & 0x7);
+        } else if offset >= -128 && offset <= 127 {
+            self.emit_modrm(0x1, dst_code & 0x7, base_code & 0x7);
+            self.emit_byte(offset as u8);
+        } else {
+            self.emit_modrm(0x2, dst_code & 0x7, base_code & 0x7);
+            self.emit_i32(offset);
+        }
+
+        Ok(())
+    }
+
+    /// Load 8-bit zero-extended to 64-bit: MOVZX r64, [base + offset]
+    pub fn emit_load8_zext(
+        &mut self,
+        base: X86Register,
+        offset: i32,
+        dst: X86Register,
+    ) -> Result<(), String> {
+        let base_code = base.code();
+        let dst_code = dst.code();
+
+        let base_ext = base_code >= 8;
+        let dst_ext = dst_code >= 8;
+
+        self.emit_rex(true, dst_ext, false, base_ext);
+        self.emit_byte(0x0F);
+        self.emit_byte(0xB6); // MOVZX r64, m8
+
+        if offset == 0 {
+            self.emit_modrm(0x0, dst_code & 0x7, base_code & 0x7);
+        } else if offset >= -128 && offset <= 127 {
+            self.emit_modrm(0x1, dst_code & 0x7, base_code & 0x7);
+            self.emit_byte(offset as u8);
+        } else {
+            self.emit_modrm(0x2, dst_code & 0x7, base_code & 0x7);
+            self.emit_i32(offset);
+        }
+
+        Ok(())
+    }
+
+    /// Emit memory store instructions
+    /// Store 64-bit to memory: MOV [base + offset], r64
+    pub fn emit_store64(
+        &mut self,
+        src: X86Register,
+        base: X86Register,
+        offset: i32,
+    ) -> Result<(), String> {
+        let src_code = src.code();
+        let base_code = base.code();
+
+        let src_ext = src_code >= 8;
+        let base_ext = base_code >= 8;
+
+        self.emit_rex(true, src_ext, false, base_ext);
+        self.emit_byte(0x89); // MOV m64, r64
+
+        if offset == 0 {
+            self.emit_modrm(0x0, src_code & 0x7, base_code & 0x7);
+        } else if offset >= -128 && offset <= 127 {
+            self.emit_modrm(0x1, src_code & 0x7, base_code & 0x7);
+            self.emit_byte(offset as u8);
+        } else {
+            self.emit_modrm(0x2, src_code & 0x7, base_code & 0x7);
+            self.emit_i32(offset);
+        }
+
+        Ok(())
+    }
+
+    /// Store 32-bit to memory: MOV [base + offset], r32
+    pub fn emit_store32(
+        &mut self,
+        src: X86Register,
+        base: X86Register,
+        offset: i32,
+    ) -> Result<(), String> {
+        let src_code = src.code();
+        let base_code = base.code();
+
+        let src_ext = src_code >= 8;
+        let base_ext = base_code >= 8;
+
+        self.emit_rex(false, src_ext, false, base_ext); // REX.W = 0 for 32-bit
+        self.emit_byte(0x89); // MOV m32, r32
+
+        if offset == 0 {
+            self.emit_modrm(0x0, src_code & 0x7, base_code & 0x7);
+        } else if offset >= -128 && offset <= 127 {
+            self.emit_modrm(0x1, src_code & 0x7, base_code & 0x7);
+            self.emit_byte(offset as u8);
+        } else {
+            self.emit_modrm(0x2, src_code & 0x7, base_code & 0x7);
+            self.emit_i32(offset);
+        }
+
+        Ok(())
+    }
+
+    /// Store 16-bit to memory: MOV [base + offset], r16
+    pub fn emit_store16(
+        &mut self,
+        src: X86Register,
+        base: X86Register,
+        offset: i32,
+    ) -> Result<(), String> {
+        let src_code = src.code();
+        let base_code = base.code();
+
+        let src_ext = src_code >= 8;
+        let base_ext = base_code >= 8;
+
+        // Need 0x66 prefix for 16-bit operand size
+        self.emit_byte(0x66);
+        self.emit_rex(false, src_ext, false, base_ext); // REX without W bit
+        self.emit_byte(0x89); // MOV m16, r16
+
+        if offset == 0 {
+            self.emit_modrm(0x0, src_code & 0x7, base_code & 0x7);
+        } else if offset >= -128 && offset <= 127 {
+            self.emit_modrm(0x1, src_code & 0x7, base_code & 0x7);
+            self.emit_byte(offset as u8);
+        } else {
+            self.emit_modrm(0x2, src_code & 0x7, base_code & 0x7);
+            self.emit_i32(offset);
+        }
+
+        Ok(())
+    }
+
+    /// Store 8-bit to memory: MOV [base + offset], r8
+    pub fn emit_store8(
+        &mut self,
+        src: X86Register,
+        base: X86Register,
+        offset: i32,
+    ) -> Result<(), String> {
+        let src_code = src.code();
+        let base_code = base.code();
+
+        let src_ext = src_code >= 8;
+        let base_ext = base_code >= 8;
+
+        if src_ext || base_ext {
+            self.emit_rex(false, src_ext, false, base_ext);
+        }
+        self.emit_byte(0x88); // MOV m8, r8
+
+        if offset == 0 {
+            self.emit_modrm(0x0, src_code & 0x7, base_code & 0x7);
+        } else if offset >= -128 && offset <= 127 {
+            self.emit_modrm(0x1, src_code & 0x7, base_code & 0x7);
+            self.emit_byte(offset as u8);
+        } else {
+            self.emit_modrm(0x2, src_code & 0x7, base_code & 0x7);
+            self.emit_i32(offset);
+        }
+
+        Ok(())
+    }
 }
 
 impl Default for X86Emitter {
