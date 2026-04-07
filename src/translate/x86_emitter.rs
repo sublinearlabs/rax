@@ -97,6 +97,38 @@ impl X86Emitter {
     pub fn record_relocation(&mut self, offset: usize, label: String) {
         self.relocations.push((offset, label));
     }
+
+    /// Emit a REX prefix for 64-bit operations
+    /// REX = 0x48 for basic 64-bit operations
+    /// With register extensions: 0x4C (add R bit for dest), etc.
+    pub fn emit_rex(&mut self, w: bool, r: bool, x: bool, b: bool) {
+        let mut rex = 0x40u8;
+        if w {
+            rex |= 0x08;
+        } // W bit - 64-bit operand
+        if r {
+            rex |= 0x04;
+        } // R bit - extend ModRM.reg
+        if x {
+            rex |= 0x02;
+        } // X bit - extend SIB.index
+        if b {
+            rex |= 0x01;
+        } // B bit - extend ModRM.r/m or SIB.base
+        self.emit_byte(rex);
+    }
+
+    /// Emit a ModRM byte
+    /// mod (2 bits) | reg (3 bits) | r/m (3 bits)
+    pub fn emit_modrm(&mut self, mode: u8, reg: u8, rm: u8) {
+        let byte = ((mode & 0x3) << 6) | ((reg & 0x7) << 3) | (rm & 0x7);
+        self.emit_byte(byte);
+    }
+
+    /// Emit RET instruction
+    pub fn emit_ret(&mut self) {
+        self.emit_byte(0xC3);
+    }
 }
 
 impl Default for X86Emitter {
