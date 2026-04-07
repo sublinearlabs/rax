@@ -705,6 +705,309 @@ impl X86Emitter {
     pub fn emit_jnz(&mut self, target: &str) -> Result<(), String> {
         self.emit_jne(target)
     }
+
+    /// Emit SHL instruction (Shift Left Logical)
+    /// Can shift by CL register or immediate
+    pub fn emit_shl(&mut self, src: &Operand, dst: &Operand) -> Result<(), String> {
+        match (src, dst) {
+            // shl r64, imm8 - REX.W + 0xC1 + ModRM + imm8
+            (Operand::Immediate(imm), Operand::Register(dst_reg)) => {
+                if *imm < 0 || *imm > 63 {
+                    return Err(format!("SHL immediate must be 0-63, got {}", imm));
+                }
+
+                let dst_code = dst_reg.code();
+                let dst_ext = dst_code >= 8;
+
+                self.emit_rex(true, false, false, dst_ext);
+                self.emit_byte(0xC1);
+                self.emit_modrm(0x3, 4, dst_code & 0x7); // 4 for SHL
+                self.emit_byte(*imm as u8);
+
+                Ok(())
+            }
+
+            // shl r64, cl - REX.W + 0xD3 + ModRM (CL register implicit)
+            (Operand::Register(src_reg), Operand::Register(dst_reg)) => {
+                if *src_reg != X86Register::RCX {
+                    return Err(format!(
+                        "SHL register form only supports CL (RCX), got {:?}",
+                        src_reg
+                    ));
+                }
+
+                let dst_code = dst_reg.code();
+                let dst_ext = dst_code >= 8;
+
+                self.emit_rex(true, false, false, dst_ext);
+                self.emit_byte(0xD3);
+                self.emit_modrm(0x3, 4, dst_code & 0x7); // 4 for SHL
+
+                Ok(())
+            }
+
+            _ => Err(format!("Invalid SHL operands: {} {}", src, dst)),
+        }
+    }
+
+    /// Emit SHR instruction (Shift Right Logical)
+    pub fn emit_shr(&mut self, src: &Operand, dst: &Operand) -> Result<(), String> {
+        match (src, dst) {
+            // shr r64, imm8 - REX.W + 0xC1 + ModRM + imm8
+            (Operand::Immediate(imm), Operand::Register(dst_reg)) => {
+                if *imm < 0 || *imm > 63 {
+                    return Err(format!("SHR immediate must be 0-63, got {}", imm));
+                }
+
+                let dst_code = dst_reg.code();
+                let dst_ext = dst_code >= 8;
+
+                self.emit_rex(true, false, false, dst_ext);
+                self.emit_byte(0xC1);
+                self.emit_modrm(0x3, 5, dst_code & 0x7); // 5 for SHR
+                self.emit_byte(*imm as u8);
+
+                Ok(())
+            }
+
+            // shr r64, cl - REX.W + 0xD3 + ModRM
+            (Operand::Register(src_reg), Operand::Register(dst_reg)) => {
+                if *src_reg != X86Register::RCX {
+                    return Err(format!(
+                        "SHR register form only supports CL (RCX), got {:?}",
+                        src_reg
+                    ));
+                }
+
+                let dst_code = dst_reg.code();
+                let dst_ext = dst_code >= 8;
+
+                self.emit_rex(true, false, false, dst_ext);
+                self.emit_byte(0xD3);
+                self.emit_modrm(0x3, 5, dst_code & 0x7); // 5 for SHR
+
+                Ok(())
+            }
+
+            _ => Err(format!("Invalid SHR operands: {} {}", src, dst)),
+        }
+    }
+
+    /// Emit SAR instruction (Shift Right Arithmetic - sign-extending)
+    pub fn emit_sar(&mut self, src: &Operand, dst: &Operand) -> Result<(), String> {
+        match (src, dst) {
+            // sar r64, imm8 - REX.W + 0xC1 + ModRM + imm8
+            (Operand::Immediate(imm), Operand::Register(dst_reg)) => {
+                if *imm < 0 || *imm > 63 {
+                    return Err(format!("SAR immediate must be 0-63, got {}", imm));
+                }
+
+                let dst_code = dst_reg.code();
+                let dst_ext = dst_code >= 8;
+
+                self.emit_rex(true, false, false, dst_ext);
+                self.emit_byte(0xC1);
+                self.emit_modrm(0x3, 7, dst_code & 0x7); // 7 for SAR
+                self.emit_byte(*imm as u8);
+
+                Ok(())
+            }
+
+            // sar r64, cl - REX.W + 0xD3 + ModRM
+            (Operand::Register(src_reg), Operand::Register(dst_reg)) => {
+                if *src_reg != X86Register::RCX {
+                    return Err(format!(
+                        "SAR register form only supports CL (RCX), got {:?}",
+                        src_reg
+                    ));
+                }
+
+                let dst_code = dst_reg.code();
+                let dst_ext = dst_code >= 8;
+
+                self.emit_rex(true, false, false, dst_ext);
+                self.emit_byte(0xD3);
+                self.emit_modrm(0x3, 7, dst_code & 0x7); // 7 for SAR
+
+                Ok(())
+            }
+
+            _ => Err(format!("Invalid SAR operands: {} {}", src, dst)),
+        }
+    }
+
+    /// Emit IMUL instruction (Signed Multiply)
+    /// Two-operand form: imul r64, r64
+    pub fn emit_imul(&mut self, src: &Operand, dst: &Operand) -> Result<(), String> {
+        match (src, dst) {
+            // imul r64, r64 - REX.W + 0x0F 0xAF + ModRM
+            (Operand::Register(src_reg), Operand::Register(dst_reg)) => {
+                let src_code = src_reg.code();
+                let dst_code = dst_reg.code();
+
+                let src_ext = src_code >= 8;
+                let dst_ext = dst_code >= 8;
+
+                self.emit_rex(true, dst_ext, false, src_ext);
+                self.emit_byte(0x0F);
+                self.emit_byte(0xAF);
+                self.emit_modrm(0x3, dst_code & 0x7, src_code & 0x7);
+
+                Ok(())
+            }
+
+            // imul r64, imm32 - REX.W + 0x69 + ModRM + imm32
+            (Operand::Immediate(imm), Operand::Register(dst_reg)) => {
+                if *imm < i32::MIN as i64 || *imm > i32::MAX as i64 {
+                    return Err(format!("IMUL immediate must fit in i32, got {}", imm));
+                }
+
+                let dst_code = dst_reg.code();
+                let dst_ext = dst_code >= 8;
+
+                self.emit_rex(true, false, false, dst_ext);
+                self.emit_byte(0x69);
+                self.emit_modrm(0x3, dst_code & 0x7, dst_code & 0x7); // dst is both source and destination
+                self.emit_i32(*imm as i32);
+
+                Ok(())
+            }
+
+            _ => Err(format!("Invalid IMUL operands: {} {}", src, dst)),
+        }
+    }
+
+    /// Emit MUL instruction (Unsigned Multiply)
+    /// One-operand form: mul r64 (multiplies RAX by r64, result in RDX:RAX)
+    pub fn emit_mul(&mut self, src: &Operand) -> Result<(), String> {
+        match src {
+            // mul r64 - REX.W + 0xF7 + ModRM
+            Operand::Register(src_reg) => {
+                let src_code = src_reg.code();
+                let src_ext = src_code >= 8;
+
+                self.emit_rex(true, false, false, src_ext);
+                self.emit_byte(0xF7);
+                self.emit_modrm(0x3, 4, src_code & 0x7); // 4 for MUL
+
+                Ok(())
+            }
+
+            _ => Err(format!("MUL only supports register operand, got {}", src)),
+        }
+    }
+
+    /// Emit IDIV instruction (Signed Divide)
+    /// One-operand form: idiv r64 (divides RDX:RAX by r64)
+    /// Quotient in RAX, remainder in RDX
+    pub fn emit_idiv(&mut self, src: &Operand) -> Result<(), String> {
+        match src {
+            // idiv r64 - REX.W + 0xF7 + ModRM
+            Operand::Register(src_reg) => {
+                let src_code = src_reg.code();
+                let src_ext = src_code >= 8;
+
+                self.emit_rex(true, false, false, src_ext);
+                self.emit_byte(0xF7);
+                self.emit_modrm(0x3, 7, src_code & 0x7); // 7 for IDIV
+
+                Ok(())
+            }
+
+            _ => Err(format!("IDIV only supports register operand, got {}", src)),
+        }
+    }
+
+    /// Emit DIV instruction (Unsigned Divide)
+    /// One-operand form: div r64 (divides RDX:RAX by r64)
+    /// Quotient in RAX, remainder in RDX
+    pub fn emit_div(&mut self, src: &Operand) -> Result<(), String> {
+        match src {
+            // div r64 - REX.W + 0xF7 + ModRM
+            Operand::Register(src_reg) => {
+                let src_code = src_reg.code();
+                let src_ext = src_code >= 8;
+
+                self.emit_rex(true, false, false, src_ext);
+                self.emit_byte(0xF7);
+                self.emit_modrm(0x3, 6, src_code & 0x7); // 6 for DIV
+
+                Ok(())
+            }
+
+            _ => Err(format!("DIV only supports register operand, got {}", src)),
+        }
+    }
+
+    /// Emit CQO instruction (Convert Quadword to Octaword)
+    /// Sign-extends RAX to RDX:RAX for signed division
+    pub fn emit_cqo(&mut self) {
+        self.emit_rex(true, false, false, false);
+        self.emit_byte(0x99);
+    }
+
+    /// Emit CDQ instruction (Convert Doubleword to Quadword)
+    /// Sign-extends EAX to EDX:EAX for signed 32-bit division
+    pub fn emit_cdq(&mut self) {
+        self.emit_byte(0x99); // No REX needed for 32-bit
+    }
+
+    /// Emit XOR r64, r64 to zero a register
+    pub fn emit_xor_self(&mut self, reg: &X86Register) -> Result<(), String> {
+        self.emit_xor(&Operand::Register(*reg), &Operand::Register(*reg))
+    }
+
+    /// Emit MOVSX instruction (Move with Sign Extension)
+    /// movsx r64, r32 - sign-extends 32-bit to 64-bit
+    pub fn emit_movsx_32_to_64(&mut self, src: &Operand, dst: &Operand) -> Result<(), String> {
+        match (src, dst) {
+            (Operand::Register(src_reg), Operand::Register(dst_reg)) => {
+                let src_code = src_reg.code();
+                let dst_code = dst_reg.code();
+
+                let src_ext = src_code >= 8;
+                let dst_ext = dst_code >= 8;
+
+                self.emit_rex(true, dst_ext, false, src_ext);
+                self.emit_byte(0x63); // MOVSXD r64, r32
+                self.emit_modrm(0x3, dst_code & 0x7, src_code & 0x7);
+
+                Ok(())
+            }
+
+            _ => Err(format!(
+                "MOVSX only supports register operands, got {} {}",
+                src, dst
+            )),
+        }
+    }
+
+    /// Emit MOVZX instruction (Move with Zero Extension)
+    /// movzx r64, r32 - zero-extends 32-bit to 64-bit
+    pub fn emit_movzx_32_to_64(&mut self, src: &Operand, dst: &Operand) -> Result<(), String> {
+        match (src, dst) {
+            (Operand::Register(src_reg), Operand::Register(dst_reg)) => {
+                let src_code = src_reg.code();
+                let dst_code = dst_reg.code();
+
+                let src_ext = src_code >= 8;
+                let dst_ext = dst_code >= 8;
+
+                // movzx r64, r32 can be done with MOV r32, r32 (which zero-extends to 64-bit)
+                // Or use REX.W = 0 and regular MOV, which zero-extends
+                self.emit_rex(false, dst_ext, false, src_ext); // REX.W = 0 for zero-extend
+                self.emit_byte(0x89);
+                self.emit_modrm(0x3, src_code & 0x7, dst_code & 0x7);
+
+                Ok(())
+            }
+
+            _ => Err(format!(
+                "MOVZX only supports register operands, got {} {}",
+                src, dst
+            )),
+        }
+    }
 }
 
 impl Default for X86Emitter {
