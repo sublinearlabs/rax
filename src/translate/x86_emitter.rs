@@ -98,6 +98,18 @@ impl X86Emitter {
         self.relocations.push((offset, label));
     }
 
+    /// Finalize the emitter: apply all relocations and return the bytecode
+    /// This must be called before using the bytecode for ELF generation
+    pub fn finalize(mut self) -> Result<Vec<u8>, String> {
+        self.apply_relocations()?;
+        Ok(self.buffer)
+    }
+
+    /// Take ownership of the buffer and return it (consumes the emitter)
+    pub fn into_buffer(self) -> Vec<u8> {
+        self.buffer
+    }
+
     /// Emit a REX prefix for 64-bit operations
     /// REX = 0x48 for basic 64-bit operations
     /// With register extensions: 0x4C (add R bit for dest), etc.
