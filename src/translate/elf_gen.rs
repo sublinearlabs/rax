@@ -75,18 +75,19 @@ impl ElfBuilder {
         // Text section will be aligned to page boundary
         // Size: ELF header (64) + Program header (56) + padding + text data
         let text_offset = 64 + 56; // After ELF header and program header
-        let text_offset_aligned = ((text_offset + self.config.page_align as usize - 1) 
-            / self.config.page_align as usize) * self.config.page_align as usize;
+        let text_offset_aligned = ((text_offset + self.config.page_align as usize - 1)
+            / self.config.page_align as usize)
+            * self.config.page_align as usize;
 
         // ============ ELF Header (64 bytes) ============
         // e_ident[16] - Identification bytes
-        elf.extend_from_slice(b"\x7FELF");        // Magic number
-        elf.push(2);                               // e_ident[4]: ELFCLASS64
-        elf.push(1);                               // e_ident[5]: ELFDATA2LSB (little-endian)
-        elf.push(1);                               // e_ident[6]: EV_CURRENT
-        elf.push(0);                               // e_ident[7]: ELFOSABI_SYSV
-        elf.push(0);                               // e_ident[8]: ABI version
-        elf.extend_from_slice(&[0; 7]);            // e_ident[9:16] - padding
+        elf.extend_from_slice(b"\x7FELF"); // Magic number
+        elf.push(2); // e_ident[4]: ELFCLASS64
+        elf.push(1); // e_ident[5]: ELFDATA2LSB (little-endian)
+        elf.push(1); // e_ident[6]: EV_CURRENT
+        elf.push(0); // e_ident[7]: ELFOSABI_SYSV
+        elf.push(0); // e_ident[8]: ABI version
+        elf.extend_from_slice(&[0; 7]); // e_ident[9:16] - padding
 
         // e_type (u16): ET_EXEC = 2 (executable file)
         elf.extend_from_slice(&2u16.to_le_bytes());
