@@ -1,7 +1,7 @@
 use std::ops::Index;
 
 /// Represents the different locations a RISCV register might be stored
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub(crate) enum RegisterLocation {
     ZERO, // useful if the compiler decides not to emit the zero register
     GPR(u8),
@@ -9,12 +9,20 @@ pub(crate) enum RegisterLocation {
     MEM(u64),
 }
 
+#[derive(Debug, Clone)]
 pub(crate) struct RegisterMapping {
     map: [RegisterLocation; 32],
 }
 
+impl RegisterMapping {
+    /// Create a new register mapping from an array of register locations
+    pub fn new(map: [RegisterLocation; 32]) -> Self {
+        RegisterMapping { map }
+    }
+}
+
 /// Represents a valid RISCV register
-struct RiscvRegister(u8);
+pub(crate) struct RiscvRegister(u8);
 
 impl RiscvRegister {
     fn new(reg_index: u8) -> Self {
