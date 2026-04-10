@@ -6,7 +6,9 @@
 use crate::aot::register_mapping::RegisterMapping;
 use crate::translate::register_config::RegisterAllocationConfig;
 use crate::translate::x86_emitter::X86Emitter;
-use crate::translate::x86_insn::X86Instruction;
+use crate::translate::x86_insn::{X86Instruction, X86Register, Operand};
+use crate::decode::Instruction as RiscvInstruction;
+use crate::translate::instruction_translator;
 
 /// Translation context tracking
 #[derive(Debug, Clone)]
@@ -149,6 +151,17 @@ impl RiscvToX86Translator {
             phase: self.context.phase,
         }
     }
+
+    /// Process a RISC-V instruction through translation
+    /// 
+    /// This is the main entry point for translating individual RISC-V instructions.
+    /// Returns an error if the instruction is not yet supported.
+    fn process_instruction(&mut self, riscv_insn: &RiscvInstruction) -> Result<(), String> {
+        instruction_translator::translate_instruction(self, riscv_insn)?;
+        self.context.pc += 4; // RISC-V instructions are always 4 bytes
+        Ok(())
+    }
+
 }
 
 impl Default for RiscvToX86Translator {
