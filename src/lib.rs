@@ -11,7 +11,7 @@ mod loader;
 mod memory;
 mod runner;
 pub mod trace;
-pub mod translate;
+pub mod x86_elf_gen;
 mod util;
 mod vm;
 

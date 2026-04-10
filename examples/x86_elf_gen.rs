@@ -7,7 +7,7 @@
 //! 4. Attempting to execute the binary
 //! 5. Verifying the results
 
-use riscv::translate::{ElfBuilder, ElfConfig, Operand, X86Emitter, X86Register};
+use riscv::x86_elf_gen::{ElfBuilder, ElfConfig, Operand, X86Emitter, X86Register};
 use std::fs;
 use std::process::Command;
 
