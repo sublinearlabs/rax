@@ -11,4 +11,3 @@ pub mod x86_insn;
 pub use elf_gen::{ElfBuilder, ElfConfig};
 pub use x86_emitter::X86Emitter;
 pub use x86_insn::{Operand, X86Instruction, X86Register};
-

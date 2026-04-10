@@ -11,9 +11,9 @@ mod loader;
 mod memory;
 mod runner;
 pub mod trace;
-pub mod x86_elf_gen;
 mod util;
 mod vm;
+pub mod x86_elf_gen;
 
 pub use host_io::HostIO;
 pub use loader::{init_from_elf, init_from_elf_with_tracer};
