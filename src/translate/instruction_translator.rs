@@ -1,252 +1,153 @@
+use crate::aot::register_mapping::RegisterLocation;
 /// RISC-V instruction to x86-64 translation logic
-/// 
+///
 /// This module contains the main translation dispatch for converting RISC-V instructions
 /// to x86-64 bytecode. Each RISC-V instruction generates 1-4 x86-64 instructions.
-
 use crate::decode::Instruction as RiscvInstruction;
-use crate::translate::x86_insn::{X86Instruction, Operand, X86Register};
+use crate::translate::register_mapper::RegisterMapper;
 use crate::translate::translator::RiscvToX86Translator;
+use crate::translate::x86_insn::{Operand, X86Instruction};
+
+/// Emit a binary operation with RegisterLocation operands
+/// Handles both GPR and memory locations transparently
+fn emit_bin_op<M: RegisterMapper>(
+    translator: &mut RiscvToX86Translator<M>,
+    src_loc: RegisterLocation,
+    dst_loc: RegisterLocation,
+    op: impl FnOnce(Operand, Operand) -> X86Instruction,
+) -> Result<(), String> {
+    let mapping = &translator.context().register_mapping;
+    // Convert locations to operands
+    let src_op = mapping.location_to_operand( src_loc)?;
+    let dst_op = mapping.location_to_operand(dst_loc)?;
+    translator.emit_instruction(&op(src_op, dst_op))
+}
 
 /// Translate a single RISC-V instruction to x86-64
-/// 
+///
 /// This function pattern-matches on the RISC-V instruction type and emits
 /// the appropriate x86-64 instruction sequence via the translator.
-/// 
+///
 /// Returns an error if the instruction is not yet supported.
-pub(crate) fn translate_instruction(
-    translator: &mut RiscvToX86Translator,
+pub(crate) fn translate_instruction<M: RegisterMapper>(
+    translator: &mut RiscvToX86Translator<M>,
     riscv_insn: &RiscvInstruction,
 ) -> Result<(), String> {
     use crate::decode::Instruction::*;
+
+    // Get the register mapping from the translator context
+    let mapping = &translator.context().register_mapping;
 
     match riscv_insn {
         // === Basic ALU Operations (R-type) ===
         // ADD rd, rs1, rs2 → X[rd] = (X[rs1] + X[rs2]) mod 2^64
         Add(r) => {
-            let rd_reg = Operand::Register(X86Register::RAX); // TODO: map from register_mapping
-            let rs1_reg = Operand::Register(X86Register::RBX);
-            let rs2_reg = Operand::Register(X86Register::RCX);
-            
-            // Don't emit mov if rd == rs1
+            let rd_loc = mapping.get_register_location(r.rd);
+            let rs1_loc = mapping.get_register_location(r.rs1);
+            let rs2_loc = mapping.get_register_location(r.rs2);
+
             if r.rd != r.rs1 {
-                translator.emit_instruction(&X86Instruction::Mov { src: rs1_reg.clone(), dst: rd_reg.clone() })?;
+                emit_bin_op(translator, rs1_loc, rd_loc, |src, dst| {
+                    X86Instruction::Mov { src, dst }
+                })?;
             }
-            translator.emit_instruction(&X86Instruction::Add { src: rs2_reg, dst: rd_reg })?;
+            emit_bin_op(translator, rs2_loc, rd_loc, |src, dst| {
+                X86Instruction::Add { src, dst }
+            })?;
         }
-        
+
         // SUB rd, rs1, rs2 → X[rd] = (X[rs1] - X[rs2]) mod 2^64
         Sub(r) => {
-            let rd_reg = Operand::Register(X86Register::RAX);
-            let rs1_reg = Operand::Register(X86Register::RBX);
-            let rs2_reg = Operand::Register(X86Register::RCX);
-            
+            let rd_loc = mapping.get_register_location(r.rd);
+            let rs1_loc = mapping.get_register_location(r.rs1);
+            let rs2_loc = mapping.get_register_location(r.rs2);
+
             if r.rd != r.rs1 {
-                translator.emit_instruction(&X86Instruction::Mov { src: rs1_reg.clone(), dst: rd_reg.clone() })?;
+                emit_bin_op(translator, rs1_loc, rd_loc, |src, dst| {
+                    X86Instruction::Mov { src, dst }
+                })?;
             }
-            translator.emit_instruction(&X86Instruction::Sub { src: rs2_reg, dst: rd_reg })?;
+            emit_bin_op(translator, rs2_loc, rd_loc, |src, dst| {
+                X86Instruction::Sub { src, dst }
+            })?;
         }
-        
+
         // AND rd, rs1, rs2 → X[rd] = X[rs1] & X[rs2]
         And(r) => {
-            let rd_reg = Operand::Register(X86Register::RAX);
-            let rs1_reg = Operand::Register(X86Register::RBX);
-            let rs2_reg = Operand::Register(X86Register::RCX);
-            
+            let rd_loc = mapping.get_register_location(r.rd);
+            let rs1_loc = mapping.get_register_location(r.rs1);
+            let rs2_loc = mapping.get_register_location(r.rs2);
+
             if r.rd != r.rs1 {
-                translator.emit_instruction(&X86Instruction::Mov { src: rs1_reg.clone(), dst: rd_reg.clone() })?;
+                emit_bin_op(translator, rs1_loc, rd_loc, |src, dst| {
+                    X86Instruction::Mov { src, dst }
+                })?;
             }
-            translator.emit_instruction(&X86Instruction::And { src: rs2_reg, dst: rd_reg })?;
+            emit_bin_op(translator, rs2_loc, rd_loc, |src, dst| {
+                X86Instruction::And { src, dst }
+            })?;
         }
-        
+
         // OR rd, rs1, rs2 → X[rd] = X[rs1] | X[rs2]
         Or(r) => {
-            let rd_reg = Operand::Register(X86Register::RAX);
-            let rs1_reg = Operand::Register(X86Register::RBX);
-            let rs2_reg = Operand::Register(X86Register::RCX);
-            
+            let rd_loc = mapping.get_register_location(r.rd);
+            let rs1_loc = mapping.get_register_location(r.rs1);
+            let rs2_loc = mapping.get_register_location(r.rs2);
+
             if r.rd != r.rs1 {
-                translator.emit_instruction(&X86Instruction::Mov { src: rs1_reg.clone(), dst: rd_reg.clone() })?;
+                emit_bin_op(translator, rs1_loc, rd_loc, |src, dst| {
+                    X86Instruction::Mov { src, dst }
+                })?;
             }
-            translator.emit_instruction(&X86Instruction::Or { src: rs2_reg, dst: rd_reg })?;
+            emit_bin_op(translator, rs2_loc, rd_loc, |src, dst| X86Instruction::Or {
+                src,
+                dst,
+            })?;
         }
-        
+
         // XOR rd, rs1, rs2 → X[rd] = X[rs1] ^ X[rs2]
         Xor(r) => {
-            let rd_reg = Operand::Register(X86Register::RAX);
-            let rs1_reg = Operand::Register(X86Register::RBX);
-            let rs2_reg = Operand::Register(X86Register::RCX);
-            
+            let rd_loc = mapping.get_register_location(r.rd);
+            let rs1_loc = mapping.get_register_location(r.rs1);
+            let rs2_loc = mapping.get_register_location(r.rs2);
+
             if r.rd != r.rs1 {
-                translator.emit_instruction(&X86Instruction::Mov { src: rs1_reg.clone(), dst: rd_reg.clone() })?;
+                emit_bin_op(translator, rs1_loc, rd_loc, |src, dst| {
+                    X86Instruction::Mov { src, dst }
+                })?;
             }
-            translator.emit_instruction(&X86Instruction::Xor { src: rs2_reg, dst: rd_reg })?;
+            emit_bin_op(translator, rs2_loc, rd_loc, |src, dst| {
+                X86Instruction::Xor { src, dst }
+            })?;
         }
-        
+
         // === ALU Immediate Operations (I-type) ===
-        // ADDI rd, rs1, imm → X[rd] = (X[rs1] + sext(imm[11:0])) mod 2^64
-        Addi(i) => {
-            let rd_reg = Operand::Register(X86Register::RAX);
-            let rs1_reg = Operand::Register(X86Register::RBX);
-            let imm_op = Operand::Immediate(i.imm as i64);
-            
-            if i.rd != i.rs1 {
-                translator.emit_instruction(&X86Instruction::Mov { src: rs1_reg.clone(), dst: rd_reg.clone() })?;
-            }
-            translator.emit_instruction(&X86Instruction::Add { src: imm_op, dst: rd_reg })?;
-        }
-        
-        // ORI rd, rs1, imm → X[rd] = X[rs1] | sext(imm[11:0])
-        Ori(i) => {
-            let rd_reg = Operand::Register(X86Register::RAX);
-            let rs1_reg = Operand::Register(X86Register::RBX);
-            let imm_op = Operand::Immediate(i.imm as i64);
-            
-            if i.rd != i.rs1 {
-                translator.emit_instruction(&X86Instruction::Mov { src: rs1_reg.clone(), dst: rd_reg.clone() })?;
-            }
-            translator.emit_instruction(&X86Instruction::Or { src: imm_op, dst: rd_reg })?;
-        }
-        
-        // ANDI rd, rs1, imm → X[rd] = X[rs1] & sext(imm[11:0])
-        Andi(i) => {
-            let rd_reg = Operand::Register(X86Register::RAX);
-            let rs1_reg = Operand::Register(X86Register::RBX);
-            let imm_op = Operand::Immediate(i.imm as i64);
-            
-            if i.rd != i.rs1 {
-                translator.emit_instruction(&X86Instruction::Mov { src: rs1_reg.clone(), dst: rd_reg.clone() })?;
-            }
-            translator.emit_instruction(&X86Instruction::And { src: imm_op, dst: rd_reg })?;
-        }
-        
-        // XORI rd, rs1, imm → X[rd] = X[rs1] ^ sext(imm[11:0])
-        Xori(i) => {
-            let rd_reg = Operand::Register(X86Register::RAX);
-            let rs1_reg = Operand::Register(X86Register::RBX);
-            let imm_op = Operand::Immediate(i.imm as i64);
-            
-            if i.rd != i.rs1 {
-                translator.emit_instruction(&X86Instruction::Mov { src: rs1_reg.clone(), dst: rd_reg.clone() })?;
-            }
-            translator.emit_instruction(&X86Instruction::Xor { src: imm_op, dst: rd_reg })?;
-        }
-        
+        // TODO: I-type instructions need refactoring to use RegisterLocation pattern
+        Addi(_i) => return Err("ADDI: Refactoring in progress".to_string()),
+        Ori(_i) => return Err("ORI: Refactoring in progress".to_string()),
+        Andi(_i) => return Err("ANDI: Refactoring in progress".to_string()),
+        Xori(_i) => return Err("XORI: Refactoring in progress".to_string()),
+
         // === Shift Operations ===
-        // SLLI rd, rs1, shamt → X[rd] = (X[rs1] << shamt) mod 2^64
-        Slli(sh) => {
-            let rd_reg = Operand::Register(X86Register::RAX);
-            let rs1_reg = Operand::Register(X86Register::RBX);
-            let shamt_op = Operand::Immediate(sh.shamt as i64);
-            
-            if sh.rd != sh.rs1 {
-                translator.emit_instruction(&X86Instruction::Mov { src: rs1_reg.clone(), dst: rd_reg.clone() })?;
-            }
-            translator.emit_instruction(&X86Instruction::Shl { src: shamt_op, dst: rd_reg })?;
-        }
-        
-        // SRLI rd, rs1, shamt → X[rd] = X[rs1] >> shamt (unsigned)
-        Srli(sh) => {
-            let rd_reg = Operand::Register(X86Register::RAX);
-            let rs1_reg = Operand::Register(X86Register::RBX);
-            let shamt_op = Operand::Immediate(sh.shamt as i64);
-            
-            if sh.rd != sh.rs1 {
-                translator.emit_instruction(&X86Instruction::Mov { src: rs1_reg.clone(), dst: rd_reg.clone() })?;
-            }
-            translator.emit_instruction(&X86Instruction::Shr { src: shamt_op, dst: rd_reg })?;
-        }
-        
-        // SRAI rd, rs1, shamt → X[rd] = X[rs1] >>> shamt (signed, arithmetic)
-        Srai(sh) => {
-            let rd_reg = Operand::Register(X86Register::RAX);
-            let rs1_reg = Operand::Register(X86Register::RBX);
-            let shamt_op = Operand::Immediate(sh.shamt as i64);
-            
-            if sh.rd != sh.rs1 {
-                translator.emit_instruction(&X86Instruction::Mov { src: rs1_reg.clone(), dst: rd_reg.clone() })?;
-            }
-            translator.emit_instruction(&X86Instruction::Sar { src: shamt_op, dst: rd_reg })?;
-        }
-        
-        // SLL rd, rs1, rs2 → X[rd] = (X[rs1] << (X[rs2] & 0x3F)) mod 2^64 (variable shift)
-        Sll(r) => {
-            let rd_reg = Operand::Register(X86Register::RAX);
-            let rs1_reg = Operand::Register(X86Register::RBX);
-            let rs2_reg = Operand::Register(X86Register::RCX);
-            
-            // Variable shifts in x86 require RCX for shift amount
-            // mov RCX, rs2; mov rax, rs1; shl rax, cl
-            if r.rd != r.rs1 {
-                translator.emit_instruction(&X86Instruction::Mov { src: rs1_reg.clone(), dst: rd_reg.clone() })?;
-            }
-            // TODO: Emit proper RCX load before shift
-            translator.emit_instruction(&X86Instruction::Shl { src: rs2_reg, dst: rd_reg })?;
-        }
-        
-        // SRL rd, rs1, rs2 → X[rd] = X[rs1] >> (X[rs2] & 0x3F) (unsigned variable shift)
-        Srl(r) => {
-            let rd_reg = Operand::Register(X86Register::RAX);
-            let rs1_reg = Operand::Register(X86Register::RBX);
-            let rs2_reg = Operand::Register(X86Register::RCX);
-            
-            if r.rd != r.rs1 {
-                translator.emit_instruction(&X86Instruction::Mov { src: rs1_reg.clone(), dst: rd_reg.clone() })?;
-            }
-            translator.emit_instruction(&X86Instruction::Shr { src: rs2_reg, dst: rd_reg })?;
-        }
-        
-        // SRA rd, rs1, rs2 → X[rd] = X[rs1] >>> (X[rs2] & 0x3F) (signed variable shift)
-        Sra(r) => {
-            let rd_reg = Operand::Register(X86Register::RAX);
-            let rs1_reg = Operand::Register(X86Register::RBX);
-            let rs2_reg = Operand::Register(X86Register::RCX);
-            
-            if r.rd != r.rs1 {
-                translator.emit_instruction(&X86Instruction::Mov { src: rs1_reg.clone(), dst: rd_reg.clone() })?;
-            }
-            translator.emit_instruction(&X86Instruction::Sar { src: rs2_reg, dst: rd_reg })?;
-        }
-        
+        // TODO: Shift instructions need refactoring to use RegisterLocation pattern
+        Slli(_sh) => return Err("SLLI: Refactoring in progress".to_string()),
+        Srli(_sh) => return Err("SRLI: Refactoring in progress".to_string()),
+        Srai(_sh) => return Err("SRAI: Refactoring in progress".to_string()),
+        Sll(_r) => return Err("SLL: Refactoring in progress".to_string()),
+        Srl(_r) => return Err("SRL: Refactoring in progress".to_string()),
+        Sra(_r) => return Err("SRA: Refactoring in progress".to_string()),
+
         // === Comparison Operations ===
-        // SLT rd, rs1, rs2 → X[rd] = (X[rs1] <_s X[rs2]) ? 1 : 0 (signed less than)
-        Slt(_r) => {
-            let rs1_reg = Operand::Register(X86Register::RBX);
-            let rs2_reg = Operand::Register(X86Register::RCX);
-            
-            // cmp rs1, rs2; setl rd
-            translator.emit_instruction(&X86Instruction::Cmp { src: rs2_reg, dst: rs1_reg })?;
-            let rd_reg = Operand::Register(X86Register::RAX);
-            translator.emit_instruction(&X86Instruction::Setl { dst: rd_reg })?;
-        }
-        
-        // SLTU rd, rs1, rs2 → X[rd] = (X[rs1] <_u X[rs2]) ? 1 : 0 (unsigned less than)
-        Sltu(_r) => {
-            // For unsigned less than, we need different logic
-            return Err("SLTU not yet fully implemented".to_string());
-        }
-        
-        // SLTI rd, rs1, imm → X[rd] = (X[rs1] <_s sext(imm)) ? 1 : 0
-        Slti(i) => {
-            let rs1_reg = Operand::Register(X86Register::RBX);
-            let imm_op = Operand::Immediate(i.imm as i64);
-            
-            // cmp rs1, imm; setl rd
-            translator.emit_instruction(&X86Instruction::Cmp { src: imm_op, dst: rs1_reg })?;
-            let rd_reg = Operand::Register(X86Register::RAX);
-            translator.emit_instruction(&X86Instruction::Setl { dst: rd_reg })?;
-        }
-        
-        // SLTIU rd, rs1, imm → X[rd] = (X[rs1] <_u sext(imm)) ? 1 : 0
-        Sltiu(_i) => {
-            // For unsigned less than immediate, similar complexity
-            return Err("SLTIU not yet fully implemented".to_string());
-        }
-        
+        // TODO: Comparison instructions need refactoring to use RegisterLocation pattern
+        Slt(_r) => return Err("SLT: Refactoring in progress".to_string()),
+        Sltu(_r) => return Err("SLTU: Refactoring in progress".to_string()),
+        Slti(_i) => return Err("SLTI: Refactoring in progress".to_string()),
+        Sltiu(_i) => return Err("SLTIU: Refactoring in progress".to_string()),
+
         _ => {
             return Err(format!("Instruction not yet translated: {:?}", riscv_insn));
         }
     }
-    
+
     Ok(())
 }
-
