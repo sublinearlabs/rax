@@ -3,7 +3,7 @@
 //! This module generates x86-64 bytecode from high-level instructions.
 //! It handles instruction encoding, REX prefixes, ModRM bytes, and label resolution.
 
-use crate::translate::x86_insn::{Operand, X86Instruction, X86Register};
+use crate::translate::x86_insn::{Operand, X86Register};
 use std::collections::HashMap;
 
 /// Emits x86-64 bytecode from instructions
