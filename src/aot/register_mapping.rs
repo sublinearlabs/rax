@@ -25,7 +25,7 @@ impl RegisterMapping {
 pub(crate) struct RiscvRegister(u8);
 
 impl RiscvRegister {
-    fn new(reg_index: u8) -> Self {
+    pub(crate) fn new(reg_index: u8) -> Self {
         if reg_index >= 32 {
             panic!("riscv registers are x0 - x31");
         }
