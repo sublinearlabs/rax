@@ -1,1 +1,1 @@
-pub(crate) mod register_mapping;
+pub mod register_mapping;

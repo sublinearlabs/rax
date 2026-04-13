@@ -1,7 +1,7 @@
-mod aot;
-mod decode;
+pub mod aot;
+pub mod decode;
 mod ecall;
-mod elf;
+pub mod elf;
 pub mod elf_gen;
 mod execute;
 mod host_io;

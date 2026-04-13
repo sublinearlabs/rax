@@ -18,7 +18,7 @@ fn emit_bin_op<M: RegisterMapper>(
 ) -> Result<(), String> {
     let mapping = &translator.context().register_mapping;
     // Convert locations to operands
-    let src_op = mapping.location_to_operand( src_loc)?;
+    let src_op = mapping.location_to_operand(src_loc)?;
     let dst_op = mapping.location_to_operand(dst_loc)?;
     translator.emit_instruction(&op(src_op, dst_op))
 }
