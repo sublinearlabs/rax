@@ -45,7 +45,6 @@ impl Compiler {
                 );
 
                 self.writeback_result(rd);
-                self.reset_temp();
             }
             _ => todo!(),
         }
