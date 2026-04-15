@@ -67,6 +67,7 @@ colored = "2.0"
 indicatif = "0.17"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+dynasmrt = "5.0.0"
 
 [dev-dependencies]
 eth_utils = { path = "./eth_utils" }
