@@ -16,6 +16,9 @@ fn translate_insns(insns: &[Instruction], register_mapping: &RegisterMapping) {
     // and we can assume we need three temps
     // so some kind of prepare register function that returns the needed registers
     // but also the write back logic
+    //
+    // now I have mov_to_gpr which can take a register and some temp
+    // I can return whether it was moved or not
 
     for insn in insns {
         match insn {
@@ -50,20 +53,23 @@ fn get_register(register_id: &u8, mapping: &RegisterMapping) -> u8 {
 }
 
 // TODO: make the target gpr typed
-fn mov_to_gpr(location: &RegisterLocation, target_gpr: u8, ops: &mut Assembler) {
+fn mov_to_gpr(location: &RegisterLocation, target_gpr: u8, ops: &mut Assembler) -> u8 {
     match location {
         RegisterLocation::Gpr(_) => {
             // do nothing, already gpr
+            target_gpr
         }
         RegisterLocation::Xmm(xmm) | RegisterLocation::XmmShared(xmm, XmmLane::LOWER) => {
             dynasm!(ops
                 ; movq Rq(target_gpr), Rx(*xmm)
             );
+            target_gpr + 1
         }
         RegisterLocation::XmmShared(xmm, XmmLane::UPPER) => {
             dynasm!(ops
                 ; pextrq Rq(target_gpr), Rx(*xmm), 1
             );
+            target_gpr + 1
         }
     }
 }
