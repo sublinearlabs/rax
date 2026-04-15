@@ -1,37 +1,44 @@
 use crate::{
-    aot::register_mapping::{RegisterMapping, RiscvRegister},
+    aot::register_mapping::{RegisterLocation, RegisterMapping, RiscvRegister},
     decode::{Instruction, R},
 };
-use dynasmrt::x86::Assembler;
-
-// need to figure out what is needed for this to be done
-// one concern is register mapping
+use dynasmrt::{dynasm, x86::Assembler};
 
 /// Converts a slice of RISCV Instruction to their corresponding
 /// x86 instructions
-fn translate_insns(insns: &[Instruction], assembler: Assembler, register_mapping: RegisterMapping) {
-    let ops = Assembler::new().unwrap();
+fn translate_insns(insns: &[Instruction], register_mapping: &RegisterMapping) {
+    let mut ops = Assembler::new().unwrap();
 
     for insn in insns {
         match insn {
             Instruction::Add(R { rd, rs1, rs2 }) => {
-                // what instructions are needed here?
-                // we are starting with
-                // add rd, rs1, rs2
-                // the expected result is rd = rs1 + rs2
-                // we can simulate that with
+                // I need a way to make this clean
+                // I want to be able to know the location
 
-                let rd = RiscvRegister::new(*rd);
-                let rs1 = RiscvRegister::new(*rs1);
-                let rs2 = RiscvRegister::new(*rs2);
+                // let us assume just GPR for now
+                let rd = get_register(rd, register_mapping);
+                let rs1 = get_register(rs1, register_mapping);
+                let rs2 = get_register(rs2, register_mapping);
 
                 if rd != rs1 {
-                    // mov R(rd), R(rs1)
+                    dynasm!(ops
+                        ; mov Rq(rd), Rq(rs1)
+                    );
                 }
 
-                // add R(rd), R(rs2)
+                dynasm!(ops
+                    ; add Rq(rd), Rq(rs2)
+                );
             }
             _ => todo!(),
         }
+    }
+}
+
+/// Returns x86 register associated with any given riscv register
+fn get_register(register_id: &u8, mapping: &RegisterMapping) -> u8 {
+    match mapping[RiscvRegister::new(*register_id)] {
+        RegisterLocation::GPR(loc_index) => loc_index,
+        _ => unimplemented!(),
     }
 }
