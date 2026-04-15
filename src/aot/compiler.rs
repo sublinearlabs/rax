@@ -52,7 +52,12 @@ fn get_register(register_id: &u8, mapping: &RegisterMapping) -> u8 {
     }
 }
 
+/// Emits assembly instruction to move RegisterContents in non-gpr locations
+/// to some target_gpr.
+/// If a movement occurs it returns target_gpr + 1
+/// If no movement returns target_gpr
 // TODO: make the target gpr typed
+// TODO: rather than returning u8, return next temp gpr
 fn mov_to_gpr(location: &RegisterLocation, target_gpr: u8, ops: &mut Assembler) -> u8 {
     match location {
         RegisterLocation::Gpr(_) => {
