@@ -2,16 +2,16 @@ use std::ops::Index;
 
 /// Represents the different locations a RISCV register might be stored
 // TODO: add a zero register
+// TODO: consider adding Mem spill (handle base + offset semantics)
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum RegisterLocation {
     Gpr(u8),
     Xmm(u8),
-    XmmShared(u8, XmmSharedSegment),
-    Mem(u64),
+    XmmShared(u8, XmmLane),
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub(crate) enum XmmSharedSegment {
+pub(crate) enum XmmLane {
     UPPER,
     LOWER,
 }
@@ -51,7 +51,7 @@ impl Index<RiscvRegister> for RegisterMapping {
 
 #[cfg(test)]
 mod tests {
-    use crate::aot::register_mapping::XmmSharedSegment;
+    use crate::aot::register_mapping::XmmLane;
 
     use super::{RegisterLocation, RegisterMapping, RiscvRegister};
 
@@ -75,8 +75,7 @@ mod tests {
     fn register_mapping_index_returns_expected_locations() {
         let map = std::array::from_fn(|idx| match idx {
             1 => RegisterLocation::Gpr(3),
-            2 => RegisterLocation::XmmShared(4, XmmSharedSegment::UPPER),
-            3 => RegisterLocation::Mem(0x1234),
+            2 => RegisterLocation::XmmShared(4, XmmLane::UPPER),
             _ => RegisterLocation::Gpr(0),
         });
         let mapping = RegisterMapping { map };
@@ -84,11 +83,7 @@ mod tests {
         assert_eq!(mapping[RiscvRegister::new(1)], RegisterLocation::Gpr(3));
         assert_eq!(
             mapping[RiscvRegister::new(2)],
-            RegisterLocation::XmmShared(4, XmmSharedSegment::UPPER)
-        );
-        assert_eq!(
-            mapping[RiscvRegister::new(3)],
-            RegisterLocation::Mem(0x1234)
+            RegisterLocation::XmmShared(4, XmmLane::UPPER)
         );
     }
 }

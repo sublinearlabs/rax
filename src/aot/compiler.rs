@@ -1,8 +1,8 @@
 use crate::{
-    aot::register_mapping::{RegisterLocation, RegisterMapping, RiscvRegister},
+    aot::register_mapping::{RegisterLocation, RegisterMapping, RiscvRegister, XmmLane},
     decode::{Instruction, R},
 };
-use dynasmrt::{dynasm, x64::Assembler, DynasmApi};
+use dynasmrt::{dynasm, relocations::SimpleRelocation, x64::Assembler, DynasmApi};
 
 /// Converts a slice of RISCV Instruction to their corresponding
 /// x86 instructions
@@ -46,5 +46,24 @@ fn get_register(register_id: &u8, mapping: &RegisterMapping) -> u8 {
     match mapping[RiscvRegister::new(*register_id)] {
         RegisterLocation::Gpr(loc_index) => loc_index,
         _ => unimplemented!(),
+    }
+}
+
+// TODO: make the target gpr typed
+fn mov_to_gpr(location: &RegisterLocation, target_gpr: u8, ops: &mut Assembler) {
+    match location {
+        RegisterLocation::Gpr(_) => {
+            // do nothing, already gpr
+        }
+        RegisterLocation::Xmm(xmm) | RegisterLocation::XmmShared(xmm, XmmLane::LOWER) => {
+            dynasm!(ops
+                ; movq Rq(target_gpr), Rx(*xmm)
+            );
+        }
+        RegisterLocation::XmmShared(xmm, XmmLane::UPPER) => {
+            dynasm!(ops
+                ; pextrq Rq(target_gpr), Rx(*xmm), 1
+            );
+        }
     }
 }
