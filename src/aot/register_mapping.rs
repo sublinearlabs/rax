@@ -3,14 +3,14 @@ use std::ops::Index;
 /// Represents the different locations a RISCV register might be stored
 // TODO: add a zero register
 // TODO: consider adding Mem spill (handle base + offset semantics)
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub(crate) enum RegisterLocation {
     Gpr(u8),
     Xmm(u8),
     XmmShared(u8, XmmLane),
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub(crate) enum XmmLane {
     UPPER,
     LOWER,
@@ -18,17 +18,15 @@ pub(crate) enum XmmLane {
 
 pub(crate) struct RegisterMapping {
     map: [RegisterLocation; 32],
-    /// Represents the first temp register
-    /// it is expected that a mapping will have 3 temp registers
-    /// and they are consecutive, so given some temp_base tb
-    /// all temp registers are as follows [tb, tb+1, tb+2]
-    pub(crate) temp_base: u8,
+    /// Represents the x86 gprs that have been reserved
+    /// for temporary operations
+    pub(crate) temps: [u8; 3],
 }
 
 impl RegisterMapping {
     /// Create a new register mapping from an array of register locations
-    pub fn new(map: [RegisterLocation; 32], temp_base: u8) -> Self {
-        RegisterMapping { map, temp_base }
+    pub fn new(map: [RegisterLocation; 32], temps: [u8; 3]) -> Self {
+        RegisterMapping { map, temps }
     }
 }
 

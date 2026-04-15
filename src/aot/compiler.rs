@@ -4,98 +4,132 @@ use crate::{
 };
 use dynasmrt::{dynasm, x64::Assembler, DynasmApi};
 
-/// Converts a slice of RISCV Instruction to their corresponding
-/// x86 instructions
-fn translate_insns(insns: &[Instruction], register_mapping: &RegisterMapping) {
-    let mut ops = Assembler::new().unwrap();
+struct AllocatedReg {
+    source: RegisterLocation,
+    // TODO: type GPR
+    dest: u8,
+}
 
-    // the next assumption is that spilled registers will be moved
-    // to some of the temp registers first
-    // then, instructions will work with the finalized temp registers
-    // hence the register mapping needs some notion of temporary
-    // and we can assume we need three temps
-    // so some kind of prepare register function that returns the needed registers
-    // but also the write back logic
-    //
-    // now I have mov_to_gpr which can take a register and some temp
-    // what I need now is a new register mapping structure
+struct Compiler {
+    ops: Assembler,
+    register_mapping: RegisterMapping,
+    current_temp: usize,
+}
 
-    for insn in insns {
+impl Compiler {
+    /// Converts a slice of RISCV Instruction to their corresponding
+    /// x86 instructions
+    fn translate_insns(&mut self, insns: &[Instruction]) {
+        for insn in insns {
+            self.translate_insn(insn);
+            self.reset_temp();
+        }
+    }
+
+    /// Converts a single RISCV instruction to its corresponding x86 instruction
+    fn translate_insn(&mut self, insn: &Instruction) {
         match insn {
             Instruction::Add(R { rd, rs1, rs2 }) => {
-                // let us assume just GPR for now
-                // note: also need to handle the zero register
-                let rd = get_register(rd, register_mapping);
-                let rs1 = get_register(rs1, register_mapping);
-                let rs2 = get_register(rs2, register_mapping);
+                let rs1 = self.prepare_input(*rs1);
+                let rs2 = self.prepare_input(*rs2);
+                let rd = self.prepare_output(*rd);
 
-                if rd != rs1 {
-                    dynasm!(ops
-                        ; mov Rq(rd), Rq(rs1)
+                if rd.dest != rs1.dest {
+                    dynasm!(self.ops
+                        ; mov Rq(rd.dest), Rq(rs1.dest)
                     );
                 }
 
-                dynasm!(ops
-                    ; add Rq(rd), Rq(rs2)
+                dynasm!(self.ops
+                    ; add Rq(rd.dest), Rq(rs2.dest)
                 );
+
+                self.writeback_result(rd);
+                self.reset_temp();
             }
             _ => todo!(),
         }
     }
-}
 
-/// Returns x86 register associated with any given riscv register
-fn get_register(register_id: &u8, mapping: &RegisterMapping) -> u8 {
-    match mapping[RiscvRegister::new(*register_id)] {
-        RegisterLocation::Gpr(loc_index) => loc_index,
-        _ => unimplemented!(),
+    /// Finds a GPR register for a given riscv register
+    /// if the riscv register has already been mapped to a gpr register nothing is done
+    /// if mapped to xmm, then it will be moved to a temp register first
+    fn prepare_input(&mut self, reg: u8) -> AllocatedReg {
+        let reg_location = self.register_mapping[RiscvRegister::new(reg)];
+        let dest;
+        match reg_location {
+            RegisterLocation::Gpr(idx) => {
+                // we don't do anything, already gpr
+                dest = idx;
+            }
+            RegisterLocation::Xmm(xmm) | RegisterLocation::XmmShared(xmm, XmmLane::LOWER) => {
+                dest = self.temp();
+                dynasm!(self.ops
+                    ; movq Rq(dest), Rx(xmm)
+                );
+            }
+            RegisterLocation::XmmShared(xmm, XmmLane::UPPER) => {
+                dest = self.temp();
+                dynasm!(self.ops
+                    ; pextrq Rq(dest), Rx(xmm), 1
+                );
+            }
+        }
+
+        AllocatedReg {
+            source: reg_location,
+            dest,
+        }
     }
-}
 
-/// Normalize riscv registers to x86 general purpose registers
-/// if the riscv register is already mapped to an x86 gpr nothing is done
-/// if the riscv register is in xmm, it is move to one of the temp gprs
-/// returns a list of the finalized gpr registers
-// TODO: make the gpr register typed
-fn prepare_registers<const N: usize>(
-    registers: [u8; N],
-    mapping: &RegisterMapping,
-    ops: &mut Assembler,
-) -> [u8; N] {
-    let mut current_temp = mapping.temp_base;
+    /// Determines which GPR register a riscv register will be mapped to
+    /// it does not emit any x86 instruction
+    fn prepare_output(&mut self, reg: u8) -> AllocatedReg {
+        let reg_location = self.register_mapping[RiscvRegister::new(reg)];
+        let dest;
+        match reg_location {
+            RegisterLocation::Gpr(idx) => dest = idx,
+            RegisterLocation::Xmm(_) | RegisterLocation::XmmShared(_, _) => dest = self.temp(),
+        }
+        AllocatedReg {
+            source: reg_location,
+            dest,
+        }
+    }
 
-    std::array::from_fn(|i| {
-        let reg = registers[i];
-        let loc = &mapping[RiscvRegister::new(reg)];
-        let (dst, new_temp) = mov_to_gpr(loc, current_temp, ops);
-        current_temp = new_temp;
-        dst
-    })
-}
+    /// Writes the value stored in a temp gpr register to its target location
+    fn writeback_result(&mut self, reg_info: AllocatedReg) {
+        match reg_info.source {
+            RegisterLocation::Gpr(_) => {
+                // already GPR no need for writeback
+            }
+            RegisterLocation::Xmm(xmm) => {
+                dynasm!(self.ops
+                    ; movq Rx(xmm), Rq(reg_info.dest)
+                );
+            }
+            RegisterLocation::XmmShared(xmm, XmmLane::LOWER) => {
+                dynasm!(self.ops
+                    ; pinsrq Rx(xmm), Rq(reg_info.dest), 0
+                );
+            }
+            RegisterLocation::XmmShared(xmm, XmmLane::UPPER) => {
+                dynasm!(self.ops
+                    ; pinsrq Rx(xmm), Rq(reg_info.dest), 1
+                );
+            }
+        }
+    }
 
-/// Emits assembly instruction to move RegisterContents in non-gpr locations
-/// to some target_gpr.
-/// If a movement occurs it returns target_gpr + 1
-/// If no movement returns target_gpr
-// TODO: make the target gpr typed
-// TODO: rather than returning u8, return next temp gpr
-fn mov_to_gpr(location: &RegisterLocation, target_gpr: u8, ops: &mut Assembler) -> (u8, u8) {
-    match location {
-        RegisterLocation::Gpr(reg) => {
-            // do nothing, already gpr
-            (*reg, target_gpr)
-        }
-        RegisterLocation::Xmm(xmm) | RegisterLocation::XmmShared(xmm, XmmLane::LOWER) => {
-            dynasm!(ops
-                ; movq Rq(target_gpr), Rx(*xmm)
-            );
-            (target_gpr, target_gpr + 1)
-        }
-        RegisterLocation::XmmShared(xmm, XmmLane::UPPER) => {
-            dynasm!(ops
-                ; pextrq Rq(target_gpr), Rx(*xmm), 1
-            );
-            (target_gpr, target_gpr + 1)
-        }
+    /// Returns a temporary GPR register
+    /// advaances the currrent temp register also
+    fn temp(&mut self) -> u8 {
+        self.current_temp += 1;
+        self.register_mapping.temps[self.current_temp - 1]
+    }
+
+    /// Reset the temp counter to the first temp variable
+    fn reset_temp(&mut self) {
+        self.current_temp = 0;
     }
 }
