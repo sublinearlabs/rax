@@ -2,7 +2,7 @@ use crate::{
     aot::register_mapping::{RegisterLocation, RegisterMapping, RiscvRegister},
     decode::{Instruction, R},
 };
-use dynasmrt::{dynasm, x86::Assembler};
+use dynasmrt::{dynasm, x86::Assembler, DynasmApi};
 
 /// Converts a slice of RISCV Instruction to their corresponding
 /// x86 instructions
