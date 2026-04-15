@@ -18,12 +18,17 @@ pub(crate) enum XmmLane {
 
 pub(crate) struct RegisterMapping {
     map: [RegisterLocation; 32],
+    /// Represents the first temp register
+    /// it is expected that a mapping will have 3 temp registers
+    /// and they are consecutive, so given some temp_base tb
+    /// all temp registers are as follows [tb, tb+1, tb+2]
+    pub(crate) temp_base: u8,
 }
 
 impl RegisterMapping {
     /// Create a new register mapping from an array of register locations
-    pub fn new(map: [RegisterLocation; 32]) -> Self {
-        RegisterMapping { map }
+    pub fn new(map: [RegisterLocation; 32], temp_base: u8) -> Self {
+        RegisterMapping { map, temp_base }
     }
 }
 
@@ -78,7 +83,7 @@ mod tests {
             2 => RegisterLocation::XmmShared(4, XmmLane::UPPER),
             _ => RegisterLocation::Gpr(0),
         });
-        let mapping = RegisterMapping { map };
+        let mapping = RegisterMapping { map, temp_base: 0 };
 
         assert_eq!(mapping[RiscvRegister::new(1)], RegisterLocation::Gpr(3));
         assert_eq!(
