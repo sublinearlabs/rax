@@ -61,9 +61,21 @@ impl Compiler {
                 self.writeback_result(rd);
             }
 
+            Instruction::Sub(R { rd, rs1, rs2 }) => {
+                let rs1 = self.prepare_input(*rs1);
+                let rs2 = self.prepare_input(*rs2);
+                let rd = self.prepare_output(*rd);
+
+                if rd.dest != rs1.dest {
+                    dynasm!(self.ops; mov Rq(rd.dest), Rq(rs1.dest));
+                }
+
+                dynasm!(self.ops; sub Rq(rd.dest), Rq(rs2.dest));
+
+                self.writeback_result(rd);
+            }
+
             // TODO:
-            // addi
-            // add
             // sub
             // subw
             // andi
@@ -79,7 +91,7 @@ impl Compiler {
             // bltu
             // sd
             // sb
-            // ecal
+            // ecall
             _ => todo!(),
         }
     }
