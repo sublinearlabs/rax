@@ -11,9 +11,13 @@ struct AllocatedReg {
     dest: u8,
 }
 
-enum AluOp {
+enum AluRrOp {
     Add,
     Sub,
+}
+
+enum AluRiOp {
+    Addi,
 }
 
 struct Compiler {
@@ -33,7 +37,7 @@ impl Compiler {
     }
 
     // TODO: write documentation
-    fn emit_alu_rr(&mut self, rd: &u8, rs1: &u8, rs2: &u8, alu_op: AluOp) {
+    fn emit_alu_rr(&mut self, rd: &u8, rs1: &u8, rs2: &u8, alu_op: AluRrOp) {
         // TODO: if rd == 0 we probably should not emit assembly
 
         let rs1 = self.prepare_input(*rs1);
@@ -45,48 +49,61 @@ impl Compiler {
         }
 
         match alu_op {
-            AluOp::Add => dynasm!(self.ops ; add Rq(rd.dest), Rq(rs2.dest)),
-            AluOp::Sub => dynasm!(self.ops ; sub Rq(rd.dest), Rq(rs2.dest)),
+            AluRrOp::Add => dynasm!(self.ops ; add Rq(rd.dest), Rq(rs2.dest)),
+            AluRrOp::Sub => dynasm!(self.ops ; sub Rq(rd.dest), Rq(rs2.dest)),
         }
 
         self.writeback_result(rd);
     }
 
+    // TODO: write documentation
+    fn emit_alu_ri(&mut self, rd: &u8, rs1: &u8, imm: &i32, alu_op: AluRiOp) {
+        // TODO: if rd == 0 we probably should not emit assembly
+        let rs1 = self.prepare_input(*rs1);
+        let rd = self.prepare_output(*rd);
+
+        if rd.dest != rs1.dest {
+            dynasm!(self.ops ; mov Rq(rd.dest), Rq(rs1.dest));
+        }
+
+        match alu_op {
+            AluRiOp::Addi => dynasm!(self.ops ; add Rq(rd.dest), *imm),
+        }
+    }
+
     /// Converts a single RISCV instruction to its corresponding x86 instruction
     fn translate_insn(&mut self, insn: &Instruction) {
         match insn {
-            Instruction::Add(R { rd, rs1, rs2 }) => self.emit_alu_rr(rd, rs1, rs2, AluOp::Add),
-            Instruction::Sub(R { rd, rs1, rs2 }) => self.emit_alu_rr(rd, rs1, rs2, AluOp::Sub),
-
-            Instruction::Addi(I { rd, rs1, imm }) => {
-                let rs1 = self.prepare_input(*rs1);
-                let rd = self.prepare_output(*rd);
-
-                if rd.dest != rs1.dest {
-                    dynasm!(self.ops; mov Rq(rd.dest), Rq(rs1.dest));
-                }
-
-                dynasm!(self.ops; add Rq(rd.dest), *imm);
-
-                self.writeback_result(rd);
-            }
+            Instruction::Add(R { rd, rs1, rs2 }) => self.emit_alu_rr(rd, rs1, rs2, AluRrOp::Add),
+            Instruction::Sub(R { rd, rs1, rs2 }) => self.emit_alu_rr(rd, rs1, rs2, AluRrOp::Sub),
+            Instruction::Addi(I { rd, rs1, imm }) => self.emit_alu_ri(rd, rs1, imm, AluRiOp::Addi),
 
             // TODO:
+            // alu_rr
+            // add
             // sub
-            // subw
-            // andi
-            // slli
             // or
             // mulhu
+            // subw
+            //
+            // alu_ri
+            // addi
+            // andi
+            // slli
+            //
+            // control/upper
             // lui
             // auipc
             // jalr
             // beq
             // bne
-            // bgeu
             // bltu
+            //
+            // memory
             // sd
             // sb
+            //
+            // system
             // ecall
             _ => todo!(),
         }
