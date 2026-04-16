@@ -1,6 +1,6 @@
 use crate::{
     aot::register_mapping::{RegisterLocation, RegisterMapping, RiscvRegister, XmmLane},
-    decode::{Instruction, R},
+    decode::{Instruction, I, R},
 };
 use dynasmrt::{dynasm, x64::Assembler, DynasmApi};
 
@@ -28,6 +28,7 @@ impl Compiler {
 
     /// Converts a single RISCV instruction to its corresponding x86 instruction
     fn translate_insn(&mut self, insn: &Instruction) {
+        // TODO: if rd == 0 we probably should not emit assembly
         match insn {
             Instruction::Add(R { rd, rs1, rs2 }) => {
                 let rs1 = self.prepare_input(*rs1);
@@ -46,6 +47,39 @@ impl Compiler {
 
                 self.writeback_result(rd);
             }
+
+            Instruction::Addi(I { rd, rs1, imm }) => {
+                let rs1 = self.prepare_input(*rs1);
+                let rd = self.prepare_output(*rd);
+
+                if rd.dest != rs1.dest {
+                    dynasm!(self.ops; mov Rq(rd.dest), Rq(rs1.dest));
+                }
+
+                dynasm!(self.ops; add Rq(rd.dest), *imm);
+
+                self.writeback_result(rd);
+            }
+
+            // TODO:
+            // addi
+            // add
+            // sub
+            // subw
+            // andi
+            // slli
+            // or
+            // mulhu
+            // lui
+            // auipc
+            // jalr
+            // beq
+            // bne
+            // bgeu
+            // bltu
+            // sd
+            // sb
+            // ecal
             _ => todo!(),
         }
     }
