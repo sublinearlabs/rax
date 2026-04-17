@@ -1,6 +1,6 @@
 use crate::{
     aot::register_mapping::{RegisterLocation, RegisterMapping, RiscvRegister, XmmLane},
-    decode::{Instruction, Sh, I, R, S},
+    decode::{Instruction, Sh, I, R, S, U},
 };
 use dynasmrt::{dynasm, x64::Assembler, DynasmApi};
 
@@ -33,6 +33,10 @@ enum ShiftRiOp {
 enum StoreOp {
     Sb,
     Sd,
+}
+
+enum UpperOp {
+    Lui,
 }
 
 struct Compiler {
@@ -75,6 +79,9 @@ impl Compiler {
             // STORES
             Instruction::Sb(S { rs1, rs2, imm }) => self.emit_store(rs1, rs2, imm, StoreOp::Sb),
             Instruction::Sd(S { rs1, rs2, imm }) => self.emit_store(rs1, rs2, imm, StoreOp::Sd),
+
+            // UPPER
+            Instruction::Lui(U { rd, imm }) => self.emit_upper(rd, imm, UpperOp::Lui),
 
             // TODO:
             // upper
@@ -211,6 +218,24 @@ impl Compiler {
             // mov r/m64, r64
             StoreOp::Sd => dynasm!(self.ops ; mov QWORD [Rq(addr_reg)], Rq(rs2.dest)),
         }
+    }
+
+    /// Converts immediate upper instructions to equivalent x86 assembly
+    fn emit_upper(&mut self, rd: &u8, imm: &i32, upper_op: UpperOp) {
+        // the zero register is always zero
+        if *rd == 0 {
+            return;
+        }
+
+        let rd = self.prepare_output(*rd);
+
+        match upper_op {
+            // note: the immediate has already been shifted by 12 on the decode layer
+            // hence we only need to store it in rd
+            UpperOp::Lui => dynasm!(self.ops ; mov Rq(rd.dest), *imm),
+        }
+
+        self.writeback_result(rd);
     }
 
     /// Finds a GPR register for a given riscv register
