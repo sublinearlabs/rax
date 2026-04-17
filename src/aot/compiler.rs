@@ -36,41 +36,6 @@ impl Compiler {
         }
     }
 
-    // TODO: write documentation
-    fn emit_alu_rr(&mut self, rd: &u8, rs1: &u8, rs2: &u8, alu_op: AluRrOp) {
-        // TODO: if rd == 0 we probably should not emit assembly
-
-        let rs1 = self.prepare_input(*rs1);
-        let rs2 = self.prepare_input(*rs2);
-        let rd = self.prepare_output(*rd);
-
-        if rd.dest != rs1.dest {
-            dynasm!(self.ops ; mov Rq(rd.dest), Rq(rs1.dest));
-        }
-
-        match alu_op {
-            AluRrOp::Add => dynasm!(self.ops ; add Rq(rd.dest), Rq(rs2.dest)),
-            AluRrOp::Sub => dynasm!(self.ops ; sub Rq(rd.dest), Rq(rs2.dest)),
-        }
-
-        self.writeback_result(rd);
-    }
-
-    // TODO: write documentation
-    fn emit_alu_ri(&mut self, rd: &u8, rs1: &u8, imm: &i32, alu_op: AluRiOp) {
-        // TODO: if rd == 0 we probably should not emit assembly
-        let rs1 = self.prepare_input(*rs1);
-        let rd = self.prepare_output(*rd);
-
-        if rd.dest != rs1.dest {
-            dynasm!(self.ops ; mov Rq(rd.dest), Rq(rs1.dest));
-        }
-
-        match alu_op {
-            AluRiOp::Addi => dynasm!(self.ops ; add Rq(rd.dest), *imm),
-        }
-    }
-
     /// Converts a single RISCV instruction to its corresponding x86 instruction
     fn translate_insn(&mut self, insn: &Instruction) {
         match insn {
@@ -106,6 +71,48 @@ impl Compiler {
             // system
             // ecall
             _ => todo!(),
+        }
+    }
+
+    /// Converts alu register register instructions to equivalent x86 assembly
+    fn emit_alu_rr(&mut self, rd: &u8, rs1: &u8, rs2: &u8, alu_op: AluRrOp) {
+        // the zero register is always zero
+        if *rd == 0 {
+            return;
+        }
+
+        let rs1 = self.prepare_input(*rs1);
+        let rs2 = self.prepare_input(*rs2);
+        let rd = self.prepare_output(*rd);
+
+        if rd.dest != rs1.dest {
+            dynasm!(self.ops ; mov Rq(rd.dest), Rq(rs1.dest));
+        }
+
+        match alu_op {
+            AluRrOp::Add => dynasm!(self.ops ; add Rq(rd.dest), Rq(rs2.dest)),
+            AluRrOp::Sub => dynasm!(self.ops ; sub Rq(rd.dest), Rq(rs2.dest)),
+        }
+
+        self.writeback_result(rd);
+    }
+
+    /// Converts alu register immediate instructions to equivalent x86 assembly
+    fn emit_alu_ri(&mut self, rd: &u8, rs1: &u8, imm: &i32, alu_op: AluRiOp) {
+        // the zero register is always zero
+        if *rd == 0 {
+            return;
+        }
+
+        let rs1 = self.prepare_input(*rs1);
+        let rd = self.prepare_output(*rd);
+
+        if rd.dest != rs1.dest {
+            dynasm!(self.ops ; mov Rq(rd.dest), Rq(rs1.dest));
+        }
+
+        match alu_op {
+            AluRiOp::Addi => dynasm!(self.ops ; add Rq(rd.dest), *imm),
         }
     }
 
