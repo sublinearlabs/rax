@@ -14,6 +14,7 @@ struct AllocatedReg {
 enum AluRrOp {
     Add,
     Sub,
+    Or,
 }
 
 enum AluRiOp {
@@ -41,18 +42,16 @@ impl Compiler {
         match insn {
             Instruction::Add(R { rd, rs1, rs2 }) => self.emit_alu_rr(rd, rs1, rs2, AluRrOp::Add),
             Instruction::Sub(R { rd, rs1, rs2 }) => self.emit_alu_rr(rd, rs1, rs2, AluRrOp::Sub),
+            Instruction::Or(R { rd, rs1, rs2 }) => self.emit_alu_rr(rd, rs1, rs2, AluRrOp::Or),
             Instruction::Addi(I { rd, rs1, imm }) => self.emit_alu_ri(rd, rs1, imm, AluRiOp::Addi),
 
             // TODO:
             // alu_rr
-            // add
-            // sub
             // or
             // mulhu
             // subw
             //
             // alu_ri
-            // addi
             // andi
             // slli
             //
@@ -92,6 +91,7 @@ impl Compiler {
         match alu_op {
             AluRrOp::Add => dynasm!(self.ops ; add Rq(rd.dest), Rq(rs2.dest)),
             AluRrOp::Sub => dynasm!(self.ops ; sub Rq(rd.dest), Rq(rs2.dest)),
+            AluRrOp::Or => dynasm!(self.ops ; or Rq(rd.dest), Rq(rs2.dest)),
         }
 
         self.writeback_result(rd);
