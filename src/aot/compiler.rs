@@ -19,6 +19,7 @@ enum AluRrOp {
 
 enum AluRiOp {
     Addi,
+    Andi,
 }
 
 struct Compiler {
@@ -40,14 +41,17 @@ impl Compiler {
     /// Converts a single RISCV instruction to its corresponding x86 instruction
     fn translate_insn(&mut self, insn: &Instruction) {
         match insn {
+            // ALU REGISTER REGISTER
             Instruction::Add(R { rd, rs1, rs2 }) => self.emit_alu_rr(rd, rs1, rs2, AluRrOp::Add),
             Instruction::Sub(R { rd, rs1, rs2 }) => self.emit_alu_rr(rd, rs1, rs2, AluRrOp::Sub),
             Instruction::Or(R { rd, rs1, rs2 }) => self.emit_alu_rr(rd, rs1, rs2, AluRrOp::Or),
+
+            // ALU REGISTER IMMEDIATE
             Instruction::Addi(I { rd, rs1, imm }) => self.emit_alu_ri(rd, rs1, imm, AluRiOp::Addi),
+            Instruction::Andi(I { rd, rs1, imm }) => self.emit_alu_ri(rd, rs1, imm, AluRiOp::Andi),
 
             // TODO:
             // alu_rr
-            // or
             // mulhu
             // subw
             //
@@ -113,6 +117,7 @@ impl Compiler {
 
         match alu_op {
             AluRiOp::Addi => dynasm!(self.ops ; add Rq(rd.dest), *imm),
+            AluRiOp::Andi => dynasm!(self.ops ; and Rq(rd.dest), *imm),
         }
     }
 
