@@ -68,9 +68,6 @@ impl Compiler {
             }
 
             // TODO:
-            // alu_rr
-            // mulhu
-            //
             // control/upper
             // lui
             // auipc
