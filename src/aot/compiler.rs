@@ -77,15 +77,20 @@ impl Compiler {
             Instruction::Sd(S { rs1, rs2, imm }) => self.emit_store(rs1, rs2, imm, StoreOp::Sd),
 
             // TODO:
-            // control/upper
+            // upper
+            // -----
             // lui
             // auipc
+            //
+            // control
+            // -------
             // jalr
             // beq
             // bne
             // bltu
             //
             // system
+            // ------
             // ecall
             _ => todo!(),
         }
