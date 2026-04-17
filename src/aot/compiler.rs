@@ -89,10 +89,10 @@ impl Compiler {
             // TODO:
             // control
             // -------
-            // jalr
             // beq
             // bne
             // bltu
+            // jalr
             //
             // system
             // ------
