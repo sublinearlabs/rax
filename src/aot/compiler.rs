@@ -32,6 +32,7 @@ enum ShiftRiOp {
 
 enum StoreOp {
     Sb,
+    Sd,
 }
 
 struct Compiler {
@@ -73,6 +74,7 @@ impl Compiler {
 
             // STORES
             Instruction::Sb(S { rs1, rs2, imm }) => self.emit_store(rs1, rs2, imm, StoreOp::Sb),
+            Instruction::Sd(S { rs1, rs2, imm }) => self.emit_store(rs1, rs2, imm, StoreOp::Sd),
 
             // TODO:
             // control/upper
@@ -203,6 +205,7 @@ impl Compiler {
         match store_op {
             // mov r/m8, r8
             StoreOp::Sb => dynasm!(self.ops ; mov BYTE [Rq(addr_reg)], Rb(rs2.dest)),
+            StoreOp::Sd => dynasm!(self.ops ; mov QWORD [Rq(addr_reg)], Rq(rs2.dest)),
         }
     }
 
