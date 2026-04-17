@@ -4,6 +4,9 @@ use crate::{
 };
 use dynasmrt::{dynasm, x64::Assembler, DynasmApi};
 
+const RAX: u8 = 0;
+const RDX: u8 = 2;
+
 struct AllocatedReg {
     source: RegisterLocation,
     // TODO: type GPR
@@ -15,6 +18,7 @@ enum AluRrOp {
     Sub,
     Or,
     Subw,
+    Mulhu,
 }
 
 enum AluRiOp {
@@ -50,6 +54,9 @@ impl Compiler {
             Instruction::Sub(R { rd, rs1, rs2 }) => self.emit_alu_rr(rd, rs1, rs2, AluRrOp::Sub),
             Instruction::Or(R { rd, rs1, rs2 }) => self.emit_alu_rr(rd, rs1, rs2, AluRrOp::Or),
             Instruction::Subw(R { rd, rs1, rs2 }) => self.emit_alu_rr(rd, rs1, rs2, AluRrOp::Subw),
+            Instruction::Mulhu(R { rd, rs1, rs2 }) => {
+                self.emit_alu_rr(rd, rs1, rs2, AluRrOp::Mulhu)
+            }
 
             // ALU REGISTER IMMEDIATE
             Instruction::Addi(I { rd, rs1, imm }) => self.emit_alu_ri(rd, rs1, imm, AluRiOp::Addi),
@@ -63,7 +70,6 @@ impl Compiler {
             // TODO:
             // alu_rr
             // mulhu
-            // subw
             //
             // control/upper
             // lui
@@ -107,6 +113,28 @@ impl Compiler {
                 dynasm!(self.ops; sub Rd(rd.dest), Rd(rs2.dest));
                 // sign extend the result to 64 bits
                 dynasm!(self.ops; movsxd Rq(rd.dest), Rd(rd.dest));
+            }
+            AluRrOp::Mulhu => {
+                // x86 mul r/m64 uses the rdx and rax as implicit registers
+                // RDX:RAX = RAX * r/m64
+                // so high XLEN bits of the multiplication are in RDX
+                // and low XLEN bits of the multiplication are in RAX
+                //
+                // for Mulhu we want to store the high XLEN bits in rd
+
+                // TODO: depending on the state of the temp regiters
+                // we might have to spill the current values of rax and rdx
+                // as mul will clobber their current values
+
+                if rs1.dest != RAX {
+                    dynasm!(self.ops ; mov rax, Rq(rs1.dest));
+                }
+
+                dynasm!(self.ops ; mul Rq(rs2.dest));
+
+                if rd.dest != RDX {
+                    dynasm!(self.ops ; mov Rq(rd.dest), rdx);
+                }
             }
         }
 
@@ -152,6 +180,8 @@ impl Compiler {
         match shift_op {
             ShiftRiOp::Slli => dynasm!(self.ops ; shl Rq(rd.dest), *shamt as i8),
         }
+
+        self.writeback_result(rd);
     }
 
     /// Finds a GPR register for a given riscv register
