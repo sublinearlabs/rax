@@ -14,6 +14,7 @@ enum AluRrOp {
     Add,
     Sub,
     Or,
+    Subw,
 }
 
 enum AluRiOp {
@@ -48,6 +49,7 @@ impl Compiler {
             Instruction::Add(R { rd, rs1, rs2 }) => self.emit_alu_rr(rd, rs1, rs2, AluRrOp::Add),
             Instruction::Sub(R { rd, rs1, rs2 }) => self.emit_alu_rr(rd, rs1, rs2, AluRrOp::Sub),
             Instruction::Or(R { rd, rs1, rs2 }) => self.emit_alu_rr(rd, rs1, rs2, AluRrOp::Or),
+            Instruction::Subw(R { rd, rs1, rs2 }) => self.emit_alu_rr(rd, rs1, rs2, AluRrOp::Subw),
 
             // ALU REGISTER IMMEDIATE
             Instruction::Addi(I { rd, rs1, imm }) => self.emit_alu_ri(rd, rs1, imm, AluRiOp::Addi),
@@ -100,6 +102,12 @@ impl Compiler {
             AluRrOp::Add => dynasm!(self.ops ; add Rq(rd.dest), Rq(rs2.dest)),
             AluRrOp::Sub => dynasm!(self.ops ; sub Rq(rd.dest), Rq(rs2.dest)),
             AluRrOp::Or => dynasm!(self.ops ; or Rq(rd.dest), Rq(rs2.dest)),
+            AluRrOp::Subw => {
+                // subtract the lower 32 bits
+                dynasm!(self.ops; sub Rd(rd.dest), Rd(rs2.dest));
+                // sign extend the result to 64 bits
+                dynasm!(self.ops; movsxd Rq(rd.dest), Rd(rd.dest));
+            }
         }
 
         self.writeback_result(rd);
