@@ -87,10 +87,6 @@ impl Compiler {
             Instruction::Auipc(U { rd, imm }) => self.emit_upper(rd, imm, UpperOp::Auipc),
 
             // TODO:
-            // upper
-            // -----
-            // auipc
-            //
             // control
             // -------
             // jalr
