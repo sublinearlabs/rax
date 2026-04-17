@@ -1,8 +1,7 @@
 use crate::{
     aot::register_mapping::{RegisterLocation, RegisterMapping, RiscvRegister, XmmLane},
-    decode::{Instruction, I, R},
+    decode::{Instruction, Sh, I, R},
 };
-use cranelift_codegen::ir::Inst;
 use dynasmrt::{dynasm, x64::Assembler, DynasmApi};
 
 struct AllocatedReg {
@@ -20,6 +19,10 @@ enum AluRrOp {
 enum AluRiOp {
     Addi,
     Andi,
+}
+
+enum ShiftRiOp {
+    Slli,
 }
 
 struct Compiler {
@@ -50,14 +53,15 @@ impl Compiler {
             Instruction::Addi(I { rd, rs1, imm }) => self.emit_alu_ri(rd, rs1, imm, AluRiOp::Addi),
             Instruction::Andi(I { rd, rs1, imm }) => self.emit_alu_ri(rd, rs1, imm, AluRiOp::Andi),
 
+            // SHIFT REGISTER IMMEDIATE
+            Instruction::Slli(Sh { rd, rs1, shamt }) => {
+                self.emit_shift_ri(rd, rs1, shamt, ShiftRiOp::Slli)
+            }
+
             // TODO:
             // alu_rr
             // mulhu
             // subw
-            //
-            // alu_ri
-            // andi
-            // slli
             //
             // control/upper
             // lui
@@ -118,6 +122,27 @@ impl Compiler {
         match alu_op {
             AluRiOp::Addi => dynasm!(self.ops ; add Rq(rd.dest), *imm),
             AluRiOp::Andi => dynasm!(self.ops ; and Rq(rd.dest), *imm),
+        }
+
+        self.writeback_result(rd);
+    }
+
+    /// Converts shift register immediate instructions to equivalent x86 assembly
+    fn emit_shift_ri(&mut self, rd: &u8, rs1: &u8, shamt: &u8, shift_op: ShiftRiOp) {
+        // the zero register is always zero
+        if *rd == 0 {
+            return;
+        }
+
+        let rs1 = self.prepare_input(*rs1);
+        let rd = self.prepare_output(*rd);
+
+        if rd.dest != rs1.dest {
+            dynasm!(self.ops ; mov Rq(rd.dest), Rq(rs1.dest));
+        }
+
+        match shift_op {
+            ShiftRiOp::Slli => dynasm!(self.ops ; shl Rq(rd.dest), *shamt as i8),
         }
     }
 
