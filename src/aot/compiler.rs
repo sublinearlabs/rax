@@ -1,6 +1,6 @@
 use crate::{
     aot::register_mapping::{RegisterLocation, RegisterMapping, RiscvRegister, XmmLane},
-    decode::{Instruction, Sh, I, R},
+    decode::{Instruction, Sh, I, R, S},
 };
 use dynasmrt::{dynasm, x64::Assembler, DynasmApi};
 
@@ -28,6 +28,10 @@ enum AluRiOp {
 
 enum ShiftRiOp {
     Slli,
+}
+
+enum StoreOp {
+    Sb,
 }
 
 struct Compiler {
@@ -66,6 +70,9 @@ impl Compiler {
             Instruction::Slli(Sh { rd, rs1, shamt }) => {
                 self.emit_shift_ri(rd, rs1, shamt, ShiftRiOp::Slli)
             }
+
+            // STORES
+            Instruction::Sb(S { rs1, rs2, imm }) => self.emit_store(rs1, rs2, imm, StoreOp::Sb),
 
             // TODO:
             // control/upper
@@ -181,6 +188,24 @@ impl Compiler {
         self.writeback_result(rd);
     }
 
+    // TODO: write documentation
+    fn emit_store(&mut self, rs1: &u8, rs2: &u8, imm: &i32, store_op: StoreOp) {
+        let rs1 = self.prepare_input(*rs1);
+
+        // TODO: there are ways to move bytes from xmm
+        // so one might not need to prepare input for rs2
+        let rs2 = self.prepare_input(*rs2);
+
+        // compute memory address (rs1 + imm)
+        let addr_reg = self.temp();
+        dynasm!(self.ops ; lea Rq(addr_reg), [Rq(rs1.dest) + *imm]);
+
+        match store_op {
+            // mov r/m8, r8
+            StoreOp::Sb => dynasm!(self.ops ; mov BYTE [Rq(addr_reg)], Rb(rs2.dest)),
+        }
+    }
+
     /// Finds a GPR register for a given riscv register
     /// if the riscv register has already been mapped to a gpr register nothing is done
     /// if mapped to xmm, then it will be moved to a temp register first
@@ -254,6 +279,7 @@ impl Compiler {
     /// Returns a temporary GPR register
     /// advaances the currrent temp register also
     fn temp(&mut self) -> u8 {
+        // TODO: implement bound checks on temp
         self.current_temp += 1;
         self.register_mapping.temps[self.current_temp - 1]
     }
