@@ -85,10 +85,6 @@ impl Compiler {
             // bne
             // bltu
             //
-            // memory
-            // sd
-            // sb
-            //
             // system
             // ecall
             _ => todo!(),
@@ -190,7 +186,7 @@ impl Compiler {
         self.writeback_result(rd);
     }
 
-    // TODO: write documentation
+    /// Converts store opreations to equivalent x86 assembly
     fn emit_store(&mut self, rs1: &u8, rs2: &u8, imm: &i32, store_op: StoreOp) {
         let rs1 = self.prepare_input(*rs1);
 
@@ -203,8 +199,11 @@ impl Compiler {
         dynasm!(self.ops ; lea Rq(addr_reg), [Rq(rs1.dest) + *imm]);
 
         match store_op {
+            // store byte
             // mov r/m8, r8
             StoreOp::Sb => dynasm!(self.ops ; mov BYTE [Rq(addr_reg)], Rb(rs2.dest)),
+            // store double (double in riscv is 64 bits)
+            // mov r/m64, r64
             StoreOp::Sd => dynasm!(self.ops ; mov QWORD [Rq(addr_reg)], Rq(rs2.dest)),
         }
     }
