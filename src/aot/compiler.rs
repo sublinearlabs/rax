@@ -204,17 +204,13 @@ impl Compiler {
         // so one might not need to prepare input for rs2
         let rs2 = self.prepare_input(*rs2);
 
-        // compute memory address (rs1 + imm)
-        let addr_reg = self.temp();
-        dynasm!(self.ops ; lea Rq(addr_reg), [Rq(rs1.dest) + *imm]);
-
         match store_op {
             // store byte
             // mov r/m8, r8
-            StoreOp::Sb => dynasm!(self.ops ; mov BYTE [Rq(addr_reg)], Rb(rs2.dest)),
+            StoreOp::Sb => dynasm!(self.ops ; mov BYTE [Rq(rs1.dest) + *imm], Rb(rs2.dest)),
             // store double (double in riscv is 64 bits)
             // mov r/m64, r64
-            StoreOp::Sd => dynasm!(self.ops ; mov QWORD [Rq(addr_reg)], Rq(rs2.dest)),
+            StoreOp::Sd => dynasm!(self.ops ; mov QWORD [Rq(rs1.dest) + *imm], Rq(rs2.dest)),
         }
     }
 
