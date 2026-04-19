@@ -56,7 +56,7 @@ struct Compiler {
     // TODO: because of the current state of this structure
     // we can really only have this work for non-compressed
     // riscv elfs and a single 'read-execute' segment.
-    jump_table: Vec<Option<AssemblyOffset>>,
+    jump_table: Vec<AssemblyOffset>,
 }
 
 impl Compiler {
@@ -68,14 +68,20 @@ impl Compiler {
             self.reset_temp();
         }
 
-        // TODO: resolve the dynamic labels
+        // resolve dynamic labels
+        for (index, label) in self.pc_labels.iter() {
+            self.ops
+                .labels_mut()
+                .define_dynamic(*label, self.jump_table[*index as usize])
+                .expect("failed to define dynamic label");
+        }
     }
 
     /// Converts a single RISCV instruction to its corresponding x86 instruction
     fn translate_insn(&mut self, insn: &Instruction) {
         // populate the jump table for the current pc
         // assumes that the pc jump by 4 (uncompressed) and a single read execute segment
-        self.jump_table.push(Some(self.ops.offset()));
+        self.jump_table.push(self.ops.offset());
 
         match insn {
             // ALU REGISTER REGISTER
