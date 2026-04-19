@@ -245,7 +245,7 @@ impl Compiler {
         self.writeback_result(rd);
     }
 
-    // TODO: add documentation
+    /// Converts branchs instructions with known targets to equivalent x86 assembly
     fn emit_branch(&mut self, rs1: &u8, rs2: &u8, imm: &i32, branch_op: BranchOp) {
         let rs1 = self.prepare_input(*rs1);
         let rs2 = self.prepare_input(*rs2);
