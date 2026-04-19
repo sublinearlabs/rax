@@ -3,7 +3,7 @@ use crate::{
     decode::{Instruction, Sh, B, I, R, S, U},
 };
 use alloy_primitives::map::foldhash::HashMap;
-use dynasmrt::{dynasm, x64::Assembler, DynamicLabel, DynasmApi, DynasmLabelApi};
+use dynasmrt::{dynasm, x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
 
 const RAX: u8 = 0;
 const RDX: u8 = 2;
@@ -53,6 +53,10 @@ struct Compiler {
     current_temp: usize,
     current_riscv_pc: u64,
     pc_labels: HashMap<u64, DynamicLabel>,
+    // TODO: because of the current state of this structure
+    // we can really only have this work for non-compressed
+    // riscv elfs and a single 'read-execute' segment.
+    jump_table: Vec<Option<AssemblyOffset>>,
 }
 
 impl Compiler {
@@ -69,6 +73,8 @@ impl Compiler {
 
     /// Converts a single RISCV instruction to its corresponding x86 instruction
     fn translate_insn(&mut self, insn: &Instruction) {
+        // TODO: populate the jump table
+
         match insn {
             // ALU REGISTER REGISTER
             Instruction::Add(R { rd, rs1, rs2 }) => self.emit_alu_rr(rd, rs1, rs2, AluRrOp::Add),
@@ -98,6 +104,11 @@ impl Compiler {
 
             // CONTROL
             Instruction::Beq(B { rs1, rs2, imm }) => self.emit_branch(rs1, rs2, imm, BranchOp::Beq),
+            Instruction::Bne(B { rs1, rs2, imm }) => self.emit_branch(rs1, rs2, imm, BranchOp::Bne),
+            Instruction::Bltu(B { rs1, rs2, imm }) => {
+                self.emit_branch(rs1, rs2, imm, BranchOp::Bltu)
+            }
+            Instruction::Jalr(I { rd, rs1, imm }) => self.emit_jalr(rd, rs1, imm)
 
             // TODO:
             // control
@@ -272,6 +283,13 @@ impl Compiler {
             BranchOp::Bne => dynasm!(self.ops ; jne =>*target_label),
             BranchOp::Bltu => dynasm!(self.ops ; jb =>*target_label),
         }
+    }
+
+    // TODO: write documentation
+    fn emit_jalr(&mut self, rd: &u8, rs1: &u8, imm: &i32) {
+        // I'd need a way to access the jump table in memory, so I am not sure I 
+        // can even implement this right now
+        todo!()
     }
 
     /// Finds a GPR register for a given riscv register
