@@ -43,6 +43,7 @@ enum UpperOp {
 
 enum BranchOp {
     Beq,
+    Bne,
 }
 
 struct Compiler {
@@ -61,6 +62,8 @@ impl Compiler {
             self.translate_insn(insn);
             self.reset_temp();
         }
+
+        // TODO: resolve the dynamic labels
     }
 
     /// Converts a single RISCV instruction to its corresponding x86 instruction
@@ -98,8 +101,6 @@ impl Compiler {
             // TODO:
             // control
             // -------
-            // beq
-            // bne
             // bltu
             // jalr
             //
@@ -268,6 +269,7 @@ impl Compiler {
 
         match branch_op {
             BranchOp::Beq => dynasm!(self.ops ; je =>*target_label),
+            BranchOp::Bne => dynasm!(self.ops ; jne =>*target_label),
         }
     }
 
