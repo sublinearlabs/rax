@@ -73,7 +73,9 @@ impl Compiler {
 
     /// Converts a single RISCV instruction to its corresponding x86 instruction
     fn translate_insn(&mut self, insn: &Instruction) {
-        // TODO: populate the jump table
+        // populate the jump table for the current pc
+        // assumes that the pc jump by 4 (uncompressed) and a single read execute segment
+        self.jump_table.push(Some(self.ops.offset()));
 
         match insn {
             // ALU REGISTER REGISTER
@@ -108,7 +110,7 @@ impl Compiler {
             Instruction::Bltu(B { rs1, rs2, imm }) => {
                 self.emit_branch(rs1, rs2, imm, BranchOp::Bltu)
             }
-            Instruction::Jalr(I { rd, rs1, imm }) => self.emit_jalr(rd, rs1, imm)
+            Instruction::Jalr(I { rd, rs1, imm }) => self.emit_jalr(rd, rs1, imm),
 
             // TODO:
             // control
@@ -287,7 +289,7 @@ impl Compiler {
 
     // TODO: write documentation
     fn emit_jalr(&mut self, rd: &u8, rs1: &u8, imm: &i32) {
-        // I'd need a way to access the jump table in memory, so I am not sure I 
+        // I'd need a way to access the jump table in memory, so I am not sure I
         // can even implement this right now
         todo!()
     }
