@@ -232,27 +232,7 @@ impl Compiler {
             UpperOp::Lui => dynasm!(self.ops ; mov Rq(rd.dest), *imm),
             UpperOp::Auipc => {
                 let auipc_val = self.current_riscv_pc.wrapping_add(*imm as i64 as u64);
-
-                // check if the auipc_val fits in imm32
-                // this determines the instruction(s) we emit for writing to
-                // rd
-                let fits_in_imm32 = i32::try_from(auipc_val as i64).is_ok();
-
-                if fits_in_imm32 {
-                    // emit direct i32 immediate move
-                    dynasm!(self.ops ; mov Rq(rd.dest), auipc_val as i32);
-                } else {
-                    // auipc_val larger than i32
-                    // mov low32 to rd
-                    dynasm!(self.ops ; mov Rd(rd.dest), auipc_val as i32);
-                    // move high32 to temp
-                    let tmp_reg = self.temp();
-                    dynasm!(self.ops ; mov Rd(tmp_reg), (auipc_val >> 32) as i32);
-                    // left shift tmp to high32 position
-                    dynasm!(self.ops ; shl Rq(tmp_reg), 32);
-                    // merge low and high
-                    dynasm!(self.ops ; or Rq(rd.dest), Rq(tmp_reg));
-                }
+                dynasm!(self.ops ; mov Rq(rd.dest), QWORD auipc_val as i64);
             }
         }
 
