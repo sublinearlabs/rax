@@ -44,6 +44,7 @@ enum UpperOp {
 enum BranchOp {
     Beq,
     Bne,
+    Bltu,
 }
 
 struct Compiler {
@@ -101,7 +102,6 @@ impl Compiler {
             // TODO:
             // control
             // -------
-            // bltu
             // jalr
             //
             // system
@@ -270,6 +270,7 @@ impl Compiler {
         match branch_op {
             BranchOp::Beq => dynasm!(self.ops ; je =>*target_label),
             BranchOp::Bne => dynasm!(self.ops ; jne =>*target_label),
+            BranchOp::Bltu => dynasm!(self.ops ; jb =>*target_label),
         }
     }
 
