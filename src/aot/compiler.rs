@@ -1,8 +1,9 @@
 use crate::{
     aot::register_mapping::{RegisterLocation, RegisterMapping, RiscvRegister, XmmLane},
-    decode::{Instruction, Sh, I, R, S, U},
+    decode::{Instruction, Sh, B, I, R, S, U},
 };
-use dynasmrt::{dynasm, x64::Assembler, DynasmApi};
+use alloy_primitives::map::foldhash::HashMap;
+use dynasmrt::{dynasm, x64::Assembler, DynamicLabel, DynasmApi, DynasmLabelApi};
 
 const RAX: u8 = 0;
 const RDX: u8 = 2;
@@ -40,11 +41,16 @@ enum UpperOp {
     Auipc,
 }
 
+enum BranchOp {
+    Beq,
+}
+
 struct Compiler {
     ops: Assembler,
     register_mapping: RegisterMapping,
     current_temp: usize,
     current_riscv_pc: u64,
+    pc_labels: HashMap<u64, DynamicLabel>,
 }
 
 impl Compiler {
@@ -85,6 +91,9 @@ impl Compiler {
             // UPPER
             Instruction::Lui(U { rd, imm }) => self.emit_upper(rd, imm, UpperOp::Lui),
             Instruction::Auipc(U { rd, imm }) => self.emit_upper(rd, imm, UpperOp::Auipc),
+
+            // CONTROL
+            Instruction::Beq(B { rs1, rs2, imm }) => self.emit_branch(rs1, rs2, imm, BranchOp::Beq),
 
             // TODO:
             // control
@@ -233,6 +242,33 @@ impl Compiler {
         }
 
         self.writeback_result(rd);
+    }
+
+    // TODO: add documentation
+    fn emit_branch(&mut self, rs1: &u8, rs2: &u8, imm: &i32, branch_op: BranchOp) {
+        let rs1 = self.prepare_input(*rs1);
+        let rs2 = self.prepare_input(*rs2);
+
+        dynasm!(self.ops ; cmp Rq(rs1.dest), Rq(rs2.dest));
+
+        // computes the target riscv pc
+        // we'd need to convert this to the equivalent riscv label
+        // problem is this pc might be references a location in the future
+        // hence the jump table won't be populated for this pc value yet
+        //
+        // to solve this we make use of a dynamic label that we'd patch
+        // after we have translated all the riscv instructions
+        let branch_target = self.current_riscv_pc.wrapping_add(*imm as i64 as u64);
+
+        // retrieve or create a new dynamic label for the target riscv pc
+        let target_label = self
+            .pc_labels
+            .entry(branch_target)
+            .or_insert_with(|| self.ops.new_dynamic_label());
+
+        match branch_op {
+            BranchOp::Beq => dynasm!(self.ops ; je =>*target_label),
+        }
     }
 
     /// Finds a GPR register for a given riscv register
