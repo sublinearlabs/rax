@@ -54,14 +54,14 @@ pub(crate) fn decode_elf(bytes: &[u8]) -> (MemoryDefault, u64) {
     (memory, entry)
 }
 
-pub(crate) struct Segment {
-    data: Vec<u8>,
-    insns: Vec<Instruction>,
-    entry: u64,
-    offset: usize,
-    file_size: usize,
-    mem_size: usize,
-    is_executable: bool,
+pub struct Segment {
+    pub data: Vec<u8>,
+    pub insns: Vec<Instruction>,
+    pub entry: u64,
+    pub offset: usize,
+    pub file_size: usize,
+    pub mem_size: usize,
+    pub is_executable: bool,
 }
 
 impl Segment {
@@ -109,9 +109,9 @@ impl Segment {
     }
 }
 
-pub(crate) struct Elf {
-    pub(crate) segments: Vec<Segment>,
-    pub(crate) global_entry: u64,
+pub struct Elf {
+    pub segments: Vec<Segment>,
+    pub global_entry: u64,
 }
 
 impl Elf {
@@ -124,7 +124,7 @@ impl Elf {
 }
 
 /// Parses the elf file
-pub(crate) fn parse_elf(bytes: &[u8]) -> Elf {
+pub fn parse_elf(bytes: &[u8]) -> Elf {
     let file =
         ElfBytes::<LittleEndian>::minimal_parse(bytes).expect("failed to parse the elf file");
     let ehdr = file.ehdr;
