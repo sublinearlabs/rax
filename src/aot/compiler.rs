@@ -84,6 +84,7 @@ impl Compiler {
         }
 
         // TODO: emit the jump table with the appropriate label
+        // TODO: note that the jump table has to be normalized to absolute values
         // TODO: move this to rodata
     }
 
