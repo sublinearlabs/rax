@@ -52,11 +52,16 @@ struct Compiler {
     register_mapping: RegisterMapping,
     current_temp: usize,
     current_riscv_pc: u64,
+    base_riscv_pc: u64,
     pc_labels: HashMap<u64, DynamicLabel>,
     // TODO: because of the current state of this structure
     // we can really only have this work for non-compressed
     // riscv elfs and a single 'read-execute' segment.
+    // also, for correct functioning the compiler needs to be
+    // passed the vaddr of the code section, so it can compute the
+    // absolute jump address.
     jump_table: Vec<AssemblyOffset>,
+    jt_label: DynamicLabel,
 }
 
 impl Compiler {
@@ -70,11 +75,16 @@ impl Compiler {
 
         // resolve dynamic labels
         for (index, label) in self.pc_labels.iter() {
+            // TODO: this pc indexing might not be correct
+            // it needs to be normalized to 0 index
             self.ops
                 .labels_mut()
                 .define_dynamic(*label, self.jump_table[*index as usize])
                 .expect("failed to define dynamic label");
         }
+
+        // TODO: emit the jump table with the appropriate label
+        // TODO: move this to rodata
     }
 
     /// Converts a single RISCV instruction to its corresponding x86 instruction
@@ -295,9 +305,38 @@ impl Compiler {
 
     // TODO: write documentation
     fn emit_jalr(&mut self, rd: &u8, rs1: &u8, imm: &i32) {
-        // I'd need a way to access the jump table in memory, so I am not sure I
-        // can even implement this right now
-        todo!()
+        let rs1 = self.prepare_input(*rs1);
+
+        if *rd != 0 {
+            let rd = self.prepare_output(*rd);
+
+            // write the return address to rd
+            // TODO: assumes we are always advancing the pc by 4
+            let return_pc = self.current_riscv_pc.wrapping_add(4);
+            dynasm!(self.ops ; mov Rq(rd.dest), QWORD return_pc as i64);
+
+            self.writeback_result(rd);
+        }
+
+        let target = self.temp();
+        let base_pc = self.temp();
+
+        // we want to compute the following
+        // target = (rs1 + imm) & !1
+        // idx = (target - base_riscv_pc) >> 2 (assumes uncompressed)
+        dynasm!(self.ops ; lea Rq(target), [Rq(rs1.dest) + *imm]);
+        dynasm!(self.ops ; and Rq(target), -2 as i32);
+        dynasm!(self.ops ; mov Rq(base_pc), QWORD self.base_riscv_pc as i64);
+        dynasm!(self.ops ; sub Rq(target), Rq(base_pc));
+        dynasm!(self.ops ; shr Rq(target), 2);
+
+        // reuse the base_pc temp register
+        let jump_table_base = base_pc;
+
+        // now we need to get the value at that jump table index
+        // and then jump to it
+        dynasm!(self.ops ; lea Rq(jump_table_base), [=>self.jt_label]);
+        dynasm!(self.ops ; jmp QWORD [Rq(jump_table_base) + Rq(target) * 8]);
     }
 
     /// Finds a GPR register for a given riscv register
