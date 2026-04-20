@@ -14,7 +14,7 @@ use std::collections::HashMap;
 #[derive(Debug, Clone)]
 pub struct PCMapping {
     pub pc_to_x86_offset: HashMap<u64, usize>,
-    pub pc_to_x86_size: HashMap<u64, usize>
+    pub pc_to_x86_size: HashMap<u64, usize>,
 }
 
 impl PCMapping {
@@ -22,7 +22,7 @@ impl PCMapping {
     pub fn new() -> Self {
         PCMapping {
             pc_to_x86_offset: HashMap::new(),
-            pc_to_x86_size: HashMap::new()
+            pc_to_x86_size: HashMap::new(),
         }
     }
 
@@ -36,7 +36,7 @@ impl PCMapping {
     pub fn get_x86_offset(&self, riscv_pc: u64) -> Option<usize> {
         self.pc_to_x86_offset.get(&riscv_pc).copied()
     }
-    
+
     /// Get x86-64 size for a RISC-V PC
     pub fn get_x86_size(&self, riscv_pc: u64) -> Option<usize> {
         self.pc_to_x86_size.get(&riscv_pc).copied()
@@ -57,7 +57,7 @@ pub struct TranslationContext<M: RegisterMapper> {
 #[derive(Debug, Clone)]
 pub struct RiscvToX86Translator<M: RegisterMapper> {
     /// Bytecode emitter
-    emitter: X86Emitter,
+    pub emitter: X86Emitter,
 
     /// Translation context
     pub(crate) context: TranslationContext<M>,

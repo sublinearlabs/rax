@@ -10,7 +10,7 @@ use std::collections::HashMap;
 #[derive(Debug, Clone)]
 pub struct X86Emitter {
     /// Output bytecode buffer
-    buffer: Vec<u8>,
+    pub buffer: Vec<u8>,
 
     /// Label positions (label name → offset in buffer)
     labels: HashMap<String, usize>,

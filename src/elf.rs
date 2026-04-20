@@ -85,7 +85,7 @@ impl Segment {
         }
     }
 
-    pub(crate) fn decode(&mut self) {
+    pub fn decode(&mut self) {
         // Only decode executable segments
         if !self.is_executable {
             return;
