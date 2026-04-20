@@ -7,6 +7,41 @@ use crate::decode::Instruction as RiscvInstruction;
 use crate::translate::x86_emitter::X86Emitter;
 use crate::translate::x86_insn::X86Instruction;
 use crate::translate::{instruction_translator, RegisterMapper};
+use std::collections::HashMap;
+
+/// Mapping from RISC-V program counter to x86-64 bytecode offset
+/// and RISC-V program counter to size of x86-64 instruction
+#[derive(Debug, Clone)]
+pub struct PCMapping {
+    pub pc_to_x86_offset: HashMap<u64, usize>,
+    pub pc_to_x86_size: HashMap<u64, usize>
+}
+
+impl PCMapping {
+    /// Create a new PC mapping
+    pub fn new() -> Self {
+        PCMapping {
+            pc_to_x86_offset: HashMap::new(),
+            pc_to_x86_size: HashMap::new()
+        }
+    }
+
+    /// Add a mapping entry
+    pub fn add_mapping(&mut self, riscv_pc: u64, x86_offset: usize, x86_size: usize) {
+        self.pc_to_x86_offset.insert(riscv_pc, x86_offset);
+        self.pc_to_x86_size.insert(riscv_pc, x86_size);
+    }
+
+    /// Get x86-64 offset for a RISC-V PC
+    pub fn get_x86_offset(&self, riscv_pc: u64) -> Option<usize> {
+        self.pc_to_x86_offset.get(&riscv_pc).copied()
+    }
+    
+    /// Get x86-64 size for a RISC-V PC
+    pub fn get_x86_size(&self, riscv_pc: u64) -> Option<usize> {
+        self.pc_to_x86_size.get(&riscv_pc).copied()
+    }
+}
 
 /// Translation context
 #[derive(Debug, Clone)]
@@ -19,7 +54,7 @@ pub struct TranslationContext<M: RegisterMapper> {
 }
 
 /// Main RISC-V to x86-64 translator
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RiscvToX86Translator<M: RegisterMapper> {
     /// Bytecode emitter
     emitter: X86Emitter,
@@ -29,6 +64,9 @@ pub struct RiscvToX86Translator<M: RegisterMapper> {
 
     /// List of translated instructions (for debugging)
     instructions: Vec<X86Instruction>,
+
+    /// PC mapping from RISC-V to x86-64
+    pub pc_mapping: PCMapping,
 }
 
 impl<M: RegisterMapper> RiscvToX86Translator<M> {
@@ -43,6 +81,7 @@ impl<M: RegisterMapper> RiscvToX86Translator<M> {
                 register_mapping,
             },
             instructions: Vec::new(),
+            pc_mapping: PCMapping::new(),
         }
     }
 
@@ -119,6 +158,20 @@ impl<M: RegisterMapper> RiscvToX86Translator<M> {
             instructions_translated: self.instructions.len(),
             bytecode_size: self.get_bytecode().len(),
         }
+    }
+
+    /// Record a PC mapping: maps RISC-V PC to x86-64 bytecode offset and size
+    /// Call this before emitting code for an instruction, returns the offset where code will be emitted
+    /// Then after emitting, call finish_pc_mapping to record the size
+    pub fn record_pc_mapping(&mut self, _riscv_pc: u64) -> usize {
+        self.emitter.get_buffer().len()
+    }
+
+    /// Finish recording a PC mapping after emitting x86-64 code
+    /// Call this after emitting x86-64 instruction(s) for a RISC-V instruction
+    pub fn finish_pc_mapping(&mut self, riscv_pc: u64, x86_offset: usize) {
+        let x86_size = self.emitter.get_buffer().len() - x86_offset;
+        self.pc_mapping.add_mapping(riscv_pc, x86_offset, x86_size);
     }
 
     /// Process a RISC-V instruction through translation
