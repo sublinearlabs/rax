@@ -128,15 +128,10 @@ impl Compiler {
             }
             Instruction::Jalr(I { rd, rs1, imm }) => self.emit_jalr(rd, rs1, imm),
 
-            // TODO:
-            // control
-            // -------
-            // jalr
-            //
-            // system
-            // ------
-            // ecall
-            _ => todo!(),
+            // SYSTEM
+            Instruction::Ecall => self.emit_ecall(),
+
+            _ => panic!("unknown opcode"),
         }
     }
 
@@ -176,6 +171,8 @@ impl Compiler {
                 // TODO: depending on the state of the temp regiters
                 // we might have to spill the current values of rax and rdx
                 // as mul will clobber their current values
+                //
+                // TODO: we need forced spill for now I believe
 
                 if rs1.dest != RAX {
                     dynasm!(self.ops ; mov rax, Rq(rs1.dest));
@@ -337,6 +334,59 @@ impl Compiler {
         // and then jump to it
         dynasm!(self.ops ; lea Rq(jump_table_base), [=>self.jt_label]);
         dynasm!(self.ops ; jmp QWORD [Rq(jump_table_base) + Rq(target) * 8]);
+    }
+
+    // TODO: write documentation
+    fn emit_ecall(&mut self) {
+        // we only support 3 syscalls
+        // read, write and halt
+        // it is assumed that the syscall code and arguments have been mapped identically
+        // i.e. the x86 syscall code and arguments are the same as riscv (via register mapping)
+        // given this, the only work that needs to be done is translating the riscv
+        // syscall code to x86
+        // syscall | riscv_code | x86_code
+        // read    |     63     |    0
+        // write   |     64     |    1
+        // halt    |     93     |   60
+        //
+        // we achieve this by evaluating a polynomial
+        // f(x) = $(x^2 - 98x + 2205) / 29$
+        // after simplification
+        // f(x) = $((x - 49)^2 - 196) / 29$
+
+        // TODO: enforce register mapping constraints here
+
+        // TODO: rax and rdx will be clobbered
+        // we might need to move them to temp first and then write back
+        // we can skip this step if liveness says otherwise
+        //
+        // TODO: also rcx and r11 will be clobbered
+        // syscall uses them as scratch values
+
+        // rax = x - 49
+        dynasm!(self.ops ; sub rax, 49);
+        // rax = (x - 49)^2
+        dynasm!(self.ops ; imul rax, rax);
+        // rax = (x - 49)^2 - 196
+        dynasm!(self.ops ; sub rax, 196);
+        // set rdx to be the sign extension of rax
+        // if rax is positive, rdx will be all zeros
+        // if rax is negative, rdx will be all ones
+        dynasm!(self.ops ; cqo);
+
+        // compute ((x - 49)^2 - 196) / 29
+        // store quotient in RAX
+        // store remainder in RDX
+        let divisor_reg = self.temp();
+        dynasm!(self.ops ; mov Rq(divisor_reg), 29);
+        dynasm!(self.ops ; idiv Rq(divisor_reg));
+
+        // if the riscv a7 register contained
+        // the read, write or halt syscall
+        // then rax should now contain the correct
+        // x86 syscall code
+
+        dynasm!(self.ops ; syscall);
     }
 
     /// Finds a GPR register for a given riscv register
