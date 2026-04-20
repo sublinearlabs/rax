@@ -75,11 +75,10 @@ impl Compiler {
 
         // resolve dynamic labels
         for (index, label) in self.pc_labels.iter() {
-            // TODO: this pc indexing might not be correct
-            // it needs to be normalized to 0 index
+            let jump_table_index = (index - self.base_riscv_pc) / 4;
             self.ops
                 .labels_mut()
-                .define_dynamic(*label, self.jump_table[*index as usize])
+                .define_dynamic(*label, self.jump_table[jump_table_index as usize])
                 .expect("failed to define dynamic label");
         }
 
@@ -304,7 +303,7 @@ impl Compiler {
         }
     }
 
-    // TODO: write documentation
+    /// Converts the jalr instruction to equivalent x86 assembly
     fn emit_jalr(&mut self, rd: &u8, rs1: &u8, imm: &i32) {
         let rs1 = self.prepare_input(*rs1);
 
