@@ -81,7 +81,10 @@ mod tests {
             2 => RegisterLocation::XmmShared(4, XmmLane::UPPER),
             _ => RegisterLocation::Gpr(0),
         });
-        let mapping = RegisterMapping { map, temp_base: 0 };
+        let mapping = RegisterMapping {
+            map,
+            temps: [0, 1, 2],
+        };
 
         assert_eq!(mapping[RiscvRegister::new(1)], RegisterLocation::Gpr(3));
         assert_eq!(
