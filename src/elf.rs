@@ -54,6 +54,7 @@ pub(crate) fn decode_elf(bytes: &[u8]) -> (MemoryDefault, u64) {
     (memory, entry)
 }
 
+#[derive(Debug)]
 pub(crate) struct Segment {
     data: Vec<u8>,
     insns: Vec<Instruction>,
@@ -87,9 +88,8 @@ impl Segment {
 
     pub(crate) fn decode(&mut self) {
         // Only decode executable segments
-        if !self.is_executable {
-            return;
-        }
+        return;
+        if !self.is_executable {}
 
         let mut instructions = Vec::new();
 
@@ -109,6 +109,7 @@ impl Segment {
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct Elf {
     pub(crate) segments: Vec<Segment>,
     pub(crate) global_entry: u64,
