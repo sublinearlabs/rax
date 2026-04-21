@@ -29,6 +29,7 @@ fn compile_elf(path: &'static str) {
             segment.decode();
 
             // create a new compiler
+            //  elf.global_entry will serve as pc base
             // compile the segements instructions
             // do a by hand assembly comparison
         }

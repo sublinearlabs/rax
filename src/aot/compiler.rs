@@ -1,8 +1,9 @@
+use std::collections::HashMap;
+
 use crate::{
     aot::register_mapping::{RegisterLocation, RegisterMapping, RiscvRegister, XmmLane},
     decode::{Instruction, Sh, B, I, R, S, U},
 };
-use alloy_primitives::map::foldhash::HashMap;
 use dynasmrt::{dynasm, x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
 
 const RAX: u8 = 0;
@@ -65,6 +66,22 @@ struct Compiler {
 }
 
 impl Compiler {
+    /// Initializes a new compiler
+    fn init(mut assembler: Assembler, register_mapping: RegisterMapping, base_pc: u64) -> Self {
+        let jt_label = assembler.new_dynamic_label();
+        Self {
+            ops: assembler,
+            register_mapping,
+            current_temp: 0,
+            current_riscv_pc: base_pc,
+            base_riscv_pc: base_pc,
+            pc_labels: HashMap::new(),
+            // TODO: init with capacity
+            jump_table: Vec::new(),
+            jt_label,
+        }
+    }
+
     /// Converts a slice of RISCV Instruction to their corresponding
     /// x86 instructions
     fn translate_insns(&mut self, insns: &[Instruction]) {
