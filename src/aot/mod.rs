@@ -1,6 +1,8 @@
 use std::fs;
 
-use crate::elf::parse_elf;
+use dynasmrt::x64::Assembler;
+
+use crate::{aot::compiler::Compiler, elf::parse_elf};
 
 pub(crate) mod compiler;
 pub(crate) mod register_mapping;
@@ -27,6 +29,8 @@ fn compile_elf(path: &'static str) {
             }
 
             segment.decode();
+
+            let mut assembler = Assembler::new().unwrap();
 
             // create a new compiler
             //  elf.global_entry will serve as pc base

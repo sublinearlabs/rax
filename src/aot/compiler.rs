@@ -48,7 +48,7 @@ enum BranchOp {
     Bltu,
 }
 
-struct Compiler {
+pub(crate) struct Compiler {
     ops: Assembler,
     register_mapping: RegisterMapping,
     current_temp: usize,
@@ -67,7 +67,11 @@ struct Compiler {
 
 impl Compiler {
     /// Initializes a new compiler
-    fn init(mut assembler: Assembler, register_mapping: RegisterMapping, base_pc: u64) -> Self {
+    pub(crate) fn init(
+        mut assembler: Assembler,
+        register_mapping: RegisterMapping,
+        base_pc: u64,
+    ) -> Self {
         let jt_label = assembler.new_dynamic_label();
         Self {
             ops: assembler,
