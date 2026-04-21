@@ -14,14 +14,12 @@ fn compile_elf(path: &'static str) {
     let bytes = fs::read(path).unwrap();
     let mut elf = parse_elf(&bytes);
 
-    // ELF constrinat
-    // should only work on uncompressed
-    // there should be only one executable region
-
     let mut no_executable = 0;
 
+    // find and decode code segments
     for segment in &mut elf.segments {
         if segment.is_executable {
+            // ensure that only a single code segment exists in the binary
             // TODO: figure out how to get rid of this restriction
             no_executable += 1;
             if no_executable > 1 {
@@ -29,7 +27,10 @@ fn compile_elf(path: &'static str) {
             }
 
             segment.decode();
-            dbg!(&segment.insns);
+
+            // create a new compiler
+            // compile the segements instructions
+            // do a by hand assembly comparison
         }
     }
 }
