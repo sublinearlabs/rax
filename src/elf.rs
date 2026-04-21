@@ -57,12 +57,12 @@ pub(crate) fn decode_elf(bytes: &[u8]) -> (MemoryDefault, u64) {
 #[derive(Debug)]
 pub(crate) struct Segment {
     data: Vec<u8>,
-    insns: Vec<Instruction>,
+    pub(crate) insns: Vec<Instruction>,
     entry: u64,
     offset: usize,
     file_size: usize,
     mem_size: usize,
-    is_executable: bool,
+    pub(crate) is_executable: bool,
 }
 
 impl Segment {
@@ -88,8 +88,9 @@ impl Segment {
 
     pub(crate) fn decode(&mut self) {
         // Only decode executable segments
-        return;
-        if !self.is_executable {}
+        if !self.is_executable {
+            return;
+        }
 
         let mut instructions = Vec::new();
 

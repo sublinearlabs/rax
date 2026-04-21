@@ -7,9 +7,13 @@ pub(crate) mod register_mapping;
 
 fn compile_elf(path: &'static str) {
     let bytes = fs::read(path).unwrap();
-    let elf = parse_elf(&bytes);
-    dbg!(elf);
-    todo!()
+    let mut elf = parse_elf(&bytes);
+    for segment in &mut elf.segments {
+        if segment.is_executable {
+            segment.decode();
+            dbg!(&segment.insns);
+        }
+    }
 }
 
 #[cfg(test)]
