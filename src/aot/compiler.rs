@@ -360,6 +360,11 @@ impl Compiler {
         // we might need to move them to temp first and then write back
         // we can skip this step if liveness says otherwise
         //
+        // NOTE: rax contains the riscv syscall code, so we can unclobber
+        // by just performing extra computations
+        // i.e. f(y) = x
+        // so no need for temp
+        //
         // TODO: also rcx and r11 will be clobbered
         // syscall uses them as scratch values
 
@@ -448,6 +453,8 @@ impl Compiler {
             }
             RegisterLocation::XmmShared(xmm, XmmLane::LOWER) => {
                 dynasm!(self.ops
+                    // needed to use pinsrq instead of movq
+                    // as movq overwrite the other lanes
                     ; pinsrq Rx(xmm), Rq(reg_info.dest), 0
                 );
             }
