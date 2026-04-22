@@ -156,7 +156,7 @@ impl Compiler {
         }
     }
 
-    // TODO: write documentation
+    /// Consume the compiler and return the generated assembly
     pub(crate) fn finalize(self) -> Vec<u8> {
         let buf = self.ops.finalize().unwrap();
         buf.to_vec()

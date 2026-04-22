@@ -81,6 +81,7 @@ fn compile_elf(path: &'static str) {
             compiler.translate_insns(&segment.insns);
 
             let bytes = compiler.finalize();
+            dbg!(bytes);
         }
     }
 }
