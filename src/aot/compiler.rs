@@ -92,7 +92,10 @@ impl Compiler {
     pub(crate) fn translate_insns(&mut self, insns: &[Instruction]) {
         // TODO: remove this
         // clear out the zero register
-        // dynasm!(self.ops ; movq Rx(16), 0);
+        let temp = self.temp();
+        dynasm!(self.ops ; xor Rq(temp), Rq(temp));
+        dynasm!(self.ops ; pinsrq Rx(11), Rq(temp), 1);
+        self.reset_temp();
 
         for insn in insns {
             self.translate_insn(insn);
