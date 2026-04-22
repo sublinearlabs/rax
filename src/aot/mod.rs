@@ -1,11 +1,56 @@
 use std::fs;
 
-use dynasmrt::x64::Assembler;
+use dynasmrt::x64::{Assembler, Rq};
 
-use crate::{aot::compiler::Compiler, elf::parse_elf};
+use crate::{
+    aot::{
+        compiler::Compiler,
+        register_mapping::{RegisterLocation, RegisterMapping, XmmLane},
+    },
+    elf::parse_elf,
+};
 
 pub(crate) mod compiler;
 pub(crate) mod register_mapping;
+
+/// Define register mapping
+const REGISTER_MAPPING: RegisterMapping = RegisterMapping {
+    map: [
+        RegisterLocation::ConstZero,
+        RegisterLocation::Gpr(Rq::RBX as u8),
+        RegisterLocation::Gpr(Rq::RSP as u8),
+        RegisterLocation::XmmShared(12, XmmLane::LOWER),
+        RegisterLocation::XmmShared(12, XmmLane::UPPER),
+        RegisterLocation::Gpr(Rq::R14 as u8),
+        RegisterLocation::Gpr(Rq::R15 as u8),
+        RegisterLocation::Gpr(Rq::RBP as u8),
+        RegisterLocation::Xmm(1),
+        RegisterLocation::Xmm(2),
+        RegisterLocation::Gpr(Rq::RDI as u8),
+        RegisterLocation::Gpr(Rq::RSI as u8),
+        RegisterLocation::Gpr(Rq::RDX as u8),
+        RegisterLocation::Gpr(Rq::R10 as u8),
+        RegisterLocation::Gpr(Rq::R8 as u8),
+        RegisterLocation::Gpr(Rq::R9 as u8),
+        RegisterLocation::Xmm(3),
+        RegisterLocation::Gpr(Rq::RAX as u8),
+        RegisterLocation::Xmm(4),
+        RegisterLocation::Xmm(5),
+        RegisterLocation::Xmm(6),
+        RegisterLocation::Xmm(7),
+        RegisterLocation::Xmm(8),
+        RegisterLocation::Xmm(9),
+        RegisterLocation::Xmm(10),
+        RegisterLocation::Xmm(11),
+        RegisterLocation::XmmShared(13, XmmLane::LOWER),
+        RegisterLocation::XmmShared(13, XmmLane::UPPER),
+        RegisterLocation::XmmShared(14, XmmLane::LOWER),
+        RegisterLocation::XmmShared(14, XmmLane::UPPER),
+        RegisterLocation::XmmShared(15, XmmLane::LOWER),
+        RegisterLocation::XmmShared(15, XmmLane::UPPER),
+    ],
+    temps: [Rq::R12 as u8, Rq::RCX as u8, Rq::R11 as u8],
+};
 
 /// Generate an equivalent x86 ELF file given the path to a riscv elf file
 ///
@@ -30,12 +75,12 @@ fn compile_elf(path: &'static str) {
 
             segment.decode();
 
-            let mut assembler = Assembler::new().unwrap();
+            let assembler = Assembler::new().unwrap();
+            let mut compiler = Compiler::init(assembler, REGISTER_MAPPING, elf.global_entry);
 
-            // create a new compiler
-            //  elf.global_entry will serve as pc base
-            // compile the segements instructions
-            // do a by hand assembly comparison
+            compiler.translate_insns(&segment.insns);
+
+            // TODO: retrived the compiled code
         }
     }
 }

@@ -88,7 +88,7 @@ impl Compiler {
 
     /// Converts a slice of RISCV Instruction to their corresponding
     /// x86 instructions
-    fn translate_insns(&mut self, insns: &[Instruction]) {
+    pub(crate) fn translate_insns(&mut self, insns: &[Instruction]) {
         for insn in insns {
             self.translate_insn(insn);
             self.reset_temp();
