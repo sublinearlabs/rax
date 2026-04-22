@@ -46,6 +46,7 @@ enum BranchOp {
     Beq,
     Bne,
     Bltu,
+    Bgeu,
 }
 
 pub(crate) struct Compiler {
@@ -150,6 +151,9 @@ impl Compiler {
             Instruction::Bne(B { rs1, rs2, imm }) => self.emit_branch(rs1, rs2, imm, BranchOp::Bne),
             Instruction::Bltu(B { rs1, rs2, imm }) => {
                 self.emit_branch(rs1, rs2, imm, BranchOp::Bltu)
+            }
+            Instruction::Bgeu(B { rs1, rs2, imm }) => {
+                self.emit_branch(rs1, rs2, imm, BranchOp::Bgeu)
             }
             Instruction::Jalr(I { rd, rs1, imm }) => self.emit_jalr(rd, rs1, imm),
 
@@ -328,6 +332,7 @@ impl Compiler {
             BranchOp::Beq => dynasm!(self.ops ; je =>*target_label),
             BranchOp::Bne => dynasm!(self.ops ; jne =>*target_label),
             BranchOp::Bltu => dynasm!(self.ops ; jb =>*target_label),
+            BranchOp::Bgeu => dynasm!(self.ops ; jae =>*target_label),
         }
     }
 
