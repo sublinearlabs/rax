@@ -104,6 +104,7 @@ impl Compiler {
         for insn in insns {
             self.translate_insn(insn);
             self.reset_temp();
+            self.current_riscv_pc += 4;
         }
 
         // resolve dynamic labels
@@ -115,9 +116,14 @@ impl Compiler {
                 .expect("failed to define dynamic label");
         }
 
-        // TODO: emit the jump table with the appropriate label
+        // emit the jump table
         // TODO: note that the jump table has to be normalized to absolute values
-        // TODO: move this to rodata
+        // we should add the final code_base in the target x86 elf
+        // TODO: also, we should move this to rodata
+        dynasm!(self.ops ; =>self.jt_label);
+        for offset in &self.jump_table {
+            dynasm!(self.ops; .i64 offset.0 as i64);
+        }
     }
 
     /// Converts a single RISCV instruction to its corresponding x86 instruction
@@ -125,8 +131,6 @@ impl Compiler {
         // populate the jump table for the current pc
         // assumes that the pc jump by 4 (uncompressed) and a single read execute segment
         self.jump_table.push(self.ops.offset());
-
-        dbg!(insn);
 
         match insn {
             // ALU REGISTER REGISTER
