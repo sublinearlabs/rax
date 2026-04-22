@@ -156,6 +156,12 @@ impl Compiler {
         }
     }
 
+    // TODO: write documentation
+    pub(crate) fn finalize(self) -> Vec<u8> {
+        let buf = self.ops.finalize().unwrap();
+        buf.to_vec()
+    }
+
     /// Converts alu register register instructions to equivalent x86 assembly
     fn emit_alu_rr(&mut self, rd: &u8, rs1: &u8, rs2: &u8, alu_op: AluRrOp) {
         // the zero register is always zero

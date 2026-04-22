@@ -80,7 +80,7 @@ fn compile_elf(path: &'static str) {
 
             compiler.translate_insns(&segment.insns);
 
-            // TODO: retrived the compiled code
+            let bytes = compiler.finalize();
         }
     }
 }
