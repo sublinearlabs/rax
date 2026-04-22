@@ -19,7 +19,7 @@ const REGISTER_MAPPING: RegisterMapping = RegisterMapping {
         // but the current architecture doesn't support this
         // I need to refactor the approach based on the new
         // things learnt.
-        RegisterLocation::Xmm(16),
+        RegisterLocation::XmmShared(11, XmmLane::UPPER),
         RegisterLocation::Gpr(Rq::RBX as u8),
         RegisterLocation::Gpr(Rq::RSP as u8),
         RegisterLocation::XmmShared(12, XmmLane::LOWER),
@@ -44,7 +44,8 @@ const REGISTER_MAPPING: RegisterMapping = RegisterMapping {
         RegisterLocation::Xmm(8),
         RegisterLocation::Xmm(9),
         RegisterLocation::Xmm(10),
-        RegisterLocation::Xmm(11),
+        // TODO: convert this back to non-shared when you fix the zero register
+        RegisterLocation::XmmShared(11, XmmLane::LOWER),
         RegisterLocation::XmmShared(13, XmmLane::LOWER),
         RegisterLocation::XmmShared(13, XmmLane::UPPER),
         RegisterLocation::XmmShared(14, XmmLane::LOWER),

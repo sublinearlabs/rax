@@ -89,6 +89,10 @@ impl Compiler {
     /// Converts a slice of RISCV Instruction to their corresponding
     /// x86 instructions
     pub(crate) fn translate_insns(&mut self, insns: &[Instruction]) {
+        // TODO: remove this
+        // clear out the zero register
+        // dynasm!(self.ops ; movq Rx(16), 0);
+
         for insn in insns {
             self.translate_insn(insn);
             self.reset_temp();
@@ -486,9 +490,14 @@ impl Compiler {
                 );
             }
             RegisterLocation::XmmShared(xmm, XmmLane::UPPER) => {
-                dynasm!(self.ops
-                    ; pinsrq Rx(xmm), Rq(reg_info.dest), 1
-                );
+                if xmm == 11 {
+                    // this is the zero register
+                    // so no write back
+                } else {
+                    dynasm!(self.ops
+                        ; pinsrq Rx(xmm), Rq(reg_info.dest), 1
+                    );
+                }
             }
         }
     }
