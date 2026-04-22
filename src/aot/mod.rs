@@ -1,4 +1,5 @@
 use dynasmrt::x64::{Assembler, Rq};
+use iced_x86::{Decoder, DecoderOptions, Formatter, Instruction, NasmFormatter};
 use std::fs;
 
 use crate::{
@@ -85,8 +86,22 @@ fn compile_elf(path: &'static str) {
             compiler.translate_insns(&segment.insns);
 
             let bytes = compiler.finalize();
-            dbg!(bytes);
+            disassemble_x64(&bytes, elf.global_entry);
         }
+    }
+}
+
+fn disassemble_x64(code: &[u8], base_ip: u64) {
+    let mut decoder = Decoder::with_ip(64, code, base_ip, DecoderOptions::NONE);
+    let mut formatter = NasmFormatter::new();
+    let mut instr = Instruction::default();
+    let mut out = String::new();
+
+    while decoder.can_decode() {
+        decoder.decode_out(&mut instr);
+        out.clear();
+        formatter.format(&instr, &mut out);
+        println!("{:016X} {}", instr.ip(), out);
     }
 }
 
