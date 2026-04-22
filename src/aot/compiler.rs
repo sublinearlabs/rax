@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     aot::register_mapping::{RegisterLocation, RegisterMapping, RiscvRegister, XmmLane},
-    decode::{Instruction, Sh, B, I, R, S, U},
+    decode::{Instruction, Sh, B, I, J, R, S, U},
 };
 use dynasmrt::{dynasm, x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
 
@@ -119,6 +119,8 @@ impl Compiler {
         // assumes that the pc jump by 4 (uncompressed) and a single read execute segment
         self.jump_table.push(self.ops.offset());
 
+        dbg!(insn);
+
         match insn {
             // ALU REGISTER REGISTER
             Instruction::Add(R { rd, rs1, rs2 }) => self.emit_alu_rr(rd, rs1, rs2, AluRrOp::Add),
@@ -155,10 +157,13 @@ impl Compiler {
             Instruction::Bgeu(B { rs1, rs2, imm }) => {
                 self.emit_branch(rs1, rs2, imm, BranchOp::Bgeu)
             }
+            Instruction::Jal(J { rd, imm }) => self.emit_jal(rd, imm),
             Instruction::Jalr(I { rd, rs1, imm }) => self.emit_jalr(rd, rs1, imm),
 
             // SYSTEM
             Instruction::Ecall => self.emit_ecall(),
+
+            Instruction::Csrrw(_) => {}
 
             _ => panic!("unknown opcode"),
         }
@@ -334,6 +339,36 @@ impl Compiler {
             BranchOp::Bltu => dynasm!(self.ops ; jb =>*target_label),
             BranchOp::Bgeu => dynasm!(self.ops ; jae =>*target_label),
         }
+    }
+
+    // TODO: write documentation
+    fn emit_jal(&mut self, rd: &u8, imm: &i32) {
+        if *rd != 0 {
+            let rd = self.prepare_output(*rd);
+
+            let return_pc = self.current_riscv_pc.wrapping_add(4);
+            dynasm!(self.ops ; mov Rq(rd.dest), QWORD return_pc as i64);
+            self.writeback_result(rd);
+        }
+
+        // TODO: remove duplication, very similar to emit_branch
+
+        // computes the target riscv pc
+        // we'd need to convert this to the equivalent riscv label
+        // problem is this pc might be references a location in the future
+        // hence the jump table won't be populated for this pc value yet
+        //
+        // to solve this we make use of a dynamic label that we'd patch
+        // after we have translated all the riscv instructions
+        let branch_target = self.current_riscv_pc.wrapping_add(*imm as i64 as u64);
+
+        // retrieve or create a new dynamic label for the target riscv pc
+        let target_label = self
+            .pc_labels
+            .entry(branch_target)
+            .or_insert_with(|| self.ops.new_dynamic_label());
+
+        dynasm!(self.ops ; jmp =>*target_label);
     }
 
     /// Converts the jalr instruction to equivalent x86 assembly
