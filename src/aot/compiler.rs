@@ -32,6 +32,10 @@ enum ShiftRiOp {
     Slli,
 }
 
+enum ShiftRrOp {
+    Sll,
+}
+
 enum StoreOp {
     Sb,
     Sd,
@@ -141,6 +145,11 @@ impl Compiler {
             // SHIFT REGISTER IMMEDIATE
             Instruction::Slli(Sh { rd, rs1, shamt }) => {
                 self.emit_shift_ri(rd, rs1, shamt, ShiftRiOp::Slli)
+            }
+
+            // SHIFT REGISTER REGISTER
+            Instruction::Sll(R { rd, rs1, rs2 }) => {
+                self.emit_shift_rr(rd, rs1, rs2, ShiftRrOp::Sll)
             }
 
             // STORES
@@ -270,6 +279,42 @@ impl Compiler {
 
         match shift_op {
             ShiftRiOp::Slli => dynasm!(self.ops ; shl Rq(rd.dest), *shamt as i8),
+        }
+
+        self.writeback_result(rd);
+    }
+
+    /// Converts shift register resgier instructions to equivalent x86 assembly
+    fn emit_shift_rr(&mut self, rd: &u8, rs1: &u8, rs2: &u8, shift_op: ShiftRrOp) {
+        // the zero register is always zero
+        if *rd == 0 {
+            return;
+        }
+
+        let rs1 = self.prepare_input(*rs1);
+        let rs2 = self.prepare_input(*rs2);
+        let rd = self.prepare_output(*rd);
+
+        // TODO: need a new capability here
+        // need a way to be able to specify my exact temp register
+        // shl when working with a shamt in the reg, requires that the
+        // value be in rcx
+
+        match shift_op {
+            ShiftRrOp::Sll => {
+                // move the shift amount
+                // TODO: there is a constraint here that rcx must be temp
+                // if it is not temp, then the content will be clobbered,
+                // and we'd have to move it.
+                // TODO: use temp approach for this rather than ecx directly
+                dynasm!(self.ops ; mov ecx, Rd(rs2.dest));
+
+                if rd.dest != rs1.dest {
+                    dynasm!(self.ops ; mov Rq(rd.dest), Rq(rs1.dest));
+                }
+
+                dynasm!(self.ops ; shl Rq(rd.dest), cl);
+            }
         }
 
         self.writeback_result(rd);
