@@ -99,14 +99,14 @@ impl Compiler {
         let temp = self.temp();
         dynasm!(self.ops ; xor Rq(temp), Rq(temp));
         dynasm!(self.ops ; pinsrq Rx(11), Rq(temp), 1);
-        dynasm!(self.ops ; nop);
+        // dynasm!(self.ops ; nop);
         self.reset_temp();
 
         for insn in insns {
             self.translate_insn(insn);
             self.reset_temp();
             self.current_riscv_pc += 4;
-            dynasm!(self.ops ; nop);
+            // dynasm!(self.ops ; nop);
         }
 
         // resolve dynamic labels
