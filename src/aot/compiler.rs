@@ -438,19 +438,7 @@ impl Compiler {
     fn emit_jalr(&mut self, rd: &u8, rs1: &u8, imm: &i32) {
         let rs1 = self.prepare_input(*rs1);
 
-        // BUG: there is a chance that rbx == rd
-        // so use the current contents of rd before writing to it
-        if *rd != 0 {
-            let rd = self.prepare_output(*rd);
-
-            // write the return address to rd
-            // TODO: assumes we are always advancing the pc by 4
-            let return_pc = self.current_riscv_pc.wrapping_add(4);
-            dynasm!(self.ops ; mov Rq(rd.dest), QWORD return_pc as i64);
-
-            self.writeback_result(rd);
-        }
-
+        // 1. compute the jump target
         let target = self.temp();
         let base_pc = self.temp();
 
@@ -463,9 +451,22 @@ impl Compiler {
         dynasm!(self.ops ; sub Rq(target), Rq(base_pc));
         dynasm!(self.ops ; shr Rq(target), 2);
 
+        // 2. write return pc
+        if *rd != 0 {
+            let rd = self.prepare_output(*rd);
+
+            // write the return address to rd
+            // TODO: assumes we are always advancing the pc by 4
+            let return_pc = self.current_riscv_pc.wrapping_add(4);
+            dynasm!(self.ops ; mov Rq(rd.dest), QWORD return_pc as i64);
+
+            self.writeback_result(rd);
+        }
+
+        // 3. jump to target
+
         // reuse the base_pc temp register
         let jump_table_base = base_pc;
-
         // now we need to get the value at that jump table index
         // and then jump to it
         dynasm!(self.ops ; lea Rq(jump_table_base), [=>self.jt_label]);
