@@ -58,8 +58,8 @@ pub(crate) fn decode_elf(bytes: &[u8]) -> (MemoryDefault, u64) {
 pub(crate) struct Segment {
     pub(crate) data: Vec<u8>,
     pub(crate) insns: Vec<Instruction>,
-    entry: u64,
-    offset: usize,
+    pub(crate) entry: u64,
+    pub(crate) offset: usize,
     file_size: usize,
     mem_size: usize,
     pub(crate) is_executable: bool,

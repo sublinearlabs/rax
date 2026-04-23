@@ -8,6 +8,7 @@ use crate::{
         register_mapping::{RegisterLocation, RegisterMapping, XmmLane},
     },
     elf::parse_elf,
+    elf_gen::{generate_elf, X86Elf},
 };
 
 pub(crate) mod compiler;
@@ -120,6 +121,13 @@ fn compile_elf(path: &'static str) {
 
             let bytes = compiler.finalize();
             disassemble_x64(&bytes, elf.global_entry);
+
+            let mut x86_elf = X86Elf::new(elf.global_entry);
+            assert!(segment.entry == elf.global_entry);
+            x86_elf.add_text(bytes, segment.entry, segment.offset);
+            let elf_bytes = generate_elf(&x86_elf).unwrap();
+
+            fs::write("./test-bin/output.elf", elf_bytes).unwrap();
         }
     }
 }
