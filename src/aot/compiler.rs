@@ -123,9 +123,9 @@ impl Compiler {
         // we should add the final code_base in the target x86 elf
         // TODO: also, we should move this to rodata
         dynasm!(self.ops ; =>self.jt_label);
-        // for offset in &self.jump_table {
-        //     dynasm!(self.ops; .i64 offset.0 as i64);
-        // }
+        for offset in &self.jump_table {
+            dynasm!(self.ops; .i64 offset.0 as i64);
+        }
     }
 
     /// Converts a single RISCV instruction to its corresponding x86 instruction
