@@ -99,6 +99,7 @@ impl Compiler {
         let temp = self.temp();
         dynasm!(self.ops ; xor Rq(temp), Rq(temp));
         dynasm!(self.ops ; pinsrq Rx(11), Rq(temp), 1);
+        dynasm!(self.ops ; nop);
         self.reset_temp();
 
         for insn in insns {
@@ -428,6 +429,8 @@ impl Compiler {
     fn emit_jalr(&mut self, rd: &u8, rs1: &u8, imm: &i32) {
         let rs1 = self.prepare_input(*rs1);
 
+        // BUG: there is a chance that rbx == rd
+        // so use the current contents of rd before writing to it
         if *rd != 0 {
             let rd = self.prepare_output(*rd);
 

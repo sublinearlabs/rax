@@ -20,38 +20,71 @@ const REGISTER_MAPPING: RegisterMapping = RegisterMapping {
         // but the current architecture doesn't support this
         // I need to refactor the approach based on the new
         // things learnt.
+
+        // x0(zero)
         RegisterLocation::XmmShared(11, XmmLane::UPPER),
+        // x1(ra)
         RegisterLocation::Gpr(Rq::RBX as u8),
+        // x2(sp)
         RegisterLocation::Gpr(Rq::RSP as u8),
+        // x3(gp)
         RegisterLocation::XmmShared(12, XmmLane::LOWER),
+        // x4(tp)
         RegisterLocation::XmmShared(12, XmmLane::UPPER),
+        // x5(t0)
         RegisterLocation::Gpr(Rq::R14 as u8),
+        // x6(t1)
         RegisterLocation::Gpr(Rq::R15 as u8),
+        // x7(t2)
         RegisterLocation::Gpr(Rq::RBP as u8),
+        // x8(s0/fp)
         RegisterLocation::Xmm(1),
+        // x9(s1)
         RegisterLocation::Xmm(2),
+        // x10(a0)
         RegisterLocation::Gpr(Rq::RDI as u8),
+        // x11(a1)
         RegisterLocation::Gpr(Rq::RSI as u8),
+        // x12(a2)
         RegisterLocation::Gpr(Rq::RDX as u8),
+        // x13(a3)
         RegisterLocation::Gpr(Rq::R10 as u8),
+        // x14(a4)
         RegisterLocation::Gpr(Rq::R8 as u8),
+        // x15(a5)
         RegisterLocation::Gpr(Rq::R9 as u8),
+        // x16(a6)
         RegisterLocation::Xmm(3),
+        // x17(a7)
         RegisterLocation::Gpr(Rq::RAX as u8),
+        // x18(s2)
         RegisterLocation::Xmm(4),
+        // x19(s3)
         RegisterLocation::Xmm(5),
+        // x20(s4)
         RegisterLocation::Xmm(6),
+        // x21(s5)
         RegisterLocation::Xmm(7),
+        // x22(s6)
         RegisterLocation::Xmm(8),
+        // x23(s7)
         RegisterLocation::Xmm(9),
+        // x24(s8)
         RegisterLocation::Xmm(10),
         // TODO: convert this back to non-shared when you fix the zero register
+        // x25(s9)
         RegisterLocation::XmmShared(11, XmmLane::LOWER),
+        // x26(s10)
         RegisterLocation::XmmShared(13, XmmLane::LOWER),
+        // x27(s11)
         RegisterLocation::XmmShared(13, XmmLane::UPPER),
+        // x28(t3)
         RegisterLocation::XmmShared(14, XmmLane::LOWER),
+        // x29(t4)
         RegisterLocation::XmmShared(14, XmmLane::UPPER),
+        // x30(t5)
         RegisterLocation::XmmShared(15, XmmLane::LOWER),
+        // x31(t6)
         RegisterLocation::XmmShared(15, XmmLane::UPPER),
     ],
     temps: [Rq::R12 as u8, Rq::RCX as u8, Rq::R11 as u8],
