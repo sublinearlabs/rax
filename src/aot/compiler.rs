@@ -118,13 +118,22 @@ impl Compiler {
                 .expect("failed to define dynamic label");
         }
 
+        // compute the absolute addresses for each jump table entry
+        // by adding the base_address of this segement
+        // TODO: this just uses the base_riscv_pc for now
+        // works for echo, but might not work for other binary
+        // a more sophisticated approach will be needed
+        let jump_table = self
+            .jump_table
+            .iter()
+            .map(|offset| offset.0 + self.base_riscv_pc as usize)
+            .collect::<Vec<_>>();
+
         // emit the jump table
-        // TODO: note that the jump table has to be normalized to absolute values
-        // we should add the final code_base in the target x86 elf
-        // TODO: also, we should move this to rodata
+        // TODO: consider moving this to rodata
         dynasm!(self.ops ; =>self.jt_label);
-        for offset in &self.jump_table {
-            dynasm!(self.ops; .i64 offset.0 as i64);
+        for target_pc in jump_table {
+            dynasm!(self.ops; .i64 target_pc as i64);
         }
     }
 
