@@ -493,7 +493,7 @@ impl Compiler {
 
         // TODO: enforce register mapping constraints here
 
-        // TODO: rax and rdx will be clobbered
+        // TODO: rax and rdx will be clobbered (rdx now protected)
         // we might need to move them to temp first and then write back
         // we can skip this step if liveness says otherwise
         //
@@ -504,6 +504,13 @@ impl Compiler {
         //
         // TODO: also rcx and r11 will be clobbered
         // syscall uses them as scratch values
+
+        // Ensure rdx isn't clobbered
+        // before we perform the syscall poly eval translation
+        // we need to make sure that current content of rdx
+        // is saved to a temp (as this will get clobbered by cqo and idiv)
+        let rdx_temp = self.temp();
+        dynasm!(self.ops ; mov Rq(rdx_temp), rdx);
 
         // rax = x - 49
         dynasm!(self.ops ; sub rax, 49);
@@ -527,6 +534,10 @@ impl Compiler {
         // the read, write or halt syscall
         // then rax should now contain the correct
         // x86 syscall code
+
+        // before calling syscall, we need to move
+        // the old value of rdx back into rdx
+        dynasm!(self.ops ; mov rdx, Rq(rdx_temp));
 
         dynasm!(self.ops ; syscall);
     }
