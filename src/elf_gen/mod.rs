@@ -45,9 +45,17 @@ pub fn generate_elf(x86_elf: &X86Elf) -> Result<Vec<u8>, String> {
             assert_eq!(x86_elf.entry_point, segment.vaddr);
 
             // compute the vaddr delta aligned elf segment offset
+            // we want to ensure that:
+            // offset >= current_offset
+            // offset % PAGE_ALIGN == segment.vaddr % PAGE_ALIGN
             let page_delta = segment.vaddr % PAGE_ALIGN;
-            let next_page_aligned_offset = aligned_up(current_offset, PAGE_ALIGN);
-            let offset = next_page_aligned_offset + page_delta;
+            let count_after_last_aligned_offset = current_offset % PAGE_ALIGN;
+            // if page_delta is greater than current offset delta then we just add the diff between
+            // them
+            // if page_delta is less than current offset delta then we need to go to the next aligned
+            // offset then add page delta (this is because we don't want offset < current_offset)
+            let to_add = (page_delta + PAGE_ALIGN - count_after_last_aligned_offset) % PAGE_ALIGN;
+            let offset = current_offset + to_add;
 
             // Align to page boundary if executable
             if segment.is_executable {
@@ -137,22 +145,6 @@ pub fn generate_elf(x86_elf: &X86Elf) -> Result<Vec<u8>, String> {
     }
 
     Ok(elf)
-}
-
-/// Computes the closest page boundary less than addr
-fn aligned_down(addr: u64, page_size: u64) -> u64 {
-    assert!(page_size > 0);
-    addr - (addr % page_size)
-}
-
-/// Computes the closest page boundary greater than addr
-fn aligned_up(addr: u64, page_size: u64) -> u64 {
-    assert!(page_size > 0);
-    if addr % page_size == 0 {
-        addr
-    } else {
-        addr + (page_size - (addr % page_size))
-    }
 }
 
 #[cfg(test)]
