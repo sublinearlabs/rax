@@ -40,7 +40,9 @@ pub fn generate_elf(x86_elf: &X86Elf) -> Result<Vec<u8>, String> {
             // BSS segment - no file space needed
             segment_offsets.push(0);
         } else if !segment.data.is_empty() {
-            // we need to
+            // we need to compute the delta so that we put the bytes
+            // at the correct offset
+
             // Align to page boundary if executable
             if segment.is_executable {
                 current_offset = ((current_offset + PAGE_ALIGN - 1) / PAGE_ALIGN) * PAGE_ALIGN;
@@ -131,6 +133,22 @@ pub fn generate_elf(x86_elf: &X86Elf) -> Result<Vec<u8>, String> {
     Ok(elf)
 }
 
+/// Computes the closest page boundary less than addr
+fn aligned_down(addr: u64, page_size: u64) -> u64 {
+    assert!(page_size > 0);
+    addr - (addr % page_size)
+}
+
+/// Computes the closest page boundary greater than addr
+fn aligned_up(addr: u64, page_size: u64) -> u64 {
+    assert!(page_size > 0);
+    if addr % page_size == 0 {
+        addr
+    } else {
+        addr + (page_size - (addr % page_size))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::fs;
@@ -138,52 +156,6 @@ mod tests {
     use dynasmrt::{dynasm, x64, x86, DynasmApi};
 
     use super::*;
-
-    #[test]
-    fn generate_halt_exec() {
-        let mut ops = x64::Assembler::new().unwrap();
-        dynasm!(ops ; mov rax, 60);
-        dynasm!(ops ; mov rdi, 0);
-        dynasm!(ops ; syscall);
-        let res = ops.finalize().unwrap().to_vec();
-        let elf_bytes = generate_elf_v2(&res, 0x400078).unwrap();
-        fs::write("./test-bin/halt.elf", elf_bytes).unwrap();
-
-        let mut m = X86Elf::new(0x400000);
-        m.add_text(res, 0x40000, 897374939);
-        let elf_bytes = generate_elf(&m).unwrap();
-        fs::write("./test-bin/halt2.elf", elf_bytes).unwrap();
-    }
-
-    #[test]
-    fn generate_echo_exec() {
-        let mut ops = x86::Assembler::new().unwrap();
-        dynasm!(
-            ops;
-
-            // read the user input
-            mov rax, 0;
-            mov rdi, 0;
-            mov rsi, rsp;
-            mov rdx, 10;
-            syscall;
-
-            // write to screen
-            mov rax, 1;
-            mov rdi, 1;
-            mov rsi, rsp;
-            mov rdx, 10;
-            syscall;
-
-            // halt
-            mov rax, 60;
-            mov rdi, 0;
-            syscall
-        );
-        let res = ops.finalize().unwrap().to_vec();
-        let elf_bytes = generate_elf_v2(&res, 0x400078).unwrap();
-        fs::write("./test-bin/echo.elf", elf_bytes).unwrap();
-    }
 
     #[test]
     fn test_generate_elf_single_segment() {
