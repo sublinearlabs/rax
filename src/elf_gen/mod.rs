@@ -40,6 +40,10 @@ pub fn generate_elf(x86_elf: &X86Elf) -> Result<Vec<u8>, String> {
             // BSS segment - no file space needed
             segment_offsets.push(0);
         } else if !segment.data.is_empty() {
+            // since it is one executable, the global entry
+            // should be the same as the segment entry
+            assert_eq!(x86_elf.entry_point, segment.vaddr);
+
             // compute the vaddr delta aligned elf segment offset
             let page_delta = segment.vaddr % PAGE_ALIGN;
             let next_page_aligned_offset = aligned_up(current_offset, PAGE_ALIGN);
