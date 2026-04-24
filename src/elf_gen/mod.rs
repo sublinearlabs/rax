@@ -10,118 +10,15 @@ pub use x86_elf::{X86Elf, X86Segment};
 /// Standard page alignment for x86-64 ELF files
 const PAGE_ALIGN: u64 = 0x1000;
 
-// Generate an x86_64 Elf binary from a single executable input
-pub(crate) fn generate_elf_v2(bytes: &[u8], v_addr: u64) -> Result<Vec<u8>, String> {
-    const EHDR_SIZE: usize = 64;
-    const PHDR_SIZE: usize = 56;
-
-    let phoff: u64 = EHDR_SIZE as u64;
-    let segment_file_offset = (EHDR_SIZE + PHDR_SIZE) as u64;
-
-    // let entry = v_addr
-    //     .checked_add(segment_file_offset)
-    //     .ok_or_else(|| "entry address overflow".to_string())?;
-
-    let entry = v_addr;
-
-    let segment_size = bytes.len() as u64;
-
-    let mut elf = build_elf_header_x86_64(entry, phoff, 1);
-
-    elf.resize(EHDR_SIZE + PHDR_SIZE, 0);
-
-    write_phdr_x86_64_single_load(
-        &mut elf,
-        EHDR_SIZE,
-        segment_file_offset,
-        v_addr,
-        segment_size,
-        segment_size,
-    );
-
-    elf.extend_from_slice(bytes);
-
-    Ok(elf)
-}
-
-fn build_elf_header_x86_64(
-    entry: u64,
-    program_header_offset: u64,
-    program_header_num: u16,
-) -> Vec<u8> {
-    let mut elf = vec![0; 64];
-
-    // e_ident[16]
-    elf[0] = 0x7f;
-    elf[1] = b'E';
-    elf[2] = b'L';
-    elf[3] = b'F'; // magic
-    elf[4] = 2; // EI_CLASS   = ELFCLASS64
-    elf[5] = 1; // EI_DATA    = ELFDATA2LSB
-    elf[6] = 1; // EI_VERSION = EV_CURRENT
-    elf[7] = 0; // EI_OSABI   = ELFOSABI_SYSV
-    elf[8] = 0; // EI_ABIVERSION
-                // elf[9..16] left as 0 padding
-    put_u16_le(&mut elf, 16, 2); // e_type      = ET_EXEC
-    put_u16_le(&mut elf, 18, 62); // e_machine   = EM_X86_64
-    put_u32_le(&mut elf, 20, 1); // e_version   = EV_CURRENT
-    put_u64_le(&mut elf, 24, entry); // e_entry
-    put_u64_le(&mut elf, 32, program_header_offset); // e_phoff
-    put_u64_le(&mut elf, 40, 0); // e_shoff    = 0 (no sections)
-    put_u32_le(&mut elf, 48, 0); // e_flags    = 0 for x86-64
-    put_u16_le(&mut elf, 52, 64); // e_ehsize   = sizeof(Elf64_Ehdr)
-    put_u16_le(&mut elf, 54, 56); // e_phentsize= sizeof(Elf64_Phdr)
-    put_u16_le(&mut elf, 56, program_header_num); // e_phnum
-    put_u16_le(&mut elf, 58, 0); // e_shentsize
-    put_u16_le(&mut elf, 60, 0); // e_shnum
-    put_u16_le(&mut elf, 62, 0); // e_shstrndx
-    elf
-}
-
-fn write_phdr_x86_64_single_load(
-    elf: &mut [u8],
-    phoff: usize,
-    segment_file_offset: u64, // where code bytes begin in file, e.g. 0x78
-    segment_vaddr: u64,       // where segment is mapped, e.g. 0x400000
-    segment_file_size: u64,   // code length in file
-    segment_mem_size: u64,    // code length in memory (same for code-only)
-) {
-    // Elf64_Phdr layout:
-    // 0x00 p_type   (u32)
-    // 0x04 p_flags  (u32)
-    // 0x08 p_offset (u64)
-    // 0x10 p_vaddr  (u64)
-    // 0x18 p_paddr  (u64)
-    // 0x20 p_filesz (u64)
-    // 0x28 p_memsz  (u64)
-    // 0x30 p_align  (u64)
-    put_u32_le(elf, phoff + 0x00, 1); // PT_LOAD
-    put_u32_le(elf, phoff + 0x04, 0x5); // PF_R | PF_X
-    put_u64_le(elf, phoff + 0x08, segment_file_offset);
-    put_u64_le(elf, phoff + 0x10, segment_vaddr);
-    put_u64_le(elf, phoff + 0x18, 0); // p_paddr (ignored on Linux)
-    put_u64_le(elf, phoff + 0x20, segment_file_size);
-    put_u64_le(elf, phoff + 0x28, segment_mem_size);
-    put_u64_le(elf, phoff + 0x30, 0x1000); // page alignment
-}
-
-fn put_u16_le(buf: &mut [u8], off: usize, v: u16) {
-    buf[off..off + 2].copy_from_slice(&v.to_le_bytes());
-}
-
-fn put_u32_le(buf: &mut [u8], off: usize, v: u32) {
-    buf[off..off + 4].copy_from_slice(&v.to_le_bytes());
-}
-
-fn put_u64_le(buf: &mut [u8], off: usize, v: u64) {
-    buf[off..off + 8].copy_from_slice(&v.to_le_bytes());
-}
-
 /// Generate an x86-64 ELF binary from segments
 pub fn generate_elf(x86_elf: &X86Elf) -> Result<Vec<u8>, String> {
     if x86_elf.segments.is_empty() {
         return Err("No segments to generate ELF".to_string());
     }
+
+    // TODO: this only works for single segment executable
+    assert_eq!(x86_elf.segments.len(), 1);
+    assert!(x86_elf.segments[0].is_executable);
 
     let mut elf = Vec::new();
 
@@ -143,6 +40,7 @@ pub fn generate_elf(x86_elf: &X86Elf) -> Result<Vec<u8>, String> {
             // BSS segment - no file space needed
             segment_offsets.push(0);
         } else if !segment.data.is_empty() {
+            // we need to
             // Align to page boundary if executable
             if segment.is_executable {
                 current_offset = ((current_offset + PAGE_ALIGN - 1) / PAGE_ALIGN) * PAGE_ALIGN;
