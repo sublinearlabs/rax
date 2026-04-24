@@ -540,6 +540,14 @@ impl Compiler {
         dynasm!(self.ops ; mov rdx, Rq(rdx_temp));
 
         dynasm!(self.ops ; syscall);
+
+        // for x86 the result of the syscall is written to RAX
+        // for riscv the result is expected to be in a0/x10
+        // if the register mapping doesn't consider them equal
+        // then we need to move the content of RAX to a0/x10
+        let syscall_result = self.prepare_output(10);
+        dynasm!(self.ops ; mov Rq(syscall_result.dest), rax);
+        self.writeback_result(syscall_result);
     }
 
     /// Finds a GPR register for a given riscv register
