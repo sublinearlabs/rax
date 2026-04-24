@@ -16,6 +16,10 @@ pub fn generate_elf(x86_elf: &X86Elf) -> Result<Vec<u8>, String> {
         return Err("No segments to generate ELF".to_string());
     }
 
+    // TODO: this only works for single segment executable
+    assert_eq!(x86_elf.segments.len(), 1);
+    assert!(x86_elf.segments[0].is_executable);
+
     let mut elf = Vec::new();
 
     // Calculate number of program headers needed
@@ -36,9 +40,26 @@ pub fn generate_elf(x86_elf: &X86Elf) -> Result<Vec<u8>, String> {
             // BSS segment - no file space needed
             segment_offsets.push(0);
         } else if !segment.data.is_empty() {
+            // since it is one executable, the global entry
+            // should be the same as the segment entry
+            assert_eq!(x86_elf.entry_point, segment.vaddr);
+
+            // compute the vaddr delta aligned elf segment offset
+            // we want to ensure that:
+            // offset >= current_offset
+            // offset % PAGE_ALIGN == segment.vaddr % PAGE_ALIGN
+            let page_delta = segment.vaddr % PAGE_ALIGN;
+            let count_after_last_aligned_offset = current_offset % PAGE_ALIGN;
+            // if page_delta is greater than current offset delta then we just add the diff between
+            // them
+            // if page_delta is less than current offset delta then we need to go to the next aligned
+            // offset then add page delta (this is because we don't want offset < current_offset)
+            let to_add = (page_delta + PAGE_ALIGN - count_after_last_aligned_offset) % PAGE_ALIGN;
+            let offset = current_offset + to_add;
+
             // Align to page boundary if executable
             if segment.is_executable {
-                current_offset = ((current_offset + PAGE_ALIGN - 1) / PAGE_ALIGN) * PAGE_ALIGN;
+                current_offset = offset;
             }
             segment_offsets.push(current_offset);
             current_offset += segment.data.len() as u64;
@@ -128,7 +149,48 @@ pub fn generate_elf(x86_elf: &X86Elf) -> Result<Vec<u8>, String> {
 
 #[cfg(test)]
 mod tests {
+    use std::{
+        env, fs,
+        os::unix::fs::PermissionsExt,
+        process::Command,
+        time::{SystemTime, UNIX_EPOCH},
+    };
+
+    use dynasmrt::{dynasm, x64, DynasmApi};
+
     use super::*;
+
+    #[test]
+    fn test_generate_halt_elf() {
+        // emit a halt syscall with exit code 2
+        let mut ops = x64::Assembler::new().unwrap();
+        dynasm!(ops ; mov rax, 60);
+        dynasm!(ops ; mov rdi, 2);
+        dynasm!(ops ; syscall);
+        let bytes = ops.finalize().unwrap().to_vec();
+
+        let mut elf = X86Elf::new(0x11158);
+        elf.add_text(bytes, 0x11158, 0xdead_beaf);
+        let elf_bytes = generate_elf(&elf).unwrap();
+
+        let ts = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let out = env::temp_dir().join(format!("halt-{}-{}.elf", std::process::id(), ts));
+
+        fs::write(&out, &elf_bytes).unwrap();
+
+        // chmod +x
+        let mut perms = fs::metadata(&out).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&out, perms).unwrap();
+
+        let status = Command::new(&out).status().unwrap();
+        assert_eq!(status.code(), Some(2));
+
+        let _ = fs::remove_file(&out);
+    }
 
     #[test]
     fn test_generate_elf_single_segment() {
