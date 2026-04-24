@@ -213,17 +213,28 @@ impl Compiler {
         let rs2 = self.prepare_input(*rs2);
         let rd = self.prepare_output(*rd);
 
+        // if rd aliases rs2, moving rs1 into rd will clobber rhs
+        // so if they alias each other we should store rs2 in temp
+        // and then use tmp as rhs
+        let rhs = if rd.dest == rs2.dest && rd.dest != rs1.dest {
+            let tmp = self.temp();
+            dynasm!(self.ops ; mov Rq(tmp), Rq(rs2.dest));
+            tmp
+        } else {
+            rs2.dest
+        };
+
         if rd.dest != rs1.dest {
             dynasm!(self.ops ; mov Rq(rd.dest), Rq(rs1.dest));
         }
 
         match alu_op {
-            AluRrOp::Add => dynasm!(self.ops ; add Rq(rd.dest), Rq(rs2.dest)),
-            AluRrOp::Sub => dynasm!(self.ops ; sub Rq(rd.dest), Rq(rs2.dest)),
-            AluRrOp::Or => dynasm!(self.ops ; or Rq(rd.dest), Rq(rs2.dest)),
+            AluRrOp::Add => dynasm!(self.ops ; add Rq(rd.dest), Rq(rhs)),
+            AluRrOp::Sub => dynasm!(self.ops ; sub Rq(rd.dest), Rq(rhs)),
+            AluRrOp::Or => dynasm!(self.ops ; or Rq(rd.dest), Rq(rhs)),
             AluRrOp::Subw => {
                 // subtract the lower 32 bits
-                dynasm!(self.ops; sub Rd(rd.dest), Rd(rs2.dest));
+                dynasm!(self.ops; sub Rd(rd.dest), Rd(rhs));
                 // sign extend the result to 64 bits
                 dynasm!(self.ops; movsxd Rq(rd.dest), Rd(rd.dest));
             }
@@ -245,7 +256,7 @@ impl Compiler {
                     dynasm!(self.ops ; mov rax, Rq(rs1.dest));
                 }
 
-                dynasm!(self.ops ; mul Rq(rs2.dest));
+                dynasm!(self.ops ; mul Rq(rhs));
 
                 if rd.dest != RDX {
                     dynasm!(self.ops ; mov Rq(rd.dest), rdx);
