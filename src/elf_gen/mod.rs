@@ -40,12 +40,14 @@ pub fn generate_elf(x86_elf: &X86Elf) -> Result<Vec<u8>, String> {
             // BSS segment - no file space needed
             segment_offsets.push(0);
         } else if !segment.data.is_empty() {
-            // we need to compute the delta so that we put the bytes
-            // at the correct offset
+            // compute the vaddr delta aligned elf segment offset
+            let page_delta = segment.vaddr % PAGE_ALIGN;
+            let next_page_aligned_offset = aligned_up(current_offset, PAGE_ALIGN);
+            let offset = next_page_aligned_offset + page_delta;
 
             // Align to page boundary if executable
             if segment.is_executable {
-                current_offset = ((current_offset + PAGE_ALIGN - 1) / PAGE_ALIGN) * PAGE_ALIGN;
+                current_offset = offset;
             }
             segment_offsets.push(current_offset);
             current_offset += segment.data.len() as u64;
