@@ -149,11 +149,48 @@ pub fn generate_elf(x86_elf: &X86Elf) -> Result<Vec<u8>, String> {
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
+    use std::{
+        env, fs,
+        os::unix::fs::PermissionsExt,
+        process::Command,
+        time::{SystemTime, UNIX_EPOCH},
+    };
 
-    use dynasmrt::{dynasm, x64, x86, DynasmApi};
+    use dynasmrt::{dynasm, x64, DynasmApi};
 
     use super::*;
+
+    #[test]
+    fn test_generate_halt_elf() {
+        // emit a halt syscall with exit code 2
+        let mut ops = x64::Assembler::new().unwrap();
+        dynasm!(ops ; mov rax, 60);
+        dynasm!(ops ; mov rdi, 2);
+        dynasm!(ops ; syscall);
+        let bytes = ops.finalize().unwrap().to_vec();
+
+        let mut elf = X86Elf::new(0x11158);
+        elf.add_text(bytes, 0x11158, 0xdead_beaf);
+        let elf_bytes = generate_elf(&elf).unwrap();
+
+        let ts = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let out = env::temp_dir().join(format!("halt-{}-{}.elf", std::process::id(), ts));
+
+        fs::write(&out, &elf_bytes).unwrap();
+
+        // chmod +x
+        let mut perms = fs::metadata(&out).unwrap().permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&out, perms).unwrap();
+
+        let status = Command::new(&out).status().unwrap();
+        assert_eq!(status.code(), Some(2));
+
+        let _ = fs::remove_file(&out);
+    }
 
     #[test]
     fn test_generate_elf_single_segment() {
