@@ -94,14 +94,6 @@ impl Compiler {
     /// Converts a slice of RISCV Instruction to their corresponding
     /// x86 instructions
     pub(crate) fn translate_insns(&mut self, insns: &[Instruction]) {
-        // TODO: remove this
-        // clear out the zero register
-        let temp = self.temp();
-        dynasm!(self.ops ; xor Rq(temp), Rq(temp));
-        dynasm!(self.ops ; pinsrq Rx(11), Rq(temp), 1);
-        // dynasm!(self.ops ; nop);
-        self.reset_temp();
-
         for insn in insns {
             self.translate_insn(insn);
             self.reset_temp();

@@ -18,11 +18,6 @@ pub(crate) mod register_mapping;
 /// Define register mapping
 const REGISTER_MAPPING: RegisterMapping = RegisterMapping {
     map: [
-        // TODO: this should be RegisterLocation::ConstZero
-        // but the current architecture doesn't support this
-        // I need to refactor the approach based on the new
-        // things learnt.
-
         // x0(zero)
         RegisterLocation::Zero,
         // x1(ra)
