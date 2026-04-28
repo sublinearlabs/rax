@@ -570,6 +570,10 @@ impl Compiler {
         let reg_location = self.register_mapping[RiscvRegister::new(reg)];
         let dest;
         match reg_location {
+            RegisterLocation::Zero => {
+                dest = self.temp();
+                dynasm!(self.ops ; xor Rq(dest), Rq(dest));
+            }
             RegisterLocation::Gpr(idx) => {
                 // we don't do anything, already gpr
                 dest = idx;
@@ -600,6 +604,7 @@ impl Compiler {
         let reg_location = self.register_mapping[RiscvRegister::new(reg)];
         let dest;
         match reg_location {
+            RegisterLocation::Zero => dest = self.temp(),
             RegisterLocation::Gpr(idx) => dest = idx,
             RegisterLocation::Xmm(_) | RegisterLocation::XmmShared(_, _) => dest = self.temp(),
         }
@@ -612,6 +617,9 @@ impl Compiler {
     /// Writes the value stored in a temp gpr register to its target location
     fn writeback_result(&mut self, reg_info: AllocatedReg) {
         match reg_info.source {
+            RegisterLocation::Zero => {
+                // no writes to x0
+            }
             RegisterLocation::Gpr(_) => {
                 // already GPR no need for writeback
             }

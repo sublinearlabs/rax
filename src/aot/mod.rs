@@ -1,3 +1,4 @@
+use cranelift_codegen::gimli::Register;
 use dynasmrt::x64::{Assembler, Rq};
 use iced_x86::{Decoder, DecoderOptions, Formatter, Instruction, NasmFormatter};
 use std::fs;
@@ -23,7 +24,7 @@ const REGISTER_MAPPING: RegisterMapping = RegisterMapping {
         // things learnt.
 
         // x0(zero)
-        RegisterLocation::XmmShared(11, XmmLane::UPPER),
+        RegisterLocation::Zero,
         // x1(ra)
         RegisterLocation::Gpr(Rq::RBX as u8),
         // x2(sp)
@@ -72,9 +73,8 @@ const REGISTER_MAPPING: RegisterMapping = RegisterMapping {
         RegisterLocation::Xmm(9),
         // x24(s8)
         RegisterLocation::Xmm(10),
-        // TODO: convert this back to non-shared when you fix the zero register
         // x25(s9)
-        RegisterLocation::XmmShared(11, XmmLane::LOWER),
+        RegisterLocation::Xmm(11),
         // x26(s10)
         RegisterLocation::XmmShared(13, XmmLane::LOWER),
         // x27(s11)

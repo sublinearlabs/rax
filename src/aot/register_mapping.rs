@@ -5,6 +5,7 @@ use std::ops::Index;
 // TODO: consider adding Mem spill (handle base + offset semantics)
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub(crate) enum RegisterLocation {
+    Zero,
     Gpr(u8),
     Xmm(u8),
     XmmShared(u8, XmmLane),
