@@ -135,6 +135,8 @@ impl Compiler {
         for target_pc in jump_table {
             dynasm!(self.ops; .i64 target_pc as i64);
         }
+
+        println!("riscv insns: {}", insns.len());
     }
 
     /// Converts a single RISCV instruction to its corresponding x86 instruction

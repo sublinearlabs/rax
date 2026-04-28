@@ -138,12 +138,17 @@ fn disassemble_x64(code: &[u8], base_ip: u64) {
     let mut instr = Instruction::default();
     let mut out = String::new();
 
+    let mut insn_count = 0;
+
     while decoder.can_decode() {
         decoder.decode_out(&mut instr);
         out.clear();
         formatter.format(&instr, &mut out);
         println!("{:016X} {}", instr.ip(), out);
+        insn_count += 1;
     }
+
+    println!("x86 insn_count: {}", insn_count);
 }
 
 #[cfg(test)]
