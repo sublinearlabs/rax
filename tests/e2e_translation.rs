@@ -14,7 +14,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 
-use riscv::elf::{parse_elf, Segment};
+use riscv::elf::parse_elf;
 
 fn get_test_binary_path(name: &str) -> PathBuf {
     PathBuf::from(format!("test-bin/rust-bin/{}", name))
@@ -120,9 +120,6 @@ fn test_minimal_x86_elf_execution() {
 
 #[test]
 fn test_translate_riscv_echo_ima_to_x86() {
-    use riscv::aot::register_mapping::RegisterMapping;
-    use riscv::translate::translator::RiscvToX86Translator;
-
     let path = get_test_binary_path("echo/echo-ima");
     let riscv_elf = load_riscv_elf(&path).expect("Failed to load RISC-V ELF");
 
@@ -131,62 +128,31 @@ fn test_translate_riscv_echo_ima_to_x86() {
     println!("  - ELF size: {} bytes", riscv_elf.len());
 
     // Full translation pipeline
-    // Step 1: Parse RISC-V ELF and extract instructions
-    println!("\n  1️⃣  Parsing RISC-V ELF segments...");
-    let riscv_elf_with_segments = parse_elf(&riscv_elf);
+    println!("\n Parsing RISC-V ELF segments...");
+    let mut riscv_elf_with_segments = parse_elf(&riscv_elf);
 
-    let mut executable_segments = Vec::<Segment>::new();
+    println!("\n Decode executable segments");
+    riscv_elf_with_segments.decode_exec_segments();
 
-    println!("Decode executable segments");
-    for mut segment in riscv_elf_with_segments.segments {
-        if segment.is_executable {
-            segment.decode();
-            executable_segments.push(segment);
-        }
-    }
+    println!("\n Generating x86-64 ELF...");
+    let x86_elf = riscv_elf_with_segments.into();
 
-    // Step 2: Create translator and translate each instruction
-    println!("  2️⃣  Translating RISC-V instructions to x86-64...");
-    let mut translator = RiscvToX86Translator::<RegisterMapping>::new();
+    let x86_binary =
+        riscv::elf_gen::generate_elf(&x86_elf).expect("Error encountered generating x86 elf");
 
-    // Attempt to translate each instruction
-    // We assume that we have just one executable segment
-    for (pc, insn) in executable_segments[0].insns.iter().enumerate() {
-        println!("    Translating RISC-V PC 0x{:x}", pc);
-        // For now, we'll just count them - actual translation uses internal decode
-        translator
-            .process_instruction(insn)
-            .expect(format!("Error encountered processing instruction: {:?}", insn).as_str());
-    }
-
-    // Step 3: Generate x86-64 ELF with translated bytecode
-    println!("  3️⃣  Generating x86-64 ELF...");
-
-    let x86_binary = if !translator.emitter.buffer.is_empty() {
-        let mut elf = riscv::elf_gen::X86Elf::new(0x400000);
-        let segment =
-            riscv::elf_gen::X86Segment::text(translator.emitter.buffer.to_vec(), 0x400000, 0x1000);
-        elf.add_segment(segment);
-        riscv::elf_gen::generate_elf(&elf).expect("Failed to generate x86-64 ELF")
-    } else {
-        println!("    No translated bytecode, using minimal ELF");
-        generate_minimal_x86_elf()
-    };
     println!("  - Generated x86-64 ELF: {} bytes", x86_binary.len());
 
-    // Step 4: Write and execute
     println!("  4️⃣  Writing and executing x86-64 ELF...");
-    let output_file = "/tmp/test_echo_ima_translated.elf";
+    let output_file = "tests/test_echo_ima_translated.elf";
 
     match write_and_execute_elf(&x86_binary, output_file) {
         Ok(exit_code) => {
             println!("✓ Echo-IMA translation successful!");
             println!("  - Exit code: {}", exit_code);
+            println!("  - Output saved to: {}", output_file);
         }
         Err(e) => {
             println!("✗ Translation execution failed: {}", e);
         }
     }
-
-    let _ = fs::remove_file(output_file);
 }
