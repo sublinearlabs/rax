@@ -17,7 +17,8 @@ pub trait RegisterMapper: Clone {
     fn location_to_operand(&self, location: RegisterLocation) -> Result<Operand, String>;
 
     /// Create a new instance with default configuration for this strategy
-    fn new() -> Self
+    /// Takes the memory address where other registers would be stored in memory
+    fn new(mem_addr: u64) -> Self
     where
         Self: Sized;
 }
@@ -31,7 +32,7 @@ impl RegisterMapper for RegisterMapping {
     fn location_to_operand(&self, location: RegisterLocation) -> Result<Operand, String> {
         match location {
             RegisterLocation::ZERO => {
-                // Zero register maps to RAX with immediate 0
+                // Zero register maps to 0 immediate value
                 Ok(Operand::Immediate(0))
             }
             RegisterLocation::GPR(gpr_index) => {
@@ -62,32 +63,59 @@ impl RegisterMapper for RegisterMapping {
                 Err(format!("XMM register {} not yet supported", xmm_index))
             }
             RegisterLocation::MEM(address) => {
-                // Memory location: use RBP as base with offset
-                Ok(Operand::Memory {
-                    base: crate::translate::x86_insn::X86Register::RBP,
-                    offset: (address & 0xFFFFFFFF) as i32,
-                })
+                // Spilled registers are stored at absolute addresses in the BSS segment
+                // Use absolute memory addressing instead of RBP-relative
+                Ok(Operand::AbsoluteAddress(address))
             }
         }
     }
 
-    fn new() -> Self
+    // Takes the memory address where other registers would be stored in memory
+    fn new(mem_addr: u64) -> Self
     where
         Self: Sized,
     {
-        // Create a default mapping: all RISC-V registers map to GPRs (0-15)
-        // For registers beyond 15, spill to memory
-        let mut map = [RegisterLocation::ZERO; 32];
-
-        // Map RISC-V x0-x15 to GPR 0-15
-        for i in 0..16 {
-            map[i] = RegisterLocation::GPR(i as u8);
-        }
-
-        // Map RISC-V x16-x31 to memory locations
-        for i in 16..32 {
-            map[i] = RegisterLocation::MEM(0x1000 + ((i as u64) * 8));
-        }
+        // Create a mapping respecting RISC-V and x86-64 calling conventions:
+        // RISC-V caller-saved → x86-64 caller-saved (RAX, RCX, RDX, RSI, RDI, R8-R10)
+        // RISC-V callee-saved → x86-64 callee-saved (RBX, RBP, R15)
+        // Overflow → memory spilling
+        // Reserved scratch → R11, R12, R13, R14 (used for complex instructions and temporary operations)
+        //
+        // x86-64 registers: RAX(0), RCX(1), RDX(2), RBX(3), RSP(4), RBP(5), RSI(6), RDI(7), R8(8), R9(9), R10(10), R11(11), R12(12), R13(13), R14(14), R15(15)
+        let map = [
+            RegisterLocation::ZERO,                // x0: hardwired zero
+            RegisterLocation::GPR(0),              // x1(ra): rax (caller-saved, return addr)
+            RegisterLocation::GPR(4),              // x2(sp): rsp (stack pointer)
+            RegisterLocation::GPR(3),              // x3(gp): rbx (callee-saved, rarely used)
+            RegisterLocation::MEM(mem_addr), // x4(tp): memory (callee-saved, rarely used, freed for scratch)
+            RegisterLocation::MEM(mem_addr + 144), // x5(t0): memory (freed R11 for scratch register)
+            RegisterLocation::GPR(10),             // x6(t1): r10 (caller-saved temp)
+            RegisterLocation::GPR(9),              // x7(t2): r9 (caller-saved temp)
+            RegisterLocation::GPR(5),              // x8(s0/fp): rbp (frame pointer, callee-saved)
+            RegisterLocation::MEM(mem_addr + 8), // x9(s1): memory (callee-saved, freed R13 for scratch)
+            RegisterLocation::GPR(7),            // x10(a0): rdi (arg0, caller-saved)
+            RegisterLocation::GPR(6),            // x11(a1): rsi (arg1, caller-saved)
+            RegisterLocation::GPR(2),            // x12(a2): rdx (arg2, caller-saved)
+            RegisterLocation::GPR(1),            // x13(a3): rcx (arg3, caller-saved)
+            RegisterLocation::GPR(8),            // x14(a4): r8 (arg4, caller-saved)
+            RegisterLocation::GPR(15),           // x15(a5): r15 (caller-saved)
+            RegisterLocation::MEM(mem_addr + 16), // x16(a6): memory (overflow)
+            RegisterLocation::MEM(mem_addr + 24), // x17(a7): memory (overflow)
+            RegisterLocation::MEM(mem_addr + 32), // x18(s2): memory (callee-saved)
+            RegisterLocation::MEM(mem_addr + 40), // x19(s3): memory (callee-saved)
+            RegisterLocation::MEM(mem_addr + 48), // x20(s4): memory (callee-saved)
+            RegisterLocation::MEM(mem_addr + 56), // x21(s5): memory (callee-saved)
+            RegisterLocation::MEM(mem_addr + 64), // x22(s6): memory (callee-saved)
+            RegisterLocation::MEM(mem_addr + 72), // x23(s7): memory (callee-saved)
+            RegisterLocation::MEM(mem_addr + 80), // x24(s8): memory (callee-saved)
+            RegisterLocation::MEM(mem_addr + 88), // x25(s9): memory (callee-saved)
+            RegisterLocation::MEM(mem_addr + 96), // x26(s10): memory (callee-saved)
+            RegisterLocation::MEM(mem_addr + 104), // x27(s11): memory (callee-saved)
+            RegisterLocation::MEM(mem_addr + 112), // x28(t3): memory (caller-saved temp, spilled)
+            RegisterLocation::MEM(mem_addr + 120), // x29(t4): memory (freed R14 for scratch)
+            RegisterLocation::MEM(mem_addr + 128), // x30(t5): memory (spilled temp)
+            RegisterLocation::MEM(mem_addr + 136), // x31(t6): memory (spilled temp)
+        ];
 
         RegisterMapping::new(map)
     }
