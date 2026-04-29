@@ -98,14 +98,17 @@ pub enum Operand {
     /// Register operand
     Register(X86Register),
 
-    /// Immediate (constant) operand - 64-bit signed
+    /// Immediate (constant) operand - 64-bit signed (allows full address space)
     Immediate(i64),
 
     /// Memory operand: [base + offset]
     Memory { base: X86Register, offset: i32 },
 
-    /// Label operand (for jumps and calls)
-    Label(String),
+    /// Absolute memory address
+    AbsoluteAddress(u64),
+
+    /// Symbol operand (for external symbols like __bss_start that need relocation)
+    Symbol(String),
 }
 
 impl fmt::Display for Operand {
@@ -122,7 +125,8 @@ impl fmt::Display for Operand {
                     write!(f, "[{} - {}]", base, -offset)
                 }
             }
-            Operand::Label(name) => write!(f, "{}", name),
+            Operand::AbsoluteAddress(addr) => write!(f, "[0x{:x}]", addr),
+            Operand::Symbol(name) => write!(f, "{}", name),
         }
     }
 }
@@ -189,19 +193,24 @@ pub enum X86Instruction {
     Cmpxchg { src: Operand, dst: Operand }, // Compare and exchange
 
     // Control flow
-    Jmp { target: String }, // Unconditional jump
-    Je { target: String },  // Jump if equal
-    Jne { target: String }, // Jump if not equal
-    Jl { target: String },  // Jump if less
-    Jle { target: String }, // Jump if less or equal
-    Jg { target: String },  // Jump if greater
-    Jge { target: String }, // Jump if greater or equal
-    Jbe { target: String }, // Jump if below or equal (unsigned)
-    Ja { target: String },  // Jump if above (unsigned)
+    Jmp { target: String },     // Unconditional jump to label
+    JmpReg { target: Operand }, // Indirect jump to register/operand (jmp *rax)
+    Je { target: String },      // Jump if equal
+    Jne { target: String },     // Jump if not equal
+    Jl { target: String },      // Jump if less
+    Jle { target: String },     // Jump if less or equal
+    Jg { target: String },      // Jump if greater
+    Jge { target: String },     // Jump if greater or equal
+    Jbe { target: String },     // Jump if below or equal (unsigned)
+    Ja { target: String },      // Jump if above (unsigned)
+    Jae { target: String },     // Jump if above or equal (unsigned)
 
     // Function calls
     Call { target: String }, // Call function
     Ret,                     // Return from function
+
+    // System calls
+    Syscall, // System call (x86-64: syscall instruction)
 
     // Stack operations
     Push { src: Operand },
@@ -260,6 +269,7 @@ impl fmt::Display for X86Instruction {
             X86Instruction::Xadd { src, dst } => write!(f, "xadd {}, {}", dst, src),
             X86Instruction::Cmpxchg { src, dst } => write!(f, "cmpxchg {}, {}", dst, src),
             X86Instruction::Jmp { target } => write!(f, "jmp {}", target),
+            X86Instruction::JmpReg { target } => write!(f, "jmp *{}", target),
             X86Instruction::Je { target } => write!(f, "je {}", target),
             X86Instruction::Jne { target } => write!(f, "jne {}", target),
             X86Instruction::Jl { target } => write!(f, "jl {}", target),
@@ -268,8 +278,10 @@ impl fmt::Display for X86Instruction {
             X86Instruction::Jge { target } => write!(f, "jge {}", target),
             X86Instruction::Jbe { target } => write!(f, "jbe {}", target),
             X86Instruction::Ja { target } => write!(f, "ja {}", target),
+            X86Instruction::Jae { target } => write!(f, "jae {}", target),
             X86Instruction::Call { target } => write!(f, "call {}", target),
             X86Instruction::Ret => write!(f, "ret"),
+            X86Instruction::Syscall => write!(f, "syscall"),
             X86Instruction::Push { src } => write!(f, "push {}", src),
             X86Instruction::Pop { dst } => write!(f, "pop {}", dst),
             X86Instruction::Label { name } => write!(f, "{}:", name),
