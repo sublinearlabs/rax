@@ -7,41 +7,6 @@ use crate::decode::Instruction as RiscvInstruction;
 use crate::translate::x86_emitter::X86Emitter;
 use crate::translate::x86_insn::X86Instruction;
 use crate::translate::{instruction_translator, RegisterMapper};
-use std::collections::HashMap;
-
-/// Mapping from RISC-V program counter to x86-64 bytecode offset
-/// and RISC-V program counter to size of x86-64 instruction
-#[derive(Debug, Clone)]
-pub struct PCMapping {
-    pub pc_to_x86_offset: HashMap<u64, usize>,
-    pub pc_to_x86_size: HashMap<u64, usize>,
-}
-
-impl PCMapping {
-    /// Create a new PC mapping
-    pub fn new() -> Self {
-        PCMapping {
-            pc_to_x86_offset: HashMap::new(),
-            pc_to_x86_size: HashMap::new(),
-        }
-    }
-
-    /// Add a mapping entry
-    pub fn add_mapping(&mut self, riscv_pc: u64, x86_offset: usize, x86_size: usize) {
-        self.pc_to_x86_offset.insert(riscv_pc, x86_offset);
-        self.pc_to_x86_size.insert(riscv_pc, x86_size);
-    }
-
-    /// Get x86-64 offset for a RISC-V PC
-    pub fn get_x86_offset(&self, riscv_pc: u64) -> Option<usize> {
-        self.pc_to_x86_offset.get(&riscv_pc).copied()
-    }
-
-    /// Get x86-64 size for a RISC-V PC
-    pub fn get_x86_size(&self, riscv_pc: u64) -> Option<usize> {
-        self.pc_to_x86_size.get(&riscv_pc).copied()
-    }
-}
 
 /// Translation context
 #[derive(Debug, Clone)]
@@ -61,27 +26,19 @@ pub struct RiscvToX86Translator<M: RegisterMapper> {
 
     /// Translation context
     pub(crate) context: TranslationContext<M>,
-
-    /// List of translated instructions (for debugging)
-    instructions: Vec<X86Instruction>,
-
-    /// PC mapping from RISC-V to x86-64
-    pub pc_mapping: PCMapping,
 }
 
 impl<M: RegisterMapper> RiscvToX86Translator<M> {
-    pub fn new() -> Self {
+    pub fn new(pc: u64, code_base: u64, bss_base: u64) -> Self {
         // Create a new register mapping
-        let register_mapping = M::new();
+        let register_mapping = M::new(bss_base);
 
         RiscvToX86Translator {
-            emitter: X86Emitter::new(),
+            emitter: X86Emitter::new(code_base),
             context: TranslationContext {
-                pc: 0,
+                pc,
                 register_mapping,
             },
-            instructions: Vec::new(),
-            pc_mapping: PCMapping::new(),
         }
     }
 
@@ -111,22 +68,41 @@ impl<M: RegisterMapper> RiscvToX86Translator<M> {
         Ok(())
     }
 
-    /// Add an instruction to the translation
-    pub fn add_instruction(&mut self, instruction: X86Instruction) {
-        self.instructions.push(instruction);
-    }
-
     /// Emit an instruction
     pub fn emit_instruction(&mut self, instruction: &X86Instruction) -> Result<(), String> {
         match instruction {
             X86Instruction::Mov { src, dst } => self.emitter.emit_mov(src, dst),
+            X86Instruction::Movzx { src, dst } => self.emitter.emit_movzx(src, dst),
             X86Instruction::Add { src, dst } => self.emitter.emit_add(src, dst),
             X86Instruction::Sub { src, dst } => self.emitter.emit_sub(src, dst),
+            X86Instruction::And { src, dst } => self.emitter.emit_and(src, dst),
+            X86Instruction::Or { src, dst } => self.emitter.emit_or(src, dst),
+            X86Instruction::Xor { src, dst } => self.emitter.emit_xor(src, dst),
+            X86Instruction::Cmp { src, dst } => self.emitter.emit_cmp(src, dst),
             X86Instruction::Jmp { target } => self.emitter.emit_jmp(target),
+            X86Instruction::JmpReg { target } => self.emitter.emit_jmp_reg(target),
+            X86Instruction::Je { target } => self.emitter.emit_je(target),
+            X86Instruction::Jne { target } => self.emitter.emit_jne(target),
+            X86Instruction::Jl { target } => self.emitter.emit_jl(target),
+            X86Instruction::Jle { target } => self.emitter.emit_jle(target),
+            X86Instruction::Jg { target } => self.emitter.emit_jg(target),
+            X86Instruction::Jge { target } => self.emitter.emit_jge(target),
+            X86Instruction::Jbe { target } => self.emitter.emit_jbe(target),
+            X86Instruction::Ja { target } => self.emitter.emit_ja(target),
+            X86Instruction::Jae { target } => self.emitter.emit_jae(target),
             X86Instruction::Ret => {
                 self.emitter.emit_ret();
                 Ok(())
             }
+            X86Instruction::Syscall => {
+                self.emitter.emit_syscall();
+                Ok(())
+            }
+            X86Instruction::Push { src } => self.emitter.emit_push(src),
+            X86Instruction::Pop { dst } => self.emitter.emit_pop(dst),
+            X86Instruction::Shl { src, dst } => self.emitter.emit_shl(src, dst),
+            X86Instruction::Shr { src, dst } => self.emitter.emit_shr(src, dst),
+            X86Instruction::Sar { src, dst } => self.emitter.emit_sar(src, dst),
             X86Instruction::Label { name } => {
                 self.emitter.emit_label(name.clone());
                 Ok(())
@@ -147,58 +123,31 @@ impl<M: RegisterMapper> RiscvToX86Translator<M> {
         self.emitter.get_buffer()
     }
 
-    /// Get the instruction list
-    pub fn get_instructions(&self) -> &[X86Instruction] {
-        &self.instructions
-    }
-
-    /// Get translation statistics
-    pub fn get_stats(&self) -> TranslationStats {
-        TranslationStats {
-            instructions_translated: self.instructions.len(),
-            bytecode_size: self.get_bytecode().len(),
-        }
-    }
-
-    /// Record a PC mapping: maps RISC-V PC to x86-64 bytecode offset and size
-    /// Call this before emitting code for an instruction, returns the offset where code will be emitted
-    /// Then after emitting, call finish_pc_mapping to record the size
-    pub fn record_pc_mapping(&mut self, _riscv_pc: u64) -> usize {
-        self.emitter.get_buffer().len()
-    }
-
-    /// Finish recording a PC mapping after emitting x86-64 code
-    /// Call this after emitting x86-64 instruction(s) for a RISC-V instruction
-    pub fn finish_pc_mapping(&mut self, riscv_pc: u64, x86_offset: usize) {
-        let x86_size = self.emitter.get_buffer().len() - x86_offset;
-        self.pc_mapping.add_mapping(riscv_pc, x86_offset, x86_size);
-    }
-
     /// Process a RISC-V instruction through translation
     ///
     /// This is the main entry point for translating individual RISC-V instructions.
     /// Returns an error if the instruction is not yet supported.
     pub fn process_instruction(&mut self, riscv_insn: &RiscvInstruction) -> Result<(), String> {
+        // Record the starting x86 offset for this RISC-V instruction
+        let current_riscv_pc = self.context.pc;
+
+        // Emit a label for this instruction to enable relocations
+        let label = format!("L_{:x}", current_riscv_pc);
+        self.emitter.emit_label(label);
+
+        // Translate the instruction
         instruction_translator::translate_instruction(self, riscv_insn)?;
-        self.context.pc += 4; // RISC-V instructions are always 4 bytes
+
+        // Move to next RISC-V instruction (always 4 bytes since c extension is not supported)
+        self.context.pc += 4;
         Ok(())
     }
 }
 
 impl<M: RegisterMapper> Default for RiscvToX86Translator<M> {
     fn default() -> Self {
-        Self::new()
+        Self::new(0, 0x400000u64, 0x601000u64)
     }
-}
-
-/// Translation statistics
-#[derive(Debug, Clone)]
-pub struct TranslationStats {
-    /// Number of instructions translated
-    pub instructions_translated: usize,
-
-    /// Size of generated bytecode
-    pub bytecode_size: usize,
 }
 
 #[cfg(test)]
@@ -207,51 +156,16 @@ mod tests {
     use crate::aot::register_mapping::RegisterMapping;
 
     #[test]
-    fn test_translator_creation() {
-        let translator = RiscvToX86Translator::<RegisterMapping>::new();
-        assert_eq!(translator.get_instructions().len(), 0);
-        assert_eq!(translator.context().pc, 0);
-    }
-
-    #[test]
-    fn test_translator_finish() {
-        let mut translator = RiscvToX86Translator::<RegisterMapping>::new();
-        translator.finish().unwrap();
-        // Finish should complete without error
-    }
-
-    #[test]
-    fn test_add_instruction() {
-        let mut translator = RiscvToX86Translator::<RegisterMapping>::new();
-
-        let nop = X86Instruction::Nop;
-
-        translator.add_instruction(nop);
-        assert_eq!(translator.get_instructions().len(), 1);
-    }
-
-    #[test]
     fn test_emit_nop() {
-        let mut translator = RiscvToX86Translator::<RegisterMapping>::new();
+        let mut translator: RiscvToX86Translator<RegisterMapping> = RiscvToX86Translator::default();
 
         translator.emit_instruction(&X86Instruction::Nop).unwrap();
         assert_eq!(translator.get_bytecode()[0], 0x90);
     }
 
     #[test]
-    fn test_add_multiple_instructions() {
-        let mut translator = RiscvToX86Translator::<RegisterMapping>::new();
-
-        translator.add_instruction(X86Instruction::Nop);
-        translator.add_instruction(X86Instruction::Nop);
-
-        let stats = translator.get_stats();
-        assert_eq!(stats.instructions_translated, 2);
-    }
-
-    #[test]
     fn test_register_mapping_access() {
-        let translator = RiscvToX86Translator::<RegisterMapping>::new();
+        let translator: RiscvToX86Translator<RegisterMapping> = RiscvToX86Translator::default();
 
         let _mapping = &translator.context().register_mapping;
         // Verify mapping was created
@@ -259,20 +173,9 @@ mod tests {
 
     #[test]
     fn test_emit_ret() {
-        let mut translator = RiscvToX86Translator::<RegisterMapping>::new();
+        let mut translator: RiscvToX86Translator<RegisterMapping> = RiscvToX86Translator::default();
 
         translator.emit_instruction(&X86Instruction::Ret).unwrap();
         assert_eq!(translator.get_bytecode()[0], 0xC3);
-    }
-
-    #[test]
-    fn test_get_stats() {
-        let mut translator = RiscvToX86Translator::<RegisterMapping>::new();
-
-        translator.add_instruction(X86Instruction::Nop);
-        translator.add_instruction(X86Instruction::Nop);
-
-        let stats = translator.get_stats();
-        assert_eq!(stats.instructions_translated, 2);
     }
 }
