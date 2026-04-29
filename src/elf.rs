@@ -1,5 +1,5 @@
 use elf::{
-    abi::{EM_RISCV, ET_EXEC, PF_X, PT_LOAD},
+    abi::{EM_RISCV, ET_EXEC, PF_R, PF_W, PF_X, PT_LOAD},
     endian::LittleEndian,
     file::Class,
     ElfBytes,
@@ -54,6 +54,7 @@ pub(crate) fn decode_elf(bytes: &[u8]) -> (MemoryDefault, u64) {
     (memory, entry)
 }
 
+#[derive(Debug, Clone)]
 pub struct Segment {
     pub data: Vec<u8>,
     pub insns: Vec<Instruction>,
@@ -62,6 +63,8 @@ pub struct Segment {
     pub file_size: usize,
     pub mem_size: usize,
     pub is_executable: bool,
+    pub is_readable: bool,
+    pub is_writable: bool,
 }
 
 impl Segment {
@@ -73,6 +76,8 @@ impl Segment {
         file_size: usize,
         mem_size: usize,
         is_executable: bool,
+        is_readable: bool,
+        is_writable: bool,
     ) -> Self {
         Self {
             data,
@@ -82,6 +87,8 @@ impl Segment {
             file_size,
             mem_size,
             is_executable,
+            is_readable,
+            is_writable,
         }
     }
 
@@ -109,6 +116,7 @@ impl Segment {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Elf {
     pub segments: Vec<Segment>,
     pub global_entry: u64,
@@ -119,6 +127,14 @@ impl Elf {
         Self {
             segments,
             global_entry,
+        }
+    }
+
+    pub fn decode_exec_segments(&mut self) {
+        for segment in &mut self.segments {
+            if segment.is_executable {
+                segment.decode();
+            }
         }
     }
 }
@@ -137,9 +153,9 @@ pub fn parse_elf(bytes: &[u8]) -> Elf {
     let mut parsed_segments: Vec<Segment> = vec![];
 
     // Iterate over all program headers
-    // load header of type `PT_LOAD` to memory
     let segments = file.segments().expect("has no program headers");
     for ph in segments.iter() {
+        // Only process LOAD segments
         if ph.p_type != PT_LOAD {
             continue;
         }
@@ -149,9 +165,16 @@ pub fn parse_elf(bytes: &[u8]) -> Elf {
         let vaddr = ph.p_vaddr;
         let memsz = ph.p_memsz as usize;
         let is_executable = (ph.p_flags & PF_X) != 0;
+        let is_readable = (ph.p_flags & PF_R) != 0;
+        let is_writable = (ph.p_flags & PF_W) != 0;
 
         if memsz < filesz {
             panic!("malformed elf file");
+        }
+
+        // Skip segments with invalid addresses (e.g., vaddr = 0)
+        if vaddr == 0 {
+            continue;
         }
 
         if filesz > 0 {
@@ -164,6 +187,8 @@ pub fn parse_elf(bytes: &[u8]) -> Elf {
                 filesz,
                 memsz,
                 is_executable,
+                is_readable,
+                is_writable,
             );
             parsed_segments.push(value);
         }
@@ -181,7 +206,7 @@ mod tests {
     #[test]
     fn test_segment_decode_empty() {
         // Test with empty data
-        let mut segment = Segment::new(vec![], vec![], 0, 0, 0, 0, true);
+        let mut segment = Segment::new(vec![], vec![], 0, 0, 0, 0, true, true, false);
         segment.decode();
         assert_eq!(segment.insns.len(), 0);
     }
@@ -191,7 +216,7 @@ mod tests {
         // Test with a single 4-byte instruction
         // Example: ADDI x2, x1, 164 (0x0a408113 in little-endian)
         let data = vec![0x13, 0x81, 0x40, 0x0A];
-        let mut segment = Segment::new(data, vec![], 0, 0, 4, 4, true);
+        let mut segment = Segment::new(data, vec![], 0, 0, 4, 4, true, true, false);
         segment.decode();
         assert_eq!(segment.insns.len(), 1);
         assert_eq!(
@@ -213,7 +238,7 @@ mod tests {
         data.extend_from_slice(&[0x13, 0x81, 0x41, 0x0B]); // Instruction 2
         data.extend_from_slice(&[0x33, 0x82, 0x42, 0x0C]); // Instruction 3
 
-        let mut segment = Segment::new(data, vec![], 0, 0, 12, 12, true);
+        let mut segment = Segment::new(data, vec![], 0, 0, 12, 12, true, true, false);
         segment.decode();
         assert_eq!(segment.insns.len(), 3);
     }
@@ -223,7 +248,7 @@ mod tests {
         // Test with data that's not a multiple of 4
         // Incomplete chunks should be padded with zeros and decoded
         let data = vec![0x93, 0x80, 0x40, 0x0A, 0x13, 0x81]; // 6 bytes = 1 complete + 2 incomplete
-        let mut segment = Segment::new(data, vec![], 0, 0, 6, 6, true);
+        let mut segment = Segment::new(data, vec![], 0, 0, 6, 6, true, true, false);
         segment.decode();
         // Should decode 2 instructions: 1 complete + 1 padded with zeros
         assert_eq!(segment.insns.len(), 2);
@@ -245,7 +270,7 @@ mod tests {
         // Bytes [0x93, 0x80, 0x40, 0x0A] should convert to u32: 0x0A408093
         // This is ADDI x1, x1, 164 (rd=1, rs1=1, imm=164)
         let data = vec![0x93, 0x80, 0x40, 0x0A];
-        let mut segment = Segment::new(data, vec![], 0, 0, 4, 4, true);
+        let mut segment = Segment::new(data, vec![], 0, 0, 4, 4, true, true, false);
         segment.decode();
         assert_eq!(segment.insns.len(), 1);
         assert_eq!(
@@ -265,7 +290,7 @@ mod tests {
             0x93, 0x80, 0x40, 0x0A, // Instruction 1
             0x13, 0x81, 0x41, 0x0B, // Instruction 2
         ];
-        let mut segment = Segment::new(data.clone(), vec![], 0x1000, 0, 8, 8, true);
+        let mut segment = Segment::new(data.clone(), vec![], 0x1000, 0, 8, 8, true, true, false);
         segment.decode();
         assert_eq!(segment.insns.len(), 2);
         assert_eq!(segment.entry, 0x1000);
@@ -275,7 +300,7 @@ mod tests {
     fn test_segment_non_executable_early_return() {
         // Test that decode() returns early without decoding when is_executable=false
         let data = vec![0x93, 0x80, 0x40, 0x0A]; // Would be 1 instruction if decoded
-        let mut segment = Segment::new(data, vec![], 0, 0, 4, 4, false);
+        let mut segment = Segment::new(data, vec![], 0, 0, 4, 4, false, true, false);
         segment.decode();
         // Should remain empty because segment is not executable
         assert_eq!(segment.insns.len(), 0);
@@ -288,7 +313,7 @@ mod tests {
         data.extend_from_slice(&[0x93, 0x80, 0x40, 0x0A]); // Would be 3 instructions
         data.extend_from_slice(&[0x13, 0x81, 0x41, 0x0B]); // if decoded
         data.extend_from_slice(&[0x33, 0x82, 0x42, 0x0C]);
-        let mut segment = Segment::new(data, vec![], 0, 0, 12, 12, false);
+        let mut segment = Segment::new(data, vec![], 0, 0, 12, 12, false, true, false);
         segment.decode();
         // Should remain empty because segment is not executable
         assert_eq!(segment.insns.len(), 0);
