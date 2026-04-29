@@ -6,6 +6,23 @@
 use crate::translate::x86_insn::{Operand, X86Register};
 use std::collections::HashMap;
 
+/// Types of relocations
+#[derive(Debug, Clone, PartialEq)]
+pub enum RelocationType {
+    /// Relative offset for jumps/calls (relative to next instruction)
+    Rel32,
+    /// Absolute 64-bit address (for symbols like __bss_start)
+    Abs64,
+}
+
+/// Symbol-based relocation entry
+#[derive(Debug, Clone)]
+pub struct SymbolRelocation {
+    pub offset: usize,  // Offset in .text where the relocation is
+    pub symbol: String, // Symbol name (e.g., "__bss_start")
+    pub reloc_type: RelocationType,
+}
+
 /// Emits x86-64 bytecode from instructions
 #[derive(Debug, Clone)]
 pub struct X86Emitter {
@@ -15,17 +32,21 @@ pub struct X86Emitter {
     /// Label positions (label name → offset in buffer)
     labels: HashMap<String, usize>,
 
-    /// Pending relocations (offset in buffer → label name)
-    relocations: Vec<(usize, String)>,
+    /// All relocations (both relative and absolute)
+    pub relocations: Vec<SymbolRelocation>,
+
+    /// Code base address
+    pub code_base: u64,
 }
 
 impl X86Emitter {
     /// Create a new emitter with empty buffer
-    pub fn new() -> Self {
+    pub fn new(code_base: u64) -> Self {
         X86Emitter {
             buffer: Vec::new(),
             labels: HashMap::new(),
             relocations: Vec::new(),
+            code_base,
         }
     }
 
@@ -56,7 +77,8 @@ impl X86Emitter {
 
     /// Record a label at the current offset
     pub fn emit_label(&mut self, name: String) {
-        self.labels.insert(name, self.offset());
+        let offset = self.offset();
+        self.labels.insert(name, offset);
     }
 
     /// Get the complete bytecode buffer
@@ -71,20 +93,36 @@ impl X86Emitter {
 
     /// Apply relocations - patch label references with actual offsets
     pub fn apply_relocations(&mut self) -> Result<(), String> {
-        for (offset, label) in &self.relocations {
+        // Apply all relocations (both relative and absolute)
+        for reloc in &self.relocations {
+            let offset = reloc.offset;
             let target_offset = self
                 .labels
-                .get(label)
-                .ok_or_else(|| format!("Undefined label: {}", label))?;
+                .get(&reloc.symbol)
+                .ok_or_else(|| format!("Undefined label/symbol: {}", reloc.symbol))?;
 
-            // Calculate relative offset for JMP (rel32 is relative to next instruction)
-            let current_offset = offset + 4; // +4 because rel32 is 4 bytes
-            let relative_offset = (*target_offset as i32) - (current_offset as i32);
+            match reloc.reloc_type {
+                RelocationType::Rel32 => {
+                    // For relative offsets (jumps, branches)
+                    // rel32 is relative to the next instruction (offset + 4)
+                    let current_offset = offset + 4;
+                    let relative_offset = (*target_offset as i32) - (current_offset as i32);
 
-            // Patch the 4-byte offset at the relocation point
-            let bytes = relative_offset.to_le_bytes();
-            self.buffer[*offset..*offset + 4].copy_from_slice(&bytes);
+                    // Patch the 4-byte offset at the relocation point
+                    let bytes = relative_offset.to_le_bytes();
+                    self.buffer[offset..offset + 4].copy_from_slice(&bytes);
+                }
+                RelocationType::Abs64 => {
+                    // For absolute 64-bit addresses
+                    let absolute_address = self.code_base + *target_offset as u64;
+
+                    // Patch the 8-byte address at the relocation point
+                    let bytes = absolute_address.to_le_bytes();
+                    self.buffer[offset..offset + 8].copy_from_slice(&bytes);
+                }
+            }
         }
+
         Ok(())
     }
 
@@ -93,9 +131,14 @@ impl X86Emitter {
         &self.labels
     }
 
-    /// Record a relocation for label patching
-    pub fn record_relocation(&mut self, offset: usize, label: String) {
-        self.relocations.push((offset, label));
+    /// Record a relocation (both relative and absolute)
+    pub fn record_relocation(&mut self, symbol: String, reloc_type: RelocationType) {
+        let offset = self.offset();
+        self.relocations.push(SymbolRelocation {
+            offset,
+            symbol,
+            reloc_type,
+        });
     }
 
     /// Finalize the emitter: apply all relocations and return the bytecode
@@ -142,23 +185,156 @@ impl X86Emitter {
         self.emit_byte(0xC3);
     }
 
+    /// Emit SYSCALL instruction (0x0F 0x05)
+    pub fn emit_syscall(&mut self) {
+        self.emit_byte(0x0F);
+        self.emit_byte(0x05);
+    }
+
+    /// Emit PUSH instruction
+    pub fn emit_push(&mut self, src: &Operand) -> Result<(), String> {
+        match src {
+            Operand::Register(reg) => {
+                let reg_code = reg.code();
+                if reg_code >= 8 {
+                    // REX.B for registers R8-R15
+                    self.emit_rex(false, false, false, true);
+                }
+                self.emit_byte(0x50 + (reg_code & 0x7));
+                Ok(())
+            }
+            _ => Err(format!(
+                "PUSH only supports register operands, got: {}",
+                src
+            )),
+        }
+    }
+
+    /// Emit POP instruction
+    pub fn emit_pop(&mut self, dst: &Operand) -> Result<(), String> {
+        match dst {
+            Operand::Register(reg) => {
+                let reg_code = reg.code();
+                if reg_code >= 8 {
+                    // REX.B for registers R8-R15
+                    self.emit_rex(false, false, false, true);
+                }
+                self.emit_byte(0x58 + (reg_code & 0x7));
+                Ok(())
+            }
+            _ => Err(format!("POP only supports register operands, got: {}", dst)),
+        }
+    }
+
     /// Emit MOV instruction: mov dst, src
     /// Encoding: 0x89 /r for reg→reg, 0xC7 /0 for imm→reg, 0x8B for reg←mem, etc.
     pub fn emit_mov(&mut self, src: &Operand, dst: &Operand) -> Result<(), String> {
         match (src, dst) {
-            // mov reg64, imm64 - needs 0x48 REX + 0xB8-0xBF opcode
-            (Operand::Immediate(imm), Operand::Register(dst_reg)) => {
+            // mov reg64, [absolute_addr] - Load from absolute address
+            // Use opcode 0xA1 (mov RAX, moffs64) for direct absolute addressing
+            (Operand::AbsoluteAddress(addr), Operand::Register(dst_reg)) => {
+                // If destination is not RAX, we need to preserve RAX
+                if *dst_reg != X86Register::RAX {
+                    // Push RAX to preserve its value
+                    self.emit_push(&Operand::Register(X86Register::RAX))?;
+                }
+
+                // Emit REX.W prefix
+                self.emit_rex(true, false, false, false);
+
+                // Emit opcode 0xA1 (mov RAX, moffs64) - direct absolute addressing
+                self.emit_byte(0xA1);
+
+                // Emit 64-bit offset/address
+                self.emit_i64(*addr as i64);
+
+                // If destination is not RAX, move from RAX to destination
+                if *dst_reg != X86Register::RAX {
+                    let dst_code = dst_reg.code();
+                    let dst_ext = dst_code >= 8;
+
+                    // mov dst_reg, rax
+                    self.emit_rex(true, dst_ext, false, false);
+                    self.emit_byte(0x89);
+                    self.emit_modrm(0x3, 0, dst_code & 0x7); // RAX is source, dst_reg is destination
+
+                    // Pop RAX to restore its original value
+                    self.emit_pop(&Operand::Register(X86Register::RAX))?;
+                }
+
+                Ok(())
+            }
+
+            // mov [absolute_addr], reg64 - Store to absolute address
+            // Use opcode 0xA3 (mov moffs64, RAX) for direct absolute addressing
+            (Operand::Register(src_reg), Operand::AbsoluteAddress(addr)) => {
+                // Push RAX to preserve its value
+                self.emit_push(&Operand::Register(X86Register::RAX))?;
+
+                // If source is not RAX, move to RAX first
+                if *src_reg != X86Register::RAX {
+                    let src_code = src_reg.code();
+                    let src_ext = src_code >= 8;
+
+                    // mov rax, src_reg
+                    self.emit_rex(true, false, false, src_ext);
+                    self.emit_byte(0x89);
+                    self.emit_modrm(0x3, src_code & 0x7, 0); // src_reg is source, RAX is destination
+                }
+
+                // Emit REX.W prefix
+                self.emit_rex(true, false, false, false);
+
+                // Emit opcode 0xA3 (mov moffs64, RAX) - direct absolute addressing
+                self.emit_byte(0xA3);
+
+                // Emit 64-bit offset/address
+                self.emit_i64(*addr as i64);
+
+                // Pop RAX to restore its original value
+                self.emit_pop(&Operand::Register(X86Register::RAX))?;
+
+                Ok(())
+            }
+
+            // mov reg64, symbol - Load address of symbol (needs relocation)
+            (Operand::Symbol(symbol), Operand::Register(dst_reg)) => {
                 let reg_code = dst_reg.code();
-
-                // REX.W = 1 for 64-bit, REX.B for register extension
                 let needs_rex_b = *dst_reg as u8 > 7;
-                self.emit_rex(true, false, false, needs_rex_b);
 
-                // MOVABS: 0xB8 + reg_code (with REX.B adjustment)
+                // Emit MOVABS with placeholder, record relocation
+                self.emit_rex(true, false, false, needs_rex_b);
                 self.emit_byte(0xB8 + (reg_code & 0x7));
 
-                // Emit 64-bit immediate
-                self.emit_i64(*imm);
+                // Record the relocation at the offset where we'll emit the 8-byte immediate
+                // This must be done AFTER emitting the REX and opcode bytes, but BEFORE emitting
+                // the 8-byte immediate, so the offset points to where the 8 bytes will be
+                self.record_relocation(symbol.clone(), RelocationType::Abs64);
+
+                // Emit 8-byte placeholder (will be patched by linker)
+                self.emit_i64(-1); // Will be replaced by linker
+                Ok(())
+            }
+
+            // mov reg64, imm64 - use movabs for large values, or mov reg, imm32 for smaller ones
+            (Operand::Immediate(imm), Operand::Register(dst_reg)) => {
+                let reg_code = dst_reg.code();
+                let needs_rex_b = *dst_reg as u8 > 7;
+
+                // For immediates that fit in a signed 32-bit value, use the shorter mov reg, imm32
+                // which sign-extends to 64-bits (more efficient than MOVABS)
+                if *imm >= i32::MIN as i64 && *imm <= i32::MAX as i64 {
+                    // mov reg, imm32 - REX.W + 0xC7 + ModRM + imm32
+                    self.emit_rex(true, false, false, needs_rex_b);
+                    self.emit_byte(0xC7);
+                    self.emit_modrm(0x3, 0, reg_code & 0x7);
+                    self.emit_i32(*imm as i32);
+                } else {
+                    // MOVABS: REX.W + 0xB8-0xBF + imm64 (for very large immediates)
+                    self.emit_rex(true, false, false, needs_rex_b);
+                    self.emit_byte(0xB8 + (reg_code & 0x7));
+                    self.emit_i64(*imm);
+                }
                 Ok(())
             }
 
@@ -188,15 +364,35 @@ impl X86Emitter {
                 self.emit_rex(true, dst_ext, false, base_ext);
                 self.emit_byte(0x8B); // MOV r64, m64
 
-                // Handle displacement
-                if *offset == 0 {
-                    self.emit_modrm(0x0, dst_code & 0x7, base_code & 0x7);
-                } else if *offset >= -128 && *offset <= 127 {
-                    self.emit_modrm(0x1, dst_code & 0x7, base_code & 0x7);
-                    self.emit_byte(*offset as u8);
+                // x86-64 special case: RSP (r/m=4) requires a SIB byte
+                if base_code & 0x7 == 4 {
+                    // RSP requires SIB byte. Format: [scale|index|base]
+                    // We use: scale=0 (1x), index=4 (none), base=4 (rsp)
+                    let sib_byte = (0 << 6) | (4 << 3) | 4;
+
+                    if *offset == 0 {
+                        self.emit_modrm(0x0, dst_code & 0x7, 4); // r/m=4 means SIB follows
+                        self.emit_byte(sib_byte);
+                    } else if *offset >= -128 && *offset <= 127 {
+                        self.emit_modrm(0x1, dst_code & 0x7, 4);
+                        self.emit_byte(sib_byte);
+                        self.emit_byte(*offset as u8);
+                    } else {
+                        self.emit_modrm(0x2, dst_code & 0x7, 4);
+                        self.emit_byte(sib_byte);
+                        self.emit_i32(*offset);
+                    }
                 } else {
-                    self.emit_modrm(0x2, dst_code & 0x7, base_code & 0x7);
-                    self.emit_i32(*offset);
+                    // Normal addressing without SIB
+                    if *offset == 0 {
+                        self.emit_modrm(0x0, dst_code & 0x7, base_code & 0x7);
+                    } else if *offset >= -128 && *offset <= 127 {
+                        self.emit_modrm(0x1, dst_code & 0x7, base_code & 0x7);
+                        self.emit_byte(*offset as u8);
+                    } else {
+                        self.emit_modrm(0x2, dst_code & 0x7, base_code & 0x7);
+                        self.emit_i32(*offset);
+                    }
                 }
 
                 Ok(())
@@ -213,19 +409,41 @@ impl X86Emitter {
                 self.emit_rex(true, src_ext, false, base_ext);
                 self.emit_byte(0x89); // MOV m64, r64
 
-                // Handle displacement
-                if *offset == 0 {
-                    self.emit_modrm(0x0, src_code & 0x7, base_code & 0x7);
-                } else if *offset >= -128 && *offset <= 127 {
-                    self.emit_modrm(0x1, src_code & 0x7, base_code & 0x7);
-                    self.emit_byte(*offset as u8);
+                // x86-64 special case: RSP (r/m=4) requires a SIB byte
+                if base_code & 0x7 == 4 {
+                    // RSP requires SIB byte. Format: [scale|index|base]
+                    // We use: scale=0 (1x), index=4 (none), base=4 (rsp)
+                    let sib_byte = (0 << 6) | (4 << 3) | 4;
+
+                    if *offset == 0 {
+                        self.emit_modrm(0x0, src_code & 0x7, 4); // r/m=4 means SIB follows
+                        self.emit_byte(sib_byte);
+                    } else if *offset >= -128 && *offset <= 127 {
+                        self.emit_modrm(0x1, src_code & 0x7, 4);
+                        self.emit_byte(sib_byte);
+                        self.emit_byte(*offset as u8);
+                    } else {
+                        self.emit_modrm(0x2, src_code & 0x7, 4);
+                        self.emit_byte(sib_byte);
+                        self.emit_i32(*offset);
+                    }
                 } else {
-                    self.emit_modrm(0x2, src_code & 0x7, base_code & 0x7);
-                    self.emit_i32(*offset);
+                    // Normal addressing without SIB
+                    if *offset == 0 {
+                        self.emit_modrm(0x0, src_code & 0x7, base_code & 0x7);
+                    } else if *offset >= -128 && *offset <= 127 {
+                        self.emit_modrm(0x1, src_code & 0x7, base_code & 0x7);
+                        self.emit_byte(*offset as u8);
+                    } else {
+                        self.emit_modrm(0x2, src_code & 0x7, base_code & 0x7);
+                        self.emit_i32(*offset);
+                    }
                 }
 
                 Ok(())
             }
+
+            (_, Operand::Immediate(0)) => Ok(()),
 
             _ => Err(format!("Invalid MOV operands: {} {}", src, dst)),
         }
@@ -233,14 +451,37 @@ impl X86Emitter {
 
     /// Emit JMP instruction (placeholder for label resolution)
     pub fn emit_jmp(&mut self, target: &str) -> Result<(), String> {
-        self.relocations
-            .push((self.offset() + 1, target.to_string()));
-
         // JMP rel32 - 0xE9 followed by 32-bit offset
         self.emit_byte(0xE9);
+
+        // Record relocation at the position of the 32-bit offset (right after opcode)
+        self.record_relocation(target.to_string(), RelocationType::Rel32);
+
         self.emit_i32(0); // Placeholder, will be patched
 
         Ok(())
+    }
+
+    /// Emit indirect JMP instruction (jmp *reg)
+    pub fn emit_jmp_reg(&mut self, target: &Operand) -> Result<(), String> {
+        match target {
+            Operand::Register(reg) => {
+                // JMP r64: 0xFF /4 ModRM
+                let reg_code = reg.code();
+                let reg_ext = reg_code >= 8;
+
+                // REX.W prefix if needed for 64-bit register
+                self.emit_rex(true, false, false, reg_ext);
+
+                // Opcode + ModRM
+                self.emit_byte(0xFF);
+                // ModRM: mod=11 (register), reg=100 (opcode /4), rm=register
+                self.emit_modrm(0x3, 4, reg_code & 0x7);
+
+                Ok(())
+            }
+            _ => Err("JmpReg: target must be a register".to_string()),
+        }
     }
 
     /// Emit ADD instruction
@@ -266,23 +507,36 @@ impl X86Emitter {
                 let dst_code = dst_reg.code();
                 let dst_ext = dst_code >= 8;
 
-                // Check if immediate fits in 32-bit sign-extended form
-                if *imm >= i32::MIN as i64 && *imm <= i32::MAX as i64 {
-                    // Use direct ADD r64, imm32
-                    self.emit_rex(true, false, false, dst_ext);
-                    self.emit_byte(0x81);
-                    self.emit_modrm(0x3, 0, dst_code & 0x7); // 0 for ADD
-                    self.emit_i32(*imm as i32);
+                // Use direct ADD r64, imm32
+                self.emit_rex(true, false, false, dst_ext);
+                self.emit_byte(0x81);
+                self.emit_modrm(0x3, 0, dst_code & 0x7); // 0 for ADD
+                self.emit_i32(*imm as i32);
+
+                Ok(())
+            }
+
+            // add [mem], imm64 - REX.W + 0x81 + ModRM for imm32
+            (Operand::Immediate(imm), Operand::Memory { base, offset }) => {
+                let base_code = base.code();
+                let base_ext = base_code >= 8;
+
+                // Use direct ADD [mem], imm32
+                self.emit_rex(true, false, false, base_ext);
+                self.emit_byte(0x81);
+
+                // Handle displacement
+                if *offset == 0 {
+                    self.emit_modrm(0x0, 0, base_code & 0x7); // 0 for ADD
+                } else if *offset >= -128 && *offset <= 127 {
+                    self.emit_modrm(0x1, 0, base_code & 0x7);
+                    self.emit_byte(*offset as u8);
                 } else {
-                    // For full 64-bit immediate: load into RAX, then ADD dst, RAX
-                    // Save RAX first if needed, then restore
-                    // For simplicity: MOVABS RAX, imm64 then ADD dst, RAX
-                    self.emit_mov(
-                        &Operand::Immediate(*imm),
-                        &Operand::Register(X86Register::RAX),
-                    )?;
-                    self.emit_add(&Operand::Register(X86Register::RAX), dst)?;
+                    self.emit_modrm(0x2, 0, base_code & 0x7);
+                    self.emit_i32(*offset);
                 }
+
+                self.emit_i32(*imm as i32);
 
                 Ok(())
             }
@@ -314,21 +568,11 @@ impl X86Emitter {
                 let dst_code = dst_reg.code();
                 let dst_ext = dst_code >= 8;
 
-                // Check if immediate fits in 32-bit sign-extended form
-                if *imm >= i32::MIN as i64 && *imm <= i32::MAX as i64 {
-                    // Use direct SUB r64, imm32
-                    self.emit_rex(true, false, false, dst_ext);
-                    self.emit_byte(0x81);
-                    self.emit_modrm(0x3, 5, dst_code & 0x7); // 5 for SUB
-                    self.emit_i32(*imm as i32);
-                } else {
-                    // For full 64-bit immediate: load into RAX, then SUB dst, RAX
-                    self.emit_mov(
-                        &Operand::Immediate(*imm),
-                        &Operand::Register(X86Register::RAX),
-                    )?;
-                    self.emit_sub(&Operand::Register(X86Register::RAX), dst)?;
-                }
+                // Use direct SUB r64, imm32
+                self.emit_rex(true, false, false, dst_ext);
+                self.emit_byte(0x81);
+                self.emit_modrm(0x3, 5, dst_code & 0x7); // 5 for SUB
+                self.emit_i32(*imm as i32);
 
                 Ok(())
             }
@@ -360,21 +604,11 @@ impl X86Emitter {
                 let dst_code = dst_reg.code();
                 let dst_ext = dst_code >= 8;
 
-                // Check if immediate fits in 32-bit sign-extended form
-                if *imm >= i32::MIN as i64 && *imm <= i32::MAX as i64 {
-                    // Use direct AND r64, imm32
-                    self.emit_rex(true, false, false, dst_ext);
-                    self.emit_byte(0x81);
-                    self.emit_modrm(0x3, 4, dst_code & 0x7); // 4 for AND
-                    self.emit_i32(*imm as i32);
-                } else {
-                    // For full 64-bit immediate: load into RAX, then AND dst, RAX
-                    self.emit_mov(
-                        &Operand::Immediate(*imm),
-                        &Operand::Register(X86Register::RAX),
-                    )?;
-                    self.emit_and(&Operand::Register(X86Register::RAX), dst)?;
-                }
+                // Use direct AND r64, imm32
+                self.emit_rex(true, false, false, dst_ext);
+                self.emit_byte(0x81);
+                self.emit_modrm(0x3, 4, dst_code & 0x7); // 4 for AND
+                self.emit_i32(*imm as i32);
 
                 Ok(())
             }
@@ -406,21 +640,11 @@ impl X86Emitter {
                 let dst_code = dst_reg.code();
                 let dst_ext = dst_code >= 8;
 
-                // Check if immediate fits in 32-bit sign-extended form
-                if *imm >= i32::MIN as i64 && *imm <= i32::MAX as i64 {
-                    // Use direct OR r64, imm32
-                    self.emit_rex(true, false, false, dst_ext);
-                    self.emit_byte(0x81);
-                    self.emit_modrm(0x3, 1, dst_code & 0x7); // 1 for OR
-                    self.emit_i32(*imm as i32);
-                } else {
-                    // For full 64-bit immediate: load into RAX, then OR dst, RAX
-                    self.emit_mov(
-                        &Operand::Immediate(*imm),
-                        &Operand::Register(X86Register::RAX),
-                    )?;
-                    self.emit_or(&Operand::Register(X86Register::RAX), dst)?;
-                }
+                // Use direct OR r64, imm32
+                self.emit_rex(true, false, false, dst_ext);
+                self.emit_byte(0x81);
+                self.emit_modrm(0x3, 1, dst_code & 0x7); // 1 for OR
+                self.emit_i32(*imm as i32);
 
                 Ok(())
             }
@@ -452,21 +676,11 @@ impl X86Emitter {
                 let dst_code = dst_reg.code();
                 let dst_ext = dst_code >= 8;
 
-                // Check if immediate fits in 32-bit sign-extended form
-                if *imm >= i32::MIN as i64 && *imm <= i32::MAX as i64 {
-                    // Use direct XOR r64, imm32
-                    self.emit_rex(true, false, false, dst_ext);
-                    self.emit_byte(0x81);
-                    self.emit_modrm(0x3, 6, dst_code & 0x7); // 6 for XOR
-                    self.emit_i32(*imm as i32);
-                } else {
-                    // For full 64-bit immediate: load into RAX, then XOR dst, RAX
-                    self.emit_mov(
-                        &Operand::Immediate(*imm),
-                        &Operand::Register(X86Register::RAX),
-                    )?;
-                    self.emit_xor(&Operand::Register(X86Register::RAX), dst)?;
-                }
+                // Use direct XOR r64, imm32
+                self.emit_rex(true, false, false, dst_ext);
+                self.emit_byte(0x81);
+                self.emit_modrm(0x3, 6, dst_code & 0x7); // 6 for XOR
+                self.emit_i32(*imm as i32);
 
                 Ok(())
             }
@@ -498,21 +712,11 @@ impl X86Emitter {
                 let dst_code = dst_reg.code();
                 let dst_ext = dst_code >= 8;
 
-                // Check if immediate fits in 32-bit sign-extended form
-                if *imm >= i32::MIN as i64 && *imm <= i32::MAX as i64 {
-                    // Use direct CMP r64, imm32
-                    self.emit_rex(true, false, false, dst_ext);
-                    self.emit_byte(0x81);
-                    self.emit_modrm(0x3, 7, dst_code & 0x7); // 7 for CMP
-                    self.emit_i32(*imm as i32);
-                } else {
-                    // For full 64-bit immediate: load into RAX, then CMP dst, RAX
-                    self.emit_mov(
-                        &Operand::Immediate(*imm),
-                        &Operand::Register(X86Register::RAX),
-                    )?;
-                    self.emit_cmp(&Operand::Register(X86Register::RAX), dst)?;
-                }
+                // Use direct CMP r64, imm32
+                self.emit_rex(true, false, false, dst_ext);
+                self.emit_byte(0x81);
+                self.emit_modrm(0x3, 7, dst_code & 0x7); // 7 for CMP
+                self.emit_i32(*imm as i32);
 
                 Ok(())
             }
@@ -545,21 +749,11 @@ impl X86Emitter {
                 let dst_code = dst_reg.code();
                 let dst_ext = dst_code >= 8;
 
-                // Check if immediate fits in 32-bit sign-extended form
-                if *imm >= i32::MIN as i64 && *imm <= i32::MAX as i64 {
-                    // Use direct TEST r64, imm32
-                    self.emit_rex(true, false, false, dst_ext);
-                    self.emit_byte(0xF7);
-                    self.emit_modrm(0x3, 0, dst_code & 0x7); // 0 for TEST
-                    self.emit_i32(*imm as i32);
-                } else {
-                    // For full 64-bit immediate: load into RAX, then TEST dst, RAX
-                    self.emit_mov(
-                        &Operand::Immediate(*imm),
-                        &Operand::Register(X86Register::RAX),
-                    )?;
-                    self.emit_test(&Operand::Register(X86Register::RAX), dst)?;
-                }
+                // Use direct TEST r64, imm32
+                self.emit_rex(true, false, false, dst_ext);
+                self.emit_byte(0xF7);
+                self.emit_modrm(0x3, 0, dst_code & 0x7); // 0 for TEST
+                self.emit_i32(*imm as i32);
 
                 Ok(())
             }
@@ -571,12 +765,13 @@ impl X86Emitter {
     /// Emit JE instruction (Jump if Equal / Jump if Zero)
     /// Uses ZF flag from previous comparison or test
     pub fn emit_je(&mut self, target: &str) -> Result<(), String> {
-        self.relocations
-            .push((self.offset() + 2, target.to_string()));
-
         // JE rel32 - 0x0F 0x84 followed by 32-bit offset
         self.emit_byte(0x0F);
         self.emit_byte(0x84);
+
+        // Record relocation at the position of the 32-bit offset (right after opcode)
+        self.record_relocation(target.to_string(), RelocationType::Rel32);
+
         self.emit_i32(0); // Placeholder, will be patched
 
         Ok(())
@@ -585,12 +780,13 @@ impl X86Emitter {
     /// Emit JNE instruction (Jump if Not Equal / Jump if Not Zero)
     /// Uses ZF flag from previous comparison or test
     pub fn emit_jne(&mut self, target: &str) -> Result<(), String> {
-        self.relocations
-            .push((self.offset() + 2, target.to_string()));
-
         // JNE rel32 - 0x0F 0x85 followed by 32-bit offset
         self.emit_byte(0x0F);
         self.emit_byte(0x85);
+
+        // Record relocation at the position of the 32-bit offset (right after opcode)
+        self.record_relocation(target.to_string(), RelocationType::Rel32);
+
         self.emit_i32(0); // Placeholder, will be patched
 
         Ok(())
@@ -599,12 +795,13 @@ impl X86Emitter {
     /// Emit JL instruction (Jump if Less - signed comparison)
     /// SF != OF (Sign Flag not equal to Overflow Flag)
     pub fn emit_jl(&mut self, target: &str) -> Result<(), String> {
-        self.relocations
-            .push((self.offset() + 2, target.to_string()));
-
         // JL rel32 - 0x0F 0x8C followed by 32-bit offset
         self.emit_byte(0x0F);
         self.emit_byte(0x8C);
+
+        // Record relocation at the position of the 32-bit offset (right after opcode)
+        self.record_relocation(target.to_string(), RelocationType::Rel32);
+
         self.emit_i32(0); // Placeholder, will be patched
 
         Ok(())
@@ -613,12 +810,13 @@ impl X86Emitter {
     /// Emit JLE instruction (Jump if Less or Equal - signed comparison)
     /// ZF=1 or SF != OF
     pub fn emit_jle(&mut self, target: &str) -> Result<(), String> {
-        self.relocations
-            .push((self.offset() + 2, target.to_string()));
-
         // JLE rel32 - 0x0F 0x8E followed by 32-bit offset
         self.emit_byte(0x0F);
         self.emit_byte(0x8E);
+
+        // Record relocation at the position of the 32-bit offset (right after opcode)
+        self.record_relocation(target.to_string(), RelocationType::Rel32);
+
         self.emit_i32(0); // Placeholder, will be patched
 
         Ok(())
@@ -627,12 +825,13 @@ impl X86Emitter {
     /// Emit JG instruction (Jump if Greater - signed comparison)
     /// ZF=0 and SF = OF
     pub fn emit_jg(&mut self, target: &str) -> Result<(), String> {
-        self.relocations
-            .push((self.offset() + 2, target.to_string()));
-
         // JG rel32 - 0x0F 0x8F followed by 32-bit offset
         self.emit_byte(0x0F);
         self.emit_byte(0x8F);
+
+        // Record relocation at the position of the 32-bit offset (right after opcode)
+        self.record_relocation(target.to_string(), RelocationType::Rel32);
+
         self.emit_i32(0); // Placeholder, will be patched
 
         Ok(())
@@ -641,12 +840,13 @@ impl X86Emitter {
     /// Emit JGE instruction (Jump if Greater or Equal - signed comparison)
     /// SF = OF
     pub fn emit_jge(&mut self, target: &str) -> Result<(), String> {
-        self.relocations
-            .push((self.offset() + 2, target.to_string()));
-
         // JGE rel32 - 0x0F 0x8D followed by 32-bit offset
         self.emit_byte(0x0F);
         self.emit_byte(0x8D);
+
+        // Record relocation at the position of the 32-bit offset (right after opcode)
+        self.record_relocation(target.to_string(), RelocationType::Rel32);
+
         self.emit_i32(0); // Placeholder, will be patched
 
         Ok(())
@@ -655,12 +855,13 @@ impl X86Emitter {
     /// Emit JB instruction (Jump if Below - unsigned comparison)
     /// CF = 1 (Carry Flag set)
     pub fn emit_jb(&mut self, target: &str) -> Result<(), String> {
-        self.relocations
-            .push((self.offset() + 2, target.to_string()));
-
         // JB rel32 - 0x0F 0x82 followed by 32-bit offset
         self.emit_byte(0x0F);
         self.emit_byte(0x82);
+
+        // Record relocation at the position of the 32-bit offset (right after opcode)
+        self.record_relocation(target.to_string(), RelocationType::Rel32);
+
         self.emit_i32(0); // Placeholder, will be patched
 
         Ok(())
@@ -669,12 +870,13 @@ impl X86Emitter {
     /// Emit JBE instruction (Jump if Below or Equal - unsigned comparison)
     /// CF = 1 or ZF = 1
     pub fn emit_jbe(&mut self, target: &str) -> Result<(), String> {
-        self.relocations
-            .push((self.offset() + 2, target.to_string()));
-
         // JBE rel32 - 0x0F 0x86 followed by 32-bit offset
         self.emit_byte(0x0F);
         self.emit_byte(0x86);
+
+        // Record relocation at the position of the 32-bit offset (right after opcode)
+        self.record_relocation(target.to_string(), RelocationType::Rel32);
+
         self.emit_i32(0); // Placeholder, will be patched
 
         Ok(())
@@ -683,12 +885,13 @@ impl X86Emitter {
     /// Emit JA instruction (Jump if Above - unsigned comparison)
     /// CF = 0 and ZF = 0
     pub fn emit_ja(&mut self, target: &str) -> Result<(), String> {
-        self.relocations
-            .push((self.offset() + 2, target.to_string()));
-
         // JA rel32 - 0x0F 0x87 followed by 32-bit offset
         self.emit_byte(0x0F);
         self.emit_byte(0x87);
+
+        // Record relocation at the position of the 32-bit offset (right after opcode)
+        self.record_relocation(target.to_string(), RelocationType::Rel32);
+
         self.emit_i32(0); // Placeholder, will be patched
 
         Ok(())
@@ -697,12 +900,13 @@ impl X86Emitter {
     /// Emit JAE instruction (Jump if Above or Equal - unsigned comparison)
     /// CF = 0
     pub fn emit_jae(&mut self, target: &str) -> Result<(), String> {
-        self.relocations
-            .push((self.offset() + 2, target.to_string()));
-
         // JAE rel32 - 0x0F 0x83 followed by 32-bit offset
         self.emit_byte(0x0F);
         self.emit_byte(0x83);
+
+        // Record relocation at the position of the 32-bit offset (right after opcode)
+        self.record_relocation(target.to_string(), RelocationType::Rel32);
+
         self.emit_i32(0); // Placeholder, will be patched
 
         Ok(())
@@ -870,10 +1074,6 @@ impl X86Emitter {
 
             // imul r64, imm32 - REX.W + 0x69 + ModRM + imm32
             (Operand::Immediate(imm), Operand::Register(dst_reg)) => {
-                if *imm < i32::MIN as i64 || *imm > i32::MAX as i64 {
-                    return Err(format!("IMUL immediate must fit in i32, got {}", imm));
-                }
-
                 let dst_code = dst_reg.code();
                 let dst_ext = dst_code >= 8;
 
@@ -1016,6 +1216,77 @@ impl X86Emitter {
 
             _ => Err(format!(
                 "MOVZX only supports register operands, got {} {}",
+                src, dst
+            )),
+        }
+    }
+
+    /// Emit MOVZX instruction - generic version that handles memory sources
+    /// For byte (8-bit) sources: MOVZX r64, r/m8 - zero-extends to 64-bit
+    /// For word (16-bit) sources: MOVZX r64, r/m16 - zero-extends to 64-bit
+    pub fn emit_movzx(&mut self, src: &Operand, dst: &Operand) -> Result<(), String> {
+        match (src, dst) {
+            // movzx r64, m8 - MOVZX r64, [base + offset]
+            (Operand::Memory { base, offset }, Operand::Register(dst_reg)) => {
+                let base_code = base.code();
+                let dst_code = dst_reg.code();
+
+                let base_ext = base_code >= 8;
+                let dst_ext = dst_code >= 8;
+
+                // REX.W prefix for 64-bit destination
+                self.emit_rex(true, dst_ext, false, base_ext);
+                self.emit_byte(0x0F);
+                self.emit_byte(0xB6); // MOVZX r64, m8
+
+                if *offset == 0 {
+                    self.emit_modrm(0x0, dst_code & 0x7, base_code & 0x7);
+                } else if *offset >= -128 && *offset <= 127 {
+                    self.emit_modrm(0x1, dst_code & 0x7, base_code & 0x7);
+                    self.emit_byte(*offset as u8);
+                } else {
+                    self.emit_modrm(0x2, dst_code & 0x7, base_code & 0x7);
+                    self.emit_i32(*offset);
+                }
+
+                Ok(())
+            }
+
+            // movzx r64, r64 - for register sources, zero-extend register (same as 32-to-64 but with both 64-bit)
+            (Operand::Register(src_reg), Operand::Register(dst_reg)) => {
+                // For register-to-register, we can just do AND with 0xFF to zero-extend low byte
+                // Or move lower 32-bits which automatically zero-extends to 64-bit
+                let src_code = src_reg.code();
+                let dst_code = dst_reg.code();
+
+                let src_ext = src_code >= 8;
+                let dst_ext = dst_code >= 8;
+
+                // Use REX.W = 0 (32-bit) which zero-extends to 64-bit
+                self.emit_rex(false, dst_ext, false, src_ext);
+                self.emit_byte(0x89); // MOV r32, r32
+                self.emit_modrm(0x3, src_code & 0x7, dst_code & 0x7);
+
+                Ok(())
+            }
+
+            _ => Err(format!(
+                "MOVZX: unsupported operand combination: {} -> {}",
+                src, dst
+            )),
+        }
+    }
+
+    /// Emit MOVSX instruction - generic version for sign extension
+    /// For byte (8-bit) sources: MOVSX r64, r/m8 - sign-extends to 64-bit
+    /// For 32-bit sources: MOVSXD r64, r/m32 - sign-extends to 64-bit
+    pub fn emit_movsx(&mut self, src: &Operand, dst: &Operand) -> Result<(), String> {
+        // For now, just delegate to the 32-to-64 version for register sources
+        // This can be extended to support other sizes as needed
+        match (src, dst) {
+            (Operand::Register(_), Operand::Register(_)) => self.emit_movsx_32_to_64(src, dst),
+            _ => Err(format!(
+                "MOVSX: unsupported operand combination: {} -> {}",
                 src, dst
             )),
         }
@@ -1357,7 +1628,7 @@ impl X86Emitter {
 
 impl Default for X86Emitter {
     fn default() -> Self {
-        Self::new()
+        Self::new(0x400000u64)
     }
 }
 
@@ -1367,14 +1638,14 @@ mod tests {
 
     #[test]
     fn test_emitter_creation() {
-        let emitter = X86Emitter::new();
+        let emitter = X86Emitter::default();
         assert_eq!(emitter.offset(), 0);
         assert!(emitter.get_buffer().is_empty());
     }
 
     #[test]
     fn test_emit_byte() {
-        let mut emitter = X86Emitter::new();
+        let mut emitter = X86Emitter::default();
         emitter.emit_byte(0x90); // NOP
         assert_eq!(emitter.offset(), 1);
         assert_eq!(emitter.get_buffer()[0], 0x90);
@@ -1382,7 +1653,7 @@ mod tests {
 
     #[test]
     fn test_emit_mov_imm_to_reg() {
-        let mut emitter = X86Emitter::new();
+        let mut emitter = X86Emitter::default();
         let src = Operand::Immediate(42);
         let dst = Operand::Register(X86Register::RAX);
 
@@ -1392,7 +1663,7 @@ mod tests {
 
     #[test]
     fn test_emit_mov_reg_to_reg() {
-        let mut emitter = X86Emitter::new();
+        let mut emitter = X86Emitter::default();
         let src = Operand::Register(X86Register::RAX);
         let dst = Operand::Register(X86Register::RBX);
 
@@ -1402,7 +1673,7 @@ mod tests {
 
     #[test]
     fn test_emit_add_reg_to_reg() {
-        let mut emitter = X86Emitter::new();
+        let mut emitter = X86Emitter::default();
         let src = Operand::Register(X86Register::RAX);
         let dst = Operand::Register(X86Register::RBX);
 
@@ -1412,7 +1683,7 @@ mod tests {
 
     #[test]
     fn test_emit_label() {
-        let mut emitter = X86Emitter::new();
+        let mut emitter = X86Emitter::default();
         emitter.emit_byte(0x90);
         emitter.emit_label("test_label".to_string());
 
@@ -1421,7 +1692,7 @@ mod tests {
 
     #[test]
     fn test_emit_jmp() {
-        let mut emitter = X86Emitter::new();
+        let mut emitter = X86Emitter::default();
         emitter.emit_jmp("loop_start").unwrap();
 
         assert_eq!(emitter.offset(), 5); // 0xE9 + 4 bytes offset
@@ -1429,7 +1700,7 @@ mod tests {
 
     #[test]
     fn test_emit_ret() {
-        let mut emitter = X86Emitter::new();
+        let mut emitter = X86Emitter::default();
         emitter.emit_ret();
 
         assert_eq!(emitter.offset(), 1);
@@ -1438,7 +1709,7 @@ mod tests {
 
     #[test]
     fn test_rex_encoding() {
-        let mut emitter = X86Emitter::new();
+        let mut emitter = X86Emitter::default();
         emitter.emit_rex(true, false, false, false);
 
         assert_eq!(emitter.get_buffer()[0], 0x48); // REX.W = 1
@@ -1446,7 +1717,7 @@ mod tests {
 
     #[test]
     fn test_modrm_encoding() {
-        let mut emitter = X86Emitter::new();
+        let mut emitter = X86Emitter::default();
         emitter.emit_modrm(0x3, 0, 0); // mod=11, reg=000, r/m=000
 
         assert_eq!(emitter.get_buffer()[0], 0xC0);
