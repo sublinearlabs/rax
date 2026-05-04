@@ -8,14 +8,61 @@ use crate::translate::x86_emitter::X86Emitter;
 use crate::translate::x86_insn::X86Instruction;
 use crate::translate::{instruction_translator, RegisterMapper};
 
+/// PC mapping from RISC-V PCs to x86-64 bytecode offsets
+/// Uses direct indexing: index = (riscv_pc - entry_point) / 4
+#[derive(Debug, Clone)]
+pub struct PcMapping {
+    /// The entry point RISC-V PC (first instruction)
+    pub entry_point: u64,
+
+    /// Array of x86-64 bytecode offsets, indexed by (riscv_pc - entry_point) / 4
+    pub offsets: Vec<u64>,
+}
+
+impl PcMapping {
+    /// Create a new empty PC mapping
+    pub fn new(entry_point: u64) -> Self {
+        PcMapping {
+            entry_point,
+            offsets: Vec::new(),
+        }
+    }
+
+    /// Add a mapping for a RISC-V PC to an x86-64 offset
+    pub fn add_mapping(&mut self, riscv_pc: u64, x86_offset: u64) {
+        // Calculate the index
+        let index = ((riscv_pc - self.entry_point) / 4) as usize;
+
+        // Ensure the vector is large enough
+        if index >= self.offsets.len() {
+            self.offsets.resize(index + 1, 0);
+        }
+
+        // Store the offset
+        self.offsets[index] = x86_offset;
+    }
+
+    /// Look up the x86-64 offset for a RISC-V PC
+    pub fn lookup(&self, riscv_pc: u64) -> Option<u64> {
+        let index = ((riscv_pc - self.entry_point) / 4) as usize;
+        self.offsets.get(index).copied()
+    }
+}
+
 /// Translation context
 #[derive(Debug, Clone)]
 pub struct TranslationContext<M: RegisterMapper> {
+    /// Entry point RISC-V PC (first instruction)
+    pub entry_point: u64,
+
     /// Current program counter
     pub pc: u64,
 
     /// Register mapping
     pub register_mapping: M,
+
+    /// PC mapping from RISC-V to x86-64
+    pub pc_mapping: PcMapping,
 }
 
 /// Main RISC-V to x86-64 translator
@@ -36,8 +83,10 @@ impl<M: RegisterMapper> RiscvToX86Translator<M> {
         RiscvToX86Translator {
             emitter: X86Emitter::new(code_base),
             context: TranslationContext {
+                entry_point: pc,
                 pc,
                 register_mapping,
+                pc_mapping: PcMapping::new(pc),
             },
         }
     }
@@ -50,6 +99,16 @@ impl<M: RegisterMapper> RiscvToX86Translator<M> {
     /// Get mutable translation context
     pub fn context_mut(&mut self) -> &mut TranslationContext<M> {
         &mut self.context
+    }
+
+    /// Record a RISC-V PC to x86-64 bytecode offset mapping
+    pub fn record_pc_mapping(&mut self, riscv_pc: u64, x86_offset: u64) {
+        self.context.pc_mapping.add_mapping(riscv_pc, x86_offset);
+    }
+
+    /// Get the PC mapping table
+    pub fn get_pc_mapping(&self) -> &PcMapping {
+        &self.context.pc_mapping
     }
 
     /// Get the emitter
@@ -87,6 +146,7 @@ impl<M: RegisterMapper> RiscvToX86Translator<M> {
             X86Instruction::Jle { target } => self.emitter.emit_jle(target),
             X86Instruction::Jg { target } => self.emitter.emit_jg(target),
             X86Instruction::Jge { target } => self.emitter.emit_jge(target),
+            X86Instruction::Jb { target } => self.emitter.emit_jb(target),
             X86Instruction::Jbe { target } => self.emitter.emit_jbe(target),
             X86Instruction::Ja { target } => self.emitter.emit_ja(target),
             X86Instruction::Jae { target } => self.emitter.emit_jae(target),
@@ -103,6 +163,14 @@ impl<M: RegisterMapper> RiscvToX86Translator<M> {
             X86Instruction::Shl { src, dst } => self.emitter.emit_shl(src, dst),
             X86Instruction::Shr { src, dst } => self.emitter.emit_shr(src, dst),
             X86Instruction::Sar { src, dst } => self.emitter.emit_sar(src, dst),
+            X86Instruction::Setl { dst } => self.emitter.emit_setl(dst),
+            X86Instruction::Setle { dst } => self.emitter.emit_setle(dst),
+            X86Instruction::Setg { dst } => self.emitter.emit_setg(dst),
+            X86Instruction::Setge { dst } => self.emitter.emit_setge(dst),
+            X86Instruction::Sete { dst } => self.emitter.emit_sete(dst),
+            X86Instruction::Setne { dst } => self.emitter.emit_setne(dst),
+            X86Instruction::Setb { dst } => self.emitter.emit_setb(dst),
+            X86Instruction::Setbe { dst } => self.emitter.emit_setbe(dst),
             X86Instruction::Label { name } => {
                 self.emitter.emit_label(name.clone());
                 Ok(())
@@ -111,6 +179,8 @@ impl<M: RegisterMapper> RiscvToX86Translator<M> {
                 self.emitter.emit_byte(0x90);
                 Ok(())
             }
+            X86Instruction::Imul { src, dst } => self.emitter.emit_imul(src, dst),
+            X86Instruction::Mul { src } => self.emitter.emit_mul(src),
             _ => Err(format!(
                 "Instruction not yet implemented: {:?}",
                 instruction
@@ -128,17 +198,21 @@ impl<M: RegisterMapper> RiscvToX86Translator<M> {
     /// This is the main entry point for translating individual RISC-V instructions.
     /// Returns an error if the instruction is not yet supported.
     pub fn process_instruction(&mut self, riscv_insn: &RiscvInstruction) -> Result<(), String> {
-        // Record the starting x86 offset for this RISC-V instruction
-        let current_riscv_pc = self.context.pc;
 
-        // Emit a label for this instruction to enable relocations
+        // Emit a label for the current riscv pc to enable relocation
+        let current_riscv_pc = self.context.pc;
         let label = format!("L_{:x}", current_riscv_pc);
         self.emitter.emit_label(label);
+
+        // Record the PC mapping (RISC-V PC → x86-64 offset)
+        // We map after the label is emitted
+        let x86_offset_after_label = self.emitter.offset() as u64;
+        self.record_pc_mapping(current_riscv_pc, x86_offset_after_label);
 
         // Translate the instruction
         instruction_translator::translate_instruction(self, riscv_insn)?;
 
-        // Move to next RISC-V instruction (always 4 bytes since c extension is not supported)
+        // Move to next RISC-V instruction (always 4 bytes since c extension is not supported yet)
         self.context.pc += 4;
         Ok(())
     }
