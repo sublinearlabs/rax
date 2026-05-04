@@ -183,10 +183,12 @@ pub enum X86Instruction {
     // Set on condition
     Sete { dst: Operand },  // Set if equal
     Setne { dst: Operand }, // Set if not equal
-    Setl { dst: Operand },  // Set if less
-    Setle { dst: Operand }, // Set if less or equal
-    Setg { dst: Operand },  // Set if greater
-    Setge { dst: Operand }, // Set if greater or equal
+    Setl { dst: Operand },  // Set if less (signed)
+    Setle { dst: Operand }, // Set if less or equal (signed)
+    Setg { dst: Operand },  // Set if greater (signed)
+    Setge { dst: Operand }, // Set if greater or equal (signed)
+    Setb { dst: Operand },  // Set if below (unsigned)
+    Setbe { dst: Operand }, // Set if below or equal (unsigned)
 
     // Atomic operations
     Xadd { src: Operand, dst: Operand },    // Exchange and add
@@ -201,6 +203,7 @@ pub enum X86Instruction {
     Jle { target: String },     // Jump if less or equal
     Jg { target: String },      // Jump if greater
     Jge { target: String },     // Jump if greater or equal
+    Jb { target: String },      // Jump if below (unsigned)
     Jbe { target: String },     // Jump if below or equal (unsigned)
     Ja { target: String },      // Jump if above (unsigned)
     Jae { target: String },     // Jump if above or equal (unsigned)
@@ -266,6 +269,8 @@ impl fmt::Display for X86Instruction {
             X86Instruction::Setle { dst } => write!(f, "setle {}", dst),
             X86Instruction::Setg { dst } => write!(f, "setg {}", dst),
             X86Instruction::Setge { dst } => write!(f, "setge {}", dst),
+            X86Instruction::Setb { dst } => write!(f, "setb {}", dst),
+            X86Instruction::Setbe { dst } => write!(f, "setbe {}", dst),
             X86Instruction::Xadd { src, dst } => write!(f, "xadd {}, {}", dst, src),
             X86Instruction::Cmpxchg { src, dst } => write!(f, "cmpxchg {}, {}", dst, src),
             X86Instruction::Jmp { target } => write!(f, "jmp {}", target),
@@ -276,6 +281,7 @@ impl fmt::Display for X86Instruction {
             X86Instruction::Jle { target } => write!(f, "jle {}", target),
             X86Instruction::Jg { target } => write!(f, "jg {}", target),
             X86Instruction::Jge { target } => write!(f, "jge {}", target),
+            X86Instruction::Jb { target } => write!(f, "jb {}", target),
             X86Instruction::Jbe { target } => write!(f, "jbe {}", target),
             X86Instruction::Ja { target } => write!(f, "ja {}", target),
             X86Instruction::Jae { target } => write!(f, "jae {}", target),

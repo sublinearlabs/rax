@@ -198,7 +198,6 @@ impl<M: RegisterMapper> RiscvToX86Translator<M> {
     /// This is the main entry point for translating individual RISC-V instructions.
     /// Returns an error if the instruction is not yet supported.
     pub fn process_instruction(&mut self, riscv_insn: &RiscvInstruction) -> Result<(), String> {
-
         // Emit a label for the current riscv pc to enable relocation
         let current_riscv_pc = self.context.pc;
         let label = format!("L_{:x}", current_riscv_pc);

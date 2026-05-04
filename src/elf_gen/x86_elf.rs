@@ -208,8 +208,7 @@ impl From<Elf> for X86Elf {
                 // The table maps RISC-V PC indices to x86-64 bytecode offsets
                 // Format: array of u64 values where index = (riscv_pc - entry_point) / 4
                 let pc_map_vaddr = data_vaddr + 0x2000u64; // Place PC map at offset 0x2000 in data
-                let mut pc_map_data =
-                    Vec::with_capacity(pc_mapping.offsets.len() * 8);
+                let mut pc_map_data = Vec::with_capacity(pc_mapping.offsets.len() * 8);
 
                 // Copy existing offsets
                 for &offset in &pc_mapping.offsets {

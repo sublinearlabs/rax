@@ -253,10 +253,11 @@ impl X86Emitter {
                     let dst_code = dst_reg.code();
                     let dst_ext = dst_code >= 8;
 
-                    // mov dst_reg, rax
-                    self.emit_rex(true, dst_ext, false, false);
+                    // mov rax, dst_reg (move RAX INTO dst_reg)
+                    // RAX goes in Reg field (no REX.R needed for RAX), dst_reg goes in R/M field (needs REX.B if >= 8)
+                    self.emit_rex(true, false, false, dst_ext); // REX.W=true, REX.B=dst_ext for R/M field
                     self.emit_byte(0x89);
-                    self.emit_modrm(0x3, 0, dst_code & 0x7); // RAX is source, dst_reg is destination
+                    self.emit_modrm(0x3, 0, dst_code & 0x7); // RAX is source (Reg), dst_reg is destination (R/M)
 
                     // Pop RAX to restore its original value
                     self.emit_pop(&Operand::Register(X86Register::RAX))?;
@@ -276,10 +277,11 @@ impl X86Emitter {
                     let src_code = src_reg.code();
                     let src_ext = src_code >= 8;
 
-                    // mov rax, src_reg
-                    self.emit_rex(true, false, false, src_ext);
+                    // mov src_reg, rax (move src_reg INTO rax)
+                    // src_reg goes in Reg field (needs REX.R if >= 8), RAX goes in R/M field
+                    self.emit_rex(true, src_ext, false, false); // REX.W, REX.R=src_ext, REX.X=false, REX.B=false
                     self.emit_byte(0x89);
-                    self.emit_modrm(0x3, src_code & 0x7, 0); // src_reg is source, RAX is destination
+                    self.emit_modrm(0x3, src_code & 0x7, 0); // src_reg is source (Reg), RAX is destination (R/M)
                 }
 
                 // Emit REX.W prefix
@@ -440,6 +442,47 @@ impl X86Emitter {
                     }
                 }
 
+                Ok(())
+            }
+
+            // mov [mem], imm32 - REX.W + 0xC7 + ModRM + imm32
+            (Operand::Immediate(imm), Operand::Memory { base, offset }) => {
+                let base_code = base.code();
+                let base_ext = base_code >= 8;
+
+                self.emit_rex(true, false, false, base_ext);
+                self.emit_byte(0xC7); // MOV m64, imm32
+
+                // x86-64 special case: RSP (r/m=4) requires a SIB byte
+                if base_code & 0x7 == 4 {
+                    let sib_byte = (0 << 6) | (4 << 3) | 4;
+
+                    if *offset == 0 {
+                        self.emit_modrm(0x0, 0, 4);
+                        self.emit_byte(sib_byte);
+                    } else if *offset >= -128 && *offset <= 127 {
+                        self.emit_modrm(0x1, 0, 4);
+                        self.emit_byte(sib_byte);
+                        self.emit_byte(*offset as u8);
+                    } else {
+                        self.emit_modrm(0x2, 0, 4);
+                        self.emit_byte(sib_byte);
+                        self.emit_i32(*offset);
+                    }
+                } else {
+                    // Normal addressing without SIB
+                    if *offset == 0 {
+                        self.emit_modrm(0x0, 0, base_code & 0x7);
+                    } else if *offset >= -128 && *offset <= 127 {
+                        self.emit_modrm(0x1, 0, base_code & 0x7);
+                        self.emit_byte(*offset as u8);
+                    } else {
+                        self.emit_modrm(0x2, 0, base_code & 0x7);
+                        self.emit_i32(*offset);
+                    }
+                }
+
+                self.emit_i32(*imm as i32);
                 Ok(())
             }
 
@@ -1049,6 +1092,179 @@ impl X86Emitter {
             }
 
             _ => Err(format!("Invalid SAR operands: {} {}", src, dst)),
+        }
+    }
+
+    /// Emit SETL instruction (Set if Less - signed)
+    pub fn emit_setl(&mut self, dst: &Operand) -> Result<(), String> {
+        match dst {
+            // setl r8 - 0x0F 0x9C + ModRM (AL, CL, DL, BL, AH, CH, DH, BH, or extended regs)
+            Operand::Register(dst_reg) => {
+                let dst_code = dst_reg.code();
+                let dst_ext = dst_code >= 8;
+
+                if dst_ext {
+                    self.emit_rex(false, false, false, true);
+                }
+                self.emit_byte(0x0F);
+                self.emit_byte(0x9C); // SETL
+                self.emit_modrm(0x3, 0, dst_code & 0x7);
+
+                Ok(())
+            }
+            _ => Err(format!("SETL only supports register operands, got {}", dst)),
+        }
+    }
+
+    /// Emit SETLE instruction (Set if Less or Equal - signed)
+    pub fn emit_setle(&mut self, dst: &Operand) -> Result<(), String> {
+        match dst {
+            Operand::Register(dst_reg) => {
+                let dst_code = dst_reg.code();
+                let dst_ext = dst_code >= 8;
+
+                if dst_ext {
+                    self.emit_rex(false, false, false, true);
+                }
+                self.emit_byte(0x0F);
+                self.emit_byte(0x9E); // SETLE
+                self.emit_modrm(0x3, 0, dst_code & 0x7);
+
+                Ok(())
+            }
+            _ => Err(format!(
+                "SETLE only supports register operands, got {}",
+                dst
+            )),
+        }
+    }
+
+    /// Emit SETG instruction (Set if Greater - signed)
+    pub fn emit_setg(&mut self, dst: &Operand) -> Result<(), String> {
+        match dst {
+            Operand::Register(dst_reg) => {
+                let dst_code = dst_reg.code();
+                let dst_ext = dst_code >= 8;
+
+                if dst_ext {
+                    self.emit_rex(false, false, false, true);
+                }
+                self.emit_byte(0x0F);
+                self.emit_byte(0x9F); // SETG
+                self.emit_modrm(0x3, 0, dst_code & 0x7);
+
+                Ok(())
+            }
+            _ => Err(format!("SETG only supports register operands, got {}", dst)),
+        }
+    }
+
+    /// Emit SETGE instruction (Set if Greater or Equal - signed)
+    pub fn emit_setge(&mut self, dst: &Operand) -> Result<(), String> {
+        match dst {
+            Operand::Register(dst_reg) => {
+                let dst_code = dst_reg.code();
+                let dst_ext = dst_code >= 8;
+
+                if dst_ext {
+                    self.emit_rex(false, false, false, true);
+                }
+                self.emit_byte(0x0F);
+                self.emit_byte(0x9D); // SETGE
+                self.emit_modrm(0x3, 0, dst_code & 0x7);
+
+                Ok(())
+            }
+            _ => Err(format!(
+                "SETGE only supports register operands, got {}",
+                dst
+            )),
+        }
+    }
+
+    /// Emit SETE instruction (Set if Equal)
+    pub fn emit_sete(&mut self, dst: &Operand) -> Result<(), String> {
+        match dst {
+            Operand::Register(dst_reg) => {
+                let dst_code = dst_reg.code();
+                let dst_ext = dst_code >= 8;
+
+                if dst_ext {
+                    self.emit_rex(false, false, false, true);
+                }
+                self.emit_byte(0x0F);
+                self.emit_byte(0x94); // SETE
+                self.emit_modrm(0x3, 0, dst_code & 0x7);
+
+                Ok(())
+            }
+            _ => Err(format!("SETE only supports register operands, got {}", dst)),
+        }
+    }
+
+    /// Emit SETNE instruction (Set if Not Equal)
+    pub fn emit_setne(&mut self, dst: &Operand) -> Result<(), String> {
+        match dst {
+            Operand::Register(dst_reg) => {
+                let dst_code = dst_reg.code();
+                let dst_ext = dst_code >= 8;
+
+                if dst_ext {
+                    self.emit_rex(false, false, false, true);
+                }
+                self.emit_byte(0x0F);
+                self.emit_byte(0x95); // SETNE
+                self.emit_modrm(0x3, 0, dst_code & 0x7);
+
+                Ok(())
+            }
+            _ => Err(format!(
+                "SETNE only supports register operands, got {}",
+                dst
+            )),
+        }
+    }
+
+    /// Emit SETB instruction (Set if Below - unsigned)
+    pub fn emit_setb(&mut self, dst: &Operand) -> Result<(), String> {
+        match dst {
+            Operand::Register(dst_reg) => {
+                let dst_code = dst_reg.code();
+                let dst_ext = dst_code >= 8;
+
+                if dst_ext {
+                    self.emit_rex(false, false, false, true);
+                }
+                self.emit_byte(0x0F);
+                self.emit_byte(0x92); // SETB
+                self.emit_modrm(0x3, 0, dst_code & 0x7);
+
+                Ok(())
+            }
+            _ => Err(format!("SETB only supports register operands, got {}", dst)),
+        }
+    }
+
+    /// Emit SETBE instruction (Set if Below or Equal - unsigned)
+    pub fn emit_setbe(&mut self, dst: &Operand) -> Result<(), String> {
+        match dst {
+            Operand::Register(dst_reg) => {
+                let dst_code = dst_reg.code();
+                let dst_ext = dst_code >= 8;
+
+                if dst_ext {
+                    self.emit_rex(false, false, false, true);
+                }
+                self.emit_byte(0x0F);
+                self.emit_byte(0x96); // SETBE
+                self.emit_modrm(0x3, 0, dst_code & 0x7);
+
+                Ok(())
+            }
+            _ => Err(format!(
+                "SETBE only supports register operands, got {}",
+                dst
+            )),
         }
     }
 
