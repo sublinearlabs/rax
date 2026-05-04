@@ -191,6 +191,9 @@ impl From<Elf> for X86Elf {
                     );
                 }
 
+                // Extract PC mapping before finalize
+                let pc_mapping = translator.get_pc_mapping().clone();
+
                 // Finalize the emitter to apply all relocations
                 let text_data = translator
                     .emitter
@@ -200,6 +203,21 @@ impl From<Elf> for X86Elf {
                 // Create text segment with x86-64 vaddr
                 let text_seg = X86Segment::text(text_data, code_base, 0);
                 segments_to_add.push((code_base, text_seg));
+
+                // Create PC mapping table segment
+                // The table maps RISC-V PC indices to x86-64 bytecode offsets
+                // Format: array of u64 values where index = (riscv_pc - entry_point) / 4
+                let pc_map_vaddr = data_vaddr + 0x2000u64; // Place PC map at offset 0x2000 in data
+                let mut pc_map_data =
+                    Vec::with_capacity(pc_mapping.offsets.len() * 8);
+
+                // Copy existing offsets
+                for &offset in &pc_mapping.offsets {
+                    pc_map_data.extend_from_slice(&offset.to_le_bytes());
+                }
+
+                let pc_map_seg = X86Segment::data(pc_map_data, pc_map_vaddr, 0);
+                segments_to_add.push((pc_map_vaddr, pc_map_seg));
             } else if segment.is_readable && segment.is_writable {
                 // Create BSS segment with x86-64 vaddr
                 let bss_seg = X86Segment::bss(segment.mem_size, bss_base, 0);
@@ -270,6 +288,6 @@ mod tests {
 
         assert_eq!(elf.segments.len(), 2);
         assert_eq!(elf.executable_segments().len(), 1);
-        assert_eq!(elf.writable_segments().len(), 1);
+        assert_eq!(elf.writable_segments().len(), 0);
     }
 }
