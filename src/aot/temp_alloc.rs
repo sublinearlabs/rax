@@ -2,49 +2,8 @@ use std::ops::Deref;
 
 use crate::aot::registers::X86Gpr;
 
-struct TempSlot {
-    reg: X86Gpr,
-    allocated: bool,
-}
-
-impl TempSlot {
-    /// Marks this temporary register slot as allocated.
-    ///
-    /// Panics if the slot is already allocated.
-    fn allocate(&mut self) {
-        assert!(!self.allocated);
-        self.allocated = true;
-    }
-
-    /// Marks this temporary register slot as free.
-    ///
-    /// Panics if the slot is already free.
-    fn release(&mut self) {
-        assert!(self.allocated);
-        self.allocated = false;
-    }
-}
-
-/// Represents an allocated temporary register.
-///
-/// On drop, releases the allocation for future use.
-struct AllocatedTemp<'a> {
-    slot: &'a mut TempSlot,
-}
-
-/// Free up allocation when AllocatedTemp is dropped
-impl<'a> Drop for AllocatedTemp<'a> {
-    fn drop(&mut self) {
-        self.slot.release();
-    }
-}
-
-impl<'a> Deref for AllocatedTemp<'a> {
-    type Target = X86Gpr;
-
-    fn deref(&self) -> &Self::Target {
-        &self.slot.reg
-    }
+enum TempAllocationError {
+    NoFreeTemps,
 }
 
 /// Safe interface for handling temporary registers
@@ -87,12 +46,51 @@ impl TempAllocator {
         free_slot.allocate();
 
         // wrap in guard to force unlock on drop
-        Ok(AllocatedTemp {
-            slot: free_slot,
-        })
+        Ok(AllocatedTemp { slot: free_slot })
     }
 }
 
-enum TempAllocationError {
-    NoFreeTemps,
+/// Represents an allocated temporary register.
+///
+/// On drop, releases the allocation for future use.
+struct AllocatedTemp<'a> {
+    slot: &'a mut TempSlot,
+}
+
+/// Free up allocation when AllocatedTemp is dropped
+impl<'a> Drop for AllocatedTemp<'a> {
+    fn drop(&mut self) {
+        self.slot.release();
+    }
+}
+
+impl<'a> Deref for AllocatedTemp<'a> {
+    type Target = X86Gpr;
+
+    fn deref(&self) -> &Self::Target {
+        &self.slot.reg
+    }
+}
+
+struct TempSlot {
+    reg: X86Gpr,
+    allocated: bool,
+}
+
+impl TempSlot {
+    /// Marks this temporary register slot as allocated.
+    ///
+    /// Panics if the slot is already allocated.
+    fn allocate(&mut self) {
+        assert!(!self.allocated);
+        self.allocated = true;
+    }
+
+    /// Marks this temporary register slot as free.
+    ///
+    /// Panics if the slot is already free.
+    fn release(&mut self) {
+        assert!(self.allocated);
+        self.allocated = false;
+    }
 }
