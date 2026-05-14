@@ -1,6 +1,3 @@
-// so now I have the registers
-// this means I am set up for checking code assumptions
-
 #[repr(u8)]
 enum RiscvRegister {
     Zero = 0,
@@ -38,6 +35,7 @@ enum RiscvRegister {
 }
 
 enum X86Register {
+    ConstZero,
     Gpr(X86Gpr),
     Xmm(X86Xmm),
 }
