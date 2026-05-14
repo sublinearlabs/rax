@@ -1,12 +1,3 @@
-// I think I have the required ingredients for a mapping
-// I have some rules that a mapping must adhere to
-// 1. you cannot map two riscv registers to the same x86 register position
-// 2. every riscv register must be mapped
-
-// TODO: documentation philosophy
-// TODO: document each type
-
-#[derive(Clone, Copy)]
 #[repr(u8)]
 enum RiscvRegister {
     Zero = 0,
@@ -48,7 +39,6 @@ enum X86Register {
     Xmm(X86Xmm),
 }
 
-#[derive(Clone, Copy)]
 #[repr(u8)]
 enum X86Gpr {
     Rax = 0,
@@ -69,7 +59,6 @@ enum X86Gpr {
     R15 = 15,
 }
 
-#[derive(Clone, Copy)]
 #[repr(u8)]
 enum X86Xmm {
     Xmm0 = 0,
@@ -88,117 +77,4 @@ enum X86Xmm {
     Xmm13 = 13,
     Xmm14 = 14,
     Xmm15 = 15,
-}
-
-#[derive(Clone, Copy)]
-enum XmmLane {
-    Low,
-    High,
-}
-
-enum MapTarget {
-    ConstZero,
-    Gpr(X86Gpr),
-    XmmExclusive(X86Xmm),
-    XmmShared { reg: X86Xmm, lane: XmmLane },
-}
-
-enum MapError {
-    ConstZeroNonZero {
-        riscv_idx: usize,
-    },
-    DupGpr {
-        gpr: X86Gpr,
-        first_idx: usize,
-        second_idx: usize,
-    },
-    DupXmmLane {
-        reg: X86Xmm,
-        lane: XmmLane,
-        first_idx: usize,
-        second_idx: usize,
-    },
-    XmmExclusiveConflict {
-        reg: X86Xmm,
-        first_idx: usize,
-        second_idx: usize,
-    },
-}
-
-struct RegisterMap {
-    targets: [MapTarget; 32],
-}
-
-impl RegisterMap {
-    fn new(targets: [MapTarget; 32]) -> Result<Self, MapError> {
-        let mut gpr_owner: [Option<usize>; 16] = [None; 16];
-        let mut xmm_low_owner: [Option<usize>; 16] = [None; 16];
-        let mut xmm_high_owner: [Option<usize>; 16] = [None; 16];
-
-        for (i, target) in targets.iter().enumerate() {
-            match target {
-                MapTarget::ConstZero => {
-                    if i != RiscvRegister::Zero as usize {
-                        return Err(MapError::ConstZeroNonZero { riscv_idx: i });
-                    }
-                }
-                MapTarget::Gpr(gpr) => {
-                    let idx = *gpr as usize;
-                    if let Some(first) = gpr_owner[idx] {
-                        return Err(MapError::DupGpr {
-                            gpr: *gpr,
-                            first_idx: first,
-                            second_idx: i,
-                        });
-                    }
-                    gpr_owner[idx] = Some(i);
-                }
-                MapTarget::XmmExclusive(xmm) => {
-                    let idx = *xmm as usize;
-                    if let Some(first) = xmm_low_owner[idx].or(xmm_high_owner[idx]) {
-                        return Err(MapError::XmmExclusiveConflict {
-                            reg: *xmm,
-                            first_idx: first,
-                            second_idx: i,
-                        });
-                    }
-                    xmm_low_owner[idx] = Some(i);
-                    xmm_high_owner[idx] = Some(i);
-                }
-                MapTarget::XmmShared { reg, lane } => {
-                    let idx = *reg as usize;
-                    match lane {
-                        XmmLane::Low => {
-                            if let Some(first) = xmm_low_owner[idx] {
-                                return Err(MapError::DupXmmLane {
-                                    reg: *reg,
-                                    lane: *lane,
-                                    first_idx: first,
-                                    second_idx: i,
-                                });
-                            }
-                            xmm_low_owner[idx] = Some(i);
-                        }
-                        XmmLane::High => {
-                            if let Some(first) = xmm_high_owner[idx] {
-                                return Err(MapError::DupXmmLane {
-                                    reg: *reg,
-                                    lane: *lane,
-                                    first_idx: first,
-                                    second_idx: i,
-                                });
-                            }
-                            xmm_high_owner[idx] = Some(i);
-                        }
-                    }
-                }
-            }
-        }
-
-        Ok(Self { targets })
-    }
-
-    fn get(&self, reg: RiscvRegister) -> &MapTarget {
-        &self.targets[reg as usize]
-    }
 }
