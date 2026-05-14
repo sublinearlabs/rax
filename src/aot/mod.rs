@@ -1,15 +1,5 @@
-// I want to build types that will facilitate writing the assembly I need
-// making things safe, essentially reducing the chances of a mistake
-// at the end of the day, I am just writing assembly and I need to
-// specify registers, so everything will boil down to some int index eventually
-//
-// we start with some riscv instruction which has the registers being used
-// we need to convert that to an x86 location (based on some mapping)
-// then given this mapping, we need to know what x86 instruction we want to write
-//
-// I should start with the structure of the register mapping first
-// we should be able to index this by the riscv register
-// I think we'd need a type for each riscv register
+// so now I have the registers
+// this means I am set up for checking code assumptions
 
 #[repr(u8)]
 enum RiscvRegister {
@@ -45,6 +35,11 @@ enum RiscvRegister {
     T4 = 29,
     T5 = 30,
     T6 = 31,
+}
+
+enum X86Register {
+    Gpr(X86Gpr),
+    Xmm(X86Xmm),
 }
 
 #[repr(u8)]
