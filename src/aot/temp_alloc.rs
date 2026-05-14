@@ -8,26 +8,26 @@ struct TempSlot {
 }
 
 impl TempSlot {
-    /// Marks a temp registers as allocated
+    /// Marks this temporary register slot as allocated.
     ///
-    /// Panics if you try to lock an already allocated register
+    /// Panics if the slot is already allocated.
     fn allocate(&mut self) {
         assert!(!self.allocated);
         self.allocated = true;
     }
 
-    /// Marks a temp register as unallocated
+    /// Marks this temporary register slot as free.
     ///
-    /// Panics if you try to unlock a free temp register
+    /// Panics if the slot is already free.
     fn release(&mut self) {
         assert!(self.allocated);
         self.allocated = false;
     }
 }
 
-/// Represents an allocated temp
+/// Represents an allocated temporary register.
 ///
-/// on Drop, frees the allocation for future use
+/// On drop, releases the allocation for future use.
 struct AllocatedTemp<'a> {
     slot: &'a mut TempSlot,
 }
@@ -54,7 +54,7 @@ struct TempAllocator {
 }
 
 impl TempAllocator {
-    /// Inits a new temp allocator from specified temp gprs
+    /// Creates a temp allocator from a set of managed GPR temporaries.
     fn new(temps: Vec<X86Gpr>) -> Self {
         let temp_slots = temps.into_iter().map(|t| TempSlot {
             reg: t,
@@ -66,13 +66,16 @@ impl TempAllocator {
         }
     }
 
-    /// Returns a bool specifying if an x86 GPR register is one
-    /// of the temp registers
+    /// Returns whether an x86 GPR is managed as a temporary.
     fn is_temp(&self, reg: &X86Gpr) -> bool {
         self.slots.iter().any(|v| &v.reg == reg)
     }
 
-    /// Returns the first unallocated temp register
+    /// Allocates and returns the first free temporary register.
+    ///
+    /// # Errors
+    /// Returns `TempAllocationError::NoFreeTemps` when all managed
+    /// temporary registers are currently allocated.
     fn allocate(&mut self) -> Result<AllocatedTemp<'_>, TempAllocationError> {
         let free_slot = self
             .slots
