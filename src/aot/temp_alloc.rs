@@ -92,6 +92,24 @@ struct TempSlot {
     allocated: bool,
 }
 
+impl TempSlot {
+    /// Marks this temporary register slot as allocated.
+    ///
+    /// Panics if the slot is already allocated.
+    fn allocate(&mut self) {
+        assert!(!self.allocated);
+        self.allocated = true;
+    }
+
+    /// Marks this temporary register slot as free.
+    ///
+    /// Panics if the slot is already free.
+    fn release(&mut self) {
+        assert!(self.allocated);
+        self.allocated = false;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -146,24 +164,5 @@ mod tests {
         let mut alloc = TempAllocator::new(vec![X86Gpr::R10]);
         let guard = alloc.allocate().expect("allocation should succeed");
         assert!(*guard == X86Gpr::R10);
-    }
-
-}
-
-impl TempSlot {
-    /// Marks this temporary register slot as allocated.
-    ///
-    /// Panics if the slot is already allocated.
-    fn allocate(&mut self) {
-        assert!(!self.allocated);
-        self.allocated = true;
-    }
-
-    /// Marks this temporary register slot as free.
-    ///
-    /// Panics if the slot is already free.
-    fn release(&mut self) {
-        assert!(self.allocated);
-        self.allocated = false;
     }
 }
