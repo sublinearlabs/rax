@@ -1,3 +1,6 @@
+/// RISC-V integer register identifiers in canonical index order (`x0..x31`).
+///
+/// The discriminant value matches the architectural register index.
 #[repr(u8)]
 pub(crate) enum RiscvRegister {
     Zero = 0,
@@ -34,11 +37,16 @@ pub(crate) enum RiscvRegister {
     T6 = 31,
 }
 
+/// x86-64 register class used by lowering and mapping logic.
 pub(crate) enum X86Register {
     Gpr(X86Gpr),
     Xmm(X86Xmm),
 }
 
+/// x86-64 general-purpose registers (`RAX..R15`) in canonical index order.
+///
+/// The discriminant value is a stable 0-based index for table lookups.
+#[derive(Copy, Clone, PartialEq)]
 #[repr(u8)]
 pub(crate) enum X86Gpr {
     Rax = 0,
@@ -59,6 +67,9 @@ pub(crate) enum X86Gpr {
     R15 = 15,
 }
 
+/// x86 SIMD XMM registers (`XMM0..XMM15`) in canonical index order.
+///
+/// The discriminant value is a stable 0-based index for table lookups.
 #[repr(u8)]
 pub(crate) enum X86Xmm {
     Xmm0 = 0,
