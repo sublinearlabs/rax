@@ -74,14 +74,10 @@ impl TempAllocator {
 
     /// Returns the first unallocated temp register
     fn allocate(&mut self) -> Result<TempGuard<'_>, TempAllocationError> {
-        // find the first temp info that is safe
-        // lock it
-        // wrap it in a guard that will force unlock after drop
-
         let free_temp = self
             .temps
             .iter_mut()
-            .find(|t| t.in_use == false)
+            .find(|t| !t.in_use)
             .ok_or(TempAllocationError::AllTempsAllocated)?;
 
         // mark as allocated
