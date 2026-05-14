@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use crate::aot::registers::X86Gpr;
 
 struct TempInfo {
@@ -10,7 +12,7 @@ impl TempInfo {
     ///
     /// Panics if you try to lock an already allocated register
     fn lock(&mut self) {
-        assert!(self.in_use == false);
+        assert!(!self.in_use);
         self.in_use = true;
     }
 
@@ -18,7 +20,7 @@ impl TempInfo {
     ///
     /// Panics if you try to unlock a free temp register
     fn unlock(&mut self) {
-        assert!(self.in_use == true);
+        assert!(self.in_use);
         self.in_use = false;
     }
 }
@@ -34,6 +36,14 @@ struct TempGuard<'a> {
 impl<'a> Drop for TempGuard<'a> {
     fn drop(&mut self) {
         self.temp_info.unlock();
+    }
+}
+
+impl<'a> Deref for TempGuard<'a> {
+    type Target = X86Gpr;
+
+    fn deref(&self) -> &Self::Target {
+        &self.temp_info.temp
     }
 }
 
@@ -59,11 +69,11 @@ impl TempAllocator {
     /// Returns a bool specifying if an x86 GPR register is one
     /// of the temp registers
     fn is_temp(&self, reg: &X86Gpr) -> bool {
-        self.temps.iter().find(|v| &v.temp == reg).is_some()
+        self.temps.iter().any(|v| &v.temp == reg)
     }
 
     /// Returns the first unallocated temp register
-    fn allocate(&mut self) -> Result<TempGuard, TempAllocationError> {
+    fn allocate(&mut self) -> Result<TempGuard<'_>, TempAllocationError> {
         // find the first temp info that is safe
         // lock it
         // wrap it in a guard that will force unlock after drop
