@@ -2,7 +2,9 @@ use std::ops::Deref;
 
 use crate::aot::registers::X86Gpr;
 
+/// Errors that can occur while allocating temporary registers.
 enum TempAllocationError {
+    /// No managed temporary register slot is currently free.
     NoFreeTemps,
 }
 
@@ -13,8 +15,18 @@ struct TempAllocator {
 }
 
 impl TempAllocator {
-    /// Creates a temp allocator from a set of managed GPR temporaries.
+    /// Creates a temp allocator from managed x86 GPR temporaries.
+    ///
+    /// # Panics
+    /// Panics if `temps` contains duplicate registers.
     fn new(temps: Vec<X86Gpr>) -> Self {
+        let mut seen = [false; 16];
+        for reg in &temps {
+            let idx = *reg as usize;
+            assert!(!seen[idx], "duplicate temp register in TempAllocator::new");
+            seen[idx] = true;
+        }
+
         let temp_slots = temps.into_iter().map(|t| TempSlot {
             reg: t,
             allocated: false,
@@ -64,6 +76,7 @@ impl<'a> Drop for AllocatedTemp<'a> {
     }
 }
 
+/// Provides ergonomic access to the allocated register as `&X86Gpr`.
 impl<'a> Deref for AllocatedTemp<'a> {
     type Target = X86Gpr;
 
@@ -72,6 +85,7 @@ impl<'a> Deref for AllocatedTemp<'a> {
     }
 }
 
+/// Internal allocator slot state for one managed temporary register.
 struct TempSlot {
     reg: X86Gpr,
     allocated: bool,
