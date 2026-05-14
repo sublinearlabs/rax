@@ -1,14 +1,40 @@
-// I want to create a safe type that allows for easy handling of temp registers
-// it is going to be created with a list of temp value
-// what are the interfaces that I care about in this case?
-// is_temp()
-// allocate() -> should give one of the unused temporary variables
-
 use crate::aot::registers::X86Gpr;
 
 struct TempInfo {
     temp: X86Gpr,
     in_use: bool,
+}
+
+impl TempInfo {
+    /// Marks a temp registers as allocated
+    ///
+    /// Panics if you try to lock an already allocated register
+    fn lock(&mut self) {
+        assert!(self.in_use == false);
+        self.in_use = true;
+    }
+
+    /// Marks a temp register as unallocated
+    ///
+    /// Panics if you try to unlock a free temp register
+    fn unlock(&mut self) {
+        assert!(self.in_use == true);
+        self.in_use = false;
+    }
+}
+
+/// Represents an allocated temp
+///
+/// on Drop, frees the allocation for future use
+struct TempGuard<'a> {
+    temp_info: &'a mut TempInfo,
+}
+
+/// Free up allocation when TempGuard is dropped
+impl<'a> Drop for TempGuard<'a> {
+    fn drop(&mut self) {
+        self.temp_info.unlock();
+    }
 }
 
 /// Safe interface for handling temporary registers
@@ -37,14 +63,24 @@ impl TempAllocator {
     }
 
     /// Returns the first unallocated temp register
-    ///
-    /// SAFETY: Caller must ensure that after use, in_use should be set to false
-    unsafe fn allocate(&self) -> Result<X86Gpr, TempAllocationError> {
-        // find the first temp that is not in use
-        let free_temp = self.temps.iter().find(|v| !v.in_use);
-        free_temp
-            .map(|temp| temp.temp)
-            .ok_or(TempAllocationError::AllTempsAllocated)
+    fn allocate(&mut self) -> Result<TempGuard, TempAllocationError> {
+        // find the first temp info that is safe
+        // lock it
+        // wrap it in a guard that will force unlock after drop
+
+        let free_temp = self
+            .temps
+            .iter_mut()
+            .find(|t| t.in_use == false)
+            .ok_or(TempAllocationError::AllTempsAllocated)?;
+
+        // mark as allocated
+        free_temp.lock();
+
+        // wrap in guard to force unlock on drop
+        Ok(TempGuard {
+            temp_info: free_temp,
+        })
     }
 }
 
