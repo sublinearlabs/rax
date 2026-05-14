@@ -35,4 +35,19 @@ impl TempAllocator {
     fn is_temp(&self, reg: &X86Gpr) -> bool {
         self.temps.iter().find(|v| &v.temp == reg).is_some()
     }
+
+    /// Returns the first unallocated temp register
+    ///
+    /// SAFETY: Caller must ensure that after use, in_use should be set to false
+    unsafe fn allocate(&self) -> Result<X86Gpr, TempAllocationError> {
+        // find the first temp that is not in use
+        let free_temp = self.temps.iter().find(|v| !v.in_use);
+        free_temp
+            .map(|temp| temp.temp)
+            .ok_or(TempAllocationError::AllTempsAllocated)
+    }
+}
+
+enum TempAllocationError {
+    AllTempsAllocated,
 }

@@ -39,7 +39,7 @@ pub(crate) enum X86Register {
     Xmm(X86Xmm),
 }
 
-#[derive(PartialEq)]
+#[derive(Copy, PartialEq)]
 #[repr(u8)]
 pub(crate) enum X86Gpr {
     Rax = 0,
