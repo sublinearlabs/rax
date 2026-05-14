@@ -6,6 +6,7 @@
 // TODO: documentation philosophy
 // TODO: document each type
 
+#[derive(Clone, Copy)]
 #[repr(u8)]
 enum RiscvRegister {
     Zero = 0,
@@ -47,6 +48,7 @@ enum X86Register {
     Xmm(X86Xmm),
 }
 
+#[derive(Clone, Copy)]
 #[repr(u8)]
 enum X86Gpr {
     Rax = 0,
@@ -67,6 +69,7 @@ enum X86Gpr {
     R15 = 15,
 }
 
+#[derive(Clone, Copy)]
 #[repr(u8)]
 enum X86Xmm {
     Xmm0 = 0,
@@ -87,6 +90,7 @@ enum X86Xmm {
     Xmm15 = 15,
 }
 
+#[derive(Clone, Copy)]
 enum XmmLane {
     Low,
     High,
@@ -99,62 +103,96 @@ enum MapTarget {
     XmmShared { reg: X86Xmm, lane: XmmLane },
 }
 
+enum MapError {
+    ConstZeroNonZero {
+        riscv_idx: usize,
+    },
+    DupGpr {
+        gpr: X86Gpr,
+        first_idx: usize,
+        second_idx: usize,
+    },
+    DupXmmLane {
+        reg: X86Xmm,
+        lane: XmmLane,
+        first_idx: usize,
+        second_idx: usize,
+    },
+    XmmExclusiveConflict {
+        reg: X86Xmm,
+        first_idx: usize,
+        second_idx: usize,
+    },
+}
+
 struct RegisterMap {
     targets: [MapTarget; 32],
 }
 
 impl RegisterMap {
-    fn new(targets: [MapTarget; 32]) -> Result<Self, &'static str> {
-        let mut used_gpr = [false; 16];
-        let mut used_xmm_exclusive = [false; 16];
-        let mut used_xmm_low = [false; 16];
-        let mut used_xmm_high = [false; 16];
+    fn new(targets: [MapTarget; 32]) -> Result<Self, MapError> {
+        let mut gpr_owner: [Option<usize>; 16] = [None; 16];
+        let mut xmm_low_owner: [Option<usize>; 16] = [None; 16];
+        let mut xmm_high_owner: [Option<usize>; 16] = [None; 16];
 
-        let mut i = 0;
-        while i < 32 {
-            match targets[i] {
+        for (i, target) in targets.iter().enumerate() {
+            match target {
                 MapTarget::ConstZero => {
                     if i != RiscvRegister::Zero as usize {
-                        return Err("ConstZero is only valid for RiscvRegister::Zero");
+                        return Err(MapError::ConstZeroNonZero { riscv_idx: i });
                     }
                 }
                 MapTarget::Gpr(gpr) => {
-                    let idx = gpr as usize;
-                    if used_gpr[idx] {
-                        return Err("duplicate X86 GPR mapping");
+                    let idx = *gpr as usize;
+                    if let Some(first) = gpr_owner[idx] {
+                        return Err(MapError::DupGpr {
+                            gpr: *gpr,
+                            first_idx: first,
+                            second_idx: i,
+                        });
                     }
-                    used_gpr[idx] = true;
+                    gpr_owner[idx] = Some(i);
                 }
                 MapTarget::XmmExclusive(xmm) => {
-                    let idx = xmm as usize;
-                    if used_xmm_exclusive[idx] || used_xmm_low[idx] || used_xmm_high[idx] {
-                        return Err("XMM exclusive mapping conflicts with existing mapping");
+                    let idx = *xmm as usize;
+                    if let Some(first) = xmm_low_owner[idx].or(xmm_high_owner[idx]) {
+                        return Err(MapError::XmmExclusiveConflict {
+                            reg: *xmm,
+                            first_idx: first,
+                            second_idx: i,
+                        });
                     }
-                    used_xmm_exclusive[idx] = true;
+                    xmm_low_owner[idx] = Some(i);
+                    xmm_high_owner[idx] = Some(i);
                 }
                 MapTarget::XmmShared { reg, lane } => {
-                    let idx = reg as usize;
-                    if used_xmm_exclusive[idx] {
-                        return Err("XMM shared mapping conflicts with exclusive mapping");
-                    }
+                    let idx = *reg as usize;
                     match lane {
                         XmmLane::Low => {
-                            if used_xmm_low[idx] {
-                                return Err("duplicate XMM low-lane mapping");
+                            if let Some(first) = xmm_low_owner[idx] {
+                                return Err(MapError::DupXmmLane {
+                                    reg: *reg,
+                                    lane: *lane,
+                                    first_idx: first,
+                                    second_idx: i,
+                                });
                             }
-                            used_xmm_low[idx] = true;
+                            xmm_low_owner[idx] = Some(i);
                         }
                         XmmLane::High => {
-                            if used_xmm_high[idx] {
-                                return Err("duplicate XMM high-lane mapping");
+                            if let Some(first) = xmm_high_owner[idx] {
+                                return Err(MapError::DupXmmLane {
+                                    reg: *reg,
+                                    lane: *lane,
+                                    first_idx: first,
+                                    second_idx: i,
+                                });
                             }
-                            used_xmm_high[idx] = true;
+                            xmm_high_owner[idx] = Some(i);
                         }
                     }
                 }
             }
-
-            i += 1;
         }
 
         Ok(Self { targets })
