@@ -2,94 +2,94 @@ use std::ops::Deref;
 
 use crate::aot::registers::X86Gpr;
 
-struct TempInfo {
-    temp: X86Gpr,
-    in_use: bool,
+struct TempSlot {
+    reg: X86Gpr,
+    allocated: bool,
 }
 
-impl TempInfo {
+impl TempSlot {
     /// Marks a temp registers as allocated
     ///
     /// Panics if you try to lock an already allocated register
-    fn lock(&mut self) {
-        assert!(!self.in_use);
-        self.in_use = true;
+    fn allocate(&mut self) {
+        assert!(!self.allocated);
+        self.allocated = true;
     }
 
     /// Marks a temp register as unallocated
     ///
     /// Panics if you try to unlock a free temp register
-    fn unlock(&mut self) {
-        assert!(self.in_use);
-        self.in_use = false;
+    fn release(&mut self) {
+        assert!(self.allocated);
+        self.allocated = false;
     }
 }
 
 /// Represents an allocated temp
 ///
 /// on Drop, frees the allocation for future use
-struct TempGuard<'a> {
-    temp_info: &'a mut TempInfo,
+struct AllocatedTemp<'a> {
+    slot: &'a mut TempSlot,
 }
 
-/// Free up allocation when TempGuard is dropped
-impl<'a> Drop for TempGuard<'a> {
+/// Free up allocation when AllocatedTemp is dropped
+impl<'a> Drop for AllocatedTemp<'a> {
     fn drop(&mut self) {
-        self.temp_info.unlock();
+        self.slot.release();
     }
 }
 
-impl<'a> Deref for TempGuard<'a> {
+impl<'a> Deref for AllocatedTemp<'a> {
     type Target = X86Gpr;
 
     fn deref(&self) -> &Self::Target {
-        &self.temp_info.temp
+        &self.slot.reg
     }
 }
 
 /// Safe interface for handling temporary registers
 /// during AOT compilation.
 struct TempAllocator {
-    temps: Vec<TempInfo>,
+    slots: Vec<TempSlot>,
 }
 
 impl TempAllocator {
     /// Inits a new temp allocator from specified temp gprs
     fn new(temps: Vec<X86Gpr>) -> Self {
-        let temp_infos = temps.into_iter().map(|t| TempInfo {
-            temp: t,
-            in_use: false,
+        let temp_slots = temps.into_iter().map(|t| TempSlot {
+            reg: t,
+            allocated: false,
         });
 
         Self {
-            temps: temp_infos.collect(),
+            slots: temp_slots.collect(),
         }
     }
 
     /// Returns a bool specifying if an x86 GPR register is one
     /// of the temp registers
     fn is_temp(&self, reg: &X86Gpr) -> bool {
-        self.temps.iter().any(|v| &v.temp == reg)
+        self.slots.iter().any(|v| &v.reg == reg)
     }
 
     /// Returns the first unallocated temp register
-    fn allocate(&mut self) -> Result<TempGuard<'_>, TempAllocationError> {
-        let free_temp = self
-            .temps
+    fn allocate(&mut self) -> Result<AllocatedTemp<'_>, TempAllocationError> {
+        let free_slot = self
+            .slots
             .iter_mut()
-            .find(|t| !t.in_use)
-            .ok_or(TempAllocationError::AllTempsAllocated)?;
+            .find(|t| !t.allocated)
+            .ok_or(TempAllocationError::NoFreeTemps)?;
 
         // mark as allocated
-        free_temp.lock();
+        free_slot.allocate();
 
         // wrap in guard to force unlock on drop
-        Ok(TempGuard {
-            temp_info: free_temp,
+        Ok(AllocatedTemp {
+            slot: free_slot,
         })
     }
 }
 
 enum TempAllocationError {
-    AllTempsAllocated,
+    NoFreeTemps,
 }
