@@ -1,3 +1,11 @@
+// I think I have the required ingredients for a mapping
+// I have some rules that a mapping must adhere to
+// 1. you cannot map two riscv registers to the same x86 register position
+// 2. every riscv register must be mapped
+
+// TODO: documentation philosophy
+// TODO: document each type
+
 #[repr(u8)]
 enum RiscvRegister {
     Zero = 0,
@@ -35,7 +43,6 @@ enum RiscvRegister {
 }
 
 enum X86Register {
-    ConstZero,
     Gpr(X86Gpr),
     Xmm(X86Xmm),
 }
@@ -78,4 +85,82 @@ enum X86Xmm {
     Xmm13 = 13,
     Xmm14 = 14,
     Xmm15 = 15,
+}
+
+enum XmmLane {
+    Low,
+    High,
+}
+
+enum MapTarget {
+    ConstZero,
+    Gpr(X86Gpr),
+    XmmExclusive(X86Xmm),
+    XmmShared { reg: X86Xmm, lane: XmmLane },
+}
+
+struct RegisterMap {
+    targets: [MapTarget; 32],
+}
+
+impl RegisterMap {
+    fn new(targets: [MapTarget; 32]) -> Result<Self, &'static str> {
+        let mut used_gpr = [false; 16];
+        let mut used_xmm_exclusive = [false; 16];
+        let mut used_xmm_low = [false; 16];
+        let mut used_xmm_high = [false; 16];
+
+        let mut i = 0;
+        while i < 32 {
+            match targets[i] {
+                MapTarget::ConstZero => {
+                    if i != RiscvRegister::Zero as usize {
+                        return Err("ConstZero is only valid for RiscvRegister::Zero");
+                    }
+                }
+                MapTarget::Gpr(gpr) => {
+                    let idx = gpr as usize;
+                    if used_gpr[idx] {
+                        return Err("duplicate X86 GPR mapping");
+                    }
+                    used_gpr[idx] = true;
+                }
+                MapTarget::XmmExclusive(xmm) => {
+                    let idx = xmm as usize;
+                    if used_xmm_exclusive[idx] || used_xmm_low[idx] || used_xmm_high[idx] {
+                        return Err("XMM exclusive mapping conflicts with existing mapping");
+                    }
+                    used_xmm_exclusive[idx] = true;
+                }
+                MapTarget::XmmShared { reg, lane } => {
+                    let idx = reg as usize;
+                    if used_xmm_exclusive[idx] {
+                        return Err("XMM shared mapping conflicts with exclusive mapping");
+                    }
+                    match lane {
+                        XmmLane::Low => {
+                            if used_xmm_low[idx] {
+                                return Err("duplicate XMM low-lane mapping");
+                            }
+                            used_xmm_low[idx] = true;
+                        }
+                        XmmLane::High => {
+                            if used_xmm_high[idx] {
+                                return Err("duplicate XMM high-lane mapping");
+                            }
+                            used_xmm_high[idx] = true;
+                        }
+                    }
+                }
+            }
+
+            i += 1;
+        }
+
+        Ok(Self { targets })
+    }
+
+    fn get(&self, reg: RiscvRegister) -> &MapTarget {
+        &self.targets[reg as usize]
+    }
 }
