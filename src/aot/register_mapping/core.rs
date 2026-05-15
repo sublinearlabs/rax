@@ -26,6 +26,10 @@ pub(crate) struct RegisterMapping {
     mapping: [MapTarget; 32],
 }
 
+/// Validated mapping handoff containing both register assignments and temp pool.
+///
+/// This type couples `RegisterMapping` with the derived set of unused x86 GPRs
+/// so downstream users cannot accidentally pass desynchronized values.
 #[derive(Debug)]
 pub(crate) struct MappingPlan {
     reg_map: RegisterMapping,
@@ -33,6 +37,12 @@ pub(crate) struct MappingPlan {
 }
 
 impl MappingPlan {
+    /// Consumes the plan and returns its coupled components.
+    ///
+    /// # Returns
+    ///
+    /// The validated `RegisterMapping` and the corresponding list of unused
+    /// x86 GPRs available for temporary allocation.
     pub(crate) fn into_parts(self) -> (RegisterMapping, Vec<X86Gpr>) {
         (self.reg_map, self.unused_gprs)
     }
@@ -58,8 +68,8 @@ impl RegisterMapping {
     ///
     /// # Returns
     ///
-    /// On success, returns the `RegisterMapping` and a vector of unused x86 GPRs
-    /// that are available for temporary allocation.
+    /// On success, returns a `MappingPlan` containing the validated
+    /// `RegisterMapping` and the corresponding unused x86 GPR set.
     pub(crate) fn init(mapping: [MapTarget; 32]) -> Result<MappingPlan, MapError> {
         let unused_gprs = validate_mapping(&mapping)?;
         Ok(MappingPlan {

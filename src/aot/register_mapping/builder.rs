@@ -89,8 +89,8 @@ impl RegisterMappingBuilder {
     ///
     /// # Returns
     ///
-    /// On success, returns the finalized `RegisterMapping` and the list of
-    /// unused x86 GPRs available for temporary allocation.
+    /// On success, returns a `MappingPlan` that couples the finalized
+    /// `RegisterMapping` with its derived unused x86 GPR set.
     pub(crate) fn build(self) -> Result<MappingPlan, BuildError> {
         let mut missing = Vec::new();
         for idx in 1..32 {
