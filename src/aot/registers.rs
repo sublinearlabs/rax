@@ -118,3 +118,30 @@ pub(crate) enum X86Xmm {
     Xmm14 = 14,
     Xmm15 = 15,
 }
+
+impl X86Xmm {
+    /// Converts a 0-based index to an `X86Xmm` enum variant.
+    ///
+    /// Returns `None` if the index is out of bounds (i.e., >= 16).
+    pub(crate) fn from_index(idx: usize) -> Option<Self> {
+        match idx {
+            0 => Some(Self::Xmm0),
+            1 => Some(Self::Xmm1),
+            2 => Some(Self::Xmm2),
+            3 => Some(Self::Xmm3),
+            4 => Some(Self::Xmm4),
+            5 => Some(Self::Xmm5),
+            6 => Some(Self::Xmm6),
+            7 => Some(Self::Xmm7),
+            8 => Some(Self::Xmm8),
+            9 => Some(Self::Xmm9),
+            10 => Some(Self::Xmm10),
+            11 => Some(Self::Xmm11),
+            12 => Some(Self::Xmm12),
+            13 => Some(Self::Xmm13),
+            14 => Some(Self::Xmm14),
+            15 => Some(Self::Xmm15),
+            _ => None,
+        }
+    }
+}

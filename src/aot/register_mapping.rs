@@ -165,35 +165,13 @@ fn validate_mapping(mapping: &[MapTarget; 32]) -> Result<Vec<X86Gpr>, MapError> 
 mod tests {
     use super::*;
 
-    fn xmm_by_index(idx: usize) -> X86Xmm {
-        match idx {
-            0 => X86Xmm::Xmm0,
-            1 => X86Xmm::Xmm1,
-            2 => X86Xmm::Xmm2,
-            3 => X86Xmm::Xmm3,
-            4 => X86Xmm::Xmm4,
-            5 => X86Xmm::Xmm5,
-            6 => X86Xmm::Xmm6,
-            7 => X86Xmm::Xmm7,
-            8 => X86Xmm::Xmm8,
-            9 => X86Xmm::Xmm9,
-            10 => X86Xmm::Xmm10,
-            11 => X86Xmm::Xmm11,
-            12 => X86Xmm::Xmm12,
-            13 => X86Xmm::Xmm13,
-            14 => X86Xmm::Xmm14,
-            15 => X86Xmm::Xmm15,
-            _ => panic!("xmm index out of range"),
-        }
-    }
-
     fn valid_mapping() -> [MapTarget; 32] {
         let mut mapping = [MapTarget::XmmExclusive(X86Xmm::Xmm15); 32];
         mapping[0] = MapTarget::ConstZero;
 
         for (i, slot) in mapping.iter_mut().enumerate().skip(1) {
             let lane_idx = i - 1;
-            let reg = xmm_by_index(lane_idx / 2);
+            let reg = X86Xmm::from_index(lane_idx / 2).expect("xmm index must be in range");
             let lane = if lane_idx % 2 == 0 {
                 XmmLane::Low
             } else {
