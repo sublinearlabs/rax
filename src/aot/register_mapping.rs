@@ -1,10 +1,10 @@
 use crate::aot::registers::{RiscvRegister, X86Gpr, X86Xmm};
 
 enum MapError {
-    OnlyX0MapsToConstZero,
-    X0MustMapToConstZero,
-    GPRCollision,
-    XMMCollision,
+    ConstZeroRequiresX0,
+    X0RequiresConstZero,
+    GprCollision,
+    XmmCollision,
 }
 
 /// Maps RiscvRegisters to x86 Locations
@@ -67,14 +67,14 @@ fn validate_mapping(mapping: &[MapTarget; 32]) -> Result<Vec<X86Gpr>, MapError> 
         match target {
             MapTarget::ConstZero => {
                 if i != 0 {
-                    return Err(MapError::OnlyX0MapsToConstZero);
+                    return Err(MapError::ConstZeroRequiresX0);
                 }
             }
 
             MapTarget::Gpr(reg) => {
                 let gpr_idx = *reg as usize;
                 if gpr_slots[gpr_idx].is_some() {
-                    return Err(MapError::GPRCollision);
+                    return Err(MapError::GprCollision);
                 }
                 gpr_slots[gpr_idx] = Some(i);
             }
@@ -82,7 +82,7 @@ fn validate_mapping(mapping: &[MapTarget; 32]) -> Result<Vec<X86Gpr>, MapError> 
             MapTarget::XmmShared { reg, lane } => {
                 let lane_idx = (*reg as usize) * 2 + (*lane as usize);
                 if xmm_slots[lane_idx].is_some() {
-                    return Err(MapError::XMMCollision);
+                    return Err(MapError::XmmCollision);
                 }
 
                 xmm_slots[lane_idx] = Some(i);
@@ -91,7 +91,7 @@ fn validate_mapping(mapping: &[MapTarget; 32]) -> Result<Vec<X86Gpr>, MapError> 
             MapTarget::XmmExclusive(reg) => {
                 let base_idx = (*reg as usize) * 2;
                 if xmm_slots[base_idx].is_some() || xmm_slots[base_idx + 1].is_some() {
-                    return Err(MapError::XMMCollision);
+                    return Err(MapError::XmmCollision);
                 }
 
                 xmm_slots[base_idx] = Some(i);
@@ -101,7 +101,7 @@ fn validate_mapping(mapping: &[MapTarget; 32]) -> Result<Vec<X86Gpr>, MapError> 
     }
 
     if !matches!(mapping[0], MapTarget::ConstZero) {
-        return Err(MapError::X0MustMapToConstZero);
+        return Err(MapError::X0RequiresConstZero);
     }
 
     let mut unused_gprs = Vec::new();
