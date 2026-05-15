@@ -10,6 +10,8 @@ enum MapTarget {
     /// Concept for a register that is always 0
     ///
     /// Note:
+    /// Only RiscvRegister::X0 can be mapped to this
+    ///
     /// One can avoid materializing this register
     /// on physical hardware, instead handle it at
     /// translation level, this will lead to more
