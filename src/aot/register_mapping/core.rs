@@ -26,6 +26,18 @@ pub(crate) struct RegisterMapping {
     mapping: [MapTarget; 32],
 }
 
+#[derive(Debug)]
+pub(crate) struct MappingPlan {
+    reg_map: RegisterMapping,
+    unused_gprs: Vec<X86Gpr>,
+}
+
+impl MappingPlan {
+    pub(crate) fn into_parts(self) -> (RegisterMapping, Vec<X86Gpr>) {
+        (self.reg_map, self.unused_gprs)
+    }
+}
+
 impl RegisterMapping {
     /// Creates a builder for constructing a `RegisterMapping` by hand.
     pub(crate) fn builder() -> RegisterMappingBuilder {
@@ -48,9 +60,12 @@ impl RegisterMapping {
     ///
     /// On success, returns the `RegisterMapping` and a vector of unused x86 GPRs
     /// that are available for temporary allocation.
-    pub(crate) fn init(mapping: [MapTarget; 32]) -> Result<(Self, Vec<X86Gpr>), MapError> {
+    pub(crate) fn init(mapping: [MapTarget; 32]) -> Result<MappingPlan, MapError> {
         let unused_gprs = validate_mapping(&mapping)?;
-        Ok((Self { mapping }, unused_gprs))
+        Ok(MappingPlan {
+            reg_map: Self { mapping },
+            unused_gprs,
+        })
     }
 
     /// Returns the `MapTarget` for a given `RiscvRegister`.
