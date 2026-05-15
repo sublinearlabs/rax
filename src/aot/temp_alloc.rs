@@ -11,7 +11,7 @@ enum TempAllocationError {
 
 /// Safe interface for handling temporary registers
 /// during AOT compilation.
-struct TempAllocator {
+pub(crate) struct TempAllocator {
     slots: Vec<TempSlot>,
 }
 
