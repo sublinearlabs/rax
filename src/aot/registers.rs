@@ -1,6 +1,7 @@
 /// RISC-V integer register identifiers in canonical index order (`x0..x31`).
 ///
 /// The discriminant value matches the architectural register index.
+#[derive(Copy, Clone)]
 #[repr(u8)]
 pub(crate) enum RiscvRegister {
     Zero = 0,
@@ -67,9 +68,34 @@ pub(crate) enum X86Gpr {
     R15 = 15,
 }
 
+impl X86Gpr {
+    pub(crate) fn from_index(idx: usize) -> Option<Self> {
+        match idx {
+            0 => Some(Self::Rax),
+            1 => Some(Self::Rcx),
+            2 => Some(Self::Rdx),
+            3 => Some(Self::Rbx),
+            4 => Some(Self::Rsp),
+            5 => Some(Self::Rbp),
+            6 => Some(Self::Rsi),
+            7 => Some(Self::Rdi),
+            8 => Some(Self::R8),
+            9 => Some(Self::R9),
+            10 => Some(Self::R10),
+            11 => Some(Self::R11),
+            12 => Some(Self::R12),
+            13 => Some(Self::R13),
+            14 => Some(Self::R14),
+            15 => Some(Self::R15),
+            _ => None,
+        }
+    }
+}
+
 /// x86 SIMD XMM registers (`XMM0..XMM15`) in canonical index order.
 ///
 /// The discriminant value is a stable 0-based index for table lookups.
+#[derive(Copy, Clone, PartialEq)]
 #[repr(u8)]
 pub(crate) enum X86Xmm {
     Xmm0 = 0,
