@@ -69,6 +69,9 @@ pub(crate) enum X86Gpr {
 }
 
 impl X86Gpr {
+    /// Converts a 0-based index to an `X86Gpr` enum variant.
+    ///
+    /// Returns `None` if the index is out of bounds (i.e., >= 16).
     pub(crate) fn from_index(idx: usize) -> Option<Self> {
         match idx {
             0 => Some(Self::Rax),
