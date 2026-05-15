@@ -4,7 +4,7 @@ use crate::aot::registers::X86Gpr;
 
 /// Errors that can occur while allocating temporary registers.
 #[derive(Debug, PartialEq, Eq)]
-enum TempAllocationError {
+pub(crate) enum TempAllocationError {
     /// No managed temporary register slot is currently free.
     NoFreeTemps,
 }
@@ -20,7 +20,7 @@ impl TempAllocator {
     ///
     /// # Panics
     /// Panics if `temps` contains duplicate registers.
-    fn new(temps: Vec<X86Gpr>) -> Self {
+    pub(crate) fn new(temps: Vec<X86Gpr>) -> Self {
         let mut seen = [false; 16];
         for reg in &temps {
             let idx = *reg as usize;
@@ -48,7 +48,7 @@ impl TempAllocator {
     /// # Errors
     /// Returns `TempAllocationError::NoFreeTemps` when all managed
     /// temporary registers are currently allocated.
-    fn allocate(&mut self) -> Result<AllocatedTemp<'_>, TempAllocationError> {
+    pub(crate) fn allocate(&mut self) -> Result<AllocatedTemp<'_>, TempAllocationError> {
         let free_slot = self
             .slots
             .iter_mut()
@@ -66,7 +66,7 @@ impl TempAllocator {
 /// Represents an allocated temporary register.
 ///
 /// On drop, releases the allocation for future use.
-struct AllocatedTemp<'a> {
+pub(crate) struct AllocatedTemp<'a> {
     slot: &'a mut TempSlot,
 }
 

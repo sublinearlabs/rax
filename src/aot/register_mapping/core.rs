@@ -104,10 +104,7 @@ pub(crate) enum MapTarget {
     /// Map to a specific 64-bit lane of an x86 XMM register (shared with another RISC-V register).
     ///
     /// Two RISC-V registers can share different lanes of the same XMM register.
-    XmmShared {
-        reg: X86Xmm,
-        lane: XmmLane,
-    },
+    XmmShared { reg: X86Xmm, lane: XmmLane },
     /// Map to a full 128-bit x86 XMM register (exclusive ownership).
     XmmExclusive(X86Xmm),
 }
