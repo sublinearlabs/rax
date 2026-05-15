@@ -1,7 +1,7 @@
 /// RISC-V integer register identifiers in canonical index order (`x0..x31`).
 ///
 /// The discriminant value matches the architectural register index.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(u8)]
 pub(crate) enum RiscvRegister {
     Zero = 0,
@@ -36,6 +36,52 @@ pub(crate) enum RiscvRegister {
     T4 = 29,
     T5 = 30,
     T6 = 31,
+}
+
+impl RiscvRegister {
+    /// Converts a 0-based index to a `RiscvRegister` enum variant.
+    ///
+    /// Intended for table/index-driven construction paths where registers are
+    /// addressed by architectural number.
+    ///
+    /// Returns `None` if the index is out of bounds (i.e., >= 32).
+    pub(crate) fn from_index(idx: usize) -> Option<Self> {
+        match idx {
+            0 => Some(Self::Zero),
+            1 => Some(Self::Ra),
+            2 => Some(Self::Sp),
+            3 => Some(Self::Gp),
+            4 => Some(Self::Tp),
+            5 => Some(Self::T0),
+            6 => Some(Self::T1),
+            7 => Some(Self::T2),
+            8 => Some(Self::S0),
+            9 => Some(Self::S1),
+            10 => Some(Self::A0),
+            11 => Some(Self::A1),
+            12 => Some(Self::A2),
+            13 => Some(Self::A3),
+            14 => Some(Self::A4),
+            15 => Some(Self::A5),
+            16 => Some(Self::A6),
+            17 => Some(Self::A7),
+            18 => Some(Self::S2),
+            19 => Some(Self::S3),
+            20 => Some(Self::S4),
+            21 => Some(Self::S5),
+            22 => Some(Self::S6),
+            23 => Some(Self::S7),
+            24 => Some(Self::S8),
+            25 => Some(Self::S9),
+            26 => Some(Self::S10),
+            27 => Some(Self::S11),
+            28 => Some(Self::T3),
+            29 => Some(Self::T4),
+            30 => Some(Self::T5),
+            31 => Some(Self::T6),
+            _ => None,
+        }
+    }
 }
 
 /// x86-64 register class used by lowering and mapping logic.
