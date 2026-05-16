@@ -1,7 +1,7 @@
-use dynasmrt::x64::Assembler;
+use dynasmrt::{dynasm, x64::Assembler, DynasmApi};
 
 use crate::aot::{
-    register_mapping::{MapTarget, MappingPlan, RegisterMapping},
+    register_mapping::{MapTarget, MappingPlan, RegisterMapping, XmmLane},
     registers::{RiscvRegister, X86Gpr},
     temp_alloc::{AllocatedTemp, TempAllocator},
 };
@@ -131,12 +131,28 @@ impl Translator {
             MapTarget::Gpr(reg) => PreparedInput {
                 src: ValueLoc::Mapped(*reg),
             },
-            MapTarget::XmmShared { .. } | MapTarget::XmmExclusive(..) => {
-                let _temp = self
+            MapTarget::XmmExclusive(reg)
+            | MapTarget::XmmShared {
+                reg,
+                lane: XmmLane::Low,
+            } => {
+                let temp = self
                     .temp_allocator
                     .allocate()
                     .unwrap_or_else(|_| panic!("prepare_input could not allocate temp GPR"));
-                panic!("prepare_input for XMM-backed sources is not implemented");
+
+                dynasm!(self.emitter; movq Rq(temp.id()), Rx(reg.id()));
+
+                PreparedInput {
+                    src: ValueLoc::Temp(temp),
+                }
+            }
+            MapTarget::XmmShared {
+                reg,
+                lane: XmmLane::High,
+            } => {
+                let _ = reg;
+                todo!("prepare_input high-lane extraction with pextrq")
             }
         }
     }

@@ -86,6 +86,12 @@ impl<'a> Deref for AllocatedTemp<'a> {
     }
 }
 
+impl<'a> AllocatedTemp<'a> {
+    pub(crate) fn id(&self) -> u8 {
+        (**self).id()
+    }
+}
+
 /// Internal allocator slot state for one managed temporary register.
 struct TempSlot {
     reg: X86Gpr,

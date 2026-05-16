@@ -139,6 +139,13 @@ impl X86Gpr {
             _ => None,
         }
     }
+
+    /// Returns the dynasm dynamic register id for this GPR.
+    ///
+    /// Use with `Rq(...)` at emission sites.
+    pub(crate) fn id(self) -> u8 {
+        self as u8
+    }
 }
 
 /// x86 SIMD XMM registers (`XMM0..XMM15`) in canonical index order.
@@ -189,5 +196,12 @@ impl X86Xmm {
             15 => Some(Self::Xmm15),
             _ => None,
         }
+    }
+
+    /// Returns the dynasm dynamic register id for this XMM register.
+    ///
+    /// Use with `Rx(...)` at emission sites.
+    pub(crate) fn id(self) -> u8 {
+        self as u8
     }
 }
