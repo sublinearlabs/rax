@@ -89,14 +89,43 @@ impl<'a> PreparedOutput<'a> {
     /// - `Gpr`: source is written to mapped x86 GPR
     /// - `XmmShared`: source is written to selected shared XMM lane
     /// - `XmmExclusive`: source is written to exclusive XMM destination
-    fn write_back(mut self, _translator: &mut Translator) {
-        let _src = self.src.gpr();
+    fn write_back(mut self, translator: &mut Translator) {
+        let src = self.id();
         match self.dest {
-            MapTarget::ConstZero => todo!("handle write-back to ConstZero destination"),
-            MapTarget::Gpr(_dst) => todo!("handle write-back to mapped GPR destination"),
-            MapTarget::XmmShared { .. } => todo!("handle write-back to shared XMM lane"),
-            MapTarget::XmmExclusive(..) => {
-                todo!("handle write-back to exclusive XMM destination")
+            MapTarget::ConstZero => {
+                unreachable!(
+                    "write_back invariant violated: ConstZero destination should never reach PreparedOutput"
+                )
+            }
+            MapTarget::Gpr(dst) => {
+                if self.src.gpr() != dst {
+                    dynasm!(translator.emitter
+                        ; mov Rq(dst.id()), Rq(src)
+                    );
+                }
+            }
+            MapTarget::XmmExclusive(reg) => {
+                dynasm!(translator.emitter
+                    ; movq Rx(reg.id()), Rq(src)
+                );
+            }
+            MapTarget::XmmShared {
+                reg,
+                lane: XmmLane::Low,
+            } => {
+                // Use PINSRQ for shared-low writes to preserve the high 64-bit lane.
+                // MOVQ xmm, r64 would clobber/zero the other lane and corrupt its paired shared value.
+                dynasm!(translator.emitter
+                    ; pinsrq Rx(reg.id()), Rq(src), 0
+                );
+            }
+            MapTarget::XmmShared {
+                reg,
+                lane: XmmLane::High,
+            } => {
+                dynasm!(translator.emitter
+                    ; pinsrq Rx(reg.id()), Rq(src), 1
+                );
             }
         }
         self.written_back = true;
