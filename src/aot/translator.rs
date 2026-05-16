@@ -124,23 +124,20 @@ impl Translator {
     /// Callers must simplify `x0`-dependent instruction forms before invoking
     /// this path.
     fn prepare_input(&mut self, src: RiscvRegister) -> PreparedInput<'_> {
-        let target = self.reg_map.get(&src);
-
-        match target {
-            MapTarget::ConstZero => panic!("Prepare Input called with x0/ConstZero source. Zero sources should be handled by emitter logic"),
-            MapTarget::Gpr(x86_gpr) => PreparedInput { src: ValueLoc::Mapped(*x86_gpr) },
-            MapTarget::XmmShared { reg, lane } => {
-                // TODO: handle errors here
-                let temp = self.temp_allocator.allocate().unwrap();
-                // TODO: move to gpr via temp
-                PreparedInput { src: ValueLoc::Temp(temp) }
+        match self.reg_map.get(&src) {
+            MapTarget::ConstZero => {
+                panic!("prepare_input invariant violated: x0/ConstZero must be handled by lowering before prepare_input")
+            }
+            MapTarget::Gpr(reg) => PreparedInput {
+                src: ValueLoc::Mapped(*reg),
             },
-            MapTarget::XmmExclusive(x86_xmm) => {
-                // TODO: handle errors here
-                let temp = self.temp_allocator.allocate().unwrap();
-                // TODO: move to gpr via temp
-                PreparedInput { src: ValueLoc::Temp(temp) }
-            },
+            MapTarget::XmmShared { .. } | MapTarget::XmmExclusive(..) => {
+                let _temp = self
+                    .temp_allocator
+                    .allocate()
+                    .unwrap_or_else(|_| panic!("prepare_input could not allocate temp GPR"));
+                panic!("prepare_input for XMM-backed sources is not implemented");
+            }
         }
     }
 
