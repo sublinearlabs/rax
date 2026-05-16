@@ -48,6 +48,10 @@ impl<'a> PreparedInput<'a> {
     fn gpr(&self) -> X86Gpr {
         self.src.gpr()
     }
+
+    fn id(&self) -> u8 {
+        self.gpr().id()
+    }
 }
 
 /// Prepared architectural destination bound to a computed source value.
@@ -61,6 +65,10 @@ struct PreparedOutput<'a> {
 }
 
 impl<'a> PreparedOutput<'a> {
+    fn id(&self) -> u8 {
+        self.src.gpr().id()
+    }
+
     /// Writes a computed source value back to its architectural destination.
     ///
     /// # Contract
