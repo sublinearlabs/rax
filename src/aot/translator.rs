@@ -240,3 +240,50 @@ impl Translator {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use dynasmrt::x64::Assembler;
+
+    use super::*;
+
+    fn new_translator() -> Translator {
+        Translator::new(Assembler::new().unwrap(), RegisterMapping::default_plan())
+    }
+
+    #[test]
+    #[should_panic(expected = "prepare_input invariant violated: x0/ConstZero")]
+    fn prepare_input_panics_on_x0() {
+        let mut translator = new_translator();
+        let _ = translator.prepare_input(RiscvRegister::Zero);
+    }
+
+    #[test]
+    #[should_panic(expected = "prepare_output invariant violated: x0/ConstZero")]
+    fn prepare_output_panics_on_x0() {
+        let mut translator = new_translator();
+        let _ = translator.prepare_output(RiscvRegister::Zero);
+    }
+
+    #[test]
+    #[should_panic(expected = "PreparedOutput dropped before write_back")]
+    fn prepared_output_drop_without_write_back_panics() {
+        let mut translator = new_translator();
+        let _ = translator.prepare_output(RiscvRegister::A0);
+    }
+
+    #[test]
+    fn prepare_input_gpr_returns_mapped_id() {
+        let mut translator = new_translator();
+        let input = translator.prepare_input(RiscvRegister::A0);
+        assert_eq!(input.id(), X86Gpr::Rdi.id());
+    }
+
+    #[test]
+    fn prepare_output_gpr_uses_mapped_source_id() {
+        let mut translator = new_translator();
+        let mut out = translator.prepare_output(RiscvRegister::A0);
+        assert_eq!(out.id(), X86Gpr::Rdi.id());
+        out.written_back = true;
+    }
+}
