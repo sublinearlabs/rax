@@ -78,6 +78,106 @@ impl RegisterMapping {
         })
     }
 
+    /// Returns the hand-authored default register mapping plan.
+    ///
+    /// This mapping is intentionally explicit and validated through `init()`
+    /// so invariants and derived temp registers remain coupled in `MappingPlan`.
+    pub(crate) fn default_plan() -> MappingPlan {
+        let mapping = [
+            // x0 (zero)
+            MapTarget::ConstZero,
+            // x1 (ra)
+            MapTarget::Gpr(X86Gpr::Rbx),
+            // x2 (sp)
+            MapTarget::Gpr(X86Gpr::Rsp),
+            // x3 (gp)
+            MapTarget::XmmShared {
+                reg: X86Xmm::Xmm12,
+                lane: XmmLane::Low,
+            },
+            // x4 (tp)
+            MapTarget::XmmShared {
+                reg: X86Xmm::Xmm12,
+                lane: XmmLane::High,
+            },
+            // x5 (t0)
+            MapTarget::Gpr(X86Gpr::R14),
+            // x6 (t1)
+            MapTarget::Gpr(X86Gpr::R15),
+            // x7 (t2)
+            MapTarget::Gpr(X86Gpr::Rbp),
+            // x8 (s0/fp)
+            MapTarget::XmmExclusive(X86Xmm::Xmm1),
+            // x9 (s1)
+            MapTarget::XmmExclusive(X86Xmm::Xmm2),
+            // x10 (a0)
+            MapTarget::Gpr(X86Gpr::Rdi),
+            // x11 (a1)
+            MapTarget::Gpr(X86Gpr::Rsi),
+            // x12 (a2)
+            MapTarget::Gpr(X86Gpr::Rdx),
+            // x13 (a3)
+            MapTarget::Gpr(X86Gpr::R10),
+            // x14 (a4)
+            MapTarget::Gpr(X86Gpr::R8),
+            // x15 (a5)
+            MapTarget::Gpr(X86Gpr::R9),
+            // x16 (a6)
+            MapTarget::XmmExclusive(X86Xmm::Xmm3),
+            // x17 (a7)
+            MapTarget::Gpr(X86Gpr::Rax),
+            // x18 (s2)
+            MapTarget::XmmExclusive(X86Xmm::Xmm4),
+            // x19 (s3)
+            MapTarget::XmmExclusive(X86Xmm::Xmm5),
+            // x20 (s4)
+            MapTarget::XmmExclusive(X86Xmm::Xmm6),
+            // x21 (s5)
+            MapTarget::XmmExclusive(X86Xmm::Xmm7),
+            // x22 (s6)
+            MapTarget::XmmExclusive(X86Xmm::Xmm8),
+            // x23 (s7)
+            MapTarget::XmmExclusive(X86Xmm::Xmm9),
+            // x24 (s8)
+            MapTarget::XmmExclusive(X86Xmm::Xmm10),
+            // x25 (s9)
+            MapTarget::XmmExclusive(X86Xmm::Xmm11),
+            // x26 (s10)
+            MapTarget::XmmShared {
+                reg: X86Xmm::Xmm13,
+                lane: XmmLane::Low,
+            },
+            // x27 (s11)
+            MapTarget::XmmShared {
+                reg: X86Xmm::Xmm13,
+                lane: XmmLane::High,
+            },
+            // x28 (t3)
+            MapTarget::XmmShared {
+                reg: X86Xmm::Xmm14,
+                lane: XmmLane::Low,
+            },
+            // x29 (t4)
+            MapTarget::XmmShared {
+                reg: X86Xmm::Xmm14,
+                lane: XmmLane::High,
+            },
+            // x30 (t5)
+            MapTarget::XmmShared {
+                reg: X86Xmm::Xmm15,
+                lane: XmmLane::Low,
+            },
+            // x31 (t6)
+            MapTarget::XmmShared {
+                reg: X86Xmm::Xmm15,
+                lane: XmmLane::High,
+            },
+        ];
+
+        Self::init(mapping)
+            .expect("default register mapping must remain valid and collision-free")
+    }
+
     /// Returns the `MapTarget` for a given `RiscvRegister`.
     ///
     /// # Panics
