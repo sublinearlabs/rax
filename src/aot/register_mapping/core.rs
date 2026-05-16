@@ -26,6 +26,28 @@ pub(crate) struct RegisterMapping {
     mapping: [MapTarget; 32],
 }
 
+/// Validated mapping handoff containing both register assignments and temp pool.
+///
+/// This type couples `RegisterMapping` with the derived set of unused x86 GPRs
+/// so downstream users cannot accidentally pass desynchronized values.
+#[derive(Debug)]
+pub(crate) struct MappingPlan {
+    reg_map: RegisterMapping,
+    unused_gprs: Vec<X86Gpr>,
+}
+
+impl MappingPlan {
+    /// Consumes the plan and returns its coupled components.
+    ///
+    /// # Returns
+    ///
+    /// The validated `RegisterMapping` and the corresponding list of unused
+    /// x86 GPRs available for temporary allocation.
+    pub(crate) fn into_parts(self) -> (RegisterMapping, Vec<X86Gpr>) {
+        (self.reg_map, self.unused_gprs)
+    }
+}
+
 impl RegisterMapping {
     /// Creates a builder for constructing a `RegisterMapping` by hand.
     pub(crate) fn builder() -> RegisterMappingBuilder {
@@ -46,11 +68,74 @@ impl RegisterMapping {
     ///
     /// # Returns
     ///
-    /// On success, returns the `RegisterMapping` and a vector of unused x86 GPRs
-    /// that are available for temporary allocation.
-    pub(crate) fn init(mapping: [MapTarget; 32]) -> Result<(Self, Vec<X86Gpr>), MapError> {
+    /// On success, returns a `MappingPlan` containing the validated
+    /// `RegisterMapping` and the corresponding unused x86 GPR set.
+    pub(crate) fn init(mapping: [MapTarget; 32]) -> Result<MappingPlan, MapError> {
         let unused_gprs = validate_mapping(&mapping)?;
-        Ok((Self { mapping }, unused_gprs))
+        Ok(MappingPlan {
+            reg_map: Self { mapping },
+            unused_gprs,
+        })
+    }
+
+    /// Returns the hand-authored default register mapping plan.
+    ///
+    /// This mapping is intentionally explicit and validated through `init()`
+    /// so invariants and derived temp registers remain coupled in `MappingPlan`.
+    pub(crate) fn default_plan() -> MappingPlan {
+        let mut b = Self::builder();
+
+        // x0 is fixed by builder invariant (ConstZero).
+
+        // Syscall alignment.
+        b.map_gpr(RiscvRegister::A0, X86Gpr::Rdi).unwrap();
+        b.map_gpr(RiscvRegister::A1, X86Gpr::Rsi).unwrap();
+        b.map_gpr(RiscvRegister::A2, X86Gpr::Rdx).unwrap();
+        b.map_gpr(RiscvRegister::A3, X86Gpr::R10).unwrap();
+        b.map_gpr(RiscvRegister::A4, X86Gpr::R8).unwrap();
+        b.map_gpr(RiscvRegister::A5, X86Gpr::R9).unwrap();
+
+        b.map_gpr(RiscvRegister::A7, X86Gpr::Rax).unwrap();
+
+        // Stack pointer alignment.
+        b.map_gpr(RiscvRegister::Sp, X86Gpr::Rsp).unwrap();
+
+        // Remaining registers: matched mapping.
+        b.map_gpr(RiscvRegister::Ra, X86Gpr::Rbx).unwrap();
+        b.map_xmm_shared(RiscvRegister::Gp, X86Xmm::Xmm12, XmmLane::Low)
+            .unwrap();
+        b.map_xmm_shared(RiscvRegister::Tp, X86Xmm::Xmm12, XmmLane::High)
+            .unwrap();
+        b.map_gpr(RiscvRegister::T0, X86Gpr::R14).unwrap();
+        b.map_gpr(RiscvRegister::T1, X86Gpr::R15).unwrap();
+        b.map_gpr(RiscvRegister::T2, X86Gpr::Rbp).unwrap();
+        b.map_xmm_exclusive(RiscvRegister::S0, X86Xmm::Xmm1).unwrap();
+        b.map_xmm_exclusive(RiscvRegister::S1, X86Xmm::Xmm2).unwrap();
+        b.map_xmm_exclusive(RiscvRegister::A6, X86Xmm::Xmm3).unwrap();
+        b.map_xmm_exclusive(RiscvRegister::S2, X86Xmm::Xmm4).unwrap();
+        b.map_xmm_exclusive(RiscvRegister::S3, X86Xmm::Xmm5).unwrap();
+        b.map_xmm_exclusive(RiscvRegister::S4, X86Xmm::Xmm6).unwrap();
+        b.map_xmm_exclusive(RiscvRegister::S5, X86Xmm::Xmm7).unwrap();
+        b.map_xmm_exclusive(RiscvRegister::S6, X86Xmm::Xmm8).unwrap();
+        b.map_xmm_exclusive(RiscvRegister::S7, X86Xmm::Xmm9).unwrap();
+        b.map_xmm_exclusive(RiscvRegister::S8, X86Xmm::Xmm10)
+            .unwrap();
+        b.map_xmm_exclusive(RiscvRegister::S9, X86Xmm::Xmm11)
+            .unwrap();
+        b.map_xmm_shared(RiscvRegister::S10, X86Xmm::Xmm13, XmmLane::Low)
+            .unwrap();
+        b.map_xmm_shared(RiscvRegister::S11, X86Xmm::Xmm13, XmmLane::High)
+            .unwrap();
+        b.map_xmm_shared(RiscvRegister::T3, X86Xmm::Xmm14, XmmLane::Low)
+            .unwrap();
+        b.map_xmm_shared(RiscvRegister::T4, X86Xmm::Xmm14, XmmLane::High)
+            .unwrap();
+        b.map_xmm_shared(RiscvRegister::T5, X86Xmm::Xmm15, XmmLane::Low)
+            .unwrap();
+        b.map_xmm_shared(RiscvRegister::T6, X86Xmm::Xmm15, XmmLane::High)
+            .unwrap();
+
+        b.build().unwrap()
     }
 
     /// Returns the `MapTarget` for a given `RiscvRegister`.
@@ -79,10 +164,7 @@ pub(crate) enum MapTarget {
     /// Map to a specific 64-bit lane of an x86 XMM register (shared with another RISC-V register).
     ///
     /// Two RISC-V registers can share different lanes of the same XMM register.
-    XmmShared {
-        reg: X86Xmm,
-        lane: XmmLane,
-    },
+    XmmShared { reg: X86Xmm, lane: XmmLane },
     /// Map to a full 128-bit x86 XMM register (exclusive ownership).
     XmmExclusive(X86Xmm),
 }
@@ -95,4 +177,14 @@ pub(crate) enum XmmLane {
     Low = 0,
     /// Upper 64 bits of the XMM register.
     High = 1,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::RegisterMapping;
+
+    #[test]
+    fn default_plan_builds() {
+        let _ = RegisterMapping::default_plan();
+    }
 }

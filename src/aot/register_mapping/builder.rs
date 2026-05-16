@@ -1,6 +1,6 @@
 use crate::aot::registers::{RiscvRegister, X86Gpr, X86Xmm};
 
-use super::core::{MapError, MapTarget, RegisterMapping, XmmLane};
+use super::core::{MapError, MapTarget, MappingPlan, RegisterMapping, XmmLane};
 
 /// Errors that can occur while incrementally building a `RegisterMapping`.
 #[derive(Debug, PartialEq, Eq)]
@@ -89,9 +89,9 @@ impl RegisterMappingBuilder {
     ///
     /// # Returns
     ///
-    /// On success, returns the finalized `RegisterMapping` and the list of
-    /// unused x86 GPRs available for temporary allocation.
-    pub(crate) fn build(self) -> Result<(RegisterMapping, Vec<X86Gpr>), BuildError> {
+    /// On success, returns a `MappingPlan` that couples the finalized
+    /// `RegisterMapping` with its derived unused x86 GPR set.
+    pub(crate) fn build(self) -> Result<MappingPlan, BuildError> {
         let mut missing = Vec::new();
         for idx in 1..32 {
             if self.mapping[idx].is_none() {
@@ -179,9 +179,8 @@ mod tests {
             .map_gpr(RiscvRegister::Sp, X86Gpr::Rbx)
             .expect("mapping should succeed");
 
-        let (mapping, unused) = builder
-            .build()
-            .expect("builder should produce valid mapping");
+        let plan = builder.build().expect("builder should produce valid mapping");
+        let (mapping, unused) = plan.into_parts();
         assert_eq!(
             mapping.get(&RiscvRegister::Ra),
             &MapTarget::Gpr(X86Gpr::Rax)

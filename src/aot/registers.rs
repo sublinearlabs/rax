@@ -139,6 +139,14 @@ impl X86Gpr {
             _ => None,
         }
     }
+
+    /// Returns the x86-64 GPR encoding id (`0..=15`) for this register.
+    ///
+    /// This is the hardware register code used by instruction encoders.
+    /// It is not a RISC-V register index.
+    pub(crate) fn id(self) -> u8 {
+        self as u8
+    }
 }
 
 /// x86 SIMD XMM registers (`XMM0..XMM15`) in canonical index order.
@@ -189,5 +197,13 @@ impl X86Xmm {
             15 => Some(Self::Xmm15),
             _ => None,
         }
+    }
+
+    /// Returns the x86-64 XMM encoding id (`0..=15`) for this register.
+    ///
+    /// This is the hardware register code used by instruction encoders.
+    /// It is not a RISC-V register index.
+    pub(crate) fn id(self) -> u8 {
+        self as u8
     }
 }
