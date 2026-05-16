@@ -165,10 +165,32 @@ impl Translator {
         }
     }
 
-    /// Binds a computed source value to an architectural destination.
+    /// Prepares an architectural destination and source carrier for emission.
     ///
-    /// The returned output must be explicitly committed with `write_back`.
-    fn prepare_output<'a>(&self, _dst: RiscvRegister, _src: ValueLoc<'a>) -> PreparedOutput<'a> {
-        todo!("implement output preparation")
+    /// # Panics
+    ///
+    /// Panics when called with a destination that maps to `ConstZero` (`x0`).
+    /// Lowering must handle `rd = x0` paths explicitly and avoid this API.
+    fn prepare_output(&mut self, dst: RiscvRegister) -> PreparedOutput<'_> {
+        let dest = *self.reg_map.get(&dst);
+        let src = match dest {
+            MapTarget::ConstZero => {
+                panic!("prepare_output invariant violated: x0/ConstZero destination must be handled by lowering before prepare_output")
+            }
+            MapTarget::Gpr(gpr) => ValueLoc::Mapped(gpr),
+            MapTarget::XmmShared { .. } | MapTarget::XmmExclusive(..) => {
+                let temp = self
+                    .temp_allocator
+                    .allocate()
+                    .unwrap_or_else(|_| panic!("prepare_output could not allocate temp GPR"));
+                ValueLoc::Temp(temp)
+            }
+        };
+
+        PreparedOutput {
+            src,
+            dest,
+            written_back: false,
+        }
     }
 }
