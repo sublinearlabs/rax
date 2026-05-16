@@ -87,6 +87,10 @@ impl<'a> Deref for AllocatedTemp<'a> {
 }
 
 impl<'a> AllocatedTemp<'a> {
+    /// Returns the x86-64 GPR encoding id (`0..=15`) of this temp register.
+    ///
+    /// This is the hardware register code used by instruction encoders.
+    /// It is not a RISC-V register index.
     pub(crate) fn id(&self) -> u8 {
         (**self).id()
     }

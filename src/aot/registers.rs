@@ -140,9 +140,10 @@ impl X86Gpr {
         }
     }
 
-    /// Returns the dynasm dynamic register id for this GPR.
+    /// Returns the x86-64 GPR encoding id (`0..=15`) for this register.
     ///
-    /// Use with `Rq(...)` at emission sites.
+    /// This is the hardware register code used by instruction encoders.
+    /// It is not a RISC-V register index.
     pub(crate) fn id(self) -> u8 {
         self as u8
     }
@@ -198,9 +199,10 @@ impl X86Xmm {
         }
     }
 
-    /// Returns the dynasm dynamic register id for this XMM register.
+    /// Returns the x86-64 XMM encoding id (`0..=15`) for this register.
     ///
-    /// Use with `Rx(...)` at emission sites.
+    /// This is the hardware register code used by instruction encoders.
+    /// It is not a RISC-V register index.
     pub(crate) fn id(self) -> u8 {
         self as u8
     }

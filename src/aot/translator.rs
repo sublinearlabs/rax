@@ -49,6 +49,10 @@ impl<'a> PreparedInput<'a> {
         self.src.gpr()
     }
 
+    /// Returns the x86-64 GPR encoding id (`0..=15`) of this prepared input.
+    ///
+    /// This is the source carrier register code used by instruction encoders.
+    /// It is not a RISC-V register index.
     fn id(&self) -> u8 {
         self.gpr().id()
     }
@@ -65,6 +69,11 @@ struct PreparedOutput<'a> {
 }
 
 impl<'a> PreparedOutput<'a> {
+    /// Returns the x86-64 GPR encoding id (`0..=15`) of this prepared output
+    /// source carrier.
+    ///
+    /// This is the source register code used by instruction encoders. It is
+    /// not a destination map id and not a RISC-V register index.
     fn id(&self) -> u8 {
         self.src.gpr().id()
     }
