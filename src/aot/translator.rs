@@ -123,8 +123,25 @@ impl Translator {
     /// Panics when called with a source that maps to `ConstZero` (`x0`).
     /// Callers must simplify `x0`-dependent instruction forms before invoking
     /// this path.
-    fn prepare_input(&mut self, _src: RiscvRegister) -> PreparedInput<'_> {
-        todo!("implement input preparation")
+    fn prepare_input(&mut self, src: RiscvRegister) -> PreparedInput<'_> {
+        let target = self.reg_map.get(&src);
+
+        match target {
+            MapTarget::ConstZero => panic!("Prepare Input called with x0/ConstZero source. Zero sources should be handled by emitter logic"),
+            MapTarget::Gpr(x86_gpr) => PreparedInput { src: ValueLoc::Mapped(*x86_gpr) },
+            MapTarget::XmmShared { reg, lane } => {
+                // TODO: handle errors here
+                let temp = self.temp_allocator.allocate().unwrap();
+                // TODO: move to gpr via temp
+                PreparedInput { src: ValueLoc::Temp(temp) }
+            },
+            MapTarget::XmmExclusive(x86_xmm) => {
+                // TODO: handle errors here
+                let temp = self.temp_allocator.allocate().unwrap();
+                // TODO: move to gpr via temp
+                PreparedInput { src: ValueLoc::Temp(temp) }
+            },
+        }
     }
 
     /// Binds a computed source value to an architectural destination.
