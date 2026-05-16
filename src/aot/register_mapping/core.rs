@@ -178,3 +178,13 @@ pub(crate) enum XmmLane {
     /// Upper 64 bits of the XMM register.
     High = 1,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::RegisterMapping;
+
+    #[test]
+    fn default_plan_builds() {
+        let _ = RegisterMapping::default_plan();
+    }
+}
