@@ -78,6 +78,9 @@ impl<'a> PreparedOutput<'a> {
         self.src.gpr().id()
     }
 
+    // TODO: allow multiple live PreparedInput/PreparedOutput without re-borrowing Translator;
+    // fix unsafe workaround in prepared_output_drop_after_write_back_does_not_panic.
+
     /// Writes a computed source value back to its architectural destination.
     ///
     /// # Contract
@@ -285,5 +288,13 @@ mod tests {
         let mut out = translator.prepare_output(RiscvRegister::A0);
         assert_eq!(out.id(), X86Gpr::Rdi.id());
         out.written_back = true;
+    }
+
+    #[test]
+    fn prepared_output_drop_after_write_back_does_not_panic() {
+        let mut translator = new_translator();
+        let translator_ptr: *mut Translator = &mut translator;
+        let out = translator.prepare_output(RiscvRegister::A0);
+        unsafe { out.write_back(&mut *translator_ptr) };
     }
 }
