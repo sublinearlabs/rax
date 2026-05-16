@@ -151,8 +151,16 @@ impl Translator {
                 reg,
                 lane: XmmLane::High,
             } => {
-                let _ = reg;
-                todo!("prepare_input high-lane extraction with pextrq")
+                let temp = self
+                    .temp_allocator
+                    .allocate()
+                    .unwrap_or_else(|_| panic!("prepare_input could not allocate temp GPR"));
+
+                dynasm!(self.emitter; pextrq Rq(temp.id()), Rx(reg.id()), 1);
+
+                PreparedInput {
+                    src: ValueLoc::Temp(temp),
+                }
             }
         }
     }
