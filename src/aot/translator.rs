@@ -31,16 +31,14 @@ struct ControlFlowState {
     ///
     /// Slot 0 in the jump table corresponds to this PC.
     base_riscv_pc: u64,
-    /// Mapping from known RISC-V target PCs to x86 dynamic labels.
+    /// Sparse map of direct control-flow target PCs to x86 labels.
     ///
-    /// This supports direct branch/jump emission when the target is known at
-    /// translation time.
-    pc_labels: HashMap<u64, DynamicLabel>,
-    /// Indexed x86 entry offsets used for runtime-indirect targets.
+    /// Only PCs that are targets of direct jumps/branches are present.
+    direct_target_labels: HashMap<u64, DynamicLabel>,
+    /// Dense x86 instruction-start offsets indexed by RISC-V PC slot.
     ///
-    /// Under the v1 non-compressed assumption, each slot represents one
-    /// 4-byte RISC-V instruction position relative to `base_riscv_pc`.
-    jump_table: Vec<AssemblyOffset>,
+    /// Slot index is `(pc - base_riscv_pc) / 4` in the no-compressed model.
+    pc_slot_offsets: Vec<AssemblyOffset>,
     /// Dynamic label that marks the start of the emitted jump-table data.
     ///
     /// Indirect jump paths use this as the base for indexed table lookups.
@@ -197,8 +195,8 @@ impl Translator {
             cf: ControlFlowState {
                 current_riscv_pc: base_riscv_pc,
                 base_riscv_pc,
-                pc_labels: HashMap::new(),
-                jump_table: Vec::new(),
+                direct_target_labels: HashMap::new(),
+                pc_slot_offsets: Vec::new(),
                 jt_label,
             },
         }
@@ -209,18 +207,19 @@ impl Translator {
     /// This v1 path assumes a non-compressed input stream, so the RISC-V PC
     /// advances by 4 bytes per instruction.
     fn translate_insns(&mut self, insns: &[Instruction]) {
-        // Translate each decoded instruction and advance the translation PC.
+        // Record instruction start offsets by PC slot, then translate.
         for insn in insns {
+            self.cf.pc_slot_offsets.push(self.emitter.offset());
             self.translate_insn(insn);
             self.cf.current_riscv_pc = self.cf.current_riscv_pc.wrapping_add(4);
         }
 
         // Resolve dynamic labels after instruction offsets are known.
-        for (pc, label) in &self.cf.pc_labels {
-            let jump_table_index = (pc - self.cf.base_riscv_pc) / 4;
+        for (pc, label) in &self.cf.direct_target_labels {
+            let pc_slot_index = (pc - self.cf.base_riscv_pc) / 4;
             self.emitter
                 .labels_mut()
-                .define_dynamic(*label, self.cf.jump_table[jump_table_index as usize])
+                .define_dynamic(*label, self.cf.pc_slot_offsets[pc_slot_index as usize])
                 .expect("failed to define dynamic label");
         }
 
@@ -229,7 +228,7 @@ impl Translator {
         // scoped to the single-segment bring-up model.
         let jump_table = self
             .cf
-            .jump_table
+            .pc_slot_offsets
             .iter()
             .map(|offset| offset.0 + self.cf.base_riscv_pc as usize)
             .collect::<Vec<_>>();
