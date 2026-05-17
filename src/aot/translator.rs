@@ -1,4 +1,6 @@
-use dynasmrt::{dynasm, x64::Assembler, DynasmApi};
+use std::collections::HashMap;
+
+use dynasmrt::{dynasm, x64::Assembler, AssemblyOffset, DynasmApi, DynamicLabel};
 
 use crate::aot::{
     register_mapping::{MapTarget, MappingPlan, RegisterMapping, XmmLane},
@@ -14,6 +16,34 @@ struct Translator {
     emitter: Assembler,
     reg_map: RegisterMapping,
     temp_allocator: TempAllocator,
+    cf: ControlFlowState,
+}
+
+/// Control-flow translation state scoped to a translator instance.
+struct ControlFlowState {
+    /// RISC-V PC of the instruction currently being translated.
+    ///
+    /// This advances in translation order and is used for instruction-local
+    /// control-flow semantics such as computing return PCs for jumps.
+    current_riscv_pc: u64,
+    /// Anchor PC for the translated RISC-V region.
+    ///
+    /// Slot 0 in the jump table corresponds to this PC.
+    base_riscv_pc: u64,
+    /// Mapping from known RISC-V target PCs to x86 dynamic labels.
+    ///
+    /// This supports direct branch/jump emission when the target is known at
+    /// translation time.
+    pc_labels: HashMap<u64, DynamicLabel>,
+    /// Indexed x86 entry offsets used for runtime-indirect targets.
+    ///
+    /// Under the v1 non-compressed assumption, each slot represents one
+    /// 4-byte RISC-V instruction position relative to `base_riscv_pc`.
+    jump_table: Vec<AssemblyOffset>,
+    /// Dynamic label that marks the start of the emitted jump-table data.
+    ///
+    /// Indirect jump paths use this as the base for indexed table lookups.
+    jt_label: DynamicLabel,
 }
 
 /// Canonical location for a value currently usable as a GPR source.
@@ -155,13 +185,21 @@ impl Translator {
     /// # Panics
     ///
     /// Panics if the derived temporary register set contains duplicates.
-    fn new(emitter: Assembler, plan: MappingPlan) -> Self {
+    fn new(mut emitter: Assembler, plan: MappingPlan, base_riscv_pc: u64) -> Self {
         let (reg_map, unused_gprs) = plan.into_parts();
         let temp_allocator = TempAllocator::new(unused_gprs);
+        let jt_label = emitter.new_dynamic_label();
         Self {
             emitter,
             reg_map,
             temp_allocator,
+            cf: ControlFlowState {
+                current_riscv_pc: base_riscv_pc,
+                base_riscv_pc,
+                pc_labels: HashMap::new(),
+                jump_table: Vec::new(),
+                jt_label,
+            },
         }
     }
 
@@ -251,7 +289,7 @@ mod tests {
     use super::*;
 
     fn new_translator() -> Translator {
-        Translator::new(Assembler::new().unwrap(), RegisterMapping::default_plan())
+        Translator::new(Assembler::new().unwrap(), RegisterMapping::default_plan(), 0)
     }
 
     #[test]
