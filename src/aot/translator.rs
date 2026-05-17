@@ -415,10 +415,8 @@ mod tests {
     #[test]
     fn prepared_output_drop_after_write_back_does_not_panic() {
         let mut translator = new_translator();
-        let parts = translator
-            .prepare_output(RiscvRegister::A0)
-            .into_writeback_parts();
-        translator.write_back(parts);
+        let out = translator.prepare_output(RiscvRegister::A0);
+        out.write_back(&mut translator);
     }
 
     #[test]
