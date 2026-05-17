@@ -331,7 +331,14 @@ impl Translator {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+    use std::os::unix::fs::PermissionsExt;
+
     use dynasmrt::x64::Assembler;
+
+    use crate::elf::parse_elf;
+    use crate::elf_gen::generate_elf;
+    use crate::elf_gen::x86_elf::X86Elf;
 
     use super::*;
 
@@ -385,5 +392,57 @@ mod tests {
         let translator_ptr: *mut Translator = &mut translator;
         let out = translator.prepare_output(RiscvRegister::A0);
         unsafe { out.write_back(&mut *translator_ptr) };
+    }
+
+    /// Generate an equivalent x86 ELF file given a RISC-V ELF path.
+    ///
+    /// RISC-V ELF constraints:
+    /// - uncompressed format (without the C extension)
+    /// - single executable code segment
+    fn compile_elf_for_test(path: &str, out_path: &str) {
+        let bytes = fs::read(path).expect("failed to read input ELF");
+        let mut elf = parse_elf(&bytes);
+
+        let mut executable_count = 0u32;
+        for segment in &mut elf.segments {
+            if !segment.is_executable() {
+                continue;
+            }
+
+            executable_count = executable_count.wrapping_add(1);
+            if executable_count > 1 {
+                panic!("translator only supports ELFs with a single executable segment");
+            }
+
+            segment.decode();
+
+            let assembler = Assembler::new().expect("failed to create x86 assembler");
+            let mut translator = Translator::new(assembler, RegisterMapping::default_plan(), elf.global_entry);
+            translator.translate_insns(segment.insns());
+            let x86_bytes = translator.finalize();
+
+            let mut x86_elf = X86Elf::new(elf.global_entry);
+            assert_eq!(segment.entry(), elf.global_entry);
+            x86_elf.add_text(x86_bytes, segment.entry(), segment.offset());
+
+            let elf_bytes = generate_elf(&x86_elf).expect("failed to generate x86 ELF");
+            fs::write(out_path, elf_bytes).expect("failed to write x86 ELF output");
+            fs::set_permissions(out_path, fs::Permissions::from_mode(0o755))
+                .expect("failed to set executable permissions");
+        }
+
+        assert_eq!(
+            executable_count, 1,
+            "expected exactly one executable segment"
+        );
+    }
+
+    #[test]
+    #[ignore = "translate_insn is not implemented yet"]
+    fn compile_echo_ima_writes_output_elf() {
+        compile_elf_for_test("test-bin/rust-bin/echo/echo-ima", "test-bin/output.elf");
+
+        let out = fs::metadata("test-bin/output.elf").expect("missing output ELF");
+        assert!(out.len() > 0, "output ELF should not be empty");
     }
 }
