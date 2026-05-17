@@ -98,6 +98,12 @@ struct PreparedOutput<'a> {
     written_back: bool,
 }
 
+struct WriteBackParts {
+    src_id: u8,
+    src_gpr: X86Gpr,
+    dest: MapTarget,
+}
+
 impl<'a> PreparedOutput<'a> {
     /// Returns the x86-64 GPR encoding id (`0..=15`) of this prepared output
     /// source carrier.
@@ -106,6 +112,19 @@ impl<'a> PreparedOutput<'a> {
     /// not a destination map id and not a RISC-V register index.
     fn id(&self) -> u8 {
         self.src.gpr().id()
+    }
+
+    /// Consumes this output and returns the data needed for write-back.
+    ///
+    /// This marks the output as handled so `Drop` does not panic. Callers must
+    /// complete emission using the returned parts.
+    fn into_writeback_parts(mut self) -> WriteBackParts {
+        self.written_back = true;
+        WriteBackParts {
+            src_id: self.id(),
+            src_gpr: self.src.gpr(),
+            dest: self.dest,
+        }
     }
 
     // TODO: allow multiple live PreparedInput/PreparedOutput without re-borrowing Translator;
@@ -122,23 +141,30 @@ impl<'a> PreparedOutput<'a> {
     /// - `Gpr`: source is written to mapped x86 GPR
     /// - `XmmShared`: source is written to selected shared XMM lane
     /// - `XmmExclusive`: source is written to exclusive XMM destination
-    fn write_back(mut self, translator: &mut Translator) {
-        let src = self.id();
-        match self.dest {
+    fn write_back(self, translator: &mut Translator) {
+        let parts = self.into_writeback_parts();
+        translator.write_back(parts);
+    }
+}
+
+impl Translator {
+    fn write_back(&mut self, parts: WriteBackParts) {
+        let src = parts.src_id;
+        match parts.dest {
             MapTarget::ConstZero => {
                 unreachable!(
                     "write_back invariant violated: ConstZero destination should never reach PreparedOutput"
                 )
             }
             MapTarget::Gpr(dst) => {
-                if self.src.gpr() != dst {
-                    dynasm!(translator.emitter
+                if parts.src_gpr != dst {
+                    dynasm!(self.emitter
                         ; mov Rq(dst.id()), Rq(src)
                     );
                 }
             }
             MapTarget::XmmExclusive(reg) => {
-                dynasm!(translator.emitter
+                dynasm!(self.emitter
                     ; movq Rx(reg.id()), Rq(src)
                 );
             }
@@ -148,7 +174,7 @@ impl<'a> PreparedOutput<'a> {
             } => {
                 // Use PINSRQ for shared-low writes to preserve the high 64-bit lane.
                 // MOVQ xmm, r64 would clobber/zero the other lane and corrupt its paired shared value.
-                dynasm!(translator.emitter
+                dynasm!(self.emitter
                     ; pinsrq Rx(reg.id()), Rq(src), 0
                 );
             }
@@ -156,12 +182,11 @@ impl<'a> PreparedOutput<'a> {
                 reg,
                 lane: XmmLane::High,
             } => {
-                dynasm!(translator.emitter
+                dynasm!(self.emitter
                     ; pinsrq Rx(reg.id()), Rq(src), 1
                 );
             }
         }
-        self.written_back = true;
     }
 }
 
