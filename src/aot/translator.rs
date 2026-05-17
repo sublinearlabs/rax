@@ -29,16 +29,17 @@ struct ControlFlowState {
     current_riscv_pc: u64,
     /// Anchor PC for the translated RISC-V region.
     ///
-    /// Slot 0 in the jump table corresponds to this PC.
+    /// This is the RISC-V PC for slot 0 in `riscv_pc_to_x86_offset` and in
+    /// the emitted runtime jump table.
     base_riscv_pc: u64,
     /// Sparse map of direct control-flow target PCs to x86 labels.
     ///
     /// Only PCs that are targets of direct jumps/branches are present.
     direct_target_labels: HashMap<u64, DynamicLabel>,
-    /// Dense x86 instruction-start offsets indexed by RISC-V PC slot.
+    /// Dense mapping from RISC-V PC slot to x86 instruction-start offset.
     ///
     /// Slot index is `(pc - base_riscv_pc) / 4` in the no-compressed model.
-    pc_slot_offsets: Vec<AssemblyOffset>,
+    riscv_pc_to_x86_offset: Vec<AssemblyOffset>,
     /// Dynamic label that marks the start of the emitted jump-table data.
     ///
     /// Indirect jump paths use this as the base for indexed table lookups.
@@ -196,7 +197,7 @@ impl Translator {
                 current_riscv_pc: base_riscv_pc,
                 base_riscv_pc,
                 direct_target_labels: HashMap::new(),
-                pc_slot_offsets: Vec::new(),
+                riscv_pc_to_x86_offset: Vec::new(),
                 jt_label,
             },
         }
@@ -209,32 +210,33 @@ impl Translator {
     fn translate_insns(&mut self, insns: &[Instruction]) {
         // Record instruction start offsets by PC slot, then translate.
         for insn in insns {
-            self.cf.pc_slot_offsets.push(self.emitter.offset());
+            self.cf.riscv_pc_to_x86_offset.push(self.emitter.offset());
             self.translate_insn(insn);
             self.cf.current_riscv_pc = self.cf.current_riscv_pc.wrapping_add(4);
         }
 
         // Resolve dynamic labels after instruction offsets are known.
         for (pc, label) in &self.cf.direct_target_labels {
-            let pc_slot_index = (pc - self.cf.base_riscv_pc) / 4;
+            let riscv_pc_slot = (pc - self.cf.base_riscv_pc) / 4;
             self.emitter
                 .labels_mut()
-                .define_dynamic(*label, self.cf.pc_slot_offsets[pc_slot_index as usize])
+                .define_dynamic(*label, self.cf.riscv_pc_to_x86_offset[riscv_pc_slot as usize])
                 .expect("failed to define dynamic label");
         }
 
-        // Build absolute jump-table entries and emit the table at code end.
-        // This currently treats `base_riscv_pc` as the segment base, so it is
-        // scoped to the single-segment bring-up model.
-        let jump_table = self
+        // Build absolute jump targets from `riscv_pc_to_x86_offset` and emit
+        // them as the runtime jump table at the end of the generated code.
+        // For now, this assumes one contiguous code segment based at
+        // `base_riscv_pc`.
+        let jump_table_abs_addrs = self
             .cf
-            .pc_slot_offsets
+            .riscv_pc_to_x86_offset
             .iter()
             .map(|offset| offset.0 + self.cf.base_riscv_pc as usize)
             .collect::<Vec<_>>();
 
         dynasm!(self.emitter ; =>self.cf.jt_label);
-        for target_pc in jump_table {
+        for target_pc in jump_table_abs_addrs {
             dynasm!(self.emitter; .i64 target_pc as i64);
         }
     }
