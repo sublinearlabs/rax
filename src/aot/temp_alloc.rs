@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use std::{cell::Cell, ops::Deref};
 
 use crate::aot::registers::X86Gpr;
 
@@ -30,7 +30,7 @@ impl TempAllocator {
 
         let temp_slots = temps.into_iter().map(|t| TempSlot {
             reg: t,
-            allocated: false,
+            allocated: Cell::new(false),
         });
 
         Self {
@@ -67,7 +67,7 @@ impl TempAllocator {
 ///
 /// On drop, releases the allocation for future use.
 pub(crate) struct AllocatedTemp<'a> {
-    slot: &'a mut TempSlot,
+    slot: &'a TempSlot,
 }
 
 /// Free up allocation when AllocatedTemp is dropped
@@ -99,7 +99,7 @@ impl<'a> AllocatedTemp<'a> {
 /// Internal allocator slot state for one managed temporary register.
 struct TempSlot {
     reg: X86Gpr,
-    allocated: bool,
+    allocated: Cell<bool>,
 }
 
 impl TempSlot {
@@ -114,7 +114,7 @@ impl TempSlot {
     /// Marks this temporary register slot as free.
     ///
     /// Panics if the slot is already free.
-    fn release(&mut self) {
+    fn release(&self) {
         assert!(self.allocated);
         self.allocated = false;
     }
