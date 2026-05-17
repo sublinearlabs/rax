@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 
-use dynasmrt::{
-    dynasm, x64::Assembler, AssemblyOffset, DynasmApi, DynasmLabelApi, DynamicLabel,
-};
+use dynasmrt::{dynasm, x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
 
 use crate::aot::{
     register_mapping::{MapTarget, MappingPlan, RegisterMapping, XmmLane},
@@ -211,13 +209,13 @@ impl Translator {
     /// This v1 path assumes a non-compressed input stream, so the RISC-V PC
     /// advances by 4 bytes per instruction.
     fn translate_insns(&mut self, insns: &[Instruction]) {
-        // Phase 1: emit instructions while advancing translation PC.
+        // Translate each decoded instruction and advance the translation PC.
         for insn in insns {
             self.translate_insn(insn);
             self.cf.current_riscv_pc = self.cf.current_riscv_pc.wrapping_add(4);
         }
 
-        // Phase 2: resolve dynamic labels once instruction offsets are known.
+        // Resolve dynamic labels after instruction offsets are known.
         for (pc, label) in &self.cf.pc_labels {
             let jump_table_index = (pc - self.cf.base_riscv_pc) / 4;
             self.emitter
@@ -226,8 +224,8 @@ impl Translator {
                 .expect("failed to define dynamic label");
         }
 
-        // Phase 3: materialize absolute jump targets and emit jump table data.
-        // This currently uses base_riscv_pc as the segment base and is therefore
+        // Build absolute jump-table entries and emit the table at code end.
+        // This currently treats `base_riscv_pc` as the segment base, so it is
         // scoped to the single-segment bring-up model.
         let jump_table = self
             .cf
