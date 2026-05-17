@@ -181,5 +181,7 @@ mod tests {
         let mut alloc = TempAllocator::new(vec![X86Gpr::Rax, X86Gpr::Rbx]);
         let t1 = alloc.allocate().unwrap();
         let t2 = alloc.allocate().unwrap();
+        drop(t1);
+        let t3 = alloc.allocate().unwrap();
     }
 }
