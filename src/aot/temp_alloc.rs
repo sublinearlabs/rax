@@ -175,4 +175,11 @@ mod tests {
         let guard = alloc.allocate().expect("allocation should succeed");
         assert!(*guard == X86Gpr::R10);
     }
+
+    #[test]
+    fn allocates_more_than_one_temp_at_once() {
+        let mut alloc = TempAllocator::new(vec![X86Gpr::Rax, X86Gpr::Rbx]);
+        let t1 = alloc.allocate().unwrap();
+        let t2 = alloc.allocate().unwrap();
+    }
 }
