@@ -244,6 +244,12 @@ impl Translator {
         todo!()
     }
 
+    /// Consumes the translator and returns the emitted machine code bytes.
+    pub(crate) fn finalize(self) -> Vec<u8> {
+        let buf = self.emitter.finalize().unwrap();
+        buf.to_vec()
+    }
+
     /// Prepares a source register operand for emission.
     ///
     /// # Panics
