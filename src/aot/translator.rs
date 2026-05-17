@@ -417,7 +417,8 @@ mod tests {
             segment.decode();
 
             let assembler = Assembler::new().expect("failed to create x86 assembler");
-            let mut translator = Translator::new(assembler, RegisterMapping::default_plan(), elf.global_entry);
+            let mut translator =
+                Translator::new(assembler, RegisterMapping::default_plan(), elf.global_entry);
             translator.translate_insns(segment.insns());
             let x86_bytes = translator.finalize();
 
@@ -440,9 +441,30 @@ mod tests {
     #[test]
     #[ignore = "translate_insn is not implemented yet"]
     fn compile_echo_ima_writes_output_elf() {
-        compile_elf_for_test("test-bin/rust-bin/echo/echo-ima", "test-bin/output.elf");
+        compile_elf_for_test("test-bin/rust-bin/echo/echo-ima", "test-bin/output_echo");
 
-        let out = fs::metadata("test-bin/output.elf").expect("missing output ELF");
+        let out = fs::metadata("test-bin/output_echo").expect("missing output ELF");
+        assert!(out.len() > 0, "output ELF should not be empty");
+    }
+
+    #[test]
+    #[ignore = "translate_insn is not implemented yet"]
+    fn compile_fib_ima_writes_output_elf() {
+        compile_elf_for_test("test-bin/rust-bin/fib/fib-ima", "test-bin/output_fib");
+
+        let out = fs::metadata("test-bin/output_fib").expect("missing output ELF");
+        assert!(out.len() > 0, "output ELF should not be empty");
+    }
+
+    #[test]
+    #[ignore = "translate_insn is not implemented yet"]
+    fn compile_exec_block_ima_writes_output_elf() {
+        compile_elf_for_test(
+            "test-bin/rust-bin/exec-block/exec-block-ima",
+            "test-bin/output_exec_block",
+        );
+
+        let out = fs::metadata("test-bin/output_exec_block").expect("missing output ELF");
         assert!(out.len() > 0, "output ELF should not be empty");
     }
 }
