@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use std::{cell::Cell, ops::Deref};
 
 use crate::aot::registers::X86Gpr;
 
@@ -30,7 +30,7 @@ impl TempAllocator {
 
         let temp_slots = temps.into_iter().map(|t| TempSlot {
             reg: t,
-            allocated: false,
+            allocated: Cell::new(false),
         });
 
         Self {
@@ -48,11 +48,11 @@ impl TempAllocator {
     /// # Errors
     /// Returns `TempAllocationError::NoFreeTemps` when all managed
     /// temporary registers are currently allocated.
-    pub(crate) fn allocate(&mut self) -> Result<AllocatedTemp<'_>, TempAllocationError> {
+    pub(crate) fn allocate(&self) -> Result<AllocatedTemp<'_>, TempAllocationError> {
         let free_slot = self
             .slots
-            .iter_mut()
-            .find(|t| !t.allocated)
+            .iter()
+            .find(|t| !t.allocated.get())
             .ok_or(TempAllocationError::NoFreeTemps)?;
 
         // mark as allocated
@@ -67,7 +67,7 @@ impl TempAllocator {
 ///
 /// On drop, releases the allocation for future use.
 pub(crate) struct AllocatedTemp<'a> {
-    slot: &'a mut TempSlot,
+    slot: &'a TempSlot,
 }
 
 /// Free up allocation when AllocatedTemp is dropped
@@ -99,24 +99,24 @@ impl<'a> AllocatedTemp<'a> {
 /// Internal allocator slot state for one managed temporary register.
 struct TempSlot {
     reg: X86Gpr,
-    allocated: bool,
+    allocated: Cell<bool>,
 }
 
 impl TempSlot {
     /// Marks this temporary register slot as allocated.
     ///
     /// Panics if the slot is already allocated.
-    fn allocate(&mut self) {
-        assert!(!self.allocated);
-        self.allocated = true;
+    fn allocate(&self) {
+        assert!(!self.allocated.get());
+        self.allocated.set(true);
     }
 
     /// Marks this temporary register slot as free.
     ///
     /// Panics if the slot is already free.
-    fn release(&mut self) {
-        assert!(self.allocated);
-        self.allocated = false;
+    fn release(&self) {
+        assert!(self.allocated.get());
+        self.allocated.set(false);
     }
 }
 
@@ -174,5 +174,14 @@ mod tests {
         let mut alloc = TempAllocator::new(vec![X86Gpr::R10]);
         let guard = alloc.allocate().expect("allocation should succeed");
         assert!(*guard == X86Gpr::R10);
+    }
+
+    #[test]
+    fn allocates_more_than_one_temp_at_once() {
+        let mut alloc = TempAllocator::new(vec![X86Gpr::Rax, X86Gpr::Rbx]);
+        let t1 = alloc.allocate().unwrap();
+        let t2 = alloc.allocate().unwrap();
+        drop(t1);
+        let t3 = alloc.allocate().unwrap();
     }
 }
