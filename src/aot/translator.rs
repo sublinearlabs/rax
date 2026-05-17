@@ -415,9 +415,17 @@ mod tests {
     #[test]
     fn prepared_output_drop_after_write_back_does_not_panic() {
         let mut translator = new_translator();
-        let translator_ptr: *mut Translator = &mut translator;
+        let parts = translator
+            .prepare_output(RiscvRegister::A0)
+            .into_writeback_parts();
+        translator.write_back(parts);
+    }
+
+    #[test]
+    fn prepared_output_into_writeback_parts_marks_handled() {
+        let mut translator = new_translator();
         let out = translator.prepare_output(RiscvRegister::A0);
-        unsafe { out.write_back(&mut *translator_ptr) };
+        let _parts = out.into_writeback_parts();
     }
 
     /// Generate an equivalent x86 ELF file given a RISC-V ELF path.
