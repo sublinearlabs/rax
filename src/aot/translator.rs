@@ -1,12 +1,15 @@
 use std::collections::HashMap;
 
-use dynasmrt::{dynasm, x64::Assembler, AssemblyOffset, DynasmApi, DynamicLabel};
+use dynasmrt::{
+    dynasm, x64::Assembler, AssemblyOffset, DynasmApi, DynasmLabelApi, DynamicLabel,
+};
 
 use crate::aot::{
     register_mapping::{MapTarget, MappingPlan, RegisterMapping, XmmLane},
     registers::{RiscvRegister, X86Gpr},
     temp_alloc::{AllocatedTemp, TempAllocator},
 };
+use crate::decode::Instruction;
 
 /// AOT translator state used while lowering RISC-V instructions to x86.
 ///
@@ -203,6 +206,46 @@ impl Translator {
         }
     }
 
+    /// Converts decoded RISC-V instructions to x86 and finalizes control-flow metadata.
+    ///
+    /// This v1 path assumes a non-compressed input stream, so the RISC-V PC
+    /// advances by 4 bytes per instruction.
+    fn translate_insns(&mut self, insns: &[Instruction]) {
+        // Phase 1: emit instructions while advancing translation PC.
+        for insn in insns {
+            self.translate_insn(insn);
+            self.cf.current_riscv_pc = self.cf.current_riscv_pc.wrapping_add(4);
+        }
+
+        // Phase 2: resolve dynamic labels once instruction offsets are known.
+        for (pc, label) in &self.cf.pc_labels {
+            let jump_table_index = (pc - self.cf.base_riscv_pc) / 4;
+            self.emitter
+                .labels_mut()
+                .define_dynamic(*label, self.cf.jump_table[jump_table_index as usize])
+                .expect("failed to define dynamic label");
+        }
+
+        // Phase 3: materialize absolute jump targets and emit jump table data.
+        // This currently uses base_riscv_pc as the segment base and is therefore
+        // scoped to the single-segment bring-up model.
+        let jump_table = self
+            .cf
+            .jump_table
+            .iter()
+            .map(|offset| offset.0 + self.cf.base_riscv_pc as usize)
+            .collect::<Vec<_>>();
+
+        dynasm!(self.emitter ; =>self.cf.jt_label);
+        for target_pc in jump_table {
+            dynasm!(self.emitter; .i64 target_pc as i64);
+        }
+    }
+
+    fn translate_insn(&mut self, _insn: &Instruction) {
+        todo!()
+    }
+
     /// Prepares a source register operand for emission.
     ///
     /// # Panics
@@ -289,7 +332,11 @@ mod tests {
     use super::*;
 
     fn new_translator() -> Translator {
-        Translator::new(Assembler::new().unwrap(), RegisterMapping::default_plan(), 0)
+        Translator::new(
+            Assembler::new().unwrap(),
+            RegisterMapping::default_plan(),
+            0,
+        )
     }
 
     #[test]
