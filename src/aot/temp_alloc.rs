@@ -48,11 +48,11 @@ impl TempAllocator {
     /// # Errors
     /// Returns `TempAllocationError::NoFreeTemps` when all managed
     /// temporary registers are currently allocated.
-    pub(crate) fn allocate(&mut self) -> Result<AllocatedTemp<'_>, TempAllocationError> {
+    pub(crate) fn allocate(&self) -> Result<AllocatedTemp<'_>, TempAllocationError> {
         let free_slot = self
             .slots
-            .iter_mut()
-            .find(|t| !t.allocated)
+            .iter()
+            .find(|t| !t.allocated.get())
             .ok_or(TempAllocationError::NoFreeTemps)?;
 
         // mark as allocated
@@ -106,17 +106,17 @@ impl TempSlot {
     /// Marks this temporary register slot as allocated.
     ///
     /// Panics if the slot is already allocated.
-    fn allocate(&mut self) {
-        assert!(!self.allocated);
-        self.allocated = true;
+    fn allocate(&self) {
+        assert!(!self.allocated.get());
+        self.allocated.set(true);
     }
 
     /// Marks this temporary register slot as free.
     ///
     /// Panics if the slot is already free.
     fn release(&self) {
-        assert!(self.allocated);
-        self.allocated = false;
+        assert!(self.allocated.get());
+        self.allocated.set(false);
     }
 }
 
