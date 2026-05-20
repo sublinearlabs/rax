@@ -127,6 +127,8 @@ fn emit_mulhu(
     todo!("emit_mulhu")
 }
 
+/// RV64 `addi`: 64-bit wrapping add with sign-extended immediate.
+/// rd <- (rs1 + sext(imm)) mod 2^64
 fn emit_addi(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -138,6 +140,8 @@ fn emit_addi(
     todo!("emit_addi")
 }
 
+/// RV64 `andi`: bitwise AND with sign-extended immediate.
+/// rd <- rs1 & sext(imm)
 fn emit_andi(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -149,6 +153,8 @@ fn emit_andi(
     todo!("emit_andi")
 }
 
+/// RV64 `slli`: logical left shift by immediate.
+/// rd <- rs1 << shamt
 fn emit_slli(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -160,6 +166,8 @@ fn emit_slli(
     todo!("emit_slli")
 }
 
+/// RV64 `sll`: logical left shift by register low bits.
+/// rd <- rs1 << (rs2 & 0x3f)
 fn emit_sll(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -171,6 +179,8 @@ fn emit_sll(
     todo!("emit_sll")
 }
 
+/// RV64 `sb`: store low 8 bits of rs2 to memory at rs1 + sext(imm).
+/// mem8[rs1 + sext(imm)] <- rs2[7:0]
 fn emit_sb(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -182,6 +192,8 @@ fn emit_sb(
     todo!("emit_sb")
 }
 
+/// RV64 `sd`: store 64 bits of rs2 to memory at rs1 + sext(imm).
+/// mem64[rs1 + sext(imm)] <- rs2
 fn emit_sd(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -193,16 +205,22 @@ fn emit_sd(
     todo!("emit_sd")
 }
 
+/// RV64 `lui`: write U-immediate to upper bits.
+/// rd <- sext(imm << 12)
 fn emit_lui(translator: &mut Translator, temps: &TempAllocator, rd: RiscvRegister, imm: i32) {
     let _ = (translator, temps, rd, imm);
     todo!("emit_lui")
 }
 
+/// RV64 `auipc`: add U-immediate (<<12) to current PC.
+/// rd <- pc + sext(imm << 12)
 fn emit_auipc(translator: &mut Translator, temps: &TempAllocator, rd: RiscvRegister, imm: i32) {
     let _ = (translator, temps, rd, imm);
     todo!("emit_auipc")
 }
 
+/// RV64 `beq`: branch if equal.
+/// if rs1 == rs2 then pc <- pc + sext(imm)
 fn emit_beq(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -214,6 +232,8 @@ fn emit_beq(
     todo!("emit_beq")
 }
 
+/// RV64 `bne`: branch if not equal.
+/// if rs1 != rs2 then pc <- pc + sext(imm)
 fn emit_bne(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -225,6 +245,8 @@ fn emit_bne(
     todo!("emit_bne")
 }
 
+/// RV64 `bltu`: branch if unsigned rs1 < rs2.
+/// if unsigned(rs1) < unsigned(rs2) then pc <- pc + sext(imm)
 fn emit_bltu(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -236,6 +258,8 @@ fn emit_bltu(
     todo!("emit_bltu")
 }
 
+/// RV64 `bgeu`: branch if unsigned rs1 >= rs2.
+/// if unsigned(rs1) >= unsigned(rs2) then pc <- pc + sext(imm)
 fn emit_bgeu(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -247,11 +271,15 @@ fn emit_bgeu(
     todo!("emit_bgeu")
 }
 
+/// RV64 `jal`: jump and link.
+/// rd <- pc + 4; pc <- pc + sext(imm)
 fn emit_jal(translator: &mut Translator, temps: &TempAllocator, rd: RiscvRegister, imm: i32) {
     let _ = (translator, temps, rd, imm);
     todo!("emit_jal")
 }
 
+/// RV64 `jalr`: indirect jump and link.
+/// t <- pc + 4; pc <- (rs1 + sext(imm)) & !1; rd <- t
 fn emit_jalr(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -263,6 +291,8 @@ fn emit_jalr(
     todo!("emit_jalr")
 }
 
+/// RV64 `ecall`: environment call trap.
+/// raise environment-call-from-U-mode
 fn emit_ecall(translator: &mut Translator, temps: &TempAllocator) {
     let _ = (translator, temps);
     todo!("emit_ecall")
