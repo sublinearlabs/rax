@@ -7,56 +7,52 @@ pub(super) fn emit_instruction(
     insn: &Instruction,
 ) {
     match insn {
-        Instruction::Add(R { rd, rs1, rs2 }) => {
-            emit_add(translator, temps, rv(*rd), rv(*rs1), rv(*rs2))
-        }
+        Instruction::Add(R { rd, rs1, rs2 }) => emit_add(translator, temps, rv(rd), rv(rs1), rv(rs2)),
         Instruction::Sub(R { rd, rs1, rs2 }) => {
-            emit_sub(translator, temps, rv(*rd), rv(*rs1), rv(*rs2))
+            emit_sub(translator, temps, rv(rd), rv(rs1), rv(rs2))
         }
-        Instruction::Or(R { rd, rs1, rs2 }) => {
-            emit_or(translator, temps, rv(*rd), rv(*rs1), rv(*rs2))
-        }
+        Instruction::Or(R { rd, rs1, rs2 }) => emit_or(translator, temps, rv(rd), rv(rs1), rv(rs2)),
         Instruction::Subw(R { rd, rs1, rs2 }) => {
-            emit_subw(translator, temps, rv(*rd), rv(*rs1), rv(*rs2))
+            emit_subw(translator, temps, rv(rd), rv(rs1), rv(rs2))
         }
         Instruction::Mulhu(R { rd, rs1, rs2 }) => {
-            emit_mulhu(translator, temps, rv(*rd), rv(*rs1), rv(*rs2))
+            emit_mulhu(translator, temps, rv(rd), rv(rs1), rv(rs2))
         }
         Instruction::Addi(I { rd, rs1, imm }) => {
-            emit_addi(translator, temps, rv(*rd), rv(*rs1), *imm)
+            emit_addi(translator, temps, rv(rd), rv(rs1), *imm)
         }
         Instruction::Andi(I { rd, rs1, imm }) => {
-            emit_andi(translator, temps, rv(*rd), rv(*rs1), *imm)
+            emit_andi(translator, temps, rv(rd), rv(rs1), *imm)
         }
         Instruction::Slli(Sh { rd, rs1, shamt }) => {
-            emit_slli(translator, temps, rv(*rd), rv(*rs1), *shamt)
+            emit_slli(translator, temps, rv(rd), rv(rs1), *shamt)
         }
         Instruction::Sll(R { rd, rs1, rs2 }) => {
-            emit_sll(translator, temps, rv(*rd), rv(*rs1), rv(*rs2))
+            emit_sll(translator, temps, rv(rd), rv(rs1), rv(rs2))
         }
         Instruction::Sb(S { rs1, rs2, imm }) => {
-            emit_sb(translator, temps, rv(*rs1), rv(*rs2), *imm)
+            emit_sb(translator, temps, rv(rs1), rv(rs2), *imm)
         }
         Instruction::Sd(S { rs1, rs2, imm }) => {
-            emit_sd(translator, temps, rv(*rs1), rv(*rs2), *imm)
+            emit_sd(translator, temps, rv(rs1), rv(rs2), *imm)
         }
-        Instruction::Lui(U { rd, imm }) => emit_lui(translator, temps, rv(*rd), *imm),
-        Instruction::Auipc(U { rd, imm }) => emit_auipc(translator, temps, rv(*rd), *imm),
+        Instruction::Lui(U { rd, imm }) => emit_lui(translator, temps, rv(rd), *imm),
+        Instruction::Auipc(U { rd, imm }) => emit_auipc(translator, temps, rv(rd), *imm),
         Instruction::Beq(B { rs1, rs2, imm }) => {
-            emit_beq(translator, temps, rv(*rs1), rv(*rs2), *imm)
+            emit_beq(translator, temps, rv(rs1), rv(rs2), *imm)
         }
         Instruction::Bne(B { rs1, rs2, imm }) => {
-            emit_bne(translator, temps, rv(*rs1), rv(*rs2), *imm)
+            emit_bne(translator, temps, rv(rs1), rv(rs2), *imm)
         }
         Instruction::Bltu(B { rs1, rs2, imm }) => {
-            emit_bltu(translator, temps, rv(*rs1), rv(*rs2), *imm)
+            emit_bltu(translator, temps, rv(rs1), rv(rs2), *imm)
         }
         Instruction::Bgeu(B { rs1, rs2, imm }) => {
-            emit_bgeu(translator, temps, rv(*rs1), rv(*rs2), *imm)
+            emit_bgeu(translator, temps, rv(rs1), rv(rs2), *imm)
         }
-        Instruction::Jal(J { rd, imm }) => emit_jal(translator, temps, rv(*rd), *imm),
+        Instruction::Jal(J { rd, imm }) => emit_jal(translator, temps, rv(rd), *imm),
         Instruction::Jalr(I { rd, rs1, imm }) => {
-            emit_jalr(translator, temps, rv(*rd), rv(*rs1), *imm)
+            emit_jalr(translator, temps, rv(rd), rv(rs1), *imm)
         }
         Instruction::Ecall => emit_ecall(translator, temps),
         Instruction::Csrrw(_) => {}
@@ -64,8 +60,8 @@ pub(super) fn emit_instruction(
     }
 }
 
-fn rv(reg: u8) -> RiscvRegister {
-    RiscvRegister::from_index(reg as usize).expect("invalid decoded RISC-V register")
+fn rv(reg: &u8) -> RiscvRegister {
+    RiscvRegister::from_index(*reg as usize).expect("invalid decoded RISC-V register")
 }
 
 fn emit_add(
