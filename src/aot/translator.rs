@@ -202,7 +202,15 @@ impl Translator {
         }
     }
 
-    // TODO: add documentation
+    /// Builds a temp-register allocator from this translator's temp GPR list.
+    ///
+    /// Use one allocator while lowering an instruction and pass it to helper
+    /// emission functions. Temps are released automatically when their
+    /// `AllocatedTemp` values are dropped.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the temp register list contains duplicates.
     fn temp_allocator(&self) -> TempAllocator {
         TempAllocator::new(self.unused_gprs.clone())
     }
