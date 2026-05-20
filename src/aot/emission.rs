@@ -166,7 +166,7 @@ fn emit_add(
         return;
     }
 
-    // rd != rs1 && rs1 != rs2
+    // rd != rs1 && rs1 != rs2 && rd != rs2
     // implies
     // rd = rs1
     // rd += rs2
