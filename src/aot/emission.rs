@@ -1,5 +1,5 @@
 use crate::aot::{registers::RiscvRegister, temp_alloc::TempAllocator, translator::Translator};
-use crate::decode::{B, I, J, R, S, Sh, U, Instruction};
+use crate::decode::{Instruction, Sh, B, I, J, R, S, U};
 
 pub(super) fn emit_instruction(
     translator: &mut Translator,
@@ -7,7 +7,9 @@ pub(super) fn emit_instruction(
     insn: &Instruction,
 ) {
     match insn {
-        Instruction::Add(R { rd, rs1, rs2 }) => emit_add(translator, temps, rv(rd), rv(rs1), rv(rs2)),
+        Instruction::Add(R { rd, rs1, rs2 }) => {
+            emit_add(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
         Instruction::Sub(R { rd, rs1, rs2 }) => {
             emit_sub(translator, temps, rv(rd), rv(rs1), rv(rs2))
         }
@@ -30,12 +32,8 @@ pub(super) fn emit_instruction(
         Instruction::Sll(R { rd, rs1, rs2 }) => {
             emit_sll(translator, temps, rv(rd), rv(rs1), rv(rs2))
         }
-        Instruction::Sb(S { rs1, rs2, imm }) => {
-            emit_sb(translator, temps, rv(rs1), rv(rs2), *imm)
-        }
-        Instruction::Sd(S { rs1, rs2, imm }) => {
-            emit_sd(translator, temps, rv(rs1), rv(rs2), *imm)
-        }
+        Instruction::Sb(S { rs1, rs2, imm }) => emit_sb(translator, temps, rv(rs1), rv(rs2), *imm),
+        Instruction::Sd(S { rs1, rs2, imm }) => emit_sd(translator, temps, rv(rs1), rv(rs2), *imm),
         Instruction::Lui(U { rd, imm }) => emit_lui(translator, temps, rv(rd), *imm),
         Instruction::Auipc(U { rd, imm }) => emit_auipc(translator, temps, rv(rd), *imm),
         Instruction::Beq(B { rs1, rs2, imm }) => {
@@ -64,6 +62,8 @@ fn rv(reg: &u8) -> RiscvRegister {
     RiscvRegister::from_index(*reg as usize).expect("invalid decoded RISC-V register")
 }
 
+/// RV64 `add`: 64-bit wrapping addition.
+/// rd <- (rs1 + rs2) mod 2^64
 fn emit_add(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -75,6 +75,8 @@ fn emit_add(
     todo!("emit_add")
 }
 
+/// RV64 `sub`: 64-bit wrapping subtraction.
+/// rd <- (rs1 - rs2) mod 2^64
 fn emit_sub(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -86,6 +88,8 @@ fn emit_sub(
     todo!("emit_sub")
 }
 
+/// RV64 `or`: bitwise OR across all 64 bits.
+/// rd <- rs1 | rs2
 fn emit_or(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -97,6 +101,8 @@ fn emit_or(
     todo!("emit_or")
 }
 
+/// RV64 `subw`: subtract low 32 bits, then sign-extend to 64 bits.
+/// rd <- sext32((rs1[31:0] - rs2[31:0]) mod 2^32)
 fn emit_subw(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -108,6 +114,8 @@ fn emit_subw(
     todo!("emit_subw")
 }
 
+/// RV64 `mulhu`: upper 64 bits of unsigned 64x64 multiply.
+/// rd <- high64(unsigned(rs1) * unsigned(rs2))
 fn emit_mulhu(
     translator: &mut Translator,
     temps: &TempAllocator,
