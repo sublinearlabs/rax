@@ -71,6 +71,14 @@ fn emit_add(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
+    // the zero register is always zero
+    if rd == RiscvRegister::Zero {
+        return;
+    }
+
+    // we need to handle shadow and zero
+    // which should we start with?
+
     let _ = (translator, temps, rd, rs1, rs2);
     todo!("emit_add")
 }
