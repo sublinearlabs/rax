@@ -202,6 +202,11 @@ impl Translator {
         }
     }
 
+    // TODO: add documentation
+    fn temp_allocator(&self) -> TempAllocator {
+        TempAllocator::new(self.unused_gprs.clone())
+    }
+
     /// Converts decoded RISC-V instructions to x86 and finalizes control-flow metadata.
     ///
     /// This v1 path assumes a non-compressed input stream, so the RISC-V PC
@@ -362,34 +367,39 @@ mod tests {
     #[should_panic(expected = "prepare_input invariant violated: x0/ConstZero")]
     fn prepare_input_panics_on_x0() {
         let mut translator = new_translator();
-        let _ = translator.prepare_input(RiscvRegister::Zero);
+        let temps = translator.temp_allocator();
+        let _ = translator.prepare_input(RiscvRegister::Zero, &temps);
     }
 
     #[test]
     #[should_panic(expected = "prepare_output invariant violated: x0/ConstZero")]
     fn prepare_output_panics_on_x0() {
         let mut translator = new_translator();
-        let _ = translator.prepare_output(RiscvRegister::Zero);
+        let temps = translator.temp_allocator();
+        let _ = translator.prepare_output(RiscvRegister::Zero, &temps);
     }
 
     #[test]
     #[should_panic(expected = "PreparedOutput dropped before write_back")]
     fn prepared_output_drop_without_write_back_panics() {
         let mut translator = new_translator();
-        let _ = translator.prepare_output(RiscvRegister::A0);
+        let temps = translator.temp_allocator();
+        let _ = translator.prepare_output(RiscvRegister::A0, &temps);
     }
 
     #[test]
     fn prepare_input_gpr_returns_mapped_id() {
         let mut translator = new_translator();
-        let input = translator.prepare_input(RiscvRegister::A0);
+        let temps = translator.temp_allocator();
+        let input = translator.prepare_input(RiscvRegister::A0, &temps);
         assert_eq!(input.id(), X86Gpr::Rdi.id());
     }
 
     #[test]
     fn prepare_output_gpr_uses_mapped_source_id() {
         let mut translator = new_translator();
-        let mut out = translator.prepare_output(RiscvRegister::A0);
+        let temps = translator.temp_allocator();
+        let mut out = translator.prepare_output(RiscvRegister::A0, &temps);
         assert_eq!(out.id(), X86Gpr::Rdi.id());
         out.written_back = true;
     }
@@ -397,9 +407,9 @@ mod tests {
     #[test]
     fn prepared_output_drop_after_write_back_does_not_panic() {
         let mut translator = new_translator();
-        let translator_ptr: *mut Translator = &mut translator;
-        let out = translator.prepare_output(RiscvRegister::A0);
-        unsafe { out.write_back(&mut *translator_ptr) };
+        let temps = translator.temp_allocator();
+        let out = translator.prepare_output(RiscvRegister::A0, &temps);
+        out.write_back(&mut translator);
     }
 
     /// Generate an equivalent x86 ELF file given a RISC-V ELF path.
