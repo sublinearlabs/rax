@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use dynasmrt::{dynasm, x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
 
 use crate::aot::{
+    emission,
     register_mapping::{MapTarget, MappingPlan, RegisterMapping, XmmLane},
     registers::{RiscvRegister, X86Gpr},
     temp_alloc::{AllocatedTemp, TempAllocator},
@@ -13,7 +14,7 @@ use crate::decode::Instruction;
 ///
 /// This type owns the emitter and all translation-local state required to
 /// materialize inputs and stage outputs for architectural write-back.
-struct Translator {
+pub(super) struct Translator {
     emitter: Assembler,
     reg_map: RegisterMapping,
     unused_gprs: Vec<X86Gpr>,
@@ -253,8 +254,9 @@ impl Translator {
         }
     }
 
-    fn translate_insn(&mut self, _insn: &Instruction) {
-        todo!()
+    fn translate_insn(&mut self, insn: &Instruction) {
+        let temps = self.temp_allocator();
+        emission::emit_instruction(self, &temps, insn);
     }
 
     /// Consumes the translator and returns the emitted machine code bytes.
