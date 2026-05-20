@@ -108,9 +108,6 @@ impl<'a> PreparedOutput<'a> {
         self.src.gpr().id()
     }
 
-    // TODO: allow multiple live PreparedInput/PreparedOutput without re-borrowing Translator;
-    // fix unsafe workaround in prepared_output_drop_after_write_back_does_not_panic.
-
     /// Writes a computed source value back to its architectural destination.
     ///
     /// # Contract
