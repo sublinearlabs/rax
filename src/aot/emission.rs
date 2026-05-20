@@ -131,7 +131,7 @@ fn emit_add(
         return;
     }
 
-    // rd == rs1 != rs2
+    // rd == rs1
     // implies
     // rd += rs2
     if rd == rs1 && rd != rs2 {
@@ -142,7 +142,7 @@ fn emit_add(
         return;
     }
 
-    // rd == rs2 != rs1
+    // rd == rs2
     // implies
     // rd += rs1
     if rd == rs2 && rd != rs1 {
@@ -153,7 +153,7 @@ fn emit_add(
         return;
     }
 
-    // rs1 == rs2 != rd
+    // rs1 == rs2
     // implies
     // rd = rs1 + rs1
     // or
@@ -166,7 +166,7 @@ fn emit_add(
         return;
     }
 
-    // rd != rs1 != rs2
+    // rd != rs1 && rs1 != rs2
     // implies
     // rd = rs1
     // rd += rs2
