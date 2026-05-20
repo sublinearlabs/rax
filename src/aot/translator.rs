@@ -16,7 +16,7 @@ use crate::decode::Instruction;
 struct Translator {
     emitter: Assembler,
     reg_map: RegisterMapping,
-    temp_allocator: TempAllocator,
+    unused_gprs: Vec<X86Gpr>,
     cf: ControlFlowState,
 }
 
@@ -187,12 +187,11 @@ impl Translator {
     /// Panics if the derived temporary register set contains duplicates.
     fn new(mut emitter: Assembler, plan: MappingPlan, base_riscv_pc: u64) -> Self {
         let (reg_map, unused_gprs) = plan.into_parts();
-        let temp_allocator = TempAllocator::new(unused_gprs);
         let jt_label = emitter.new_dynamic_label();
         Self {
             emitter,
             reg_map,
-            temp_allocator,
+            unused_gprs,
             cf: ControlFlowState {
                 current_riscv_pc: base_riscv_pc,
                 base_riscv_pc,
@@ -220,7 +219,10 @@ impl Translator {
             let riscv_pc_slot = (pc - self.cf.base_riscv_pc) / 4;
             self.emitter
                 .labels_mut()
-                .define_dynamic(*label, self.cf.riscv_pc_to_x86_offset[riscv_pc_slot as usize])
+                .define_dynamic(
+                    *label,
+                    self.cf.riscv_pc_to_x86_offset[riscv_pc_slot as usize],
+                )
                 .expect("failed to define dynamic label");
         }
 
@@ -258,7 +260,11 @@ impl Translator {
     /// Panics when called with a source that maps to `ConstZero` (`x0`).
     /// Callers must simplify `x0`-dependent instruction forms before invoking
     /// this path.
-    fn prepare_input(&mut self, src: RiscvRegister) -> PreparedInput<'_> {
+    fn prepare_input<'a>(
+        &mut self,
+        src: RiscvRegister,
+        temp_allocator: &'a TempAllocator,
+    ) -> PreparedInput<'a> {
         match self.reg_map.get(&src) {
             MapTarget::ConstZero => {
                 panic!("prepare_input invariant violated: x0/ConstZero must be handled by lowering before prepare_input")
@@ -271,8 +277,7 @@ impl Translator {
                 reg,
                 lane: XmmLane::Low,
             } => {
-                let temp = self
-                    .temp_allocator
+                let temp = temp_allocator
                     .allocate()
                     .unwrap_or_else(|_| panic!("prepare_input could not allocate temp GPR"));
 
@@ -286,8 +291,7 @@ impl Translator {
                 reg,
                 lane: XmmLane::High,
             } => {
-                let temp = self
-                    .temp_allocator
+                let temp = temp_allocator
                     .allocate()
                     .unwrap_or_else(|_| panic!("prepare_input could not allocate temp GPR"));
 
@@ -306,7 +310,11 @@ impl Translator {
     ///
     /// Panics when called with a destination that maps to `ConstZero` (`x0`).
     /// Lowering must handle `rd = x0` paths explicitly and avoid this API.
-    fn prepare_output(&mut self, dst: RiscvRegister) -> PreparedOutput<'_> {
+    fn prepare_output<'a>(
+        &mut self,
+        dst: RiscvRegister,
+        temp_allocator: &'a TempAllocator,
+    ) -> PreparedOutput<'a> {
         let dest = *self.reg_map.get(&dst);
         let src = match dest {
             MapTarget::ConstZero => {
@@ -314,8 +322,7 @@ impl Translator {
             }
             MapTarget::Gpr(gpr) => ValueLoc::Mapped(gpr),
             MapTarget::XmmShared { .. } | MapTarget::XmmExclusive(..) => {
-                let temp = self
-                    .temp_allocator
+                let temp = temp_allocator
                     .allocate()
                     .unwrap_or_else(|_| panic!("prepare_output could not allocate temp GPR"));
                 ValueLoc::Temp(temp)
