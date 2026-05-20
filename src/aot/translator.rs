@@ -16,7 +16,7 @@ use crate::decode::Instruction;
 struct Translator {
     emitter: Assembler,
     reg_map: RegisterMapping,
-    temp_allocator: TempAllocator,
+    unused_gprs: Vec<X86Gpr>,
     cf: ControlFlowState,
 }
 
@@ -108,9 +108,6 @@ impl<'a> PreparedOutput<'a> {
         self.src.gpr().id()
     }
 
-    // TODO: allow multiple live PreparedInput/PreparedOutput without re-borrowing Translator;
-    // fix unsafe workaround in prepared_output_drop_after_write_back_does_not_panic.
-
     /// Writes a computed source value back to its architectural destination.
     ///
     /// # Contract
@@ -187,12 +184,11 @@ impl Translator {
     /// Panics if the derived temporary register set contains duplicates.
     fn new(mut emitter: Assembler, plan: MappingPlan, base_riscv_pc: u64) -> Self {
         let (reg_map, unused_gprs) = plan.into_parts();
-        let temp_allocator = TempAllocator::new(unused_gprs);
         let jt_label = emitter.new_dynamic_label();
         Self {
             emitter,
             reg_map,
-            temp_allocator,
+            unused_gprs,
             cf: ControlFlowState {
                 current_riscv_pc: base_riscv_pc,
                 base_riscv_pc,
@@ -201,6 +197,19 @@ impl Translator {
                 jt_label,
             },
         }
+    }
+
+    /// Builds a temp-register allocator from this translator's temp GPR list.
+    ///
+    /// Use one allocator while lowering an instruction and pass it to helper
+    /// emission functions. Temps are released automatically when their
+    /// `AllocatedTemp` values are dropped.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the temp register list contains duplicates.
+    fn temp_allocator(&self) -> TempAllocator {
+        TempAllocator::new(self.unused_gprs.clone())
     }
 
     /// Converts decoded RISC-V instructions to x86 and finalizes control-flow metadata.
@@ -220,7 +229,10 @@ impl Translator {
             let riscv_pc_slot = (pc - self.cf.base_riscv_pc) / 4;
             self.emitter
                 .labels_mut()
-                .define_dynamic(*label, self.cf.riscv_pc_to_x86_offset[riscv_pc_slot as usize])
+                .define_dynamic(
+                    *label,
+                    self.cf.riscv_pc_to_x86_offset[riscv_pc_slot as usize],
+                )
                 .expect("failed to define dynamic label");
         }
 
@@ -258,7 +270,11 @@ impl Translator {
     /// Panics when called with a source that maps to `ConstZero` (`x0`).
     /// Callers must simplify `x0`-dependent instruction forms before invoking
     /// this path.
-    fn prepare_input(&mut self, src: RiscvRegister) -> PreparedInput<'_> {
+    fn prepare_input<'a>(
+        &mut self,
+        src: RiscvRegister,
+        temp_allocator: &'a TempAllocator,
+    ) -> PreparedInput<'a> {
         match self.reg_map.get(&src) {
             MapTarget::ConstZero => {
                 panic!("prepare_input invariant violated: x0/ConstZero must be handled by lowering before prepare_input")
@@ -271,8 +287,7 @@ impl Translator {
                 reg,
                 lane: XmmLane::Low,
             } => {
-                let temp = self
-                    .temp_allocator
+                let temp = temp_allocator
                     .allocate()
                     .unwrap_or_else(|_| panic!("prepare_input could not allocate temp GPR"));
 
@@ -286,8 +301,7 @@ impl Translator {
                 reg,
                 lane: XmmLane::High,
             } => {
-                let temp = self
-                    .temp_allocator
+                let temp = temp_allocator
                     .allocate()
                     .unwrap_or_else(|_| panic!("prepare_input could not allocate temp GPR"));
 
@@ -306,7 +320,11 @@ impl Translator {
     ///
     /// Panics when called with a destination that maps to `ConstZero` (`x0`).
     /// Lowering must handle `rd = x0` paths explicitly and avoid this API.
-    fn prepare_output(&mut self, dst: RiscvRegister) -> PreparedOutput<'_> {
+    fn prepare_output<'a>(
+        &mut self,
+        dst: RiscvRegister,
+        temp_allocator: &'a TempAllocator,
+    ) -> PreparedOutput<'a> {
         let dest = *self.reg_map.get(&dst);
         let src = match dest {
             MapTarget::ConstZero => {
@@ -314,8 +332,7 @@ impl Translator {
             }
             MapTarget::Gpr(gpr) => ValueLoc::Mapped(gpr),
             MapTarget::XmmShared { .. } | MapTarget::XmmExclusive(..) => {
-                let temp = self
-                    .temp_allocator
+                let temp = temp_allocator
                     .allocate()
                     .unwrap_or_else(|_| panic!("prepare_output could not allocate temp GPR"));
                 ValueLoc::Temp(temp)
@@ -355,44 +372,49 @@ mod tests {
     #[should_panic(expected = "prepare_input invariant violated: x0/ConstZero")]
     fn prepare_input_panics_on_x0() {
         let mut translator = new_translator();
-        let _ = translator.prepare_input(RiscvRegister::Zero);
+        let temps = translator.temp_allocator();
+        let _ = translator.prepare_input(RiscvRegister::Zero, &temps);
     }
 
     #[test]
     #[should_panic(expected = "prepare_output invariant violated: x0/ConstZero")]
     fn prepare_output_panics_on_x0() {
         let mut translator = new_translator();
-        let _ = translator.prepare_output(RiscvRegister::Zero);
+        let temps = translator.temp_allocator();
+        let _ = translator.prepare_output(RiscvRegister::Zero, &temps);
     }
 
     #[test]
     #[should_panic(expected = "PreparedOutput dropped before write_back")]
     fn prepared_output_drop_without_write_back_panics() {
         let mut translator = new_translator();
-        let _ = translator.prepare_output(RiscvRegister::A0);
+        let temps = translator.temp_allocator();
+        let _ = translator.prepare_output(RiscvRegister::A0, &temps);
     }
 
     #[test]
     fn prepare_input_gpr_returns_mapped_id() {
         let mut translator = new_translator();
-        let input = translator.prepare_input(RiscvRegister::A0);
+        let temps = translator.temp_allocator();
+        let input = translator.prepare_input(RiscvRegister::A0, &temps);
         assert_eq!(input.id(), X86Gpr::Rdi.id());
     }
 
     #[test]
     fn prepare_output_gpr_uses_mapped_source_id() {
         let mut translator = new_translator();
-        let mut out = translator.prepare_output(RiscvRegister::A0);
+        let temps = translator.temp_allocator();
+        let out = translator.prepare_output(RiscvRegister::A0, &temps);
         assert_eq!(out.id(), X86Gpr::Rdi.id());
-        out.written_back = true;
+        out.write_back(&mut translator);
     }
 
     #[test]
     fn prepared_output_drop_after_write_back_does_not_panic() {
         let mut translator = new_translator();
-        let translator_ptr: *mut Translator = &mut translator;
-        let out = translator.prepare_output(RiscvRegister::A0);
-        unsafe { out.write_back(&mut *translator_ptr) };
+        let temps = translator.temp_allocator();
+        let out = translator.prepare_output(RiscvRegister::A0, &temps);
+        out.write_back(&mut translator);
     }
 
     /// Generate an equivalent x86 ELF file given a RISC-V ELF path.
