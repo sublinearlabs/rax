@@ -15,7 +15,7 @@ use crate::decode::Instruction;
 /// This type owns the emitter and all translation-local state required to
 /// materialize inputs and stage outputs for architectural write-back.
 pub(super) struct Translator {
-    emitter: Assembler,
+    pub(crate) emitter: Assembler,
     reg_map: RegisterMapping,
     unused_gprs: Vec<X86Gpr>,
     cf: ControlFlowState,
@@ -70,7 +70,7 @@ impl<'a> ValueLoc<'a> {
 ///
 /// The translator's strict input policy requires callers to simplify any
 /// `x0` source path before materializing a `PreparedInput`.
-struct PreparedInput<'a> {
+pub(crate) struct PreparedInput<'a> {
     src: ValueLoc<'a>,
 }
 
@@ -84,7 +84,7 @@ impl<'a> PreparedInput<'a> {
     ///
     /// This is the source carrier register code used by instruction encoders.
     /// It is not a RISC-V register index.
-    fn id(&self) -> u8 {
+    pub(crate) fn id(&self) -> u8 {
         self.gpr().id()
     }
 }
@@ -93,7 +93,7 @@ impl<'a> PreparedInput<'a> {
 ///
 /// A prepared output must be explicitly written back; dropping one without
 /// calling `write_back` is considered a programmer error and panics.
-struct PreparedOutput<'a> {
+pub(crate) struct PreparedOutput<'a> {
     src: ValueLoc<'a>,
     dest: MapTarget,
     written_back: bool,
@@ -105,7 +105,7 @@ impl<'a> PreparedOutput<'a> {
     ///
     /// This is the source register code used by instruction encoders. It is
     /// not a destination map id and not a RISC-V register index.
-    fn id(&self) -> u8 {
+    pub(crate) fn id(&self) -> u8 {
         self.src.gpr().id()
     }
 
@@ -120,7 +120,7 @@ impl<'a> PreparedOutput<'a> {
     /// - `Gpr`: source is written to mapped x86 GPR
     /// - `XmmShared`: source is written to selected shared XMM lane
     /// - `XmmExclusive`: source is written to exclusive XMM destination
-    fn write_back(mut self, translator: &mut Translator) {
+    pub(crate) fn write_back(mut self, translator: &mut Translator) {
         let src = self.id();
         match self.dest {
             MapTarget::ConstZero => {
@@ -272,7 +272,7 @@ impl Translator {
     /// Panics when called with a source that maps to `ConstZero` (`x0`).
     /// Callers must simplify `x0`-dependent instruction forms before invoking
     /// this path.
-    fn prepare_input<'a>(
+    pub(crate) fn prepare_input<'a>(
         &mut self,
         src: RiscvRegister,
         temp_allocator: &'a TempAllocator,
@@ -322,7 +322,7 @@ impl Translator {
     ///
     /// Panics when called with a destination that maps to `ConstZero` (`x0`).
     /// Lowering must handle `rd = x0` paths explicitly and avoid this API.
-    fn prepare_output<'a>(
+    pub(crate) fn prepare_output<'a>(
         &mut self,
         dst: RiscvRegister,
         temp_allocator: &'a TempAllocator,
