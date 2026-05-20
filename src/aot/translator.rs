@@ -404,9 +404,9 @@ mod tests {
     fn prepare_output_gpr_uses_mapped_source_id() {
         let mut translator = new_translator();
         let temps = translator.temp_allocator();
-        let mut out = translator.prepare_output(RiscvRegister::A0, &temps);
+        let out = translator.prepare_output(RiscvRegister::A0, &temps);
         assert_eq!(out.id(), X86Gpr::Rdi.id());
-        out.written_back = true;
+        out.write_back(&mut translator);
     }
 
     #[test]
