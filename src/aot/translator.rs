@@ -51,6 +51,7 @@ struct ControlFlowState {
 ///
 /// Values may already reside in a mapped x86 register or be materialized into
 /// a temporary register managed by `TempAllocator`.
+#[derive(Clone)]
 enum ValueLoc<'a> {
     ConstZero,
     Mapped(X86Gpr),
@@ -72,6 +73,7 @@ impl<'a> ValueLoc<'a> {
 ///
 /// The translator's strict input policy requires callers to simplify any
 /// `x0` source path before materializing a `PreparedInput`.
+#[derive(Clone)]
 struct PreparedInput<'a> {
     src: ValueLoc<'a>,
 }
@@ -273,7 +275,7 @@ impl Translator {
         inputs: [RiscvRegister; N],
         temp_allocator: &'a TempAllocator,
     ) -> [PreparedInput<'a>; N] {
-        let mut prepared_inputs = Vec::with_capacity(N);
+        let mut prepared_inputs: Vec<PreparedInput<'a>> = Vec::with_capacity(N);
         let mut seen = Vec::with_capacity(N);
 
         for src in inputs {
@@ -333,58 +335,9 @@ impl Translator {
             }
         }
 
-        prepared_inputs
-    }
-
-    /// Prepares a source register operand for emission.
-    ///
-    /// # Panics
-    ///
-    /// Panics when called with a source that maps to `ConstZero` (`x0`).
-    /// Callers must simplify `x0`-dependent instruction forms before invoking
-    /// this path.
-    fn prepare_input<'a>(
-        &mut self,
-        src: RiscvRegister,
-        temp_allocator: &'a TempAllocator,
-    ) -> PreparedInput<'a> {
-        match self.reg_map.get(&src) {
-            MapTarget::ConstZero => {
-                panic!("prepare_input invariant violated: x0/ConstZero must be handled by lowering before prepare_input")
-            }
-            MapTarget::Gpr(reg) => PreparedInput {
-                src: ValueLoc::Mapped(*reg),
-            },
-            MapTarget::XmmExclusive(reg)
-            | MapTarget::XmmShared {
-                reg,
-                lane: XmmLane::Low,
-            } => {
-                let temp = temp_allocator
-                    .allocate()
-                    .unwrap_or_else(|_| panic!("prepare_input could not allocate temp GPR"));
-
-                dynasm!(self.emitter; movq Rq(temp.id()), Rx(reg.id()));
-
-                PreparedInput {
-                    src: ValueLoc::Temp(temp),
-                }
-            }
-            MapTarget::XmmShared {
-                reg,
-                lane: XmmLane::High,
-            } => {
-                let temp = temp_allocator
-                    .allocate()
-                    .unwrap_or_else(|_| panic!("prepare_input could not allocate temp GPR"));
-
-                dynasm!(self.emitter; pextrq Rq(temp.id()), Rx(reg.id()), 1);
-
-                PreparedInput {
-                    src: ValueLoc::Temp(temp),
-                }
-            }
-        }
+        prepared_inputs.try_into().unwrap_or_else(|_| {
+            unreachable!("we push one prepared_input for each input, hence should be the same size")
+        })
     }
 
     /// Prepares an architectural destination and source carrier for emission.
@@ -408,7 +361,7 @@ impl Translator {
                 let temp = temp_allocator
                     .allocate()
                     .unwrap_or_else(|_| panic!("prepare_output could not allocate temp GPR"));
-                ValueLoc::Temp(temp)
+                ValueLoc::Temp(Rc::new(temp))
             }
         };
 
