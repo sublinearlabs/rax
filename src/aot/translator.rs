@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
 
 use dynasmrt::{dynasm, x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
 
@@ -54,7 +54,7 @@ struct ControlFlowState {
 enum ValueLoc<'a> {
     ConstZero,
     Mapped(X86Gpr),
-    Temp(AllocatedTemp<'a>),
+    Temp(Rc<AllocatedTemp<'a>>),
 }
 
 impl<'a> ValueLoc<'a> {
@@ -63,7 +63,7 @@ impl<'a> ValueLoc<'a> {
         match self {
             Self::ConstZero => panic!("should not materialize const a zero input"),
             Self::Mapped(reg) => *reg,
-            Self::Temp(reg) => **reg,
+            Self::Temp(reg) => ***reg,
         }
     }
 }
@@ -278,12 +278,58 @@ impl Translator {
         // when any is a zero we should not emit
         // and when there is some duplication we shouldn't emit either
 
-        let mut prepared_inputs = [];
+        let mut prepared_inputs = Vec::with_capacity(N);
+        let mut seen = vec![];
 
         for src in inputs {
             if src.is_zero() {
-                // push the prepared_input for zero
+                // we avoid emissions for the zero register
+                prepared_inputs.push(PreparedInput {
+                    src: ValueLoc::ConstZero,
+                });
                 continue;
+            }
+
+            // here we should check if we have seen this input before
+            let is_duplicate = seen.contains(&src);
+
+            match self.reg_map.get(&src) {
+                MapTarget::ConstZero => {
+                    unreachable!("we handled the zero case above")
+                }
+                MapTarget::Gpr(reg) => PreparedInput {
+                    src: ValueLoc::Mapped(*reg),
+                },
+                MapTarget::XmmExclusive(reg)
+                | MapTarget::XmmShared {
+                    reg,
+                    lane: XmmLane::Low,
+                } => {
+                    if is_duplicate {
+                        // we should just return the last one we pushed
+                    }
+
+                    let temp = temp_allocator.allocate().unwrap_or_else(|_| {
+                        panic!("prepare_input could not allocate temp GPR")
+                    });
+                    dynasm!(self.emitter ; movq Rq(temp.id()), Rx(reg.id()));
+                    // we should push this to some location
+                    // basically saying we have seen it so we can retreive later
+                    // but creating a copy will lead to panic when we drop twice
+                    // so what we need is some reference counter
+                    // because now multiple can own an allocated temp
+                    // and we don't want to drop until all is dropped
+                    PreparedInput {
+                        src: ValueLoc::Temp(temp),
+                    }
+                    todo!()
+                }
+                MapTarget::XmmShared {
+                    reg,
+                    lane: XmmLane::High,
+                } => {
+                    todo!()
+                }
             }
         }
         todo!()
