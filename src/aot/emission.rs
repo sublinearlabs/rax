@@ -184,6 +184,13 @@ fn emit_add(
 
         ZeroCase::Rs1Zero => {
             // add rd, 0, rs2 -> rd = rs2
+
+            // if rd and rs2 point to the same register
+            // no need to waste a mov instruction
+            if rd.id() == rs2.id() {
+                return;
+            }
+
             dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs2.id()));
             rd.write_back(translator);
             return;
@@ -191,6 +198,13 @@ fn emit_add(
 
         ZeroCase::Rs2Zero => {
             // add rd, rs1, 0 -> rd = rs1
+
+            // if rd and rs1 point to the same register
+            // no need to waste a mov instruction
+            if rd.id() == rs1.id() {
+                return;
+            }
+
             dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
             rd.write_back(translator);
             return;
@@ -200,11 +214,44 @@ fn emit_add(
     }
 
     match classify_shadow_case(&rd, &rs1, &rs2) {
-        ShadowCase::AllEqual => todo!(),
-        ShadowCase::RdEqRs1 => todo!(),
-        ShadowCase::RdEqRs2 => todo!(),
-        ShadowCase::Rs1EqRs2 => todo!(),
-        ShadowCase::AllDistinct => todo!(),
+        ShadowCase::AllEqual => {
+            // add rd, rd, rd
+            // implies rd += rd
+            dynasm!(translator.emitter ; add Rq(rd.id()), Rq(rd.id()));
+            rd.write_back(translator);
+            return;
+        }
+
+        ShadowCase::RdEqRs1 => {
+            // add rd, rd, rs2
+            // imples rd += rs2
+            dynasm!(translator.emitter ; add Rq(rd.id()), Rq(rs2.id()));
+            rd.write_back(translator);
+            return;
+        }
+
+        ShadowCase::RdEqRs2 => {
+            // add rd, rs1, rd
+            // implies rd += rs1
+            dynasm!(translator.emitter ; add Rq(rd.id()), Rq(rs1.id()));
+            rd.write_back(translator);
+            return;
+        }
+
+        ShadowCase::Rs1EqRs2 => {
+            // add rd, rs1, rs1
+            // implies rd = rs1 + rs1
+            dynasm!(translator.emitter ; lea Rq(rd.id()), [Rq(rs1.id()) + Rq(rs1.id())]);
+            rd.write_back(translator);
+            return;
+        }
+
+        ShadowCase::AllDistinct => {
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            dynasm!(translator.emitter ; add Rq(rd.id()), Rq(rs2.id()));
+            rd.write_back(translator);
+            return;
+        }
     }
 }
 
