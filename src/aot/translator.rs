@@ -128,12 +128,23 @@ pub(crate) struct PreparedOutput<'a> {
 }
 
 impl<'a> PreparedOutput<'a> {
+    /// Returns whether this prepared output targets architectural zero (`x0`).
+    ///
+    /// A zero output represents an elided architectural write destination and
+    /// does not permit carrier-id lookup or write-back emission.
+    pub(crate) fn is_zero(&self) -> bool {
+        matches!(self.dest, MapTarget::ConstZero)
+    }
+
     /// Returns the x86-64 GPR encoding id (`0..=15`) of this prepared output
     /// source carrier.
     ///
     /// This is the source register code used by instruction encoders. It is
     /// not a destination map id and not a RISC-V register index.
     pub(crate) fn id(&self) -> u8 {
+        if self.is_zero() {
+            panic!("PreparedOutput::id called on zero/elided output");
+        }
         self.src.gpr().id()
     }
 
@@ -149,12 +160,13 @@ impl<'a> PreparedOutput<'a> {
     /// - `XmmShared`: source is written to selected shared XMM lane
     /// - `XmmExclusive`: source is written to exclusive XMM destination
     pub(crate) fn write_back(mut self, translator: &mut Translator) {
+        if self.is_zero() {
+            panic!("PreparedOutput::write_back called on zero/elided output");
+        }
         let src = self.id();
         match self.dest {
             MapTarget::ConstZero => {
-                unreachable!(
-                    "write_back invariant violated: ConstZero destination should never reach PreparedOutput"
-                )
+                unreachable!("zero/elided output is rejected before write-back dispatch")
             }
             MapTarget::Gpr(dst) => {
                 if self.src.gpr() != dst {
@@ -377,10 +389,8 @@ impl Translator {
 
     /// Prepares an architectural destination and source carrier for emission.
     ///
-    /// # Panics
-    ///
-    /// Panics when called with a destination that maps to `ConstZero` (`x0`).
-    /// Lowering must handle `rd = x0` paths explicitly and avoid this API.
+    /// For `x0` destinations this returns a zero/elided output, which must not
+    /// be used as a real write-back carrier.
     pub(crate) fn prepare_output<'a>(
         &mut self,
         dst: RiscvRegister,
@@ -388,9 +398,7 @@ impl Translator {
     ) -> PreparedOutput<'a> {
         let dest = *self.reg_map.get(&dst);
         let src = match dest {
-            MapTarget::ConstZero => {
-                panic!("prepare_output invariant violated: x0/ConstZero destination must be handled by lowering before prepare_output")
-            }
+            MapTarget::ConstZero => ValueLoc::ConstZero,
             MapTarget::Gpr(gpr) => ValueLoc::Mapped(gpr),
             MapTarget::XmmShared { .. } | MapTarget::XmmExclusive(..) => {
                 let temp = temp_allocator
@@ -403,7 +411,7 @@ impl Translator {
         PreparedOutput {
             src,
             dest,
-            written_back: false,
+            written_back: matches!(dest, MapTarget::ConstZero),
         }
     }
 }
@@ -453,8 +461,33 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "prepare_output invariant violated: x0/ConstZero")]
-    fn prepare_output_panics_on_x0() {
+    fn prepare_output_x0_returns_zero_output() {
+        let mut translator = new_translator();
+        let temps = translator.temp_allocator();
+        let out = translator.prepare_output(RiscvRegister::Zero, &temps);
+        assert!(out.is_zero());
+    }
+
+    #[test]
+    #[should_panic(expected = "PreparedOutput::id called on zero/elided output")]
+    fn prepare_output_id_panics_on_zero_output() {
+        let mut translator = new_translator();
+        let temps = translator.temp_allocator();
+        let out = translator.prepare_output(RiscvRegister::Zero, &temps);
+        let _ = out.id();
+    }
+
+    #[test]
+    #[should_panic(expected = "PreparedOutput::write_back called on zero/elided output")]
+    fn prepare_output_write_back_panics_on_zero_output() {
+        let mut translator = new_translator();
+        let temps = translator.temp_allocator();
+        let out = translator.prepare_output(RiscvRegister::Zero, &temps);
+        out.write_back(&mut translator);
+    }
+
+    #[test]
+    fn prepare_output_zero_drop_does_not_panic() {
         let mut translator = new_translator();
         let temps = translator.temp_allocator();
         let _ = translator.prepare_output(RiscvRegister::Zero, &temps);
