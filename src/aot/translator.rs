@@ -89,7 +89,7 @@ impl<'a> PreparedInput<'a> {
     ///
     /// Callers should use this guard before requesting a concrete carrier via
     /// `gpr()`/`id()`.
-    fn is_zero(&self) -> bool {
+    pub(crate) fn is_zero(&self) -> bool {
         matches!(self.src, ValueLoc::ConstZero)
     }
 
@@ -112,7 +112,7 @@ impl<'a> PreparedInput<'a> {
     ///
     /// Panics when this input is `ConstZero`.
     /// Callers must branch on zero-valued inputs before calling this method.
-    fn id(&self) -> u8 {
+    pub(crate) fn id(&self) -> u8 {
         self.gpr().id()
     }
 }
