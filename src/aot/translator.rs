@@ -85,6 +85,14 @@ struct PreparedInput<'a> {
 }
 
 impl<'a> PreparedInput<'a> {
+    /// Returns whether this prepared input represents architectural zero (`x0`).
+    ///
+    /// Callers should use this guard before requesting a concrete carrier via
+    /// `gpr()`/`id()`.
+    fn is_zero(&self) -> bool {
+        matches!(self.src, ValueLoc::ConstZero)
+    }
+
     /// Returns the x86 GPR to use as the emitted instruction source.
     ///
     /// # Panics
