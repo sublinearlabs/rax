@@ -188,6 +188,7 @@ fn emit_add(
             // if rd and rs2 point to the same register
             // no need to waste a mov instruction
             if rd.id() == rs2.id() {
+                rd.commit_unchanged();
                 return;
             }
 
@@ -202,6 +203,7 @@ fn emit_add(
             // if rd and rs1 point to the same register
             // no need to waste a mov instruction
             if rd.id() == rs1.id() {
+                rd.commit_unchanged();
                 return;
             }
 

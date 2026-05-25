@@ -201,6 +201,18 @@ impl<'a> PreparedOutput<'a> {
         }
         self.written_back = true;
     }
+
+    /// Commits an unchanged prepared output without emitting write-back code.
+    ///
+    /// # Contract
+    ///
+    /// Callers must guarantee that the architectural destination already
+    /// contains the correct result value for this instruction.
+    ///
+    /// This marks write-back as completed and emits no instructions.
+    pub(crate) fn commit_unchanged(mut self) {
+        self.written_back = true;
+    }
 }
 
 impl<'a> Drop for PreparedOutput<'a> {
