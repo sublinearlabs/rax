@@ -179,7 +179,9 @@ mod tests {
             .map_gpr(RiscvRegister::Sp, X86Gpr::Rbx)
             .expect("mapping should succeed");
 
-        let plan = builder.build().expect("builder should produce valid mapping");
+        let plan = builder
+            .build()
+            .expect("builder should produce valid mapping");
         let (mapping, unused) = plan.into_parts();
         assert_eq!(
             mapping.get(&RiscvRegister::Ra),
