@@ -1,5 +1,5 @@
 use crate::aot::{registers::RiscvRegister, temp_alloc::TempAllocator, translator::Translator};
-use crate::decode::{B, I, J, R, S, Sh, U, Instruction};
+use crate::decode::{Instruction, Sh, B, I, J, R, S, U};
 
 pub(super) fn emit_instruction(
     translator: &mut Translator,
@@ -7,7 +7,9 @@ pub(super) fn emit_instruction(
     insn: &Instruction,
 ) {
     match insn {
-        Instruction::Add(R { rd, rs1, rs2 }) => emit_add(translator, temps, rv(rd), rv(rs1), rv(rs2)),
+        Instruction::Add(R { rd, rs1, rs2 }) => {
+            emit_add(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
         Instruction::Sub(R { rd, rs1, rs2 }) => {
             emit_sub(translator, temps, rv(rd), rv(rs1), rv(rs2))
         }
@@ -30,12 +32,8 @@ pub(super) fn emit_instruction(
         Instruction::Sll(R { rd, rs1, rs2 }) => {
             emit_sll(translator, temps, rv(rd), rv(rs1), rv(rs2))
         }
-        Instruction::Sb(S { rs1, rs2, imm }) => {
-            emit_sb(translator, temps, rv(rs1), rv(rs2), *imm)
-        }
-        Instruction::Sd(S { rs1, rs2, imm }) => {
-            emit_sd(translator, temps, rv(rs1), rv(rs2), *imm)
-        }
+        Instruction::Sb(S { rs1, rs2, imm }) => emit_sb(translator, temps, rv(rs1), rv(rs2), *imm),
+        Instruction::Sd(S { rs1, rs2, imm }) => emit_sd(translator, temps, rv(rs1), rv(rs2), *imm),
         Instruction::Lui(U { rd, imm }) => emit_lui(translator, temps, rv(rd), *imm),
         Instruction::Auipc(U { rd, imm }) => emit_auipc(translator, temps, rv(rd), *imm),
         Instruction::Beq(B { rs1, rs2, imm }) => {

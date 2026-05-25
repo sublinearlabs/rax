@@ -109,15 +109,24 @@ impl RegisterMapping {
         b.map_gpr(RiscvRegister::T0, X86Gpr::R14).unwrap();
         b.map_gpr(RiscvRegister::T1, X86Gpr::R15).unwrap();
         b.map_gpr(RiscvRegister::T2, X86Gpr::Rbp).unwrap();
-        b.map_xmm_exclusive(RiscvRegister::S0, X86Xmm::Xmm1).unwrap();
-        b.map_xmm_exclusive(RiscvRegister::S1, X86Xmm::Xmm2).unwrap();
-        b.map_xmm_exclusive(RiscvRegister::A6, X86Xmm::Xmm3).unwrap();
-        b.map_xmm_exclusive(RiscvRegister::S2, X86Xmm::Xmm4).unwrap();
-        b.map_xmm_exclusive(RiscvRegister::S3, X86Xmm::Xmm5).unwrap();
-        b.map_xmm_exclusive(RiscvRegister::S4, X86Xmm::Xmm6).unwrap();
-        b.map_xmm_exclusive(RiscvRegister::S5, X86Xmm::Xmm7).unwrap();
-        b.map_xmm_exclusive(RiscvRegister::S6, X86Xmm::Xmm8).unwrap();
-        b.map_xmm_exclusive(RiscvRegister::S7, X86Xmm::Xmm9).unwrap();
+        b.map_xmm_exclusive(RiscvRegister::S0, X86Xmm::Xmm1)
+            .unwrap();
+        b.map_xmm_exclusive(RiscvRegister::S1, X86Xmm::Xmm2)
+            .unwrap();
+        b.map_xmm_exclusive(RiscvRegister::A6, X86Xmm::Xmm3)
+            .unwrap();
+        b.map_xmm_exclusive(RiscvRegister::S2, X86Xmm::Xmm4)
+            .unwrap();
+        b.map_xmm_exclusive(RiscvRegister::S3, X86Xmm::Xmm5)
+            .unwrap();
+        b.map_xmm_exclusive(RiscvRegister::S4, X86Xmm::Xmm6)
+            .unwrap();
+        b.map_xmm_exclusive(RiscvRegister::S5, X86Xmm::Xmm7)
+            .unwrap();
+        b.map_xmm_exclusive(RiscvRegister::S6, X86Xmm::Xmm8)
+            .unwrap();
+        b.map_xmm_exclusive(RiscvRegister::S7, X86Xmm::Xmm9)
+            .unwrap();
         b.map_xmm_exclusive(RiscvRegister::S8, X86Xmm::Xmm10)
             .unwrap();
         b.map_xmm_exclusive(RiscvRegister::S9, X86Xmm::Xmm11)
