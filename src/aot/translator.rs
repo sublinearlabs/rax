@@ -60,6 +60,12 @@ enum ValueLoc<'a> {
 
 impl<'a> ValueLoc<'a> {
     /// Returns the x86 GPR backing this value location.
+    ///
+    /// # Panics
+    ///
+    /// Panics for `ConstZero`, which has no backing x86 GPR.
+    /// Zero-valued sources must be handled by lowering logic before requesting
+    /// a concrete carrier register.
     fn gpr(&self) -> X86Gpr {
         match self {
             Self::ConstZero => panic!("should not materialize const a zero input"),
@@ -69,10 +75,10 @@ impl<'a> ValueLoc<'a> {
     }
 }
 
-/// Prepared non-zero input ready for instruction emission.
+/// Prepared input ready for instruction emission.
 ///
-/// The translator's strict input policy requires callers to simplify any
-/// `x0` source path before materializing a `PreparedInput`.
+/// Inputs may be materialized from mapped GPRs/XMM lanes or represented as
+/// `ConstZero` when the architectural source is `x0`.
 #[derive(Clone)]
 struct PreparedInput<'a> {
     src: ValueLoc<'a>,
@@ -80,6 +86,11 @@ struct PreparedInput<'a> {
 
 impl<'a> PreparedInput<'a> {
     /// Returns the x86 GPR to use as the emitted instruction source.
+    ///
+    /// # Panics
+    ///
+    /// Panics when this input is `ConstZero`.
+    /// Callers must branch on zero-valued inputs before calling this method.
     fn gpr(&self) -> X86Gpr {
         self.src.gpr()
     }
@@ -88,6 +99,11 @@ impl<'a> PreparedInput<'a> {
     ///
     /// This is the source carrier register code used by instruction encoders.
     /// It is not a RISC-V register index.
+    ///
+    /// # Panics
+    ///
+    /// Panics when this input is `ConstZero`.
+    /// Callers must branch on zero-valued inputs before calling this method.
     fn id(&self) -> u8 {
         self.gpr().id()
     }
@@ -269,7 +285,18 @@ impl Translator {
         buf.to_vec()
     }
 
-    // TODO: add documentation
+    /// Prepares a fixed set of architectural inputs for one instruction.
+    ///
+    /// This helper performs operand-level simplification and materialization:
+    /// - `x0` inputs are represented as `ConstZero` and emit no materialization
+    ///   instructions.
+    /// - Duplicate architectural inputs reuse the first prepared value.
+    /// - Inputs mapped to XMM locations are materialized once into a temp GPR
+    ///   and shared across duplicates through `Rc` ownership.
+    ///
+    /// # Panics
+    ///
+    /// Panics when a required temp GPR cannot be allocated.
     fn prepare_inputs<'a, const N: usize>(
         &mut self,
         inputs: [RiscvRegister; N],
