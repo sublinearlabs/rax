@@ -1,7 +1,10 @@
 use dynasmrt::{dynasm, DynasmApi};
 
-use crate::aot::translator;
-use crate::aot::{registers::RiscvRegister, temp_alloc::TempAllocator, translator::Translator};
+use crate::aot::{
+    registers::RiscvRegister,
+    temp_alloc::TempAllocator,
+    translator::{PreparedInput, PreparedOutput, Translator},
+};
 use crate::decode::{Instruction, Sh, B, I, J, R, S, U};
 
 pub(super) fn emit_instruction(
@@ -108,8 +111,12 @@ enum ShadowCase {
     AllDistinct,
 }
 
-/// Classifies zero-related simplification cases for a 3-register operation.
-fn classify_zero_case(rd: RiscvRegister, rs1: RiscvRegister, rs2: RiscvRegister) -> ZeroCase {
+/// Classifies zero-related simplification cases for prepared operands.
+fn classify_zero_case(
+    rd: &PreparedOutput<'_>,
+    rs1: &PreparedInput<'_>,
+    rs2: &PreparedInput<'_>,
+) -> ZeroCase {
     if rd.is_zero() {
         return ZeroCase::RdZero;
     }
@@ -125,18 +132,26 @@ fn classify_zero_case(rd: RiscvRegister, rs1: RiscvRegister, rs2: RiscvRegister)
     ZeroCase::None
 }
 
-/// Classifies alias/equality relationships for a 3-register operation.
-fn classify_shadow_case(rd: RiscvRegister, rs1: RiscvRegister, rs2: RiscvRegister) -> ShadowCase {
-    if rd == rs1 && rs1 == rs2 {
+/// Classifies alias/equality relationships for prepared non-zero operands.
+fn classify_shadow_case(
+    rd: &PreparedOutput<'_>,
+    rs1: &PreparedInput<'_>,
+    rs2: &PreparedInput<'_>,
+) -> ShadowCase {
+    let rd_id = rd.id();
+    let rs1_id = rs1.id();
+    let rs2_id = rs2.id();
+
+    if rd_id == rs1_id && rs1_id == rs2_id {
         return ShadowCase::AllEqual;
     }
-    if rd == rs1 {
+    if rd_id == rs1_id {
         return ShadowCase::RdEqRs1;
     }
-    if rd == rs2 {
+    if rd_id == rs2_id {
         return ShadowCase::RdEqRs2;
     }
-    if rs1 == rs2 {
+    if rs1_id == rs2_id {
         return ShadowCase::Rs1EqRs2;
     }
     ShadowCase::AllDistinct
