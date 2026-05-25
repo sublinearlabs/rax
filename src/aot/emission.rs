@@ -1,5 +1,6 @@
 use dynasmrt::{dynasm, DynasmApi};
 
+use crate::aot::translator;
 use crate::aot::{registers::RiscvRegister, temp_alloc::TempAllocator, translator::Translator};
 use crate::decode::{Instruction, Sh, B, I, J, R, S, U};
 
@@ -125,11 +126,7 @@ fn classify_zero_case(rd: RiscvRegister, rs1: RiscvRegister, rs2: RiscvRegister)
 }
 
 /// Classifies alias/equality relationships for a 3-register operation.
-fn classify_shadow_case(
-    rd: RiscvRegister,
-    rs1: RiscvRegister,
-    rs2: RiscvRegister,
-) -> ShadowCase {
+fn classify_shadow_case(rd: RiscvRegister, rs1: RiscvRegister, rs2: RiscvRegister) -> ShadowCase {
     if rd == rs1 && rs1 == rs2 {
         return ShadowCase::AllEqual;
     }
@@ -154,110 +151,127 @@ fn emit_add(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
-    // x0 is hardwired to zero. writes can be ignored
     if rd.is_zero() {
         return;
     }
 
-    // add rd, 0, 0 -> rd = 0
-    if rs1.is_zero() && rs2.is_zero() {
-        let rd = translator.prepare_output(rd, temps);
-        // zero out the rd register
-        dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
-        rd.write_back(translator);
-        return;
-    }
-
-    // add rd, 0, rs2 -> rd = rs2
-    if rs1.is_zero() {
-        // if rd and rs2 point to the same register
-        // no need to waste a move instruction
-        if rd == rs2 {
-            return;
-        }
-
-        let rs2 = translator.prepare_input(rs2, temps);
-        let rd = translator.prepare_output(rd, temps);
-        // move rs2 into rd
-        dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs2.id()));
-        rd.write_back(translator);
-        return;
-    }
-
-    // add rd, rs1, 0 -> rd = rs1
-    if rs2.is_zero() {
-        // if rd and rs1 point to the same register
-        // no need to waste a move instruction
-        if rd == rs1 {
-            return;
-        }
-
-        let rs1 = translator.prepare_input(rs1, temps);
-        let rd = translator.prepare_output(rd, temps);
-        // move rs1 into rd
-        dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
-        rd.write_back(translator);
-        return;
-    }
-
-    // shadow cases
-
-    // rd == rs1 == rs2
-    // implies
-    // rd += rd
-    if rd == rs1 && rd == rs2 {
-        let rd = translator.prepare_output(rd, temps);
-        dynasm!(translator.emitter ; add Rq(rd.id()), Rq(rd.id()));
-        rd.write_back(translator);
-        return;
-    }
-
-    // rd == rs1
-    // implies
-    // rd += rs2
-    if rd == rs1 && rd != rs2 {
-        let rs2 = translator.prepare_input(rs2, temps);
-        let rd = translator.prepare_output(rd, temps);
-        dynasm!(translator.emitter ; add Rq(rd.id()), Rq(rs2.id()));
-        rd.write_back(translator);
-        return;
-    }
-
-    // rd == rs2
-    // implies
-    // rd += rs1
-    if rd == rs2 && rd != rs1 {
-        let rs1 = translator.prepare_input(rs1, temps);
-        let rd = translator.prepare_output(rd, temps);
-        dynasm!(translator.emitter ; add Rq(rd.id()), Rq(rs1.id()));
-        rd.write_back(translator);
-        return;
-    }
-
-    // rs1 == rs2
-    // implies
-    // rd = rs1 + rs1
-    // or
-    // rd = rs2 + rs2
-    if rs1 == rs2 && rs1 != rd {
-        let rs1 = translator.prepare_input(rs1, temps);
-        let rd = translator.prepare_output(rd, temps);
-        dynasm!(translator.emitter ; lea Rq(rd.id()), [Rq(rs1.id()) + Rq(rs1.id())]);
-        rd.write_back(translator);
-        return;
-    }
-
-    // rd != rs1 && rs1 != rs2 && rd != rs2
-    // implies
-    // rd = rs1
-    // rd += rs2
-    let rs1 = translator.prepare_input(rs1, temps);
-    let rs2 = translator.prepare_input(rs2, temps);
+    let [rs1, rs2] = translator.prepare_inputs([rs1, rs2], temps);
     let rd = translator.prepare_output(rd, temps);
-    dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
-    dynasm!(translator.emitter ; add Rq(rd.id()), Rq(rs2.id()));
-    rd.write_back(translator);
+
+    // match classify_zero_case(rd, rs1, rs2)
 }
+
+// fn emit_add(
+//     translator: &mut Translator,
+//     temps: &TempAllocator,
+//     rd: RiscvRegister,
+//     rs1: RiscvRegister,
+//     rs2: RiscvRegister,
+// ) {
+//     // x0 is hardwired to zero. writes can be ignored
+//     if rd.is_zero() {
+//         return;
+//     }
+//
+//     // add rd, 0, 0 -> rd = 0
+//     if rs1.is_zero() && rs2.is_zero() {
+//         let rd = translator.prepare_output(rd, temps);
+//         // zero out the rd register
+//         dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+//         rd.write_back(translator);
+//         return;
+//     }
+//
+//     // add rd, 0, rs2 -> rd = rs2
+//     if rs1.is_zero() {
+//         // if rd and rs2 point to the same register
+//         // no need to waste a move instruction
+//         if rd == rs2 {
+//             return;
+//         }
+//
+//         let rs2 = translator.prepare_input(rs2, temps);
+//         let rd = translator.prepare_output(rd, temps);
+//         // move rs2 into rd
+//         dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs2.id()));
+//         rd.write_back(translator);
+//         return;
+//     }
+//
+//     // add rd, rs1, 0 -> rd = rs1
+//     if rs2.is_zero() {
+//         // if rd and rs1 point to the same register
+//         // no need to waste a move instruction
+//         if rd == rs1 {
+//             return;
+//         }
+//
+//         let rs1 = translator.prepare_input(rs1, temps);
+//         let rd = translator.prepare_output(rd, temps);
+//         // move rs1 into rd
+//         dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+//         rd.write_back(translator);
+//         return;
+//     }
+//
+//     // shadow cases
+//
+//     // rd == rs1 == rs2
+//     // implies
+//     // rd += rd
+//     if rd == rs1 && rd == rs2 {
+//         let rd = translator.prepare_output(rd, temps);
+//         dynasm!(translator.emitter ; add Rq(rd.id()), Rq(rd.id()));
+//         rd.write_back(translator);
+//         return;
+//     }
+//
+//     // rd == rs1
+//     // implies
+//     // rd += rs2
+//     if rd == rs1 && rd != rs2 {
+//         let rs2 = translator.prepare_input(rs2, temps);
+//         let rd = translator.prepare_output(rd, temps);
+//         dynasm!(translator.emitter ; add Rq(rd.id()), Rq(rs2.id()));
+//         rd.write_back(translator);
+//         return;
+//     }
+//
+//     // rd == rs2
+//     // implies
+//     // rd += rs1
+//     if rd == rs2 && rd != rs1 {
+//         let rs1 = translator.prepare_input(rs1, temps);
+//         let rd = translator.prepare_output(rd, temps);
+//         dynasm!(translator.emitter ; add Rq(rd.id()), Rq(rs1.id()));
+//         rd.write_back(translator);
+//         return;
+//     }
+//
+//     // rs1 == rs2
+//     // implies
+//     // rd = rs1 + rs1
+//     // or
+//     // rd = rs2 + rs2
+//     if rs1 == rs2 && rs1 != rd {
+//         let rs1 = translator.prepare_input(rs1, temps);
+//         let rd = translator.prepare_output(rd, temps);
+//         dynasm!(translator.emitter ; lea Rq(rd.id()), [Rq(rs1.id()) + Rq(rs1.id())]);
+//         rd.write_back(translator);
+//         return;
+//     }
+//
+//     // rd != rs1 && rs1 != rs2 && rd != rs2
+//     // implies
+//     // rd = rs1
+//     // rd += rs2
+//     let rs1 = translator.prepare_input(rs1, temps);
+//     let rs2 = translator.prepare_input(rs2, temps);
+//     let rd = translator.prepare_output(rd, temps);
+//     dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+//     dynasm!(translator.emitter ; add Rq(rd.id()), Rq(rs2.id()));
+//     rd.write_back(translator);
+// }
 
 /// RV64 `sub`: 64-bit wrapping subtraction.
 /// rd <- (rs1 - rs2) mod 2^64
@@ -268,107 +282,117 @@ fn emit_sub(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
-    // x0 is hardwired to zero. writes can be ignored
-    if rd.is_zero() {
-        return;
-    }
-
-    // sub rd, 0, 0 -> rd = 0
-    if rs1.is_zero() && rs2.is_zero() {
-        let rd = translator.prepare_output(rd, temps);
-        // zero out the rd register
-        dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
-        rd.write_back(translator);
-        return;
-    }
-
-    // sub rd, 0, rs2 -> rd = -rs2
-    if rs1.is_zero() {
-        // determine if rd and rs2 point to the same riscv register
-        let rd_shadows_rs2 = rd == rs2;
-
-        let rd = translator.prepare_output(rd, temps);
-
-        // if rd doesn't shadow rs2
-        // we need to move rs2 into rd
-        if !rd_shadows_rs2 {
-            let rs2 = translator.prepare_input(rs2, temps);
-            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs2.id()));
-        }
-
-        dynasm!(translator.emitter ; neg Rq(rd.id()));
-        rd.write_back(translator);
-        return;
-    }
-
-    // sub rd, rs1, 0 -> rd = rs1
-    if rs2.is_zero() {
-        // if rd and rs1 point to the same register
-        // no need to waste a move instruction
-        if rd == rs1 {
-            return;
-        }
-
-        let rs1 = translator.prepare_input(rs1, temps);
-        let rd = translator.prepare_output(rd, temps);
-        // move rs1 into rd
-        dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
-        rd.write_back(translator);
-        return;
-    }
-
-    // shadow cases
-
-    // rd == rs1 == rs2
-    // implies
-    // rd = rd - rd
-    // rd = 0
-    //
-    // this is the same result for
-    // rs1 == rs2 even when rd != rs1(2)
-    if rs1 == rs2 {
-        let rd = translator.prepare_output(rd, temps);
-        // zero out the rd register
-        dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
-        rd.write_back(translator);
-        return;
-    }
-
-    // rd == rs1
-    // implies
-    // rd -= rs2
-    if rd == rs1 {
-        let rs2 = translator.prepare_input(rs2, temps);
-        let rd = translator.prepare_output(rd, temps);
-        dynasm!(translator.emitter ; sub Rq(rd.id()), Rq(rs2.id()));
-        rd.write_back(translator);
-        return;
-    }
-
-    // rd == rs2
-    // we want rd = rs1 - rs2
-    // hence we could negate rd
-    // then add rs1
-    if rd == rs2 {
-        let rs1 = translator.prepare_input(rs1, temps);
-        let rd = translator.prepare_output(rd, temps);
-        dynasm!(translator.emitter ; neg Rq(rd.id()));
-        dynasm!(translator.emitter ; add Rq(rd.id()), Rq(rs1.id()));
-        rd.write_back(translator);
-        return;
-    }
-
-    // rd != rs1 && rs1 != rs2 && rd != rs2
-    // implies
-    // rd = rs1
-    // rd -= rs2
-    let rs1 = translator.prepare_input(rs1, temps);
-    let rs2 = translator.prepare_input(rs2, temps);
-    let rd = translator.prepare_output(rd, temps);
-    dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
-    dynasm!(translator.emitter ; sub Rq(rd.id()), Rq(rs2.id()));
-    rd.write_back(translator);
+    todo!()
 }
+
+// fn emit_sub(
+//     translator: &mut Translator,
+//     temps: &TempAllocator,
+//     rd: RiscvRegister,
+//     rs1: RiscvRegister,
+//     rs2: RiscvRegister,
+// ) {
+//     // x0 is hardwired to zero. writes can be ignored
+//     if rd.is_zero() {
+//         return;
+//     }
+//
+//     // sub rd, 0, 0 -> rd = 0
+//     if rs1.is_zero() && rs2.is_zero() {
+//         let rd = translator.prepare_output(rd, temps);
+//         // zero out the rd register
+//         dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+//         rd.write_back(translator);
+//         return;
+//     }
+//
+//     // sub rd, 0, rs2 -> rd = -rs2
+//     if rs1.is_zero() {
+//         // determine if rd and rs2 point to the same riscv register
+//         let rd_shadows_rs2 = rd == rs2;
+//
+//         let rd = translator.prepare_output(rd, temps);
+//
+//         // if rd doesn't shadow rs2
+//         // we need to move rs2 into rd
+//         if !rd_shadows_rs2 {
+//             let rs2 = translator.prepare_input(rs2, temps);
+//             dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs2.id()));
+//         }
+//
+//         dynasm!(translator.emitter ; neg Rq(rd.id()));
+//         rd.write_back(translator);
+//         return;
+//     }
+//
+//     // sub rd, rs1, 0 -> rd = rs1
+//     if rs2.is_zero() {
+//         // if rd and rs1 point to the same register
+//         // no need to waste a move instruction
+//         if rd == rs1 {
+//             return;
+//         }
+//
+//         let rs1 = translator.prepare_input(rs1, temps);
+//         let rd = translator.prepare_output(rd, temps);
+//         // move rs1 into rd
+//         dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+//         rd.write_back(translator);
+//         return;
+//     }
+//
+//     // shadow cases
+//
+//     // rd == rs1 == rs2
+//     // implies
+//     // rd = rd - rd
+//     // rd = 0
+//     //
+//     // this is the same result for
+//     // rs1 == rs2 even when rd != rs1(2)
+//     if rs1 == rs2 {
+//         let rd = translator.prepare_output(rd, temps);
+//         // zero out the rd register
+//         dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+//         rd.write_back(translator);
+//         return;
+//     }
+//
+//     // rd == rs1
+//     // implies
+//     // rd -= rs2
+//     if rd == rs1 {
+//         let rs2 = translator.prepare_input(rs2, temps);
+//         let rd = translator.prepare_output(rd, temps);
+//         dynasm!(translator.emitter ; sub Rq(rd.id()), Rq(rs2.id()));
+//         rd.write_back(translator);
+//         return;
+//     }
+//
+//     // rd == rs2
+//     // we want rd = rs1 - rs2
+//     // hence we could negate rd
+//     // then add rs1
+//     if rd == rs2 {
+//         let rs1 = translator.prepare_input(rs1, temps);
+//         let rd = translator.prepare_output(rd, temps);
+//         dynasm!(translator.emitter ; neg Rq(rd.id()));
+//         dynasm!(translator.emitter ; add Rq(rd.id()), Rq(rs1.id()));
+//         rd.write_back(translator);
+//         return;
+//     }
+//
+//     // rd != rs1 && rs1 != rs2 && rd != rs2
+//     // implies
+//     // rd = rs1
+//     // rd -= rs2
+//     let rs1 = translator.prepare_input(rs1, temps);
+//     let rs2 = translator.prepare_input(rs2, temps);
+//     let rd = translator.prepare_output(rd, temps);
+//     dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+//     dynasm!(translator.emitter ; sub Rq(rd.id()), Rq(rs2.id()));
+//     rd.write_back(translator);
+// }
 
 /// RV64 `or`: bitwise OR across all 64 bits.
 /// rd <- rs1 | rs2

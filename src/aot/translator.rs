@@ -80,7 +80,7 @@ impl<'a> ValueLoc<'a> {
 /// Inputs may be materialized from mapped GPRs/XMM lanes or represented as
 /// `ConstZero` when the architectural source is `x0`.
 #[derive(Clone)]
-struct PreparedInput<'a> {
+pub(crate) struct PreparedInput<'a> {
     src: ValueLoc<'a>,
 }
 
