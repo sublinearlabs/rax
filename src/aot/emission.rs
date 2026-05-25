@@ -170,11 +170,33 @@ fn emit_add(
     let rd = translator.prepare_output(rd, temps);
 
     match classify_zero_case(&rd, &rs1, &rs2) {
-        ZeroCase::RdZero => todo!(),
-        ZeroCase::Rs1Rs2Zero => todo!(),
-        ZeroCase::Rs1Zero => todo!(),
-        ZeroCase::Rs2Zero => todo!(),
-        ZeroCase::None => todo!(),
+        ZeroCase::RdZero => {
+            // x0 is hardwired to zero, writes can be ignored
+            return;
+        }
+
+        ZeroCase::Rs1Rs2Zero => {
+            // add rd, 0, 0 -> rd = 0
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            rd.write_back(translator);
+            return;
+        }
+
+        ZeroCase::Rs1Zero => {
+            // add rd, 0, rs2 -> rd = rs2
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs2.id()));
+            rd.write_back(translator);
+            return;
+        }
+
+        ZeroCase::Rs2Zero => {
+            // add rd, rs1, 0 -> rd = rs1
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            rd.write_back(translator);
+            return;
+        }
+
+        ZeroCase::None => {}
     }
 
     match classify_shadow_case(&rd, &rs1, &rs2) {
