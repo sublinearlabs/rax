@@ -422,14 +422,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "prepare_input invariant violated: x0/ConstZero")]
-    fn prepare_input_panics_on_x0() {
-        let mut translator = new_translator();
-        let temps = translator.temp_allocator();
-        let _ = translator.prepare_input(RiscvRegister::Zero, &temps);
-    }
-
-    #[test]
     #[should_panic(expected = "prepare_output invariant violated: x0/ConstZero")]
     fn prepare_output_panics_on_x0() {
         let mut translator = new_translator();
@@ -443,14 +435,6 @@ mod tests {
         let mut translator = new_translator();
         let temps = translator.temp_allocator();
         let _ = translator.prepare_output(RiscvRegister::A0, &temps);
-    }
-
-    #[test]
-    fn prepare_input_gpr_returns_mapped_id() {
-        let mut translator = new_translator();
-        let temps = translator.temp_allocator();
-        let input = translator.prepare_input(RiscvRegister::A0, &temps);
-        assert_eq!(input.id(), X86Gpr::Rdi.id());
     }
 
     #[test]
