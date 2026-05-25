@@ -166,14 +166,24 @@ fn emit_add(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
-    if rd.is_zero() {
-        return;
-    }
-
     let [rs1, rs2] = translator.prepare_inputs([rs1, rs2], temps);
     let rd = translator.prepare_output(rd, temps);
 
-    // match classify_zero_case(rd, rs1, rs2)
+    match classify_zero_case(&rd, &rs1, &rs2) {
+        ZeroCase::RdZero => todo!(),
+        ZeroCase::Rs1Rs2Zero => todo!(),
+        ZeroCase::Rs1Zero => todo!(),
+        ZeroCase::Rs2Zero => todo!(),
+        ZeroCase::None => todo!(),
+    }
+
+    match classify_shadow_case(&rd, &rs1, &rs2) {
+        ShadowCase::AllEqual => todo!(),
+        ShadowCase::RdEqRs1 => todo!(),
+        ShadowCase::RdEqRs2 => todo!(),
+        ShadowCase::Rs1EqRs2 => todo!(),
+        ShadowCase::AllDistinct => todo!(),
+    }
 }
 
 // fn emit_add(
@@ -297,7 +307,24 @@ fn emit_sub(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
-    todo!()
+    let [rs1, rs2] = translator.prepare_inputs([rs1, rs2], temps);
+    let rd = translator.prepare_output(rd, temps);
+
+    match classify_zero_case(&rd, &rs1, &rs2) {
+        ZeroCase::RdZero => todo!(),
+        ZeroCase::Rs1Rs2Zero => todo!(),
+        ZeroCase::Rs1Zero => todo!(),
+        ZeroCase::Rs2Zero => todo!(),
+        ZeroCase::None => todo!(),
+    }
+
+    match classify_shadow_case(&rd, &rs1, &rs2) {
+        ShadowCase::AllEqual => todo!(),
+        ShadowCase::RdEqRs1 => todo!(),
+        ShadowCase::RdEqRs2 => todo!(),
+        ShadowCase::Rs1EqRs2 => todo!(),
+        ShadowCase::AllDistinct => todo!(),
+    }
 }
 
 // fn emit_sub(
