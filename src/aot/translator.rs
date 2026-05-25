@@ -52,6 +52,7 @@ struct ControlFlowState {
 /// Values may already reside in a mapped x86 register or be materialized into
 /// a temporary register managed by `TempAllocator`.
 enum ValueLoc<'a> {
+    ConstZero,
     Mapped(X86Gpr),
     Temp(AllocatedTemp<'a>),
 }
@@ -60,6 +61,7 @@ impl<'a> ValueLoc<'a> {
     /// Returns the x86 GPR backing this value location.
     fn gpr(&self) -> X86Gpr {
         match self {
+            Self::ConstZero => panic!("should not materialize const a zero input"),
             Self::Mapped(reg) => *reg,
             Self::Temp(reg) => **reg,
         }
@@ -263,6 +265,28 @@ impl Translator {
     pub(crate) fn finalize(self) -> Vec<u8> {
         let buf = self.emitter.finalize().unwrap();
         buf.to_vec()
+    }
+
+    // TODO: add documentation
+    fn prepare_inputs<'a, const N: usize>(
+        &mut self,
+        inputs: [RiscvRegister; N],
+        temp_allocator: &'a TempAllocator,
+    ) -> [PreparedInput<'a>; N] {
+        // the goal here is to selectively emit assembly
+        // only when actually needed
+        // when any is a zero we should not emit
+        // and when there is some duplication we shouldn't emit either
+
+        let mut prepared_inputs = [];
+
+        for src in inputs {
+            if src.is_zero() {
+                // push the prepared_input for zero
+                continue;
+            }
+        }
+        todo!()
     }
 
     /// Prepares a source register operand for emission.

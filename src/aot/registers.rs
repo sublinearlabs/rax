@@ -82,6 +82,11 @@ impl RiscvRegister {
             _ => None,
         }
     }
+
+    /// Checks if a RiscvRegister is the zero register (x0)
+    pub(crate) fn is_zero(&self) -> bool {
+        *self == RiscvRegister::Zero
+    }
 }
 
 /// x86-64 register class used by lowering and mapping logic.
