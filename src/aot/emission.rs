@@ -64,6 +64,87 @@ fn rv(reg: &u8) -> RiscvRegister {
     RiscvRegister::from_index(*reg as usize).expect("invalid decoded RISC-V register")
 }
 
+/// Normalized zero-related classification for `(rd, rs1, rs2)`.
+///
+/// Variants are mutually exclusive and exhaustive.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ZeroCase {
+    /// Destination is architectural zero (`rd == x0`).
+    ///
+    /// Output write is semantically elided and lowering should return early.
+    RdZero,
+    /// Both sources are architectural zero (`rs1 == x0 && rs2 == x0`),
+    /// with `rd != x0`.
+    Rs1Rs2Zero,
+    /// First source is architectural zero and second is non-zero
+    /// (`rs1 == x0 && rs2 != x0`), with `rd != x0`.
+    Rs1Zero,
+    /// Second source is architectural zero and first is non-zero
+    /// (`rs2 == x0 && rs1 != x0`), with `rd != x0`.
+    Rs2Zero,
+    /// No zero-specific simplification applies
+    /// (`rd != x0 && rs1 != x0 && rs2 != x0`).
+    None,
+}
+
+/// Normalized alias/equality classification for `(rd, rs1, rs2)`.
+///
+/// This classification is intended for non-zero source paths, i.e. when
+/// zero classification yields `ZeroCase::None`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ShadowCase {
+    /// All operands name the same architectural register
+    /// (`rd == rs1 && rs1 == rs2`).
+    AllEqual,
+    /// Destination aliases the first source (`rd == rs1`), with `rd != rs2`.
+    RdEqRs1,
+    /// Destination aliases the second source (`rd == rs2`), with `rd != rs1`.
+    RdEqRs2,
+    /// Sources are equal but destination is distinct (`rs1 == rs2`),
+    /// with `rd != rs1`.
+    Rs1EqRs2,
+    /// All operands are pairwise distinct.
+    AllDistinct,
+}
+
+/// Classifies zero-related simplification cases for a 3-register operation.
+fn classify_zero_case(rd: RiscvRegister, rs1: RiscvRegister, rs2: RiscvRegister) -> ZeroCase {
+    if rd.is_zero() {
+        return ZeroCase::RdZero;
+    }
+    if rs1.is_zero() && rs2.is_zero() {
+        return ZeroCase::Rs1Rs2Zero;
+    }
+    if rs1.is_zero() {
+        return ZeroCase::Rs1Zero;
+    }
+    if rs2.is_zero() {
+        return ZeroCase::Rs2Zero;
+    }
+    ZeroCase::None
+}
+
+/// Classifies alias/equality relationships for a 3-register operation.
+fn classify_shadow_case(
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) -> ShadowCase {
+    if rd == rs1 && rs1 == rs2 {
+        return ShadowCase::AllEqual;
+    }
+    if rd == rs1 {
+        return ShadowCase::RdEqRs1;
+    }
+    if rd == rs2 {
+        return ShadowCase::RdEqRs2;
+    }
+    if rs1 == rs2 {
+        return ShadowCase::Rs1EqRs2;
+    }
+    ShadowCase::AllDistinct
+}
+
 /// RV64 `add`: 64-bit wrapping addition.
 /// rd <- (rs1 + rs2) mod 2^64
 fn emit_add(
