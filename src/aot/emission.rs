@@ -387,6 +387,14 @@ fn emit_or(
         ZeroCase::Rs1Zero => {
             // or rd, 0, rs2
             // -> rd = rs2
+
+            // if they point to the same register
+            // no need to waste a mov
+            if rd.id() == rs2.id() {
+                rd.commit_unchanged();
+                return;
+            }
+
             dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs2.id()));
             rd.write_back(translator);
             return;
@@ -395,6 +403,14 @@ fn emit_or(
         ZeroCase::Rs2Zero => {
             // or rd, rs1, 0
             // -> rd = rs1
+
+            // if they point to the same register
+            // no need to waste a mov
+            if rd.id() == rs1.id() {
+                rd.commit_unchanged();
+                return;
+            }
+
             dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
             rd.write_back(translator);
             return;
