@@ -312,11 +312,49 @@ fn emit_sub(
     }
 
     match classify_shadow_case(&rd, &rs1, &rs2) {
-        ShadowCase::AllEqual => todo!(),
-        ShadowCase::RdEqRs1 => todo!(),
-        ShadowCase::RdEqRs2 => todo!(),
-        ShadowCase::Rs1EqRs2 => todo!(),
-        ShadowCase::AllDistinct => todo!(),
+        ShadowCase::AllEqual | ShadowCase::Rs1EqRs2 => {
+            // sub rd, rd, rd
+            // -> rd = rd - rd
+            // -> rd = 0
+            //
+            // sub rd, rs1, rs1
+            // -> rd = rs1 - rs1
+            // -> rd = 0
+
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            rd.write_back(translator);
+            return;
+        }
+
+        ShadowCase::RdEqRs1 => {
+            // sub rd, rd, rs2
+            // -> rd -= rs2
+
+            dynasm!(translator.emitter ; sub Rq(rd.id()), Rq(rs2.id()));
+            rd.write_back(translator);
+            return;
+        }
+
+        ShadowCase::RdEqRs2 => {
+            // sub rd, rs1, rd
+            // -> rd = rs1 - rd
+            // negate the rd
+            // then add rs1
+
+            dynasm!(translator.emitter ; neg Rq(rd.id()));
+            dynasm!(translator.emitter ; add Rq(rd.id()), Rq(rs1.id()));
+            rd.write_back(translator);
+            return;
+        }
+
+        ShadowCase::AllDistinct => {
+            // sub rd, rs1, rs2
+
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            dynasm!(translator.emitter ; sub Rq(rd.id()), Rq(rs2.id()));
+            rd.write_back(translator);
+            return;
+        }
     }
 }
 
