@@ -492,8 +492,7 @@ fn emit_subw(
             // -> rd = 0
 
             // zero out the rd register
-            // no need to sign extend as zero is already sign-extended
-            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            dynasm!(translator.emitter ; xor Rd(rd.id()), Rd(rd.id()));
             rd.write_back(translator);
             return;
         }
