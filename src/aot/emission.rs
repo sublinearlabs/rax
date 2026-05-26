@@ -582,8 +582,24 @@ fn emit_mulhu(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
-    let _ = (translator, temps, rd, rs1, rs2);
-    todo!("emit_mulhu")
+    let [rs1, rs2] = translator.prepare_inputs([rs1, rs2], temps);
+    let rd = translator.prepare_output(rd, temps);
+
+    match classify_zero_case(&rd, &rs1, &rs2) {
+        ZeroCase::RdZero => todo!(),
+        ZeroCase::Rs1Rs2Zero => todo!(),
+        ZeroCase::Rs1Zero => todo!(),
+        ZeroCase::Rs2Zero => todo!(),
+        ZeroCase::None => todo!(),
+    }
+
+    match classify_zero_case(&rd, &rs1, &rs2) {
+        ZeroCase::RdZero => todo!(),
+        ZeroCase::Rs1Rs2Zero => todo!(),
+        ZeroCase::Rs1Zero => todo!(),
+        ZeroCase::Rs2Zero => todo!(),
+        ZeroCase::None => todo!(),
+    }
 }
 
 /// RV64 `addi`: 64-bit wrapping add with sign-extended immediate.
