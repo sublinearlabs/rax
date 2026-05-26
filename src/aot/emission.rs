@@ -367,8 +367,90 @@ fn emit_or(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
-    let _ = (translator, temps, rd, rs1, rs2);
-    todo!("emit_or")
+    let [rs1, rs2] = translator.prepare_inputs([rs1, rs2], temps);
+    let rd = translator.prepare_output(rd, temps);
+
+    match classify_zero_case(&rd, &rs1, &rs2) {
+        ZeroCase::RdZero => {
+            // x0 is hardwired to zero. writes can be ignored.
+            return;
+        }
+
+        ZeroCase::Rs1Rs2Zero => {
+            // or rd, 0, 0
+            // -> rd = 0
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            rd.write_back(translator);
+            return;
+        }
+
+        ZeroCase::Rs1Zero => {
+            // or rd, 0, rs2
+            // -> rd = rs2
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs2.id()));
+            rd.write_back(translator);
+            return;
+        }
+
+        ZeroCase::Rs2Zero => {
+            // or rd, rs1, rs2
+            // -> rd = rs1
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            rd.write_back(translator);
+            return;
+        }
+
+        ZeroCase::None => {}
+    }
+
+    match classify_shadow_case(&rd, &rs1, &rs2) {
+        ShadowCase::AllEqual => {
+            // or rd, rd, rd
+            // -> rd = rd | rd
+            // -> rd = rd
+
+            // no emission needed
+            rd.commit_unchanged();
+            return;
+        }
+
+        ShadowCase::RdEqRs1 => {
+            // or rd, rd, rs2
+            // -> rd = rd | rs2
+
+            dynasm!(translator.emitter ; or Rq(rd.id()), Rq(rs2.id()));
+            rd.write_back(translator);
+            return;
+        }
+
+        ShadowCase::RdEqRs2 => {
+            // or rd, rs1, rd
+            // -> rd = rd | rs1
+
+            dynasm!(translator.emitter ; or Rq(rd.id()), Rq(rs1.id()));
+            rd.write_back(translator);
+            return;
+        }
+
+        ShadowCase::Rs1EqRs2 => {
+            // or rd, rs1, rs1
+            // -> rd = rs1 | rs1
+            // -> rd = rs1
+
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            rd.write_back(translator);
+            return;
+        }
+
+        ShadowCase::AllDistinct => {
+            // or rd, rs1, rs2
+
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            dynasm!(translator.emitter ; or Rq(rd.id()), Rq(rs2.id()));
+            rd.write_back(translator);
+            return;
+        }
+    }
 }
 
 /// RV64 `subw`: subtract low 32 bits, then sign-extend to 64 bits.
