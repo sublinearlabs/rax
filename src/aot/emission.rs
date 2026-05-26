@@ -478,8 +478,100 @@ fn emit_subw(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
-    let _ = (translator, temps, rd, rs1, rs2);
-    todo!("emit_subw")
+    let [rs1, rs2] = translator.prepare_inputs([rs1, rs2], temps);
+    let rd = translator.prepare_output(rd, temps);
+
+    match classify_zero_case(&rd, &rs1, &rs2) {
+        ZeroCase::RdZero => {
+            // x0 is hardwired to zero, writes can be ignored
+            return;
+        }
+
+        ZeroCase::Rs1Rs2Zero => {
+            // subw rd, 0, 0
+            // -> rd = 0
+
+            // zero out the rd register
+            // no need to sign extend as zero is already sign-extended
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            rd.write_back(translator);
+            return;
+        }
+
+        ZeroCase::Rs1Zero => {
+            // subw rd, 0, rs2
+            // -> rd = 0 - rs2
+            // -> rd = low32(-rs2)
+
+            if rd.id() != rs2.id() {
+                dynasm!(translator.emitter ; mov Rd(rd.id()), Rd(rs2.id()));
+            }
+
+            dynasm!(translator.emitter ; neg Rd(rd.id()));
+            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
+            rd.write_back(translator);
+            return;
+        }
+
+        ZeroCase::Rs2Zero => {
+            // subw rd, rs1, 0
+            // -> rd = low32(rs1)
+
+            if rd.id() != rs1.id() {
+                dynasm!(translator.emitter ; mov Rd(rd.id()), Rd(rs1.id()));
+            }
+
+            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
+            rd.write_back(translator);
+            return;
+        }
+
+        ZeroCase::None => {}
+    }
+
+    match classify_shadow_case(&rd, &rs1, &rs2) {
+        ShadowCase::AllEqual | ShadowCase::Rs1EqRs2 => {
+            // subw rd, rd, rd
+            // -> rd = 0
+
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            rd.write_back(translator);
+            return;
+        }
+
+        ShadowCase::RdEqRs1 => {
+            // subw rd, rd, rs2
+            // -> rd -= rs2
+
+            dynasm!(translator.emitter ; sub Rd(rd.id()), Rd(rs2.id()));
+            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
+            rd.write_back(translator);
+            return;
+        }
+
+        ShadowCase::RdEqRs2 => {
+            // subw rd, rs1, rd
+            // -> rd = rs1 - rd
+            // neg rd
+            // add rs1
+
+            dynasm!(translator.emitter ; neg Rd(rd.id()));
+            dynasm!(translator.emitter ; add Rd(rd.id()), Rd(rs1.id()));
+            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
+            rd.write_back(translator);
+            return;
+        }
+
+        ShadowCase::AllDistinct => {
+            // subw rd, rs1, rs2
+
+            dynasm!(translator.emitter ; mov Rd(rd.id()), Rd(rs1.id()));
+            dynasm!(translator.emitter ; sub Rd(rd.id()), Rd(rs2.id()));
+            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
+            rd.write_back(translator);
+            return;
+        }
+    }
 }
 
 /// RV64 `mulhu`: upper 64 bits of unsigned 64x64 multiply.
