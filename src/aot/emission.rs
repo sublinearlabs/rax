@@ -393,7 +393,7 @@ fn emit_or(
         }
 
         ZeroCase::Rs2Zero => {
-            // or rd, rs1, rs2
+            // or rd, rs1, 0
             // -> rd = rs1
             dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
             rd.write_back(translator);
