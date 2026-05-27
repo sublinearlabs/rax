@@ -137,6 +137,14 @@ impl<'a> PreparedOutput<'a> {
         self.src.gpr().id()
     }
 
+    /// Returns whether this prepared output targets architectural zero (`x0`)
+    ///
+    /// A zero output represents an elided architectural write destination and
+    /// does not permit carrier-id lookup or write-back emission.
+    fn is_zero(&self) -> bool {
+        matches!(self.dest, MapTarget::ConstZero)
+    }
+
     /// Writes a computed source value back to its architectural destination.
     ///
     /// # Contract
