@@ -133,7 +133,16 @@ impl<'a> PreparedOutput<'a> {
     ///
     /// This is the source register code used by instruction encoders. It is
     /// not a destination map id and not a RISC-V register index.
+    ///
+    /// # Panics
+    ///
+    /// Pancis when this output is `ConstZero`
     fn id(&self) -> u8 {
+        // panic if zero output
+        if self.is_zero() {
+            panic!("PreparedOutput::id called on zero/elided output");
+        }
+
         self.src.gpr().id()
     }
 
