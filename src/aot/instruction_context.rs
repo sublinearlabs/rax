@@ -4,7 +4,7 @@ use dynasmrt::{dynasm, DynasmApi};
 
 use crate::aot::{
     register_mapping::{MapTarget, XmmLane},
-    registers::X86Gpr,
+    registers::{RiscvRegister, X86Gpr},
     temp_alloc::AllocatedTemp,
     translator::Translator,
 };
@@ -185,4 +185,42 @@ impl<'a> Drop for PreparedOutput<'a> {
             panic!("PreparedOutput dropped before write_back");
         }
     }
+}
+
+struct InstructionContextBuilder<const NI: usize, const NCT: usize> {
+    inputs: Option<[RiscvRegister; NI]>,
+    output: Option<RiscvRegister>,
+    clobber_targets: Option<[X86Gpr; NCT]>,
+}
+
+impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
+    fn new() -> Self {
+        Self {
+            inputs: None,
+            output: None,
+            clobber_targets: None,
+        }
+    }
+
+    fn set_inputs(mut self, inputs: [RiscvRegister; NI]) -> Self {
+        self.inputs = Some(inputs);
+        self
+    }
+
+    fn set_output(mut self, output: RiscvRegister) -> Self {
+        self.output = Some(output);
+        self
+    }
+
+    fn ensure_no_clobber(mut self, clobber_targets: [X86Gpr; NCT]) -> Self {
+        self.clobber_targets = Some(clobber_targets);
+        self
+    }
+}
+
+struct InstructionContext<'a, const NI: usize, const NCT: usize> {
+    inputs: [PreparedInput<'a>; NI],
+    output: PreparedOutput<'a>,
+    clobber_targets: [X86Gpr; NCT],
+    clobber_restore: Vec<PreparedOutput<'a>>,
 }
