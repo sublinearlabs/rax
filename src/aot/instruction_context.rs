@@ -204,13 +204,26 @@ impl<'a> Drop for PreparedOutput<'a> {
     }
 }
 
+/// Builder for preparing instruction operands before AOT emission.
+///
+/// The builder collects architectural inputs, one architectural output, and any
+/// x86 GPRs that the emitted instruction may clobber. `build()` materializes the
+/// requested operands into `PreparedInput`/`PreparedOutput` values and emits any
+/// setup moves needed to preserve clobbered mapped values.
 struct InstructionContextBuilder<const NI: usize, const NCT: usize> {
+    /// Architectural source registers consumed by the instruction.
     inputs: Option<[RiscvRegister; NI]>,
+    /// Architectural destination register produced by the instruction.
     output: Option<RiscvRegister>,
+    /// x86 GPRs that must be preserved across instruction emission.
     clobber_targets: Option<[X86Gpr; NCT]>,
 }
 
 impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
+    /// Creates an empty instruction context builder.
+    ///
+    /// Inputs, output, and clobber targets may be supplied with the builder
+    /// methods before calling `build()`.
     fn new() -> Self {
         Self {
             inputs: None,
@@ -219,21 +232,40 @@ impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
         }
     }
 
+    /// Sets the architectural source registers for this instruction.
     fn set_inputs(mut self, inputs: [RiscvRegister; NI]) -> Self {
         self.inputs = Some(inputs);
         self
     }
 
+    /// Sets the architectural destination register for this instruction.
     fn set_output(mut self, output: RiscvRegister) -> Self {
         self.output = Some(output);
         self
     }
 
+    /// Marks x86 GPRs that must not be clobbered by instruction emission.
+    ///
+    /// During `build()`, any live mapped value in these registers is moved to a
+    /// temp and a restore output is recorded in the resulting
+    /// `InstructionContext`.
     fn ensure_no_clobber(mut self, clobber_targets: [X86Gpr; NCT]) -> Self {
         self.clobber_targets = Some(clobber_targets);
         self
     }
 
+    /// Builds a prepared instruction context and emits required setup moves.
+    ///
+    /// Materializes XMM-backed inputs into temp GPRs, preserves requested
+    /// clobber targets, reuses materialized values through an internal cache,
+    /// and prepares the architectural output for later write-back.
+    ///
+    /// # Panics
+    ///
+    /// Panics when a required temp GPR cannot be allocated.
+    /// Panics when the output is missing.
+    /// Panics when the output maps to `ConstZero`; lowering must handle
+    /// `rd = x0` before building an instruction context.
     fn build<'a>(
         self,
         translator: &mut Translator,
