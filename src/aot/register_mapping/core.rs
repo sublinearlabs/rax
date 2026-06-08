@@ -158,7 +158,7 @@ impl RegisterMapping {
 }
 
 /// Possible mapping targets on the x86 hardware.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum MapTarget {
     /// Virtual register representing the constant value 0.
     ///
@@ -179,7 +179,7 @@ pub(crate) enum MapTarget {
 }
 
 /// High or Low 64-bit lane within a 128-bit XMM register.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[repr(u8)]
 pub(crate) enum XmmLane {
     /// Lower 64 bits of the XMM register.

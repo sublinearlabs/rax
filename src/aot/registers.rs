@@ -98,7 +98,7 @@ pub(crate) enum X86Register {
 /// x86-64 general-purpose registers (`RAX..R15`) in canonical index order.
 ///
 /// The discriminant value is a stable 0-based index for table lookups.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[repr(u8)]
 pub(crate) enum X86Gpr {
     Rax = 0,
@@ -157,7 +157,7 @@ impl X86Gpr {
 /// x86 SIMD XMM registers (`XMM0..XMM15`) in canonical index order.
 ///
 /// The discriminant value is a stable 0-based index for table lookups.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[repr(u8)]
 pub(crate) enum X86Xmm {
     Xmm0 = 0,
