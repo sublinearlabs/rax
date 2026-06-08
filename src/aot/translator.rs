@@ -144,13 +144,13 @@ impl Translator {
 #[cfg(test)]
 mod tests {
     use std::fs;
-    use std::os::unix::fs::permissionsext;
+    use std::os::unix::fs::PermissionsExt;
 
-    use dynasmrt::x64::assembler;
+    use dynasmrt::x64::Assembler;
 
     use crate::elf::parse_elf;
     use crate::elf_gen::generate_elf;
-    use crate::elf_gen::x86_elf::x86elf;
+    use crate::elf_gen::x86_elf::X86Elf;
 
     use super::*;
 
