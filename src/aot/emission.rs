@@ -2,7 +2,7 @@ use dynasmrt::{dynasm, DynasmApi};
 
 use crate::aot::{
     instruction_context::{InstructionContextBuilder, PreparedInput, PreparedOutput},
-    registers::RiscvRegister,
+    registers::{RiscvRegister, X86Gpr},
     temp_alloc::TempAllocator,
     translator::Translator,
 };
@@ -603,8 +603,49 @@ fn emit_mulhu(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
-    let _ = (translator, temps, rd, rs1, rs2);
-    todo!("emit_mulhu")
+    // okay time to implement this
+    // I forget what it is supposed to do
+    // we mul rs1 and rs2 but only store the high 64 bu=its
+    // the multiplication is unsigned
+    //
+    // this is really just a mul instruction
+    // but we move the content of rdx
+    //
+    // RDX:RAX = RAX * r/m64
+    // so store rs1 in rax
+    // then mul rs2
+    // then mov rdx to rd
+    // and then write back for clobbering
+    //
+    // obviously, I'd still need to handle the different cases
+    // for the zero cases we don't even need clobbering right
+    // hmm so some of this implementations might not
+    // require the full context setup (interesting)
+
+    let ctx = InstructionContextBuilder::new()
+        .set_inputs([rs1, rs2])
+        .set_output(rd)
+        .ensure_no_clobber([X86Gpr::Rax, X86Gpr::Rdx])
+        .build(translator, temps);
+
+    let [rs1, rs2] = ctx.inputs();
+    let rd = ctx.output();
+
+    match classify_zero_case(&rd, &rs1, &rs2) {
+        ZeroCase::RdZero => todo!(),
+        ZeroCase::Rs1Rs2Zero => todo!(),
+        ZeroCase::Rs1Zero => todo!(),
+        ZeroCase::Rs2Zero => todo!(),
+        ZeroCase::None => todo!(),
+    }
+
+    match classify_shadow_case(&rd, &rs1, &rs2) {
+        ShadowCase::AllEqual => todo!(),
+        ShadowCase::RdEqRs1 => todo!(),
+        ShadowCase::RdEqRs2 => todo!(),
+        ShadowCase::Rs1EqRs2 => todo!(),
+        ShadowCase::AllDistinct => todo!(),
+    }
 }
 
 /// RV64 `addi`: 64-bit wrapping add with sign-extended immediate.
