@@ -210,7 +210,7 @@ impl<'a> Drop for PreparedOutput<'a> {
 /// x86 GPRs that the emitted instruction may clobber. `build()` materializes the
 /// requested operands into `PreparedInput`/`PreparedOutput` values and emits any
 /// setup moves needed to preserve clobbered mapped values.
-struct InstructionContextBuilder<const NI: usize, const NCT: usize> {
+pub(super) struct InstructionContextBuilder<const NI: usize, const NCT: usize> {
     /// Architectural source registers consumed by the instruction.
     inputs: Option<[RiscvRegister; NI]>,
     /// Architectural destination register produced by the instruction.
@@ -224,7 +224,7 @@ impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
     ///
     /// Inputs, output, and clobber targets may be supplied with the builder
     /// methods before calling `build()`.
-    fn new() -> Self {
+    pub(super) fn new() -> Self {
         Self {
             inputs: None,
             output: None,
@@ -233,13 +233,13 @@ impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
     }
 
     /// Sets the architectural source registers for this instruction.
-    fn set_inputs(mut self, inputs: [RiscvRegister; NI]) -> Self {
+    pub(super) fn set_inputs(mut self, inputs: [RiscvRegister; NI]) -> Self {
         self.inputs = Some(inputs);
         self
     }
 
     /// Sets the architectural destination register for this instruction.
-    fn set_output(mut self, output: RiscvRegister) -> Self {
+    pub(super) fn set_output(mut self, output: RiscvRegister) -> Self {
         self.output = Some(output);
         self
     }
@@ -249,7 +249,7 @@ impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
     /// During `build()`, any live mapped value in these registers is moved to a
     /// temp and a restore output is recorded in the resulting
     /// `InstructionContext`.
-    fn ensure_no_clobber(mut self, clobber_targets: [X86Gpr; NCT]) -> Self {
+    pub(super) fn ensure_no_clobber(mut self, clobber_targets: [X86Gpr; NCT]) -> Self {
         self.clobber_targets = Some(clobber_targets);
         self
     }
@@ -266,7 +266,7 @@ impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
     /// Panics when the output is missing.
     /// Panics when the output maps to `ConstZero`; lowering must handle
     /// `rd = x0` before building an instruction context.
-    fn build<'a>(
+    pub(super) fn build<'a>(
         self,
         translator: &mut Translator,
         temp_allocator: &'a TempAllocator,
@@ -286,11 +286,8 @@ impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
                 };
 
                 let temp_reg = ValueLoc::Temp(Rc::new(temp_allocator.allocate().unwrap()));
-
                 dynasm!(translator.emitter ; mov Rq(clobbered_reg.id()), Rq(temp_reg.id()));
-
                 entry.insert(temp_reg.clone());
-
                 clobber_restore.push(PreparedOutput::new(temp_reg, target));
             }
         }
@@ -351,12 +348,12 @@ impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
                 Entry::Vacant(entry) => {
                     let src = match *target {
                         MapTarget::ConstZero => {
-                            panic!("prepare_output invariant violated: x0/ConstZero destination must be handled by lowering before prepare_output")
+                            panic!("instruction context invariant violated: x0/ConstZero destination must be handled by lowering before build")
                         }
                         MapTarget::Gpr(gpr) => ValueLoc::Mapped(gpr),
                         MapTarget::XmmShared { .. } | MapTarget::XmmExclusive(..) => {
                             let temp = temp_allocator.allocate().unwrap_or_else(|_| {
-                                panic!("prepare_output could not allocate temp GPR")
+                                panic!("instruction context could not allocate temp GPR")
                             });
                             ValueLoc::Temp(Rc::new(temp))
                         }
@@ -367,7 +364,6 @@ impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
             });
         }
 
-        // TODO: return the instruction context
         InstructionContext {
             inputs: prepared_inputs.try_into().unwrap_or_else(|_| {
                 unreachable!(
@@ -390,7 +386,7 @@ impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
 /// # Contract
 ///
 /// `write_back()` must be called exactly once after instruction emission.
-struct InstructionContext<'a, const NI: usize, const NCT: usize> {
+pub(super) struct InstructionContext<'a, const NI: usize, const NCT: usize> {
     /// Prepared source operands available for instruction emission.
     inputs: [PreparedInput<'a>; NI],
     /// Prepared destination carrier for the instruction result.
@@ -577,7 +573,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "prepare_output invariant violated: x0/ConstZero")]
+    #[should_panic(expected = "instruction context invariant violated: x0/ConstZero")]
     fn build_panics_when_output_maps_to_constzero() {
         let mut translator = new_translator();
         let temps = TempAllocator::new(vec![]);
