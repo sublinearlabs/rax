@@ -430,3 +430,173 @@ impl<'a, const NI: usize, const NCT: usize> InstructionContext<'a, NI, NCT> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use dynasmrt::x64::Assembler;
+
+    use crate::aot::{register_mapping::RegisterMapping, registers::X86Xmm};
+
+    use super::*;
+
+    fn new_translator() -> Translator {
+        Translator::new(
+            Assembler::new().unwrap(),
+            RegisterMapping::default_plan(),
+            0,
+        )
+    }
+
+    fn new_translator_all_xmm_shared() -> Translator {
+        let mut builder = RegisterMapping::builder();
+        for idx in 1..32 {
+            let reg = RiscvRegister::from_index(idx).expect("valid riscv reg index");
+            let lane_idx = idx - 1;
+            let xmm = X86Xmm::from_index(lane_idx / 2).expect("valid xmm index");
+            let lane = if lane_idx % 2 == 0 {
+                XmmLane::Low
+            } else {
+                XmmLane::High
+            };
+            builder
+                .map_xmm_shared(reg, xmm, lane)
+                .expect("builder assignment should succeed");
+        }
+
+        Translator::new(
+            Assembler::new().unwrap(),
+            builder
+                .build()
+                .expect("builder should produce valid mapping"),
+            0,
+        )
+    }
+
+    #[test]
+    fn gpr_context_does_not_require_temp() {
+        let mut translator = new_translator();
+        let temps = TempAllocator::new(vec![]);
+
+        let ctx = InstructionContextBuilder::<1, 0>::new()
+            .set_inputs([RiscvRegister::A1])
+            .set_output(RiscvRegister::A0)
+            .build(&mut translator, &temps);
+
+        assert_eq!(ctx.inputs()[0].id(), X86Gpr::Rsi.id());
+        assert_eq!(ctx.output().id(), X86Gpr::Rdi.id());
+        ctx.write_back(&mut translator);
+    }
+
+    #[test]
+    fn duplicate_xmm_input_materializes_once() {
+        let mut translator = new_translator();
+        let temps = TempAllocator::new(vec![X86Gpr::R11]);
+
+        let ctx = InstructionContextBuilder::<2, 0>::new()
+            .set_inputs([RiscvRegister::S0, RiscvRegister::S0])
+            .set_output(RiscvRegister::A0)
+            .build(&mut translator, &temps);
+
+        let (first, second) = match (&ctx.inputs()[0].src, &ctx.inputs()[1].src) {
+            (ValueLoc::Temp(first), ValueLoc::Temp(second)) => (first, second),
+            _ => panic!("expected duplicate XMM inputs to share a temp carrier"),
+        };
+
+        assert!(Rc::ptr_eq(first, second));
+        assert_eq!(ctx.inputs()[0].id(), X86Gpr::R11.id());
+        ctx.write_back(&mut translator);
+    }
+
+    #[test]
+    fn xmm_input_and_output_same_target_reuse_materialized_carrier() {
+        let mut translator = new_translator_all_xmm_shared();
+        let temps = TempAllocator::new(vec![X86Gpr::R11]);
+
+        let ctx = InstructionContextBuilder::<1, 0>::new()
+            .set_inputs([RiscvRegister::A0])
+            .set_output(RiscvRegister::A0)
+            .build(&mut translator, &temps);
+
+        assert_eq!(ctx.inputs()[0].id(), ctx.output().id());
+        ctx.write_back(&mut translator);
+    }
+
+    #[test]
+    fn clobbered_gpr_input_is_relocated_once() {
+        let mut translator = new_translator();
+        let temps = TempAllocator::new(vec![X86Gpr::R11]);
+
+        let ctx = InstructionContextBuilder::new()
+            .set_inputs([RiscvRegister::A0])
+            .set_output(RiscvRegister::A1)
+            .ensure_no_clobber([X86Gpr::Rdi])
+            .build(&mut translator, &temps);
+
+        assert_eq!(ctx.inputs()[0].id(), X86Gpr::R11.id());
+        assert_ne!(ctx.inputs()[0].id(), X86Gpr::Rdi.id());
+        assert_eq!(ctx.clobber_restore.len(), 1);
+        ctx.write_back(&mut translator);
+    }
+
+    #[test]
+    fn duplicate_clobber_target_is_preserved_once() {
+        let mut translator = new_translator();
+        let temps = TempAllocator::new(vec![X86Gpr::R11]);
+
+        let ctx = InstructionContextBuilder::new()
+            .set_inputs([])
+            .set_output(RiscvRegister::A1)
+            .ensure_no_clobber([X86Gpr::Rdi, X86Gpr::Rdi])
+            .build(&mut translator, &temps);
+
+        assert_eq!(ctx.clobber_restore.len(), 1);
+        ctx.write_back(&mut translator);
+    }
+
+    #[test]
+    #[should_panic]
+    fn xmm_input_panics_when_temp_is_required_but_unavailable() {
+        let mut translator = new_translator_all_xmm_shared();
+        let temps = TempAllocator::new(vec![]);
+
+        let _ = InstructionContextBuilder::<1, 0>::new()
+            .set_inputs([RiscvRegister::A0])
+            .set_output(RiscvRegister::Ra)
+            .build(&mut translator, &temps);
+    }
+
+    #[test]
+    #[should_panic(expected = "output must be present")]
+    fn build_panics_when_output_is_missing() {
+        let mut translator = new_translator();
+        let temps = TempAllocator::new(vec![]);
+
+        let _ = InstructionContextBuilder::<1, 0>::new()
+            .set_inputs([RiscvRegister::A0])
+            .build(&mut translator, &temps);
+    }
+
+    #[test]
+    #[should_panic(expected = "prepare_output invariant violated: x0/ConstZero")]
+    fn build_panics_when_output_maps_to_constzero() {
+        let mut translator = new_translator();
+        let temps = TempAllocator::new(vec![]);
+
+        let _ = InstructionContextBuilder::<0, 0>::new()
+            .set_inputs([])
+            .set_output(RiscvRegister::Zero)
+            .build(&mut translator, &temps);
+    }
+
+    #[test]
+    #[should_panic(expected = "PreparedOutput dropped before write_back")]
+    fn context_drop_without_write_back_panics() {
+        let mut translator = new_translator();
+        let temps = TempAllocator::new(vec![]);
+
+        let _ = InstructionContextBuilder::<0, 0>::new()
+            .set_inputs([])
+            .set_output(RiscvRegister::A0)
+            .build(&mut translator, &temps);
+    }
+}

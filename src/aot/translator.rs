@@ -59,7 +59,7 @@ impl Translator {
     /// # Panics
     ///
     /// Panics if the derived temporary register set contains duplicates.
-    fn new(mut emitter: Assembler, plan: MappingPlan, base_riscv_pc: u64) -> Self {
+    pub(super) fn new(mut emitter: Assembler, plan: MappingPlan, base_riscv_pc: u64) -> Self {
         let (reg_map, unused_gprs) = plan.into_parts();
         let jt_label = emitter.new_dynamic_label();
         Self {
