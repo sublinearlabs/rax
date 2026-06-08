@@ -1,11 +1,14 @@
-use std::rc::Rc;
+use std::{
+    collections::{hash_map::Entry, HashMap},
+    rc::Rc,
+};
 
 use dynasmrt::{dynasm, DynasmApi};
 
 use crate::aot::{
     register_mapping::{MapTarget, XmmLane},
     registers::{RiscvRegister, X86Gpr},
-    temp_alloc::AllocatedTemp,
+    temp_alloc::{AllocatedTemp, TempAllocator},
     translator::Translator,
 };
 
@@ -217,7 +220,11 @@ impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
         self
     }
 
-    fn build(self, translator: &mut Translator) -> InstructionContext<NI, NCT> {
+    fn build<'a>(
+        self,
+        translator: &mut Translator,
+        temp_allocator: &'a TempAllocator,
+    ) -> InstructionContext<'a, NI, NCT> {
         // this should take all the inputs and create the proper instruction context
         // I'd need to define the goals and constraints that need to be met
         // we have the inputs, we have the outputs
@@ -283,9 +290,9 @@ impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
         // with an x86 target
         // zero to zero, so that is fine
         //
-        // let us start with the cache, I have a feeling that this is all that will be required
-        // for that to be the case, it is important for the cache to not have any information
-        // about input or output.
+        // let us start with the cache, I have a feeling that this is all that will be required.
+        // for that to be the case, it is important for the cache to not have any distingushing
+        // information about the input or output.
         // It should represent a mapping from a riscv register / map target to an x86 gpr,
         // which is essentially a ValueLoc.
         // this means the cache can be represented as a vec of 32 ValueLocs.
@@ -302,13 +309,118 @@ impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
         // to set things up
         // but is there an ordering? I don't think so, I feel they should all be independent
 
-        todo!()
+        let mut cache: HashMap<MapTarget, ValueLoc> = HashMap::new();
+
+        let mut clobber_restore = vec![];
+        let mut prepared_inputs = Vec::with_capacity(NI);
+        let mut prepared_output = None;
+
+        // handle clobber
+        if let Some(clobber_targets) = self.clobber_targets {
+            for clobbered_reg in clobber_targets {
+                let target = MapTarget::Gpr(clobbered_reg);
+                let Entry::Vacant(entry) = cache.entry(target) else {
+                    continue;
+                };
+
+                let temp_reg = ValueLoc::Temp(Rc::new(temp_allocator.allocate().unwrap()));
+
+                // TODO: put id method for valueloc
+                dynasm!(translator.emitter ; mov Rq(clobbered_reg as u8), Rq(temp_reg.gpr().id()));
+
+                entry.insert(temp_reg.clone());
+
+                clobber_restore.push(PreparedOutput::new(temp_reg, target));
+            }
+        }
+
+        // handle input
+        if let Some(inputs) = self.inputs {
+            for input in inputs {
+                let target = translator.reg_map.get(&input);
+
+                let prepared_input = match cache.entry(*target) {
+                    Entry::Occupied(entry) => PreparedInput {
+                        src: entry.get().clone(),
+                    },
+                    Entry::Vacant(entry) => {
+                        // here is where we actually handle the input creation
+                        // we need to match the target and then produce some prepared input
+
+                        match target {
+                            MapTarget::ConstZero => PreparedInput {
+                                src: ValueLoc::ConstZero,
+                            },
+                            MapTarget::Gpr(x86_gpr) => PreparedInput {
+                                src: ValueLoc::Mapped(*x86_gpr),
+                            },
+                            MapTarget::XmmExclusive(reg)
+                            | MapTarget::XmmShared {
+                                reg,
+                                lane: XmmLane::Low,
+                            } => {
+                                // TODO: handle unwrap here and else where
+                                let temp = temp_allocator.allocate().unwrap();
+                                dynasm!(translator.emitter ; movq Rq(temp.id()), Rx(reg.id()));
+                                let val = ValueLoc::Temp(Rc::new(temp));
+                                entry.insert(val.clone());
+                                PreparedInput { src: val }
+                            }
+                            MapTarget::XmmShared { reg, lane } => {
+                                let temp = temp_allocator.allocate().unwrap();
+                                dynasm!(translator.emitter ; pextrq Rq(temp.id()), Rx(reg.id()), 1);
+                                let val = ValueLoc::Temp(Rc::new(temp));
+                                entry.insert(val.clone());
+                                PreparedInput { src: val }
+                            }
+                        }
+                    }
+                };
+
+                prepared_inputs.push(prepared_input);
+            }
+        }
+
+        // handle output
+        if let Some(output) = self.output {
+            let target = translator.reg_map.get(&output);
+
+            prepared_output = Some(match cache.entry(*target) {
+                Entry::Occupied(entry) => PreparedOutput::new(entry.get().clone(), *target),
+                Entry::Vacant(entry) => {
+                    let src = match *target {
+                        MapTarget::ConstZero => {
+                            panic!("prepare_output invariant violated: x0/ConstZero destination must be handled by lowering before prepare_output")
+                        }
+                        MapTarget::Gpr(gpr) => ValueLoc::Mapped(gpr),
+                        MapTarget::XmmShared { .. } | MapTarget::XmmExclusive(..) => {
+                            let temp = temp_allocator.allocate().unwrap_or_else(|_| {
+                                panic!("prepare_output could not allocate temp GPR")
+                            });
+                            ValueLoc::Temp(Rc::new(temp))
+                        }
+                    };
+                    entry.insert(src.clone());
+                    PreparedOutput::new(src, *target)
+                }
+            });
+        }
+
+        // TODO: return the instruction context
+        InstructionContext {
+            inputs: prepared_inputs.try_into().unwrap_or_else(|_| {
+                unreachable!(
+                    "we push one prepared_input for each input, hence should be the same size"
+                )
+            }),
+            output: prepared_output.expect("output must be present"),
+            clobber_restore,
+        }
     }
 }
 
 struct InstructionContext<'a, const NI: usize, const NCT: usize> {
     inputs: [PreparedInput<'a>; NI],
     output: PreparedOutput<'a>,
-    clobber_targets: [X86Gpr; NCT],
     clobber_restore: Vec<PreparedOutput<'a>>,
 }

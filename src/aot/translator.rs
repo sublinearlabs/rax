@@ -17,7 +17,7 @@ use crate::decode::Instruction;
 /// materialize inputs and stage outputs for architectural write-back.
 pub(super) struct Translator {
     pub(super) emitter: Assembler,
-    reg_map: RegisterMapping,
+    pub(super) reg_map: RegisterMapping,
     unused_gprs: Vec<X86Gpr>,
     cf: ControlFlowState,
 }
@@ -47,7 +47,6 @@ struct ControlFlowState {
     /// Indirect jump paths use this as the base for indexed table lookups.
     jt_label: DynamicLabel,
 }
-
 
 impl Translator {
     /// Creates a new translator from a validated mapping plan.
