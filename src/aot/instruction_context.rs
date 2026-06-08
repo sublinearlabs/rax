@@ -380,8 +380,53 @@ impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
     }
 }
 
+/// Prepared operands and deferred write-back state for one instruction.
+///
+/// An instruction context owns the prepared inputs, the prepared architectural
+/// output, and any restore operations required for protected clobber targets.
+/// Instruction implementations should use `inputs()` and `output()` while
+/// emitting machine code, then finish by calling `write_back()`.
+///
+/// # Contract
+///
+/// `write_back()` must be called exactly once after instruction emission.
 struct InstructionContext<'a, const NI: usize, const NCT: usize> {
+    /// Prepared source operands available for instruction emission.
     inputs: [PreparedInput<'a>; NI],
+    /// Prepared destination carrier for the instruction result.
     output: PreparedOutput<'a>,
+    /// Deferred restores for mapped values moved out of clobber targets.
     clobber_restore: Vec<PreparedOutput<'a>>,
+}
+
+impl<'a, const NI: usize, const NCT: usize> InstructionContext<'a, NI, NCT> {
+    /// Returns the prepared inputs for this instruction.
+    ///
+    /// The returned inputs are ordered to match the architectural source
+    /// registers supplied to `InstructionContextBuilder::set_inputs()`.
+    pub(super) fn inputs(&self) -> &[PreparedInput<'a>; NI] {
+        &self.inputs
+    }
+
+    /// Returns the prepared architectural output.
+    ///
+    /// The output may be queried for its carrier id during instruction
+    /// emission. Architectural write-back is performed by `write_back()`.
+    pub(super) fn output(&self) -> &PreparedOutput<'a> {
+        &self.output
+    }
+
+    /// Writes the prepared output and any clobber restores back to their mapped
+    /// architectural locations.
+    ///
+    /// # Contract
+    ///
+    /// Must be called exactly once after instruction emission.
+    pub(super) fn write_back(self, translator: &mut Translator) {
+        self.output.write_back(translator);
+
+        for restore in self.clobber_restore {
+            restore.write_back(translator);
+        }
+    }
 }
