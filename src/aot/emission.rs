@@ -1,9 +1,10 @@
 use dynasmrt::{dynasm, DynasmApi};
 
 use crate::aot::{
+    instruction_context::{InstructionContextBuilder, PreparedInput, PreparedOutput},
     registers::RiscvRegister,
     temp_alloc::TempAllocator,
-    translator::{PreparedInput, PreparedOutput, Translator},
+    translator::Translator,
 };
 use crate::decode::{Instruction, Sh, B, I, J, R, S, U};
 
@@ -166,19 +167,24 @@ fn emit_add(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
-    let [rs1, rs2] = translator.prepare_inputs([rs1, rs2], temps);
-    let rd = translator.prepare_output(rd, temps);
+    let ctx = InstructionContextBuilder::<2, 0>::new()
+        .set_inputs([rs1, rs2])
+        .set_output(rd)
+        .build(translator, temps);
+    let [rs1, rs2] = ctx.inputs();
+    let rd = ctx.output();
 
     match classify_zero_case(&rd, &rs1, &rs2) {
         ZeroCase::RdZero => {
             // x0 is hardwired to zero, writes can be ignored
+            ctx.discard_zero_output(translator);
             return;
         }
 
         ZeroCase::Rs1Rs2Zero => {
             // add rd, 0, 0 -> rd = 0
             dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
-            rd.write_back(translator);
+            ctx.write_back(translator);
             return;
         }
 
@@ -188,12 +194,12 @@ fn emit_add(
             // if rd and rs2 point to the same register
             // no need to waste a mov instruction
             if rd.id() == rs2.id() {
-                rd.commit_unchanged();
+                ctx.write_back(translator);
                 return;
             }
 
             dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs2.id()));
-            rd.write_back(translator);
+            ctx.write_back(translator);
             return;
         }
 
@@ -203,12 +209,12 @@ fn emit_add(
             // if rd and rs1 point to the same register
             // no need to waste a mov instruction
             if rd.id() == rs1.id() {
-                rd.commit_unchanged();
+                ctx.write_back(translator);
                 return;
             }
 
             dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
-            rd.write_back(translator);
+            ctx.write_back(translator);
             return;
         }
 
@@ -220,7 +226,7 @@ fn emit_add(
             // add rd, rd, rd
             // implies rd += rd
             dynasm!(translator.emitter ; add Rq(rd.id()), Rq(rd.id()));
-            rd.write_back(translator);
+            ctx.write_back(translator);
             return;
         }
 
@@ -228,7 +234,7 @@ fn emit_add(
             // add rd, rd, rs2
             // imples rd += rs2
             dynasm!(translator.emitter ; add Rq(rd.id()), Rq(rs2.id()));
-            rd.write_back(translator);
+            ctx.write_back(translator);
             return;
         }
 
@@ -236,7 +242,7 @@ fn emit_add(
             // add rd, rs1, rd
             // implies rd += rs1
             dynasm!(translator.emitter ; add Rq(rd.id()), Rq(rs1.id()));
-            rd.write_back(translator);
+            ctx.write_back(translator);
             return;
         }
 
@@ -244,14 +250,14 @@ fn emit_add(
             // add rd, rs1, rs1
             // implies rd = rs1 + rs1
             dynasm!(translator.emitter ; lea Rq(rd.id()), [Rq(rs1.id()) + Rq(rs1.id())]);
-            rd.write_back(translator);
+            ctx.write_back(translator);
             return;
         }
 
         ShadowCase::AllDistinct => {
             dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
             dynasm!(translator.emitter ; add Rq(rd.id()), Rq(rs2.id()));
-            rd.write_back(translator);
+            ctx.write_back(translator);
             return;
         }
     }
@@ -266,19 +272,24 @@ fn emit_sub(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
-    let [rs1, rs2] = translator.prepare_inputs([rs1, rs2], temps);
-    let rd = translator.prepare_output(rd, temps);
+    let ctx = InstructionContextBuilder::<2, 0>::new()
+        .set_inputs([rs1, rs2])
+        .set_output(rd)
+        .build(translator, temps);
+    let [rs1, rs2] = ctx.inputs();
+    let rd = ctx.output();
 
     match classify_zero_case(&rd, &rs1, &rs2) {
         ZeroCase::RdZero => {
             // x0 is hardwired to zero. writes can be ignored.
+            ctx.discard_zero_output(translator);
             return;
         }
 
         ZeroCase::Rs1Rs2Zero => {
             // sub rd, 0, 0 -> rd = 0
             dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
-            rd.write_back(translator);
+            ctx.write_back(translator);
             return;
         }
 
@@ -289,7 +300,7 @@ fn emit_sub(
             }
 
             dynasm!(translator.emitter ; neg Rq(rd.id()));
-            rd.write_back(translator);
+            ctx.write_back(translator);
             return;
         }
 
@@ -299,12 +310,12 @@ fn emit_sub(
             // if rd and rs1 point to the same register
             // no need to waste a mov instruction
             if rd.id() == rs1.id() {
-                rd.commit_unchanged();
+                ctx.write_back(translator);
                 return;
             }
 
             dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
-            rd.write_back(translator);
+            ctx.write_back(translator);
             return;
         }
 
@@ -322,7 +333,7 @@ fn emit_sub(
             // -> rd = 0
 
             dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
-            rd.write_back(translator);
+            ctx.write_back(translator);
             return;
         }
 
@@ -331,7 +342,7 @@ fn emit_sub(
             // -> rd -= rs2
 
             dynasm!(translator.emitter ; sub Rq(rd.id()), Rq(rs2.id()));
-            rd.write_back(translator);
+            ctx.write_back(translator);
             return;
         }
 
@@ -343,7 +354,7 @@ fn emit_sub(
 
             dynasm!(translator.emitter ; neg Rq(rd.id()));
             dynasm!(translator.emitter ; add Rq(rd.id()), Rq(rs1.id()));
-            rd.write_back(translator);
+            ctx.write_back(translator);
             return;
         }
 
@@ -352,7 +363,7 @@ fn emit_sub(
 
             dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
             dynasm!(translator.emitter ; sub Rq(rd.id()), Rq(rs2.id()));
-            rd.write_back(translator);
+            ctx.write_back(translator);
             return;
         }
     }
@@ -367,12 +378,17 @@ fn emit_or(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
-    let [rs1, rs2] = translator.prepare_inputs([rs1, rs2], temps);
-    let rd = translator.prepare_output(rd, temps);
+    let ctx = InstructionContextBuilder::<2, 0>::new()
+        .set_inputs([rs1, rs2])
+        .set_output(rd)
+        .build(translator, temps);
+    let [rs1, rs2] = ctx.inputs();
+    let rd = ctx.output();
 
     match classify_zero_case(&rd, &rs1, &rs2) {
         ZeroCase::RdZero => {
             // x0 is hardwired to zero. writes can be ignored.
+            ctx.discard_zero_output(translator);
             return;
         }
 
@@ -380,7 +396,7 @@ fn emit_or(
             // or rd, 0, 0
             // -> rd = 0
             dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
-            rd.write_back(translator);
+            ctx.write_back(translator);
             return;
         }
 
@@ -391,12 +407,12 @@ fn emit_or(
             // if they point to the same register
             // no need to waste a mov
             if rd.id() == rs2.id() {
-                rd.commit_unchanged();
+                ctx.write_back(translator);
                 return;
             }
 
             dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs2.id()));
-            rd.write_back(translator);
+            ctx.write_back(translator);
             return;
         }
 
@@ -407,12 +423,12 @@ fn emit_or(
             // if they point to the same register
             // no need to waste a mov
             if rd.id() == rs1.id() {
-                rd.commit_unchanged();
+                ctx.write_back(translator);
                 return;
             }
 
             dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
-            rd.write_back(translator);
+            ctx.write_back(translator);
             return;
         }
 
@@ -426,7 +442,7 @@ fn emit_or(
             // -> rd = rd
 
             // no emission needed
-            rd.commit_unchanged();
+            ctx.write_back(translator);
             return;
         }
 
@@ -435,7 +451,7 @@ fn emit_or(
             // -> rd = rd | rs2
 
             dynasm!(translator.emitter ; or Rq(rd.id()), Rq(rs2.id()));
-            rd.write_back(translator);
+            ctx.write_back(translator);
             return;
         }
 
@@ -444,7 +460,7 @@ fn emit_or(
             // -> rd = rd | rs1
 
             dynasm!(translator.emitter ; or Rq(rd.id()), Rq(rs1.id()));
-            rd.write_back(translator);
+            ctx.write_back(translator);
             return;
         }
 
@@ -454,7 +470,7 @@ fn emit_or(
             // -> rd = rs1
 
             dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
-            rd.write_back(translator);
+            ctx.write_back(translator);
             return;
         }
 
@@ -463,7 +479,7 @@ fn emit_or(
 
             dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
             dynasm!(translator.emitter ; or Rq(rd.id()), Rq(rs2.id()));
-            rd.write_back(translator);
+            ctx.write_back(translator);
             return;
         }
     }
@@ -478,12 +494,17 @@ fn emit_subw(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
-    let [rs1, rs2] = translator.prepare_inputs([rs1, rs2], temps);
-    let rd = translator.prepare_output(rd, temps);
+    let ctx = InstructionContextBuilder::<2, 0>::new()
+        .set_inputs([rs1, rs2])
+        .set_output(rd)
+        .build(translator, temps);
+    let [rs1, rs2] = ctx.inputs();
+    let rd = ctx.output();
 
     match classify_zero_case(&rd, &rs1, &rs2) {
         ZeroCase::RdZero => {
             // x0 is hardwired to zero, writes can be ignored
+            ctx.discard_zero_output(translator);
             return;
         }
 
@@ -493,7 +514,7 @@ fn emit_subw(
 
             // zero out the rd register
             dynasm!(translator.emitter ; xor Rd(rd.id()), Rd(rd.id()));
-            rd.write_back(translator);
+            ctx.write_back(translator);
             return;
         }
 
@@ -508,7 +529,7 @@ fn emit_subw(
 
             dynasm!(translator.emitter ; neg Rd(rd.id()));
             dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
-            rd.write_back(translator);
+            ctx.write_back(translator);
             return;
         }
 
@@ -521,7 +542,7 @@ fn emit_subw(
             }
 
             dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
-            rd.write_back(translator);
+            ctx.write_back(translator);
             return;
         }
 
@@ -534,7 +555,7 @@ fn emit_subw(
             // -> rd = 0
 
             dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
-            rd.write_back(translator);
+            ctx.write_back(translator);
             return;
         }
 
@@ -544,7 +565,7 @@ fn emit_subw(
 
             dynasm!(translator.emitter ; sub Rd(rd.id()), Rd(rs2.id()));
             dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
-            rd.write_back(translator);
+            ctx.write_back(translator);
             return;
         }
 
@@ -557,7 +578,7 @@ fn emit_subw(
             dynasm!(translator.emitter ; neg Rd(rd.id()));
             dynasm!(translator.emitter ; add Rd(rd.id()), Rd(rs1.id()));
             dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
-            rd.write_back(translator);
+            ctx.write_back(translator);
             return;
         }
 
@@ -567,7 +588,7 @@ fn emit_subw(
             dynasm!(translator.emitter ; mov Rd(rd.id()), Rd(rs1.id()));
             dynasm!(translator.emitter ; sub Rd(rd.id()), Rd(rs2.id()));
             dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
-            rd.write_back(translator);
+            ctx.write_back(translator);
             return;
         }
     }
@@ -582,24 +603,8 @@ fn emit_mulhu(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
-    let [rs1, rs2] = translator.prepare_inputs([rs1, rs2], temps);
-    let rd = translator.prepare_output(rd, temps);
-
-    match classify_zero_case(&rd, &rs1, &rs2) {
-        ZeroCase::RdZero => todo!(),
-        ZeroCase::Rs1Rs2Zero => todo!(),
-        ZeroCase::Rs1Zero => todo!(),
-        ZeroCase::Rs2Zero => todo!(),
-        ZeroCase::None => todo!(),
-    }
-
-    match classify_zero_case(&rd, &rs1, &rs2) {
-        ZeroCase::RdZero => todo!(),
-        ZeroCase::Rs1Rs2Zero => todo!(),
-        ZeroCase::Rs1Zero => todo!(),
-        ZeroCase::Rs2Zero => todo!(),
-        ZeroCase::None => todo!(),
-    }
+    let _ = (translator, temps, rd, rs1, rs2);
+    todo!("emit_mulhu")
 }
 
 /// RV64 `addi`: 64-bit wrapping add with sign-extended immediate.
