@@ -38,6 +38,20 @@ impl<'a> ValueLoc<'a> {
             Self::Temp(reg) => **reg.as_ref(),
         }
     }
+
+    /// Returns the x86-64 GPR encoding id (`0..=15`) backing this value location.
+    ///
+    /// This is the source carrier register code used by instruction encoders.
+    /// It is not a RISC-V register index.
+    ///
+    /// # Panics
+    ///
+    /// Panics for `ConstZero`, which has no backing x86 GPR.
+    /// Zero-valued sources must be handled by lowering logic before requesting
+    /// a concrete carrier id.
+    fn id(&self) -> u8 {
+        self.gpr().id()
+    }
 }
 
 /// Prepared input ready for instruction emission.
@@ -78,7 +92,7 @@ impl<'a> PreparedInput<'a> {
     /// Panics when this input is `ConstZero`.
     /// Callers must branch on zero-valued inputs before calling this method.
     pub(super) fn id(&self) -> u8 {
-        self.gpr().id()
+        self.src.id()
     }
 }
 
@@ -109,14 +123,14 @@ impl<'a> PreparedOutput<'a> {
     ///
     /// # Panics
     ///
-    /// Pancis when this output is `ConstZero`
+    /// Panics when this output is `ConstZero`.
     pub(super) fn id(&self) -> u8 {
         // panic if zero output
         if self.is_zero() {
             panic!("PreparedOutput::id called on zero/elided output");
         }
 
-        self.src.gpr().id()
+        self.src.id()
     }
 
     /// Returns whether this prepared output targets architectural zero (`x0`)
@@ -225,90 +239,6 @@ impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
         translator: &mut Translator,
         temp_allocator: &'a TempAllocator,
     ) -> InstructionContext<'a, NI, NCT> {
-        // this should take all the inputs and create the proper instruction context
-        // I'd need to define the goals and constraints that need to be met
-        // we have the inputs, we have the outputs
-        // if they point to the same thing, then they should have the same value
-        // (this includes temps)
-        //
-        // things become interesting when we consider the clobber sites
-        // there is an interaction between the clobber site and the inputs
-        // but also between inputs
-        //
-        // the algorithm I am implementing first will be pretty simple
-        // if the data contained in a clobber site is valuable we move that data to a temp
-        // if an input points to a clobber site then we remap that input
-        // essentially returning something that has to be relocated.
-        //
-        // this is why I needed a new type to represent relocated and non relocated types
-        // as the inputs themselves might get relocated
-        // technically all we want is the value that they contain
-        //
-        // inputs just need a location that the data can be read, but they don't need to be written
-        // back
-        // but if we clobber to an input location after clobbering is done, we want to ensure that the
-        // clobbered location contain the input value
-        // so essentially we remap the input, but we also point the clobber status to that point
-        // essentially we have to solve for the action to take, very interesting, so the input
-        // doesn't need to be relocated.
-        //
-        // so things that need to be relocated are the output and theh clobber restores
-        //
-        // now I need to figure out the actual algorithm I'd need for this mapping
-        // I think clobber sites put up the most constraints
-        //
-        // when there is no overlap between clobber sites and the operands
-        // we should just copy the clobber sites into temps, with prepared output
-        // via emissions
-        //
-        // what if one of the inputs point there?
-        // - this can't happen if the input is in xmm
-        // - so the input will have to be in GPR, in that case, we need to create a relocation from
-        // that position to a temp
-        // but this is exactly the same operation as above
-        //
-        // hence we don't even need to know if there is an overlap, what we just need to do is keep
-        // track of any remapping of gprs to temp and what the new mapping is
-        // then for every input / output we check if their normal location has been remapped, if it
-        // has we just duplcate the new location (clobber restore will handle writeback)
-        //
-        // sketch
-        // - handle clobber (build remap table)
-        // - handle input
-        // - handle output
-        //
-        // xmm handling is pretty easy, for inputs that are xmm and for outputs that are xmm
-        // we just use the temps and we are good. things only get interesting when the input /
-        // output is not xmm, if that is the case, then no emissions will be needed, we just check
-        // for the appropriate mapping
-        //
-        // inputs and outputs need a way to know if their register has been seen before
-        // what is a good information structure for this
-        // also the inputs will need to know if they have been remapped and likewise the output
-        //
-        // we always start with a riscv register location, from this there is a one to one mapping
-        // with an x86 target
-        // zero to zero, so that is fine
-        //
-        // let us start with the cache, I have a feeling that this is all that will be required.
-        // for that to be the case, it is important for the cache to not have any distingushing
-        // information about the input or output.
-        // It should represent a mapping from a riscv register / map target to an x86 gpr,
-        // which is essentially a ValueLoc.
-        // this means the cache can be represented as a vec of 32 ValueLocs.
-        //
-        // for x86 registers that are clobbered, we pick a temp for them (valueloc) and then we
-        // index the cache based on the map target and then insert that location into the cache.
-        // for inputs that come from xmm, we do the same thing
-        // for inputs that are clobbered, we should already have a cache entry for them
-        // for inputs that are just gprs, we duplicate the location within
-        // for the output, we just check the cache but no entry to cache is required (we do the
-        // output last)
-        //
-        // once we are done, the cache should contain the minimal amount of emissions required
-        // to set things up
-        // but is there an ordering? I don't think so, I feel they should all be independent
-
         let mut cache: HashMap<MapTarget, ValueLoc> = HashMap::new();
 
         let mut clobber_restore = vec![];
@@ -325,8 +255,7 @@ impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
 
                 let temp_reg = ValueLoc::Temp(Rc::new(temp_allocator.allocate().unwrap()));
 
-                // TODO: put id method for valueloc
-                dynasm!(translator.emitter ; mov Rq(clobbered_reg as u8), Rq(temp_reg.gpr().id()));
+                dynasm!(translator.emitter ; mov Rq(clobbered_reg.id()), Rq(temp_reg.id()));
 
                 entry.insert(temp_reg.clone());
 
