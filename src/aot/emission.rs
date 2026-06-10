@@ -670,7 +670,7 @@ fn emit_andi(
             return;
         }
 
-        UnaryZeroCase::None => todo!(),
+        UnaryZeroCase::None => {}
     }
 
     match classify_unary_shadow_case(rd, rs1) {
