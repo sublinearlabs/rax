@@ -1,4 +1,3 @@
-use alloy_transport_http::reqwest::dns;
 use dynasmrt::{dynasm, DynasmApi};
 
 use crate::aot::{
@@ -610,8 +609,10 @@ fn emit_addi(
 
         UnaryZeroCase::ImmZero => {
             // addi rd, rs1, 0 -> rd = rs1
-            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
-            ctx.write_back(translator);
+            if rd.id() != rs1.id() {
+                dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+                ctx.write_back(translator);
+            }
             return;
         }
 
@@ -628,8 +629,7 @@ fn emit_addi(
 
         UnaryShadowCase::Distinct => {
             // addi rd, rs1, imm
-            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
-            dynasm!(translator.emitter ; add Rq(rd.id()), imm);
+            dynasm!(translator.emitter ; lea Rq(rd.id()), [Rq(rs1.id()) + imm]);
             ctx.write_back(translator);
             return;
         }
