@@ -609,12 +609,13 @@ fn emit_addi(
 
         UnaryZeroCase::ImmZero => {
             // addi rd, rs1, 0 -> rd = rs1
-            if rd.id() != rs1.id() {
-                dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
-                ctx.write_back(translator);
-            } else {
+            if rd.id() == rs1.id() {
                 ctx.commit_unchanged(translator);
+                return;
             }
+
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            ctx.write_back(translator);
             return;
         }
 
