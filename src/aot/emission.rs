@@ -648,8 +648,47 @@ fn emit_andi(
     rs1: RiscvRegister,
     imm: i32,
 ) {
-    let _ = (translator, temps, rd, rs1, imm);
-    todo!("emit_andi")
+    let ctx = InstructionContextBuilder::<1, 0>::new()
+        .set_inputs([rs1])
+        .set_output(rd)
+        .build(translator, temps);
+
+    let [rs1] = ctx.inputs();
+    let rd = ctx.output();
+
+    match classify_unary_zero_case(rd, rs1, imm) {
+        UnaryZeroCase::RdZero => {
+            // x0 is hardwired to zero, writes can be ignored
+            ctx.discard_zero_output(translator);
+            return;
+        }
+
+        UnaryZeroCase::Rs1ImmZero | UnaryZeroCase::Rs1Zero | UnaryZeroCase::ImmZero => {
+            // in all cases, rd = 0
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryZeroCase::None => todo!(),
+    }
+
+    match classify_unary_shadow_case(rd, rs1) {
+        UnaryShadowCase::RdEqRs1 => {
+            // andi rd, rd, imm
+            dynasm!(translator.emitter ; and Rq(rd.id()), imm);
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryShadowCase::Distinct => {
+            // andi rd, rs1, imm
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            dynasm!(translator.emitter ; and Rq(rd.id()), imm);
+            ctx.write_back(translator);
+            return;
+        }
+    }
 }
 
 /// RV64 `slli`: logical left shift by immediate.
