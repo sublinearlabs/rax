@@ -723,7 +723,7 @@ fn emit_slli(
 
     match classify_unary_zero_case(rd, rs1, shamt as i32) {
         UnaryZeroCase::RdZero => {
-            // xo is hardwired to zero, writes can be ignored
+            // x0 is hardwired to zero, writes can be ignored
             ctx.discard_zero_output(translator);
             return;
         }
