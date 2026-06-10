@@ -1,7 +1,11 @@
+use alloy_transport_http::reqwest::dns;
 use dynasmrt::{dynasm, DynasmApi};
 
 use crate::aot::{
-    classification::{classify_shadow_case, classify_zero_case, ShadowCase, ZeroCase},
+    classification::{
+        classify_shadow_case, classify_unary_shadow_case, classify_unary_zero_case,
+        classify_zero_case, ShadowCase, UnaryShadowCase, UnaryZeroCase, ZeroCase,
+    },
     instruction_context::InstructionContextBuilder,
     registers::{RiscvRegister, X86Gpr},
     temp_alloc::TempAllocator,
@@ -576,11 +580,60 @@ fn emit_addi(
     rs1: RiscvRegister,
     imm: i32,
 ) {
-    // should be the same with regular add but one of the inputs is an immediate
-    // there is a classification happening here also, so seems I'd need another zero case
-    // there is also a shadow case but it might be less verbose
-    let _ = (translator, temps, rd, rs1, imm);
-    todo!("emit_addi")
+    let ctx = InstructionContextBuilder::<1, 0>::new()
+        .set_inputs([rs1])
+        .set_output(rd)
+        .build(translator, temps);
+    let [rs1] = ctx.inputs();
+    let rd = ctx.output();
+
+    match classify_unary_zero_case(rd, rs1, imm) {
+        UnaryZeroCase::RdZero => {
+            // x0 is hardwired to zero, writes can be ignored
+            ctx.discard_zero_output(translator);
+            return;
+        }
+
+        UnaryZeroCase::Rs1ImmZero => {
+            // addi rd, 0, 0 -> rd = 0
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryZeroCase::Rs1Zero => {
+            // addi rd, 0, imm -> rd = imm
+            dynasm!(translator.emitter ; mov Rq(rd.id()), imm);
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryZeroCase::ImmZero => {
+            // addi rd, rs1, 0 -> rd = rs1
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryZeroCase::None => {}
+    }
+
+    match classify_unary_shadow_case(rd, rs1) {
+        UnaryShadowCase::RdEqRs1 => {
+            // addi rd, rd, imm
+            dynasm!(translator.emitter ; add Rq(rd.id()), imm);
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryShadowCase::Distinct => {
+            // addi rd, rs1, imm
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            dynasm!(translator.emitter ; add Rq(rd.id()), imm);
+            ctx.write_back(translator);
+            return;
+        }
+    }
 }
 
 /// RV64 `andi`: bitwise AND with sign-extended immediate.
