@@ -612,6 +612,8 @@ fn emit_addi(
             if rd.id() != rs1.id() {
                 dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
                 ctx.write_back(translator);
+            } else {
+                ctx.commit_unchanged(translator);
             }
             return;
         }
