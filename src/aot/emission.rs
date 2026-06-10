@@ -862,6 +862,9 @@ fn emit_sb(
 
     let [rs1, rs2] = ctx.inputs();
 
+    // what happens if rs1 is 0 and rs2 is 0?
+    // we cannot get their ids so we need to handle them
+    // TODO: handle this
     dynasm!(translator.emitter ; mov BYTE [Rq(rs1.id()) + imm], Rb(rs2.id()));
 }
 
