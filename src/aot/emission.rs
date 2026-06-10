@@ -921,8 +921,21 @@ fn emit_sd(
 /// RV64 `lui`: write U-immediate to upper bits.
 /// rd <- sext(imm << 12)
 fn emit_lui(translator: &mut Translator, temps: &TempAllocator, rd: RiscvRegister, imm: i32) {
-    let _ = (translator, temps, rd, imm);
-    todo!("emit_lui")
+    if rd.is_zero() {
+        // x0 is hardwired to 0, writes can be ignored
+        return;
+    }
+
+    let ctx = InstructionContextBuilder::<0, 0>::new()
+        .set_output(rd)
+        .build(translator, temps);
+
+    let rd = ctx.output();
+
+    // NOTE: the immediate is already shifted by 12 from the decode layer
+    dynasm!(translator.emitter ; mov Rq(rd.id()), imm);
+
+    ctx.write_back(translator);
 }
 
 /// RV64 `auipc`: add U-immediate (<<12) to current PC.
