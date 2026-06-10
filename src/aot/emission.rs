@@ -891,8 +891,31 @@ fn emit_sd(
     rs2: RiscvRegister,
     imm: i32,
 ) {
-    let _ = (translator, temps, rs1, rs2, imm);
-    todo!("emit_sd")
+    let ctx = InstructionContextBuilder::<2, 0>::new()
+        .set_inputs([rs1, rs2])
+        .build(translator, temps);
+
+    let [rs1, rs2] = ctx.inputs();
+
+    // `x0` has no backing x86 register, but this x86 memory operand needs a
+    // base register. Materialize `x0 + imm` into a temp and use no displacement.
+    let (addr_id, addr_disp, _addr_temp) = if rs1.is_zero() {
+        let temp = temps
+            .allocate()
+            .expect("emit_sd requires a temp to materialize x0 + imm address");
+        dynasm!(translator.emitter ; mov Rq(temp.id()), QWORD imm as i64);
+        (temp.id(), 0, Some(temp))
+    } else {
+        (rs1.id(), imm, None)
+    };
+
+    if rs2.is_zero() {
+        dynasm!(translator.emitter ; mov QWORD [Rq(addr_id) + addr_disp], 0_i32);
+    } else {
+        dynasm!(translator.emitter ; mov QWORD [Rq(addr_id) + addr_disp], Rq(rs2.id()));
+    }
+
+    ctx.complete_no_output(translator);
 }
 
 /// RV64 `lui`: write U-immediate to upper bits.
