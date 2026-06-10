@@ -139,6 +139,11 @@ impl Translator {
         let buf = self.emitter.finalize().unwrap();
         buf.to_vec()
     }
+
+    // TODO: add documentation here
+    pub(crate) fn current_pc(&self) -> u64 {
+        self.cf.current_riscv_pc
+    }
 }
 
 #[cfg(test)]

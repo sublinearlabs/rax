@@ -941,8 +941,23 @@ fn emit_lui(translator: &mut Translator, temps: &TempAllocator, rd: RiscvRegiste
 /// RV64 `auipc`: add U-immediate (<<12) to current PC.
 /// rd <- pc + sext(imm << 12)
 fn emit_auipc(translator: &mut Translator, temps: &TempAllocator, rd: RiscvRegister, imm: i32) {
-    let _ = (translator, temps, rd, imm);
-    todo!("emit_auipc")
+    if rd.is_zero() {
+        // x0 is hardwired to 0, writes can be ignored
+        return;
+    }
+
+    let ctx = InstructionContextBuilder::<0, 0>::new()
+        .set_output(rd)
+        .build(translator, temps);
+
+    let rd = ctx.output();
+
+    let aupic_val = translator.current_pc().wrapping_add(imm as i64 as u64);
+
+    // NOTE: the immediate is alrleady shifted by 12 from the decode layer
+    dynasm!(translator.emitter ; mov Rq(rd.id()), QWORD aupic_val as i64);
+
+    ctx.write_back(translator);
 }
 
 /// RV64 `beq`: branch if equal.
