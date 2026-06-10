@@ -235,16 +235,46 @@ impl<'a> Drop for PreparedOutput<'a> {
     }
 }
 
+/// Completion guard for contexts that intentionally have no architectural output.
+///
+/// A no-output context must still be explicitly completed so clobber restores are
+/// emitted and missing termination remains visible as a lowering bug.
+struct NoOutputCompletion {
+    completed: bool,
+}
+
+impl NoOutputCompletion {
+    fn new() -> Self {
+        Self { completed: false }
+    }
+
+    fn complete(mut self) {
+        self.completed = true;
+    }
+
+    fn suppress_drop_panic(mut self) {
+        self.completed = true;
+    }
+}
+
+impl Drop for NoOutputCompletion {
+    fn drop(&mut self) {
+        if !self.completed {
+            panic!("No-output InstructionContext dropped before complete_no_output");
+        }
+    }
+}
+
 /// Builder for preparing instruction operands before AOT emission.
 ///
-/// The builder collects architectural inputs, one architectural output, and any
-/// x86 GPRs that the emitted instruction may clobber. `build()` materializes the
-/// requested operands into `PreparedInput`/`PreparedOutput` values and emits any
-/// setup moves needed to preserve clobbered mapped values.
+/// The builder collects architectural inputs, an optional architectural output,
+/// and any x86 GPRs that the emitted instruction may clobber. `build()`
+/// materializes the requested operands and emits any setup moves needed to
+/// preserve clobbered mapped values.
 pub(super) struct InstructionContextBuilder<const NI: usize, const NCT: usize> {
     /// Architectural source registers consumed by the instruction.
     inputs: Option<[RiscvRegister; NI]>,
-    /// Architectural destination register produced by the instruction.
+    /// Architectural destination register produced by the instruction, if any.
     output: Option<RiscvRegister>,
     /// x86 GPRs that must be preserved across instruction emission.
     clobber_targets: Option<[X86Gpr; NCT]>,
@@ -289,12 +319,11 @@ impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
     ///
     /// Materializes XMM-backed inputs into temp GPRs, preserves requested
     /// clobber targets, reuses materialized values through an internal cache,
-    /// and prepares the architectural output for later write-back.
+    /// and prepares the architectural output for later write-back when present.
     ///
     /// # Panics
     ///
     /// Panics when a required temp GPR cannot be allocated.
-    /// Panics when the output is missing.
     /// Zero outputs must be completed with
     /// `InstructionContext::discard_zero_output()`.
     pub(super) fn build<'a>(
@@ -303,13 +332,15 @@ impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
         temp_allocator: &'a TempAllocator,
     ) -> InstructionContext<'a, NI, NCT> {
         let inputs = self.inputs.expect("inputs must be present");
-        let output = self.output.expect("output must be present");
+        let output = self.output;
         let mut cache: HashMap<MapTarget, ValueLoc<'a>> = HashMap::new();
 
         let clobber_restore =
             Self::preserve_clobbers(self.clobber_targets, &mut cache, translator, temp_allocator);
         let prepared_inputs = Self::prepare_inputs(inputs, &mut cache, translator, temp_allocator);
-        let prepared_output = Self::prepare_output(output, &mut cache, translator, temp_allocator);
+        let prepared_output = output
+            .map(|output| Self::prepare_output(output, &mut cache, translator, temp_allocator));
+        let no_output_completion = prepared_output.is_none().then(NoOutputCompletion::new);
 
         InstructionContext {
             inputs: prepared_inputs.try_into().unwrap_or_else(|_| {
@@ -318,6 +349,7 @@ impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
                 )
             }),
             output: prepared_output,
+            no_output_completion,
             clobber_restore,
         }
     }
@@ -458,20 +490,23 @@ impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
 /// Prepared operands and deferred write-back state for one instruction.
 ///
 /// An instruction context owns the prepared inputs, the prepared architectural
-/// output, and any restore operations required for protected clobber targets.
-/// Instruction implementations should use `inputs()` and `output()` while
-/// emitting machine code, then finish by calling `write_back()`,
-/// `discard_zero_output()`, or `commit_unchanged()`.
+/// output when present, and any restore operations required for protected
+/// clobber targets. Instruction implementations should use `inputs()` and
+/// `output()` while emitting machine code, then finish by calling `write_back()`,
+/// `discard_zero_output()`, `commit_unchanged()`, or `complete_no_output()`.
 ///
 /// # Contract
 ///
-/// `write_back()`, `discard_zero_output()`, or `commit_unchanged()` must be
-/// called exactly once after instruction emission.
+/// Output contexts must be completed with `write_back()`,
+/// `discard_zero_output()`, or `commit_unchanged()`. No-output contexts must be
+/// completed with `complete_no_output()`.
 pub(super) struct InstructionContext<'a, const NI: usize, const NCT: usize> {
     /// Prepared source operands available for instruction emission.
     inputs: [PreparedInput<'a>; NI],
     /// Prepared destination carrier for the instruction result.
-    output: PreparedOutput<'a>,
+    output: Option<PreparedOutput<'a>>,
+    /// Completion guard for instructions with no architectural output.
+    no_output_completion: Option<NoOutputCompletion>,
     /// Deferred restores for mapped values moved out of clobber targets.
     clobber_restore: Vec<PreparedOutput<'a>>,
 }
@@ -492,7 +527,9 @@ impl<'a, const NI: usize, const NCT: usize> InstructionContext<'a, NI, NCT> {
     /// destinations, `commit_unchanged()` for unchanged destinations, or
     /// `discard_zero_output()` for `rd == x0`.
     pub(super) fn output(&self) -> &PreparedOutput<'a> {
-        &self.output
+        self.output
+            .as_ref()
+            .expect("InstructionContext::output called for no-output context")
     }
 
     /// Writes the prepared output and any clobber restores back to their mapped
@@ -507,9 +544,18 @@ impl<'a, const NI: usize, const NCT: usize> InstructionContext<'a, NI, NCT> {
     pub(super) fn write_back(self, translator: &mut Translator) {
         let InstructionContext {
             output,
+            no_output_completion,
             clobber_restore,
             ..
         } = self;
+
+        let Some(output) = output else {
+            if let Some(no_output_completion) = no_output_completion {
+                no_output_completion.suppress_drop_panic();
+            }
+            Self::discard_restores(clobber_restore);
+            panic!("InstructionContext::write_back called for no-output context");
+        };
 
         if output.is_zero() {
             // Suppress drop guards so the API misuse panic below is the only
@@ -536,9 +582,18 @@ impl<'a, const NI: usize, const NCT: usize> InstructionContext<'a, NI, NCT> {
     pub(super) fn discard_zero_output(self, translator: &mut Translator) {
         let InstructionContext {
             output,
+            no_output_completion,
             clobber_restore,
             ..
         } = self;
+
+        let Some(output) = output else {
+            if let Some(no_output_completion) = no_output_completion {
+                no_output_completion.suppress_drop_panic();
+            }
+            Self::discard_restores(clobber_restore);
+            panic!("InstructionContext::discard_zero_output called for no-output context");
+        };
 
         if !output.is_zero() {
             // Suppress drop guards so the API misuse panic below is the only
@@ -564,9 +619,18 @@ impl<'a, const NI: usize, const NCT: usize> InstructionContext<'a, NI, NCT> {
     pub(super) fn commit_unchanged(self, translator: &mut Translator) {
         let InstructionContext {
             output,
+            no_output_completion,
             clobber_restore,
             ..
         } = self;
+
+        let Some(output) = output else {
+            if let Some(no_output_completion) = no_output_completion {
+                no_output_completion.suppress_drop_panic();
+            }
+            Self::discard_restores(clobber_restore);
+            panic!("InstructionContext::commit_unchanged called for no-output context");
+        };
 
         if output.is_zero() {
             // Suppress drop guards so the API misuse panic below is the only
@@ -577,6 +641,35 @@ impl<'a, const NI: usize, const NCT: usize> InstructionContext<'a, NI, NCT> {
         }
 
         output.commit_unchanged();
+        Self::write_restores(clobber_restore, translator);
+    }
+
+    /// Explicitly completes a context with no architectural output.
+    ///
+    /// This completion path emits no destination write, but still restores any
+    /// clobber-preserved mapped values.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the context has an output; use one of the output completion
+    /// paths instead.
+    pub(super) fn complete_no_output(self, translator: &mut Translator) {
+        let InstructionContext {
+            output,
+            no_output_completion,
+            clobber_restore,
+            ..
+        } = self;
+
+        if let Some(output) = output {
+            Self::discard_restores(clobber_restore);
+            output.suppress_drop_panic();
+            panic!("InstructionContext::complete_no_output called for output context");
+        }
+
+        let no_output_completion = no_output_completion
+            .expect("InstructionContext::complete_no_output missing no-output guard");
+        no_output_completion.complete();
         Self::write_restores(clobber_restore, translator);
     }
 
@@ -735,14 +828,120 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "output must be present")]
-    fn build_panics_when_output_is_missing() {
+    fn no_output_context_builds_and_completes_explicitly() {
         let mut translator = new_translator();
         let temps = TempAllocator::new(vec![]);
 
-        let _ = InstructionContextBuilder::<1, 0>::new()
+        let ctx = InstructionContextBuilder::<1, 0>::new()
             .set_inputs([RiscvRegister::A0])
             .build(&mut translator, &temps);
+
+        assert_eq!(ctx.inputs()[0].id(), X86Gpr::Rdi.id());
+        ctx.complete_no_output(&mut translator);
+
+        assert_eq!(translator.finalize(), Vec::<u8>::new());
+    }
+
+    #[test]
+    fn output_panics_for_no_output_context() {
+        let mut translator = new_translator();
+        let temps = TempAllocator::new(vec![]);
+
+        let ctx = InstructionContextBuilder::<1, 0>::new()
+            .set_inputs([RiscvRegister::A0])
+            .build(&mut translator, &temps);
+
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _ = ctx.output();
+        }));
+
+        assert!(result.is_err());
+        ctx.complete_no_output(&mut translator);
+    }
+
+    #[test]
+    fn complete_no_output_restores_clobbers() {
+        let mut translator = new_translator();
+        let temps = TempAllocator::new(vec![X86Gpr::R11]);
+
+        let ctx = InstructionContextBuilder::new()
+            .set_inputs([RiscvRegister::A0])
+            .ensure_no_clobber([X86Gpr::Rdi])
+            .build(&mut translator, &temps);
+
+        assert_eq!(ctx.inputs()[0].id(), X86Gpr::R11.id());
+        ctx.complete_no_output(&mut translator);
+
+        assert_eq!(
+            translator.finalize(),
+            vec![0x49, 0x89, 0xfb, 0x4c, 0x89, 0xdf]
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "No-output InstructionContext dropped before complete_no_output")]
+    fn no_output_context_drop_without_complete_panics() {
+        let mut translator = new_translator();
+        let temps = TempAllocator::new(vec![]);
+
+        let _ctx = InstructionContextBuilder::<0, 0>::new()
+            .set_inputs([])
+            .build(&mut translator, &temps);
+    }
+
+    #[test]
+    #[should_panic(expected = "InstructionContext::complete_no_output called for output context")]
+    fn complete_no_output_panics_for_output_context() {
+        let mut translator = new_translator();
+        let temps = TempAllocator::new(vec![]);
+
+        let ctx = InstructionContextBuilder::<0, 0>::new()
+            .set_inputs([])
+            .set_output(RiscvRegister::A0)
+            .build(&mut translator, &temps);
+
+        ctx.complete_no_output(&mut translator);
+    }
+
+    #[test]
+    #[should_panic(expected = "InstructionContext::write_back called for no-output context")]
+    fn write_back_panics_for_no_output_context() {
+        let mut translator = new_translator();
+        let temps = TempAllocator::new(vec![]);
+
+        let ctx = InstructionContextBuilder::<0, 0>::new()
+            .set_inputs([])
+            .build(&mut translator, &temps);
+
+        ctx.write_back(&mut translator);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "InstructionContext::discard_zero_output called for no-output context"
+    )]
+    fn discard_zero_output_panics_for_no_output_context() {
+        let mut translator = new_translator();
+        let temps = TempAllocator::new(vec![]);
+
+        let ctx = InstructionContextBuilder::<0, 0>::new()
+            .set_inputs([])
+            .build(&mut translator, &temps);
+
+        ctx.discard_zero_output(&mut translator);
+    }
+
+    #[test]
+    #[should_panic(expected = "InstructionContext::commit_unchanged called for no-output context")]
+    fn commit_unchanged_panics_for_no_output_context() {
+        let mut translator = new_translator();
+        let temps = TempAllocator::new(vec![]);
+
+        let ctx = InstructionContextBuilder::<0, 0>::new()
+            .set_inputs([])
+            .build(&mut translator, &temps);
+
+        ctx.commit_unchanged(&mut translator);
     }
 
     #[test]
