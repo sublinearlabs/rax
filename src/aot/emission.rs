@@ -781,10 +781,10 @@ fn emit_sll(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
-    // given that the shamt value for this is in a register
+    // given that the shift value for this is in a register
     // we are using this form:
     // shl r/m64, cl
-    // the shamt value must be in rcx before this is called
+    // the shift value must be in rcx before this is called
     // hence we ensure no clobber for that location
     let ctx = InstructionContextBuilder::new()
         .set_inputs([rs1, rs2])
