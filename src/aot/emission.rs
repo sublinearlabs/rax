@@ -603,24 +603,10 @@ fn emit_mulhu(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
-    // okay time to implement this
-    // I forget what it is supposed to do
-    // we mul rs1 and rs2 but only store the high 64 bu=its
-    // the multiplication is unsigned
-    //
-    // this is really just a mul instruction
-    // but we move the content of rdx
-    //
+    // x86 mul r/m64 uses the rdx and rax as implicit registers
     // RDX:RAX = RAX * r/m64
-    // so store rs1 in rax
-    // then mul rs2
-    // then mov rdx to rd
-    // and then write back for clobbering
-    //
-    // obviously, I'd still need to handle the different cases
-    // for the zero cases we don't even need clobbering right
-    // hmm so some of this implementations might not
-    // require the full context setup (interesting)
+    // high XLEN bits of the multiplication are in RDX
+    // low  XLEN bits of the multiplication are in RAX
 
     let ctx = InstructionContextBuilder::new()
         .set_inputs([rs1, rs2])
@@ -632,20 +618,41 @@ fn emit_mulhu(
     let rd = ctx.output();
 
     match classify_zero_case(&rd, &rs1, &rs2) {
-        ZeroCase::RdZero => todo!(),
-        ZeroCase::Rs1Rs2Zero => todo!(),
-        ZeroCase::Rs1Zero => todo!(),
-        ZeroCase::Rs2Zero => todo!(),
-        ZeroCase::None => todo!(),
+        ZeroCase::RdZero => {
+            // x0 is hardwired to zero, writes can be ignored
+            ctx.discard_zero_output(translator);
+            return;
+        }
+        ZeroCase::Rs1Rs2Zero | ZeroCase::Rs1Zero | ZeroCase::Rs2Zero => {
+            // in all of these cases, rd should be set to zero
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+        ZeroCase::None => {}
     }
 
-    match classify_shadow_case(&rd, &rs1, &rs2) {
-        ShadowCase::AllEqual => todo!(),
-        ShadowCase::RdEqRs1 => todo!(),
-        ShadowCase::RdEqRs2 => todo!(),
-        ShadowCase::Rs1EqRs2 => todo!(),
-        ShadowCase::AllDistinct => todo!(),
+    // I am not handling the shadow case here because,
+    // for most of them, it is pretty difficult to beat the
+    // 3 instruction baseline:
+    // mov rax, rs1;
+    // mul rs2;
+    // mov rd, rdx;
+
+    if rs1.id() == X86Gpr::Rax.id() {
+        dynasm!(translator.emitter ; mul Rq(rs2.id()));
+    } else if rs2.id() == X86Gpr::Rax.id() {
+        dynasm!(translator.emitter ; mul Rq(rs1.id()));
+    } else {
+        dynasm!(translator.emitter ; mov Rq(X86Gpr::Rax.id()), Rq(rs1.id()));
+        dynasm!(translator.emitter ; mul Rq(rs2.id()));
     }
+
+    if rd.id() != X86Gpr::Rdx.id() {
+        dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(X86Gpr::Rdx.id()));
+    }
+
+    ctx.write_back(translator);
 }
 
 /// RV64 `addi`: 64-bit wrapping add with sign-extended immediate.
