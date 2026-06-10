@@ -99,8 +99,8 @@ impl<'a> PreparedInput<'a> {
 /// Prepared architectural destination bound to a computed source value.
 ///
 /// A prepared output must be explicitly completed; dropping one without calling
-/// `write_back` or `discard_zero_output` is considered a programmer error and
-/// panics.
+/// `write_back`, `discard_zero_output`, or `commit_unchanged` is considered a
+/// programmer error and panics.
 pub(super) struct PreparedOutput<'a> {
     src: ValueLoc<'a>,
     dest: MapTarget,
@@ -150,6 +150,19 @@ impl<'a> PreparedOutput<'a> {
         if !self.is_zero() {
             self.written_back = true;
             panic!("PreparedOutput::discard_zero called for non-zero destination");
+        }
+
+        self.written_back = true;
+    }
+
+    /// Marks a non-zero output as intentionally unchanged.
+    ///
+    /// This is the explicit completion path for instructions that leave their
+    /// destination value unchanged. Zero outputs must use `discard_zero()`.
+    fn commit_unchanged(mut self) {
+        if self.is_zero() {
+            self.written_back = true;
+            panic!("PreparedOutput::commit_unchanged called for ConstZero destination");
         }
 
         self.written_back = true;
@@ -215,7 +228,9 @@ impl<'a> Drop for PreparedOutput<'a> {
     /// Enforces strict explicit completion before output teardown.
     fn drop(&mut self) {
         if !self.written_back {
-            panic!("PreparedOutput dropped before write_back or discard_zero_output");
+            panic!(
+                "PreparedOutput dropped before write_back, discard_zero_output, or commit_unchanged"
+            );
         }
     }
 }
@@ -445,13 +460,13 @@ impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
 /// An instruction context owns the prepared inputs, the prepared architectural
 /// output, and any restore operations required for protected clobber targets.
 /// Instruction implementations should use `inputs()` and `output()` while
-/// emitting machine code, then finish by calling `write_back()` or
-/// `discard_zero_output()`.
+/// emitting machine code, then finish by calling `write_back()`,
+/// `discard_zero_output()`, or `commit_unchanged()`.
 ///
 /// # Contract
 ///
-/// `write_back()` or `discard_zero_output()` must be called exactly once after
-/// instruction emission.
+/// `write_back()`, `discard_zero_output()`, or `commit_unchanged()` must be
+/// called exactly once after instruction emission.
 pub(super) struct InstructionContext<'a, const NI: usize, const NCT: usize> {
     /// Prepared source operands available for instruction emission.
     inputs: [PreparedInput<'a>; NI],
@@ -473,8 +488,9 @@ impl<'a, const NI: usize, const NCT: usize> InstructionContext<'a, NI, NCT> {
     /// Returns the prepared architectural output.
     ///
     /// The output may be queried for its carrier id during instruction
-    /// emission. Complete the context with `write_back()` for real destinations
-    /// or `discard_zero_output()` for `rd == x0`.
+    /// emission. Complete the context with `write_back()` for computed
+    /// destinations, `commit_unchanged()` for unchanged destinations, or
+    /// `discard_zero_output()` for `rd == x0`.
     pub(super) fn output(&self) -> &PreparedOutput<'a> {
         &self.output
     }
@@ -533,6 +549,34 @@ impl<'a, const NI: usize, const NCT: usize> InstructionContext<'a, NI, NCT> {
         }
 
         output.discard_zero();
+        Self::write_restores(clobber_restore, translator);
+    }
+
+    /// Explicitly commits an unchanged non-zero architectural output.
+    ///
+    /// This completion path emits no destination write, but still restores any
+    /// clobber-preserved mapped values.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the output is `ConstZero`; use `discard_zero_output()` for
+    /// `rd == x0`.
+    pub(super) fn commit_unchanged(self, translator: &mut Translator) {
+        let InstructionContext {
+            output,
+            clobber_restore,
+            ..
+        } = self;
+
+        if output.is_zero() {
+            // Suppress drop guards so the API misuse panic below is the only
+            // panic during unwinding.
+            Self::discard_restores(clobber_restore);
+            output.suppress_drop_panic();
+            panic!("InstructionContext::commit_unchanged called for ConstZero output");
+        }
+
+        output.commit_unchanged();
         Self::write_restores(clobber_restore, translator);
     }
 
@@ -774,7 +818,57 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "PreparedOutput dropped before write_back or discard_zero_output")]
+    fn commit_unchanged_non_zero_output_emits_no_write() {
+        let mut translator = new_translator();
+        let temps = TempAllocator::new(vec![]);
+
+        let ctx = InstructionContextBuilder::<0, 0>::new()
+            .set_inputs([])
+            .set_output(RiscvRegister::A0)
+            .build(&mut translator, &temps);
+
+        ctx.commit_unchanged(&mut translator);
+
+        assert_eq!(translator.finalize(), Vec::<u8>::new());
+    }
+
+    #[test]
+    fn commit_unchanged_restores_clobbers() {
+        let mut translator = new_translator();
+        let temps = TempAllocator::new(vec![X86Gpr::R11]);
+
+        let ctx = InstructionContextBuilder::new()
+            .set_inputs([RiscvRegister::A0])
+            .set_output(RiscvRegister::A1)
+            .ensure_no_clobber([X86Gpr::Rdi])
+            .build(&mut translator, &temps);
+
+        ctx.commit_unchanged(&mut translator);
+
+        assert_eq!(
+            translator.finalize(),
+            vec![0x49, 0x89, 0xfb, 0x4c, 0x89, 0xdf]
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "InstructionContext::commit_unchanged called for ConstZero output")]
+    fn commit_unchanged_panics_for_zero_output() {
+        let mut translator = new_translator();
+        let temps = TempAllocator::new(vec![]);
+
+        let ctx = InstructionContextBuilder::<0, 0>::new()
+            .set_inputs([])
+            .set_output(RiscvRegister::Zero)
+            .build(&mut translator, &temps);
+
+        ctx.commit_unchanged(&mut translator);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "PreparedOutput dropped before write_back, discard_zero_output, or commit_unchanged"
+    )]
     fn zero_output_drop_without_discard_panics() {
         let mut translator = new_translator();
         let temps = TempAllocator::new(vec![]);
@@ -786,7 +880,9 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "PreparedOutput dropped before write_back or discard_zero_output")]
+    #[should_panic(
+        expected = "PreparedOutput dropped before write_back, discard_zero_output, or commit_unchanged"
+    )]
     fn context_drop_without_write_back_panics() {
         let mut translator = new_translator();
         let temps = TempAllocator::new(vec![]);

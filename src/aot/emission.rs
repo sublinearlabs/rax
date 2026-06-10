@@ -1,7 +1,11 @@
 use dynasmrt::{dynasm, DynasmApi};
 
 use crate::aot::{
-    instruction_context::{InstructionContextBuilder, PreparedInput, PreparedOutput},
+    classification::{
+        classify_shadow_case, classify_unary_shadow_case, classify_unary_zero_case,
+        classify_zero_case, ShadowCase, UnaryShadowCase, UnaryZeroCase, ZeroCase,
+    },
+    instruction_context::InstructionContextBuilder,
     registers::{RiscvRegister, X86Gpr},
     temp_alloc::TempAllocator,
     translator::Translator,
@@ -67,95 +71,6 @@ pub(super) fn emit_instruction(
 
 fn rv(reg: &u8) -> RiscvRegister {
     RiscvRegister::from_index(*reg as usize).expect("invalid decoded RISC-V register")
-}
-
-/// Normalized zero-related classification for `(rd, rs1, rs2)`.
-///
-/// Variants are mutually exclusive and exhaustive.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum ZeroCase {
-    /// Destination is architectural zero (`rd == x0`).
-    ///
-    /// Output write is semantically elided and lowering should return early.
-    RdZero,
-    /// Both sources are architectural zero (`rs1 == x0 && rs2 == x0`),
-    /// with `rd != x0`.
-    Rs1Rs2Zero,
-    /// First source is architectural zero and second is non-zero
-    /// (`rs1 == x0 && rs2 != x0`), with `rd != x0`.
-    Rs1Zero,
-    /// Second source is architectural zero and first is non-zero
-    /// (`rs2 == x0 && rs1 != x0`), with `rd != x0`.
-    Rs2Zero,
-    /// No zero-specific simplification applies
-    /// (`rd != x0 && rs1 != x0 && rs2 != x0`).
-    None,
-}
-
-/// Normalized alias/equality classification for `(rd, rs1, rs2)`.
-///
-/// This classification is intended for non-zero source paths, i.e. when
-/// zero classification yields `ZeroCase::None`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum ShadowCase {
-    /// All operands name the same architectural register
-    /// (`rd == rs1 && rs1 == rs2`).
-    AllEqual,
-    /// Destination aliases the first source (`rd == rs1`), with `rd != rs2`.
-    RdEqRs1,
-    /// Destination aliases the second source (`rd == rs2`), with `rd != rs1`.
-    RdEqRs2,
-    /// Sources are equal but destination is distinct (`rs1 == rs2`),
-    /// with `rd != rs1`.
-    Rs1EqRs2,
-    /// All operands are pairwise distinct.
-    AllDistinct,
-}
-
-/// Classifies zero-related simplification cases for prepared operands.
-fn classify_zero_case(
-    rd: &PreparedOutput<'_>,
-    rs1: &PreparedInput<'_>,
-    rs2: &PreparedInput<'_>,
-) -> ZeroCase {
-    if rd.is_zero() {
-        return ZeroCase::RdZero;
-    }
-    if rs1.is_zero() && rs2.is_zero() {
-        return ZeroCase::Rs1Rs2Zero;
-    }
-    if rs1.is_zero() {
-        return ZeroCase::Rs1Zero;
-    }
-    if rs2.is_zero() {
-        return ZeroCase::Rs2Zero;
-    }
-    ZeroCase::None
-}
-
-/// Classifies alias/equality relationships for prepared non-zero operands.
-fn classify_shadow_case(
-    rd: &PreparedOutput<'_>,
-    rs1: &PreparedInput<'_>,
-    rs2: &PreparedInput<'_>,
-) -> ShadowCase {
-    let rd_id = rd.id();
-    let rs1_id = rs1.id();
-    let rs2_id = rs2.id();
-
-    if rd_id == rs1_id && rs1_id == rs2_id {
-        return ShadowCase::AllEqual;
-    }
-    if rd_id == rs1_id {
-        return ShadowCase::RdEqRs1;
-    }
-    if rd_id == rs2_id {
-        return ShadowCase::RdEqRs2;
-    }
-    if rs1_id == rs2_id {
-        return ShadowCase::Rs1EqRs2;
-    }
-    ShadowCase::AllDistinct
 }
 
 /// RV64 `add`: 64-bit wrapping addition.
@@ -664,8 +579,64 @@ fn emit_addi(
     rs1: RiscvRegister,
     imm: i32,
 ) {
-    let _ = (translator, temps, rd, rs1, imm);
-    todo!("emit_addi")
+    let ctx = InstructionContextBuilder::<1, 0>::new()
+        .set_inputs([rs1])
+        .set_output(rd)
+        .build(translator, temps);
+    let [rs1] = ctx.inputs();
+    let rd = ctx.output();
+
+    match classify_unary_zero_case(rd, rs1, imm) {
+        UnaryZeroCase::RdZero => {
+            // x0 is hardwired to zero, writes can be ignored
+            ctx.discard_zero_output(translator);
+            return;
+        }
+
+        UnaryZeroCase::Rs1ImmZero => {
+            // addi rd, 0, 0 -> rd = 0
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryZeroCase::Rs1Zero => {
+            // addi rd, 0, imm -> rd = imm
+            dynasm!(translator.emitter ; mov Rq(rd.id()), imm);
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryZeroCase::ImmZero => {
+            // addi rd, rs1, 0 -> rd = rs1
+            if rd.id() == rs1.id() {
+                ctx.commit_unchanged(translator);
+                return;
+            }
+
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryZeroCase::None => {}
+    }
+
+    match classify_unary_shadow_case(rd, rs1) {
+        UnaryShadowCase::RdEqRs1 => {
+            // addi rd, rd, imm
+            dynasm!(translator.emitter ; add Rq(rd.id()), imm);
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryShadowCase::Distinct => {
+            // addi rd, rs1, imm
+            dynasm!(translator.emitter ; lea Rq(rd.id()), [Rq(rs1.id()) + imm]);
+            ctx.write_back(translator);
+            return;
+        }
+    }
 }
 
 /// RV64 `andi`: bitwise AND with sign-extended immediate.
@@ -677,8 +648,60 @@ fn emit_andi(
     rs1: RiscvRegister,
     imm: i32,
 ) {
-    let _ = (translator, temps, rd, rs1, imm);
-    todo!("emit_andi")
+    let ctx = InstructionContextBuilder::<1, 0>::new()
+        .set_inputs([rs1])
+        .set_output(rd)
+        .build(translator, temps);
+
+    let [rs1] = ctx.inputs();
+    let rd = ctx.output();
+
+    match classify_unary_zero_case(rd, rs1, imm) {
+        UnaryZeroCase::RdZero => {
+            // x0 is hardwired to zero, writes can be ignored
+            ctx.discard_zero_output(translator);
+            return;
+        }
+
+        UnaryZeroCase::Rs1ImmZero | UnaryZeroCase::Rs1Zero | UnaryZeroCase::ImmZero => {
+            // in all cases, rd = 0
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryZeroCase::None => {}
+    }
+
+    // andi rd, rs1, -1 preserves all bits, so it is just a move/no-op.
+    // Handle it before shadow lowering to avoid emitting `and rd, -1`.
+    if imm == -1 {
+        if rd.id() == rs1.id() {
+            ctx.commit_unchanged(translator);
+            return;
+        }
+
+        dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+        ctx.write_back(translator);
+        return;
+    }
+
+    match classify_unary_shadow_case(rd, rs1) {
+        UnaryShadowCase::RdEqRs1 => {
+            // andi rd, rd, imm
+            dynasm!(translator.emitter ; and Rq(rd.id()), imm);
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryShadowCase::Distinct => {
+            // andi rd, rs1, imm
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            dynasm!(translator.emitter ; and Rq(rd.id()), imm);
+            ctx.write_back(translator);
+            return;
+        }
+    }
 }
 
 /// RV64 `slli`: logical left shift by immediate.
@@ -690,8 +713,63 @@ fn emit_slli(
     rs1: RiscvRegister,
     shamt: u8,
 ) {
-    let _ = (translator, temps, rd, rs1, shamt);
-    todo!("emit_slli")
+    let ctx = InstructionContextBuilder::<1, 0>::new()
+        .set_inputs([rs1])
+        .set_output(rd)
+        .build(translator, temps);
+
+    let [rs1] = ctx.inputs();
+    let rd = ctx.output();
+
+    match classify_unary_zero_case(rd, rs1, shamt as i32) {
+        UnaryZeroCase::RdZero => {
+            // x0 is hardwired to zero, writes can be ignored
+            ctx.discard_zero_output(translator);
+            return;
+        }
+
+        UnaryZeroCase::Rs1ImmZero | UnaryZeroCase::Rs1Zero => {
+            // Rs1ImmZero
+            // slli rd, 0, 0 -> rd = 0
+            //
+            // Rs1Zero
+            // slli rd, 0, imm -> rd = 0
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryZeroCase::ImmZero => {
+            // slli rd, rs1, 0 -> rd = rs1
+            if rd.id() == rs1.id() {
+                ctx.commit_unchanged(translator);
+                return;
+            }
+
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryZeroCase::None => {}
+    }
+
+    match classify_unary_shadow_case(rd, rs1) {
+        UnaryShadowCase::RdEqRs1 => {
+            // slli rd, rd, imm
+            dynasm!(translator.emitter ; shl Rq(rd.id()), shamt as i8);
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryShadowCase::Distinct => {
+            // slli rd, rs1, imm
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            dynasm!(translator.emitter ; shl Rq(rd.id()), shamt as i8);
+            ctx.write_back(translator);
+            return;
+        }
+    }
 }
 
 /// RV64 `sll`: logical left shift by register low bits.
@@ -703,8 +781,70 @@ fn emit_sll(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
-    let _ = (translator, temps, rd, rs1, rs2);
-    todo!("emit_sll")
+    // given that the shift value for this is in a register
+    // we are using this form:
+    // shl r/m64, cl
+    // the shift value must be in rcx before this is called
+    // hence we ensure no clobber for that location
+    let ctx = InstructionContextBuilder::new()
+        .set_inputs([rs1, rs2])
+        .set_output(rd)
+        .ensure_no_clobber([X86Gpr::Rcx])
+        .build(translator, temps);
+
+    let [rs1, rs2] = ctx.inputs();
+    let rd = ctx.output();
+
+    match classify_zero_case(rd, rs1, rs2) {
+        ZeroCase::RdZero => {
+            // x0 is hardwired to zero, writes can be ignored
+            ctx.discard_zero_output(translator);
+            return;
+        }
+
+        ZeroCase::Rs1Rs2Zero | ZeroCase::Rs1Zero => {
+            // Rs1Rs2Zero
+            // sll rd, 0, 0 -> rd = 0
+            //
+            // Rs1Zero
+            // sll rd, 0, rs2 -> rd = 0
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        ZeroCase::Rs2Zero => {
+            // sll rd, rs1, 0 -> rd = rs1
+            if rd.id() == rs1.id() {
+                ctx.commit_unchanged(translator);
+                return;
+            }
+
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        ZeroCase::None => {}
+    }
+
+    // move the shamt value to rcx
+    dynasm!(translator.emitter ; mov Rq(X86Gpr::Rcx.id()), Rq(rs2.id()));
+
+    match classify_unary_shadow_case(rd, rs1) {
+        UnaryShadowCase::RdEqRs1 => {
+            dynasm!(translator.emitter ; shl Rq(rd.id()), cl);
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryShadowCase::Distinct => {
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            dynasm!(translator.emitter ; shl Rq(rd.id()), cl);
+            ctx.write_back(translator);
+            return;
+        }
+    }
 }
 
 /// RV64 `sb`: store low 8 bits of rs2 to memory at rs1 + sext(imm).
