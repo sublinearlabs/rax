@@ -862,10 +862,24 @@ fn emit_sb(
 
     let [rs1, rs2] = ctx.inputs();
 
-    // what happens if rs1 is 0 and rs2 is 0?
-    // we cannot get their ids so we need to handle them
-    // TODO: handle this
-    dynasm!(translator.emitter ; mov BYTE [Rq(rs1.id()) + imm], Rb(rs2.id()));
+    // `x0` has no backing x86 register, but this x86 memory operand needs a
+    // base register. Materialize `x0 + imm` into a temp and use no displacement.
+    let (addr_id, addr_disp, _addr_temp) = if rs1.is_zero() {
+        let temp = temps
+            .allocate()
+            .expect("emit_sb requires a temp to materialize x0 + imm address");
+        dynasm!(translator.emitter ; mov Rq(temp.id()), QWORD imm as i64);
+        (temp.id(), 0, Some(temp))
+    } else {
+        (rs1.id(), imm, None)
+    };
+
+    if rs2.is_zero() {
+        dynasm!(translator.emitter ; mov BYTE [Rq(addr_id) + addr_disp], 0_i8);
+    } else {
+        dynasm!(translator.emitter ; mov BYTE [Rq(addr_id) + addr_disp], Rb(rs2.id()));
+    }
+    ctx.complete_no_output(translator);
 }
 
 /// RV64 `sd`: store 64 bits of rs2 to memory at rs1 + sext(imm).
