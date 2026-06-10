@@ -856,8 +856,13 @@ fn emit_sb(
     rs2: RiscvRegister,
     imm: i32,
 ) {
-    let _ = (translator, temps, rs1, rs2, imm);
-    todo!("emit_sb")
+    let ctx = InstructionContextBuilder::<2, 0>::new()
+        .set_inputs([rs1, rs2])
+        .build(translator, temps);
+
+    let [rs1, rs2] = ctx.inputs();
+
+    dynasm!(translator.emitter ; mov BYTE [Rq(rs1.id()) + imm], Rb(rs2.id()));
 }
 
 /// RV64 `sd`: store 64 bits of rs2 to memory at rs1 + sext(imm).
