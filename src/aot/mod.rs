@@ -1,3 +1,4 @@
+mod classification;
 mod emission;
 mod instruction_context;
 mod register_mapping;

@@ -1,7 +1,8 @@
 use dynasmrt::{dynasm, DynasmApi};
 
 use crate::aot::{
-    instruction_context::{InstructionContextBuilder, PreparedInput, PreparedOutput},
+    classification::{classify_shadow_case, classify_zero_case, ShadowCase, ZeroCase},
+    instruction_context::InstructionContextBuilder,
     registers::{RiscvRegister, X86Gpr},
     temp_alloc::TempAllocator,
     translator::Translator,
@@ -67,95 +68,6 @@ pub(super) fn emit_instruction(
 
 fn rv(reg: &u8) -> RiscvRegister {
     RiscvRegister::from_index(*reg as usize).expect("invalid decoded RISC-V register")
-}
-
-/// Normalized zero-related classification for `(rd, rs1, rs2)`.
-///
-/// Variants are mutually exclusive and exhaustive.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum ZeroCase {
-    /// Destination is architectural zero (`rd == x0`).
-    ///
-    /// Output write is semantically elided and lowering should return early.
-    RdZero,
-    /// Both sources are architectural zero (`rs1 == x0 && rs2 == x0`),
-    /// with `rd != x0`.
-    Rs1Rs2Zero,
-    /// First source is architectural zero and second is non-zero
-    /// (`rs1 == x0 && rs2 != x0`), with `rd != x0`.
-    Rs1Zero,
-    /// Second source is architectural zero and first is non-zero
-    /// (`rs2 == x0 && rs1 != x0`), with `rd != x0`.
-    Rs2Zero,
-    /// No zero-specific simplification applies
-    /// (`rd != x0 && rs1 != x0 && rs2 != x0`).
-    None,
-}
-
-/// Normalized alias/equality classification for `(rd, rs1, rs2)`.
-///
-/// This classification is intended for non-zero source paths, i.e. when
-/// zero classification yields `ZeroCase::None`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum ShadowCase {
-    /// All operands name the same architectural register
-    /// (`rd == rs1 && rs1 == rs2`).
-    AllEqual,
-    /// Destination aliases the first source (`rd == rs1`), with `rd != rs2`.
-    RdEqRs1,
-    /// Destination aliases the second source (`rd == rs2`), with `rd != rs1`.
-    RdEqRs2,
-    /// Sources are equal but destination is distinct (`rs1 == rs2`),
-    /// with `rd != rs1`.
-    Rs1EqRs2,
-    /// All operands are pairwise distinct.
-    AllDistinct,
-}
-
-/// Classifies zero-related simplification cases for prepared operands.
-fn classify_zero_case(
-    rd: &PreparedOutput<'_>,
-    rs1: &PreparedInput<'_>,
-    rs2: &PreparedInput<'_>,
-) -> ZeroCase {
-    if rd.is_zero() {
-        return ZeroCase::RdZero;
-    }
-    if rs1.is_zero() && rs2.is_zero() {
-        return ZeroCase::Rs1Rs2Zero;
-    }
-    if rs1.is_zero() {
-        return ZeroCase::Rs1Zero;
-    }
-    if rs2.is_zero() {
-        return ZeroCase::Rs2Zero;
-    }
-    ZeroCase::None
-}
-
-/// Classifies alias/equality relationships for prepared non-zero operands.
-fn classify_shadow_case(
-    rd: &PreparedOutput<'_>,
-    rs1: &PreparedInput<'_>,
-    rs2: &PreparedInput<'_>,
-) -> ShadowCase {
-    let rd_id = rd.id();
-    let rs1_id = rs1.id();
-    let rs2_id = rs2.id();
-
-    if rd_id == rs1_id && rs1_id == rs2_id {
-        return ShadowCase::AllEqual;
-    }
-    if rd_id == rs1_id {
-        return ShadowCase::RdEqRs1;
-    }
-    if rd_id == rs2_id {
-        return ShadowCase::RdEqRs2;
-    }
-    if rs1_id == rs2_id {
-        return ShadowCase::Rs1EqRs2;
-    }
-    ShadowCase::AllDistinct
 }
 
 /// RV64 `add`: 64-bit wrapping addition.
@@ -664,6 +576,9 @@ fn emit_addi(
     rs1: RiscvRegister,
     imm: i32,
 ) {
+    // should be the same with regular add but one of the inputs is an immediate
+    // there is a classification happening here also, so seems I'd need another zero case
+    // there is also a shadow case but it might be less verbose
     let _ = (translator, temps, rd, rs1, imm);
     todo!("emit_addi")
 }
