@@ -952,10 +952,10 @@ fn emit_auipc(translator: &mut Translator, temps: &TempAllocator, rd: RiscvRegis
 
     let rd = ctx.output();
 
-    let aupic_val = translator.current_pc().wrapping_add(imm as i64 as u64);
+    let auipc_val = translator.current_pc().wrapping_add(imm as i64 as u64);
 
-    // NOTE: the immediate is alrleady shifted by 12 from the decode layer
-    dynasm!(translator.emitter ; mov Rq(rd.id()), QWORD aupic_val as i64);
+    // NOTE: the immediate is already shifted by 12 from the decode layer
+    dynasm!(translator.emitter ; mov Rq(rd.id()), QWORD auipc_val as i64);
 
     ctx.write_back(translator);
 }

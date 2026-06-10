@@ -140,8 +140,11 @@ impl Translator {
         buf.to_vec()
     }
 
-    // TODO: add documentation here
-    pub(crate) fn current_pc(&self) -> u64 {
+    /// Returns the RISC-V PC of the instruction currently being translated.
+    ///
+    /// The value is advanced only after instruction emission, so PC-relative
+    /// lowerings such as `auipc` observe the source instruction's PC.
+    pub(super) fn current_pc(&self) -> u64 {
         self.cf.current_riscv_pc
     }
 }
