@@ -83,7 +83,7 @@ impl RiscvRegister {
         }
     }
 
-    /// Checks if a RiscvRegister is the zero register (x0)
+    /// Checks if a RiscvRegister is the Zero Register (x0)
     pub(crate) fn is_zero(&self) -> bool {
         *self == RiscvRegister::Zero
     }

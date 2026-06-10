@@ -98,8 +98,9 @@ impl<'a> PreparedInput<'a> {
 
 /// Prepared architectural destination bound to a computed source value.
 ///
-/// A prepared output must be explicitly written back; dropping one without
-/// calling `write_back` is considered a programmer error and panics.
+/// A prepared output must be explicitly completed; dropping one without calling
+/// `write_back` or `discard_zero_output` is considered a programmer error and
+/// panics.
 pub(super) struct PreparedOutput<'a> {
     src: ValueLoc<'a>,
     dest: MapTarget,
@@ -137,8 +138,21 @@ impl<'a> PreparedOutput<'a> {
     ///
     /// A zero output represents an elided architectural write destination and
     /// does not permit carrier-id lookup or write-back emission.
-    fn is_zero(&self) -> bool {
+    pub(super) fn is_zero(&self) -> bool {
         matches!(self.dest, MapTarget::ConstZero)
+    }
+
+    /// Marks a zero output as intentionally discarded.
+    ///
+    /// This is the explicit completion path for `rd == x0`. Non-zero outputs
+    /// must use `write_back()` instead.
+    fn discard_zero(mut self) {
+        if !self.is_zero() {
+            self.written_back = true;
+            panic!("PreparedOutput::discard_zero called for non-zero destination");
+        }
+
+        self.written_back = true;
     }
 
     /// Writes a computed source value back to its architectural destination.
@@ -148,28 +162,26 @@ impl<'a> PreparedOutput<'a> {
     /// Must be called exactly once for each prepared output.
     ///
     /// Destination semantics are determined by `MapTarget`:
-    /// - `ConstZero`: destination write is elided
+    /// - `ConstZero`: panics; use `InstructionContext::discard_zero_output()` instead
     /// - `Gpr`: source is written to mapped x86 GPR
     /// - `XmmShared`: source is written to selected shared XMM lane
     /// - `XmmExclusive`: source is written to exclusive XMM destination
     pub(super) fn write_back(mut self, translator: &mut Translator) {
-        let src = self.id();
         match self.dest {
             MapTarget::ConstZero => {
-                unreachable!(
-                    "write_back invariant violated: ConstZero destination should never reach PreparedOutput"
-                )
+                self.written_back = true;
+                panic!("PreparedOutput::write_back called for ConstZero destination")
             }
             MapTarget::Gpr(dst) => {
                 if self.src.gpr() != dst {
                     dynasm!(translator.emitter
-                        ; mov Rq(dst.id()), Rq(src)
+                        ; mov Rq(dst.id()), Rq(self.id())
                     );
                 }
             }
             MapTarget::XmmExclusive(reg) => {
                 dynasm!(translator.emitter
-                    ; movq Rx(reg.id()), Rq(src)
+                    ; movq Rx(reg.id()), Rq(self.id())
                 );
             }
             MapTarget::XmmShared {
@@ -179,7 +191,7 @@ impl<'a> PreparedOutput<'a> {
                 // Use PINSRQ for shared-low writes to preserve the high 64-bit lane.
                 // MOVQ xmm, r64 would clobber/zero the other lane and corrupt its paired shared value.
                 dynasm!(translator.emitter
-                    ; pinsrq Rx(reg.id()), Rq(src), 0
+                    ; pinsrq Rx(reg.id()), Rq(self.id()), 0
                 );
             }
             MapTarget::XmmShared {
@@ -187,19 +199,23 @@ impl<'a> PreparedOutput<'a> {
                 lane: XmmLane::High,
             } => {
                 dynasm!(translator.emitter
-                    ; pinsrq Rx(reg.id()), Rq(src), 1
+                    ; pinsrq Rx(reg.id()), Rq(self.id()), 1
                 );
             }
         }
         self.written_back = true;
     }
+
+    fn suppress_drop_panic(mut self) {
+        self.written_back = true;
+    }
 }
 
 impl<'a> Drop for PreparedOutput<'a> {
-    /// Enforces strict write-back completion before output teardown.
+    /// Enforces strict explicit completion before output teardown.
     fn drop(&mut self) {
         if !self.written_back {
-            panic!("PreparedOutput dropped before write_back");
+            panic!("PreparedOutput dropped before write_back or discard_zero_output");
         }
     }
 }
@@ -264,8 +280,8 @@ impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
     ///
     /// Panics when a required temp GPR cannot be allocated.
     /// Panics when the output is missing.
-    /// Panics when the output maps to `ConstZero`; lowering must handle
-    /// `rd = x0` before building an instruction context.
+    /// Zero outputs must be completed with
+    /// `InstructionContext::discard_zero_output()`.
     pub(super) fn build<'a>(
         self,
         translator: &mut Translator,
@@ -400,9 +416,7 @@ impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
             Entry::Occupied(entry) => PreparedOutput::new(entry.get().clone(), target),
             Entry::Vacant(entry) => {
                 let src = match target {
-                    MapTarget::ConstZero => {
-                        panic!("instruction context invariant violated: x0/ConstZero destination must be handled by lowering before build")
-                    }
+                    MapTarget::ConstZero => ValueLoc::ConstZero,
                     MapTarget::Gpr(gpr) => ValueLoc::Mapped(gpr),
                     MapTarget::XmmShared { .. } | MapTarget::XmmExclusive(..) => {
                         Self::alloc_temp(temp_allocator)
@@ -431,11 +445,13 @@ impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
 /// An instruction context owns the prepared inputs, the prepared architectural
 /// output, and any restore operations required for protected clobber targets.
 /// Instruction implementations should use `inputs()` and `output()` while
-/// emitting machine code, then finish by calling `write_back()`.
+/// emitting machine code, then finish by calling `write_back()` or
+/// `discard_zero_output()`.
 ///
 /// # Contract
 ///
-/// `write_back()` must be called exactly once after instruction emission.
+/// `write_back()` or `discard_zero_output()` must be called exactly once after
+/// instruction emission.
 pub(super) struct InstructionContext<'a, const NI: usize, const NCT: usize> {
     /// Prepared source operands available for instruction emission.
     inputs: [PreparedInput<'a>; NI],
@@ -457,7 +473,8 @@ impl<'a, const NI: usize, const NCT: usize> InstructionContext<'a, NI, NCT> {
     /// Returns the prepared architectural output.
     ///
     /// The output may be queried for its carrier id during instruction
-    /// emission. Architectural write-back is performed by `write_back()`.
+    /// emission. Complete the context with `write_back()` for real destinations
+    /// or `discard_zero_output()` for `rd == x0`.
     pub(super) fn output(&self) -> &PreparedOutput<'a> {
         &self.output
     }
@@ -465,14 +482,71 @@ impl<'a, const NI: usize, const NCT: usize> InstructionContext<'a, NI, NCT> {
     /// Writes the prepared output and any clobber restores back to their mapped
     /// architectural locations.
     ///
-    /// # Contract
+    /// Use this completion path only for non-zero architectural destinations.
     ///
-    /// Must be called exactly once after instruction emission.
+    /// # Panics
+    ///
+    /// Panics if the output is `ConstZero`; use `discard_zero_output()` for
+    /// `rd == x0`.
     pub(super) fn write_back(self, translator: &mut Translator) {
-        self.output.write_back(translator);
+        let InstructionContext {
+            output,
+            clobber_restore,
+            ..
+        } = self;
 
-        for restore in self.clobber_restore {
+        if output.is_zero() {
+            // Suppress drop guards so the API misuse panic below is the only
+            // panic during unwinding.
+            Self::discard_restores(clobber_restore);
+            output.suppress_drop_panic();
+            panic!("InstructionContext::write_back called for ConstZero output");
+        }
+
+        output.write_back(translator);
+        Self::write_restores(clobber_restore, translator);
+    }
+
+    /// Explicitly discards an architectural zero (`x0`) output.
+    ///
+    /// This is the required completion path for instructions whose destination
+    /// is `rd == x0`. It emits no destination write, but still restores any
+    /// clobber-preserved mapped values.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the output is not `ConstZero`; use `write_back()` for real
+    /// destinations.
+    pub(super) fn discard_zero_output(self, translator: &mut Translator) {
+        let InstructionContext {
+            output,
+            clobber_restore,
+            ..
+        } = self;
+
+        if !output.is_zero() {
+            // Suppress drop guards so the API misuse panic below is the only
+            // panic during unwinding.
+            Self::discard_restores(clobber_restore);
+            output.suppress_drop_panic();
+            panic!("InstructionContext::discard_zero_output called for non-zero output");
+        }
+
+        output.discard_zero();
+        Self::write_restores(clobber_restore, translator);
+    }
+
+    /// Writes clobber-preserved values back to their mapped GPRs.
+    fn write_restores(clobber_restore: Vec<PreparedOutput<'a>>, translator: &mut Translator) {
+        for restore in clobber_restore {
             restore.write_back(translator);
+        }
+    }
+
+    /// Marks clobber restores complete before an intentional context-level panic.
+    fn discard_restores(clobber_restore: Vec<PreparedOutput<'a>>) {
+        for restore in clobber_restore {
+            restore.suppress_drop_panic();
         }
     }
 }
@@ -639,8 +713,69 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "instruction context invariant violated: x0/ConstZero")]
-    fn build_panics_when_output_maps_to_constzero() {
+    fn zero_output_context_builds_and_discards_explicitly() {
+        let mut translator = new_translator();
+        let temps = TempAllocator::new(vec![]);
+
+        let ctx = InstructionContextBuilder::<0, 0>::new()
+            .set_inputs([])
+            .set_output(RiscvRegister::Zero)
+            .build(&mut translator, &temps);
+
+        assert!(ctx.output().is_zero());
+        ctx.discard_zero_output(&mut translator);
+    }
+
+    #[test]
+    #[should_panic(expected = "InstructionContext::write_back called for ConstZero output")]
+    fn write_back_panics_for_zero_output() {
+        let mut translator = new_translator();
+        let temps = TempAllocator::new(vec![]);
+
+        let ctx = InstructionContextBuilder::<0, 0>::new()
+            .set_inputs([])
+            .set_output(RiscvRegister::Zero)
+            .build(&mut translator, &temps);
+
+        ctx.write_back(&mut translator);
+    }
+
+    #[test]
+    #[should_panic(expected = "InstructionContext::discard_zero_output called for non-zero output")]
+    fn discard_zero_output_panics_for_non_zero_output() {
+        let mut translator = new_translator();
+        let temps = TempAllocator::new(vec![]);
+
+        let ctx = InstructionContextBuilder::<0, 0>::new()
+            .set_inputs([])
+            .set_output(RiscvRegister::A0)
+            .build(&mut translator, &temps);
+
+        ctx.discard_zero_output(&mut translator);
+    }
+
+    #[test]
+    fn discard_zero_output_restores_clobbers() {
+        let mut translator = new_translator();
+        let temps = TempAllocator::new(vec![X86Gpr::R11]);
+
+        let ctx = InstructionContextBuilder::new()
+            .set_inputs([RiscvRegister::A0])
+            .set_output(RiscvRegister::Zero)
+            .ensure_no_clobber([X86Gpr::Rdi])
+            .build(&mut translator, &temps);
+
+        ctx.discard_zero_output(&mut translator);
+
+        assert_eq!(
+            translator.finalize(),
+            vec![0x49, 0x89, 0xfb, 0x4c, 0x89, 0xdf]
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "PreparedOutput dropped before write_back or discard_zero_output")]
+    fn zero_output_drop_without_discard_panics() {
         let mut translator = new_translator();
         let temps = TempAllocator::new(vec![]);
 
@@ -651,7 +786,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "PreparedOutput dropped before write_back")]
+    #[should_panic(expected = "PreparedOutput dropped before write_back or discard_zero_output")]
     fn context_drop_without_write_back_panics() {
         let mut translator = new_translator();
         let temps = TempAllocator::new(vec![]);
