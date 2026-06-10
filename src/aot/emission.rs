@@ -673,6 +673,19 @@ fn emit_andi(
         UnaryZeroCase::None => {}
     }
 
+    // andi rd, rs1, -1 preserves all bits, so it is just a move/no-op.
+    // Handle it before shadow lowering to avoid emitting `and rd, -1`.
+    if imm == -1 {
+        if rd.id() == rs1.id() {
+            ctx.commit_unchanged(translator);
+            return;
+        }
+
+        dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+        ctx.write_back(translator);
+        return;
+    }
+
     match classify_unary_shadow_case(rd, rs1) {
         UnaryShadowCase::RdEqRs1 => {
             // andi rd, rd, imm
