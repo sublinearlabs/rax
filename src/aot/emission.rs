@@ -1,4 +1,4 @@
-use cranelift_codegen::ir::Inst;
+use cranelift_codegen::ir::{dynamic_to_fixed, Inst};
 use dynasmrt::{dynasm, DynasmApi, DynasmLabelApi};
 
 use crate::aot::{
@@ -1152,8 +1152,6 @@ fn emit_bgeu(
 /// RV64 `jal`: jump and link.
 /// rd <- pc + 4; pc <- pc + sext(imm)
 fn emit_jal(translator: &mut Translator, temps: &TempAllocator, rd: RiscvRegister, imm: i32) {
-    // here we need to update the pc
-    // and also update the output register
     let ctx = InstructionContextBuilder::<0, 0>::new()
         .set_output(rd)
         .build(translator, temps);
@@ -1184,8 +1182,43 @@ fn emit_jalr(
     rs1: RiscvRegister,
     imm: i32,
 ) {
-    let _ = (translator, temps, rd, rs1, imm);
-    todo!("emit_jalr")
+    let ctx = InstructionContextBuilder::<1, 0>::new()
+        .set_inputs([rs1])
+        .set_output(rd)
+        .build(translator, temps);
+
+    let [rs1] = ctx.inputs();
+    let rd = ctx.output();
+
+    // prepare temps
+    let branch_target = temps.allocate().unwrap();
+    let base_riscv_pc = temps.allocate().unwrap();
+
+    // branch_target = (rs1 + imm) & !1
+    // jump_table_id = (branch_target - base_riscv_pc) >> 2 (assumes uncompressed)
+    dynasm!(translator.emitter ; lea Rq(branch_target.id()), [Rq(rs1.id()) + imm]);
+    dynasm!(translator.emitter ; and Rq(branch_target.id()), -2 as i32);
+    dynasm!(translator.emitter ; mov Rq(base_riscv_pc.id()), QWORD translator.cf.base_riscv_pc as i64);
+    dynasm!(translator.emitter ; sub Rq(branch_target.id()), Rq(base_riscv_pc.id()));
+    dynasm!(translator.emitter ; shr Rq(branch_target.id()), 2);
+
+    // write return pc
+    if !rd.is_zero() {
+        let return_pc = translator.current_pc().wrapping_add(4);
+        dynasm!(translator.emitter ; mov Rq(rd.id()), QWORD return_pc as i64);
+        ctx.write_back(translator);
+    } else {
+        ctx.discard_zero_output(translator);
+    }
+
+    // free the base riscv pc temp
+    drop(base_riscv_pc);
+
+    let jump_table_base_reg = temps.allocate().unwrap();
+
+    // extract the value at the jump table index
+    dynasm!(translator.emitter ; lea Rq(jump_table_base_reg.id()), [=>translator.cf.jt_label]);
+    dynasm!(translator.emitter ; jmp QWORD [Rq(jump_table_base_reg.id()) + Rq(branch_target.id()) * 8]);
 }
 
 /// RV64 `ecall`: environment call trap.

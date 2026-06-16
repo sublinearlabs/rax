@@ -18,11 +18,11 @@ pub(super) struct Translator {
     pub(super) emitter: Assembler,
     pub(super) reg_map: RegisterMapping,
     unused_gprs: Vec<X86Gpr>,
-    cf: ControlFlowState,
+    pub(super) cf: ControlFlowState,
 }
 
 /// Control-flow translation state scoped to a translator instance.
-struct ControlFlowState {
+pub(super) struct ControlFlowState {
     /// RISC-V PC of the instruction currently being translated.
     ///
     /// This advances in translation order and is used for instruction-local
@@ -32,7 +32,7 @@ struct ControlFlowState {
     ///
     /// This is the RISC-V PC for slot 0 in `riscv_pc_to_x86_offset` and in
     /// the emitted runtime jump table.
-    base_riscv_pc: u64,
+    pub(super) base_riscv_pc: u64,
     /// Sparse map of direct control-flow target PCs to x86 labels.
     ///
     /// Only PCs that are targets of direct jumps/branches are present.
@@ -44,7 +44,7 @@ struct ControlFlowState {
     /// Dynamic label that marks the start of the emitted jump-table data.
     ///
     /// Indirect jump paths use this as the base for indexed table lookups.
-    jt_label: DynamicLabel,
+    pub(super) jt_label: DynamicLabel,
 }
 
 impl Translator {
