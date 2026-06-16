@@ -1165,6 +1165,8 @@ fn emit_jal(translator: &mut Translator, temps: &TempAllocator, rd: RiscvRegiste
         let return_pc = translator.current_pc().wrapping_add(4);
         dynasm!(translator.emitter ; mov Rq(rd.id()), QWORD return_pc as i64);
         ctx.write_back(translator);
+    } else {
+        ctx.discard_zero_output(translator);
     }
 
     // update pc
