@@ -1,3 +1,4 @@
+use alloy_transport_http::reqwest::dns;
 use dynasmrt::{dynasm, DynasmApi, DynasmLabelApi};
 
 use crate::aot::{
@@ -975,15 +976,35 @@ fn emit_beq(
 
     let [rs1, rs2] = ctx.inputs();
 
-    dynasm!(translator.emitter ; cmp Rq(rs1.id()), Rq(rs2.id()));
-
     // compute the target riscv pc
     let branch_target = translator.current_pc().wrapping_add(imm as i64 as u64);
 
     // retrieve or create a new dynamic label for the riscv pc
     let target_label = translator.target_label(branch_target);
 
-    dynasm!(translator.emitter ; je => target_label);
+    match (rs1.is_zero(), rs2.is_zero()) {
+        (true, true) => {
+            // both are zero, hence both equal
+            dynasm!(translator.emitter ; jmp => target_label);
+        }
+        (true, false) => {
+            // rs1 equals zero
+            // we need to check if rs2 equals zero
+            dynasm!(translator.emitter ; test Rq(rs2.id()), Rq(rs2.id()));
+            dynasm!(translator.emitter ; je => target_label);
+        }
+        (false, true) => {
+            // rs1 equals zero
+            // we need to check if rs1 equals zero
+            dynasm!(translator.emitter ; test Rq(rs1.id()), Rq(rs1.id()));
+            dynasm!(translator.emitter ; je => target_label);
+        }
+        (false, false) => {
+            // both non zero
+            dynasm!(translator.emitter ; cmp Rq(rs1.id()), Rq(rs2.id()));
+            dynasm!(translator.emitter ; je => target_label);
+        }
+    }
 
     ctx.complete_no_output(translator);
 }
