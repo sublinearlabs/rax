@@ -7,6 +7,8 @@ use crate::aot::registers::X86Gpr;
 pub(crate) enum TempAllocationError {
     /// No managed temporary register slot is currently free.
     NoFreeTemps,
+    /// Requested register is not managed by this allocator.
+    NotATemp,
 }
 
 /// Safe interface for handling temporary registers
@@ -60,6 +62,30 @@ impl TempAllocator {
 
         // wrap in guard to force unlock on drop
         Ok(AllocatedTemp { slot: free_slot })
+    }
+
+    /// Allocates a specific temporary register if it is managed and free.
+    ///
+    /// # Errors
+    /// Returns `TempAllocationError::NotATemp` when `reg` is not managed by
+    /// this allocator, or `TempAllocationError::NoFreeTemps` when that specific
+    /// temp is already allocated.
+    pub(crate) fn allocate_specific(
+        &self,
+        reg: X86Gpr,
+    ) -> Result<AllocatedTemp<'_>, TempAllocationError> {
+        let slot = self
+            .slots
+            .iter()
+            .find(|t| t.reg == reg)
+            .ok_or(TempAllocationError::NotATemp)?;
+
+        if slot.allocated.get() {
+            return Err(TempAllocationError::NoFreeTemps);
+        }
+
+        slot.allocate();
+        Ok(AllocatedTemp { slot })
     }
 }
 
@@ -183,5 +209,59 @@ mod tests {
         let t2 = alloc.allocate().unwrap();
         drop(t1);
         let t3 = alloc.allocate().unwrap();
+    }
+
+    #[test]
+    fn allocate_specific_returns_requested_temp() {
+        let alloc = TempAllocator::new(vec![X86Gpr::R12, X86Gpr::R13]);
+
+        let temp = alloc
+            .allocate_specific(X86Gpr::R13)
+            .expect("specific temp should allocate");
+
+        assert_eq!(*temp, X86Gpr::R13);
+    }
+
+    #[test]
+    fn allocate_specific_rejects_non_temp() {
+        let alloc = TempAllocator::new(vec![X86Gpr::R12]);
+
+        match alloc.allocate_specific(X86Gpr::R13) {
+            Err(err) => assert_eq!(err, TempAllocationError::NotATemp),
+            Ok(_) => panic!("non-temp register should be rejected"),
+        };
+    }
+
+    #[test]
+    fn allocate_specific_rejects_already_allocated_temp() {
+        let alloc = TempAllocator::new(vec![X86Gpr::R12]);
+
+        let _held = alloc
+            .allocate_specific(X86Gpr::R12)
+            .expect("first allocation should succeed");
+
+        match alloc.allocate_specific(X86Gpr::R12) {
+            Err(err) => assert_eq!(err, TempAllocationError::NoFreeTemps),
+            Ok(_) => panic!("allocated temp should be rejected"),
+        };
+    }
+
+    #[test]
+    fn allocate_specific_blocks_general_allocate_until_dropped() {
+        let alloc = TempAllocator::new(vec![X86Gpr::R12]);
+
+        let held = alloc
+            .allocate_specific(X86Gpr::R12)
+            .expect("specific allocation should succeed");
+
+        match alloc.allocate() {
+            Err(err) => assert_eq!(err, TempAllocationError::NoFreeTemps),
+            Ok(_) => panic!("general allocation should be blocked"),
+        };
+
+        drop(held);
+
+        let temp = alloc.allocate().expect("temp should be free after drop");
+        assert_eq!(*temp, X86Gpr::R12);
     }
 }
