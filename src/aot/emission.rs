@@ -1,3 +1,4 @@
+use cranelift_codegen::ir::Inst;
 use dynasmrt::{dynasm, DynasmApi, DynasmLabelApi};
 
 use crate::aot::{
@@ -1151,8 +1152,25 @@ fn emit_bgeu(
 /// RV64 `jal`: jump and link.
 /// rd <- pc + 4; pc <- pc + sext(imm)
 fn emit_jal(translator: &mut Translator, temps: &TempAllocator, rd: RiscvRegister, imm: i32) {
-    let _ = (translator, temps, rd, imm);
-    todo!("emit_jal")
+    // here we need to update the pc
+    // and also update the output register
+    let ctx = InstructionContextBuilder::<0, 0>::new()
+        .set_output(rd)
+        .build(translator, temps);
+
+    let rd = ctx.output();
+
+    if !rd.is_zero() {
+        // set the return pc
+        let return_pc = translator.current_pc().wrapping_add(4);
+        dynasm!(translator.emitter ; mov Rq(rd.id()), QWORD return_pc as i64);
+        ctx.write_back(translator);
+    }
+
+    // update pc
+    let branch_target = translator.current_pc().wrapping_add(imm as i64 as u64);
+    let target_label = translator.target_label(branch_target);
+    dynasm!(translator.emitter ; jmp => target_label);
 }
 
 /// RV64 `jalr`: indirect jump and link.
