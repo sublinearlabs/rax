@@ -1,4 +1,3 @@
-use cranelift_codegen::ir::{dynamic_to_fixed, Inst};
 use dynasmrt::{dynasm, DynasmApi, DynasmLabelApi};
 
 use crate::aot::{
@@ -1196,7 +1195,11 @@ fn emit_jalr(
 
     // branch_target = (rs1 + imm) & !1
     // jump_table_id = (branch_target - base_riscv_pc) >> 2 (assumes uncompressed)
-    dynasm!(translator.emitter ; lea Rq(branch_target.id()), [Rq(rs1.id()) + imm]);
+    if rs1.is_zero() {
+        dynasm!(translator.emitter ; mov Rq(branch_target.id()), QWORD imm as i64);
+    } else {
+        dynasm!(translator.emitter ; lea Rq(branch_target.id()), [Rq(rs1.id()) + imm]);
+    }
     dynasm!(translator.emitter ; and Rq(branch_target.id()), -2 as i32);
     dynasm!(translator.emitter ; mov Rq(base_riscv_pc.id()), QWORD translator.cf.base_riscv_pc as i64);
     dynasm!(translator.emitter ; sub Rq(branch_target.id()), Rq(base_riscv_pc.id()));
