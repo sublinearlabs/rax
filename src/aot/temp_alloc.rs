@@ -41,7 +41,7 @@ impl TempAllocator {
     }
 
     /// Returns whether an x86 GPR is managed as a temporary.
-    fn is_temp(&self, reg: &X86Gpr) -> bool {
+    pub(crate) fn is_temp(&self, reg: &X86Gpr) -> bool {
         self.slots.iter().any(|v| &v.reg == reg)
     }
 
