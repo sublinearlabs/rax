@@ -1,4 +1,4 @@
-use dynasmrt::{dynasm, DynasmApi};
+use dynasmrt::{dynasm, DynasmApi, DynasmLabelApi};
 
 use crate::aot::{
     classification::{
@@ -969,8 +969,25 @@ fn emit_beq(
     rs2: RiscvRegister,
     imm: i32,
 ) {
-    let _ = (translator, temps, rs1, rs2, imm);
-    todo!("emit_beq")
+    // we need to trigger some compare
+    // and then based on the result
+    // jump to some location
+
+    let ctx = InstructionContextBuilder::<2, 0>::new()
+        .set_inputs([rs1, rs2])
+        .build(translator, temps);
+
+    let [rs1, rs2] = ctx.inputs();
+
+    dynasm!(translator.emitter ; cmp Rq(rs1.id()), Rq(rs2.id()));
+
+    // compute the target riscv pc
+    let branch_target = translator.current_pc().wrapping_add(imm as i64 as u64);
+
+    // retrieve or create a new dynamic label for the riscv pc
+    let target_label = translator.target_label(branch_target);
+
+    dynasm!(translator.emitter ; je => target_label);
 }
 
 /// RV64 `bne`: branch if not equal.
