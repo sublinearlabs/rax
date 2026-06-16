@@ -331,7 +331,13 @@ impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
         translator: &mut Translator,
         temp_allocator: &'a TempAllocator,
     ) -> InstructionContext<'a, NI, NCT> {
-        let inputs = self.inputs.expect("inputs must be present");
+        let inputs = match self.inputs {
+            Some(inputs) => inputs,
+            None => {
+                assert_eq!(NI, 0, "inputs must be present");
+                std::array::from_fn(|_| unreachable!("zero-input context has no elements"))
+            }
+        };
         let output = self.output;
         let mut cache: HashMap<MapTarget, ValueLoc<'a>> = HashMap::new();
 
@@ -1040,13 +1046,26 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "inputs must be present")]
-    fn build_panics_when_inputs_are_missing() {
+    fn non_zero_input_context_panics_when_inputs_are_missing() {
         let mut translator = new_translator();
         let temps = TempAllocator::new(vec![]);
 
         let _ = InstructionContextBuilder::<1, 0>::new()
             .set_output(RiscvRegister::A0)
             .build(&mut translator, &temps);
+    }
+
+    #[test]
+    fn zero_input_context_defaults_missing_inputs_to_empty() {
+        let mut translator = new_translator();
+        let temps = TempAllocator::new(vec![]);
+
+        let ctx = InstructionContextBuilder::<0, 0>::new()
+            .set_output(RiscvRegister::A0)
+            .build(&mut translator, &temps);
+
+        assert_eq!(ctx.inputs().len(), 0);
+        ctx.commit_unchanged(&mut translator);
     }
 
     #[test]
