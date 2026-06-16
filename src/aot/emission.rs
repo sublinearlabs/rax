@@ -1082,7 +1082,7 @@ fn emit_bltu(
         }
         (true, false) => {
             // rs1 is zero
-            // if rs1 is anything but zero, it is fine to jump
+            // if rs2 is anything but zero, it is fine to jump
             dynasm!(translator.emitter ; test Rq(rs2.id()), Rq(rs2.id()));
             dynasm!(translator.emitter ; jne => target_label);
         }
