@@ -1267,6 +1267,9 @@ fn emit_ecall(translator: &mut Translator, temps: &TempAllocator) {
     // to be semantically correct, we'd want to ensure no clobber also
     // but probably manually, because the non manual version
 
+    // TODO: ideally Rax(a7) should also be clobber free
+    // but that might be a waste as a7 is usually not live
+    // preferred is to get this information from some liveness analysis
     let ctx = InstructionContextBuilder::<0, 2>::new()
         .ensure_no_clobber([X86Gpr::Rcx, X86Gpr::R11])
         .set_output(RiscvRegister::A0)
