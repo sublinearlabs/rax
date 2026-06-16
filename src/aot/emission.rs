@@ -6,6 +6,7 @@ use crate::aot::{
         classify_zero_case, ShadowCase, UnaryShadowCase, UnaryZeroCase, ZeroCase,
     },
     instruction_context::InstructionContextBuilder,
+    register_mapping::MapTarget,
     registers::{RiscvRegister, X86Gpr},
     temp_alloc::TempAllocator,
     translator::Translator,
@@ -1227,6 +1228,88 @@ fn emit_jalr(
 /// RV64 `ecall`: environment call trap.
 /// raise environment-call-from-U-mode
 fn emit_ecall(translator: &mut Translator, temps: &TempAllocator) {
-    let _ = (translator, temps);
-    todo!("emit_ecall")
+    // we only handle the read, write and halt syscalls
+
+    // this emission assumes that there is an
+    // identity mapping between the riscv syscalls
+    // arg registers and the x86 syscall arg registers
+    assert_eq!(
+        translator.reg_map.get(&RiscvRegister::A7),
+        &MapTarget::Gpr(X86Gpr::Rax)
+    );
+    assert_eq!(
+        translator.reg_map.get(&RiscvRegister::A0),
+        &MapTarget::Gpr(X86Gpr::Rdi)
+    );
+    assert_eq!(
+        translator.reg_map.get(&RiscvRegister::A1),
+        &MapTarget::Gpr(X86Gpr::Rsi)
+    );
+    assert_eq!(
+        translator.reg_map.get(&RiscvRegister::A2),
+        &MapTarget::Gpr(X86Gpr::Rdx)
+    );
+
+    // syscall | riscv_code | x86_code
+    // read    |     63     |    0
+    // write   |     64     |    1
+    // halt    |     93     |   60
+    //
+    // consider the polynomial that represents the mapping
+    // f(x) = $(x^2 - 98x + 2205) / 29$
+    // after simplification
+    // f(x) = $((x - 49)^2 - 196) / 29$
+    //
+    // syscall clobbers rax, rcx and r11
+    // we need to ensure no clobber for rcx and r11
+    // trying to decide if we need the same for rax
+    // technically rax will contain the riscv syscall code
+    // to be semantically correct, we'd want to ensure no clobber also
+    // but probably manually, because the non manual version
+
+    let ctx = InstructionContextBuilder::<0, 2>::new()
+        .ensure_no_clobber([X86Gpr::Rcx, X86Gpr::R11])
+        .set_output(RiscvRegister::A0)
+        .build(translator, temps);
+
+    // rdx will be clobbered by imul and cqo
+    // when preforming the polynomial evaluation
+    let rdx_temp = temps.allocate().unwrap();
+    dynasm!(translator.emitter ; mov Rq(rdx_temp.id()), Rq(X86Gpr::Rdx.id()));
+
+    // rax = x - 49
+    dynasm!(translator.emitter ; sub Rq(X86Gpr::Rax.id()), 49);
+    // rax = (x - 49)^2
+    dynasm!(translator.emitter ; imul Rq(X86Gpr::Rax.id()), Rq(X86Gpr::Rax.id()));
+    // rax = (x - 49)^2 - 196
+    dynasm!(translator.emitter ; sub Rq(X86Gpr::Rax.id()), 196);
+    // sign extend rax into rdx
+    // this is needed because idiv divides RDX:RAX
+    // hence RDX:RAX must factually represent the number we
+    // are trying to divide
+    dynasm!(translator.emitter ; cqo);
+
+    // computes ((x - 49)^2 - 196) / 29
+    // stores quotient in RAX (correct syscall code)
+    // stores remainder in RDX
+    // after this RAX will contain the correct x86 syscall code
+    let divisor_reg = temps.allocate().unwrap();
+    dynasm!(translator.emitter ; mov Rq(divisor_reg.id()), 29);
+    dynasm!(translator.emitter ; idiv Rq(divisor_reg.id()));
+
+    // before calling syscall, we need to move
+    // the old value of rdx back
+    dynasm!(translator.emitter ; mov Rq(X86Gpr::Rdx.id()), Rq(rdx_temp.id()));
+
+    // syscall
+    dynasm!(translator.emitter ; syscall);
+
+    // in x86 the result of the syscall is written to RAX
+    // for riscv it is written to a0
+    // given that our mapping doesn't make those locations equal
+    // we need to move from rax to a0
+    dynasm!(translator.emitter ; mov Rq(ctx.output().id()), Rq(X86Gpr::Rax.id()));
+
+    // write back context
+    ctx.write_back(translator);
 }
