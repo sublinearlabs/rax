@@ -1064,8 +1064,40 @@ fn emit_bltu(
     rs2: RiscvRegister,
     imm: i32,
 ) {
-    let _ = (translator, temps, rs1, rs2, imm);
-    todo!("emit_bltu")
+    let ctx = InstructionContextBuilder::<2, 0>::new()
+        .set_inputs([rs1, rs2])
+        .build(translator, temps);
+
+    let [rs1, rs2] = ctx.inputs();
+
+    // compute the target riscv pc
+    let branch_target = translator.current_pc().wrapping_add(imm as i64 as u64);
+
+    // retrieve or create a new dynamic label for the riscv pc
+    let target_label = translator.target_label(branch_target);
+
+    match (rs1.is_zero(), rs2.is_zero()) {
+        (true, true) => {
+            // both are equal, we shouldn't jump
+        }
+        (true, false) => {
+            // rs1 is zero
+            // if rs1 is anything but zero, it is fine to jump
+            dynasm!(translator.emitter ; test Rq(rs2.id()), Rq(rs2.id()));
+            dynasm!(translator.emitter ; jne => target_label);
+        }
+        (false, true) => {
+            // rs2 is zero
+            // rs1 cannot have a value that will be less than zero
+            // hence we don't jump
+        }
+        (false, false) => {
+            // both are not zero
+            dynasm!(translator.emitter ; cmp Rq(rs1.id()), Rq(rs2.id()));
+            dynasm!(translator.emitter ; jb => target_label);
+        }
+    }
+    ctx.complete_no_output(translator);
 }
 
 /// RV64 `bgeu`: branch if unsigned rs1 >= rs2.
