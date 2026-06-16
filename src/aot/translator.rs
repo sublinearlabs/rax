@@ -147,6 +147,15 @@ impl Translator {
     pub(super) fn current_pc(&self) -> u64 {
         self.cf.current_riscv_pc
     }
+
+    /// Returns or Creates a new dynamic label for a riscv pc
+    pub(super) fn target_label(&mut self, branch_target: u64) -> DynamicLabel {
+        *self
+            .cf
+            .direct_target_labels
+            .entry(branch_target)
+            .or_insert_with(|| self.emitter.new_dynamic_label())
+    }
 }
 
 #[cfg(test)]
