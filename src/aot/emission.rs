@@ -1,4 +1,3 @@
-use alloy_transport_http::reqwest::dns;
 use dynasmrt::{dynasm, DynasmApi, DynasmLabelApi};
 
 use crate::aot::{
@@ -994,7 +993,7 @@ fn emit_beq(
             dynasm!(translator.emitter ; je => target_label);
         }
         (false, true) => {
-            // rs1 equals zero
+            // rs2 equals zero
             // we need to check if rs1 equals zero
             dynasm!(translator.emitter ; test Rq(rs1.id()), Rq(rs1.id()));
             dynasm!(translator.emitter ; je => target_label);
