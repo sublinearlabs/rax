@@ -335,7 +335,7 @@ impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
         let output = self.output;
         let mut cache: HashMap<MapTarget, ValueLoc<'a>> = HashMap::new();
 
-        let clobber_restore =
+        let (clobber_restore, reserved_temps) =
             Self::preserve_clobbers(self.clobber_targets, &mut cache, translator, temp_allocator);
         let prepared_inputs = Self::prepare_inputs(inputs, &mut cache, translator, temp_allocator);
         let prepared_output = output
@@ -351,27 +351,52 @@ impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
             output: prepared_output,
             no_output_completion,
             clobber_restore,
+            reserved_temps,
         }
     }
 
-    /// Preserves mapped GPR values that instruction emission may clobber.
+    /// Preserves mapped GPR values and reserves temp GPRs that emission may clobber.
     ///
-    /// Each distinct clobber target is copied into a temp once and cached so
-    /// later input/output preparation reuses the relocated carrier. The returned
-    /// outputs restore those values during `InstructionContext::write_back()`.
+    /// Temp clobbers are reserved without save/restore because they do not hold
+    /// architectural state. Mapped clobbers are copied into a temp once and
+    /// cached so later input/output preparation reuses the relocated carrier.
+    /// The returned outputs restore those values during context completion.
     fn preserve_clobbers<'a>(
         clobber_targets: Option<[X86Gpr; NCT]>,
         cache: &mut HashMap<MapTarget, ValueLoc<'a>>,
         translator: &mut Translator,
         temp_allocator: &'a TempAllocator,
-    ) -> Vec<PreparedOutput<'a>> {
+    ) -> (Vec<PreparedOutput<'a>>, Vec<AllocatedTemp<'a>>) {
         let mut clobber_restore = vec![];
+        let mut reserved_temps = vec![];
 
         let Some(clobber_targets) = clobber_targets else {
-            return clobber_restore;
+            return (clobber_restore, reserved_temps);
         };
 
+        let mut unique_targets = Vec::with_capacity(NCT);
         for clobbered_reg in clobber_targets {
+            if !unique_targets.contains(&clobbered_reg) {
+                unique_targets.push(clobbered_reg);
+            }
+        }
+
+        for clobbered_reg in &unique_targets {
+            if !temp_allocator.is_temp(clobbered_reg) {
+                continue;
+            }
+
+            let reserved = temp_allocator
+                .allocate_specific(*clobbered_reg)
+                .unwrap_or_else(|_| panic!("instruction context could not reserve temp GPR"));
+            reserved_temps.push(reserved);
+        }
+
+        for clobbered_reg in unique_targets {
+            if temp_allocator.is_temp(&clobbered_reg) {
+                continue;
+            }
+
             let target = MapTarget::Gpr(clobbered_reg);
             let Entry::Vacant(entry) = cache.entry(target) else {
                 continue;
@@ -383,7 +408,7 @@ impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
             clobber_restore.push(PreparedOutput::new(temp_reg, target));
         }
 
-        clobber_restore
+        (clobber_restore, reserved_temps)
     }
 
     /// Prepares architectural inputs in source-register order.
@@ -509,6 +534,8 @@ pub(super) struct InstructionContext<'a, const NI: usize, const NCT: usize> {
     no_output_completion: Option<NoOutputCompletion>,
     /// Deferred restores for mapped values moved out of clobber targets.
     clobber_restore: Vec<PreparedOutput<'a>>,
+    /// Reserved temp clobber targets kept unavailable for this context lifetime.
+    reserved_temps: Vec<AllocatedTemp<'a>>,
 }
 
 impl<'a, const NI: usize, const NCT: usize> InstructionContext<'a, NI, NCT> {
@@ -813,6 +840,73 @@ mod tests {
 
         assert_eq!(ctx.clobber_restore.len(), 1);
         ctx.write_back(&mut translator);
+    }
+
+    #[test]
+    fn temp_clobber_reserves_without_restore() {
+        let mut translator = new_translator();
+        let temps = TempAllocator::new(vec![X86Gpr::R11]);
+
+        let ctx = InstructionContextBuilder::<0, 1>::new()
+            .set_inputs([])
+            .ensure_no_clobber([X86Gpr::R11])
+            .build(&mut translator, &temps);
+
+        assert_eq!(ctx.clobber_restore.len(), 0);
+        assert_eq!(ctx.reserved_temps.len(), 1);
+        ctx.complete_no_output(&mut translator);
+
+        assert_eq!(translator.finalize(), Vec::<u8>::new());
+    }
+
+    #[test]
+    fn temp_clobber_blocks_later_temp_allocation() {
+        let mut translator = new_translator();
+        let temps = TempAllocator::new(vec![X86Gpr::R11, X86Gpr::R12]);
+
+        let ctx = InstructionContextBuilder::<1, 1>::new()
+            .set_inputs([RiscvRegister::S0])
+            .ensure_no_clobber([X86Gpr::R11])
+            .build(&mut translator, &temps);
+
+        assert_eq!(ctx.clobber_restore.len(), 0);
+        assert_eq!(ctx.reserved_temps.len(), 1);
+        assert_eq!(ctx.inputs()[0].id(), X86Gpr::R12.id());
+        ctx.complete_no_output(&mut translator);
+    }
+
+    #[test]
+    fn temp_clobbers_are_reserved_before_mapped_clobbers() {
+        let mut translator = new_translator();
+        let temps = TempAllocator::new(vec![X86Gpr::R11, X86Gpr::R12]);
+
+        let ctx = InstructionContextBuilder::new()
+            .set_inputs([RiscvRegister::A0])
+            .set_output(RiscvRegister::A1)
+            .ensure_no_clobber([X86Gpr::Rdi, X86Gpr::R11])
+            .build(&mut translator, &temps);
+
+        assert_eq!(ctx.reserved_temps.len(), 1);
+        assert_eq!(ctx.clobber_restore.len(), 1);
+        assert_eq!(ctx.inputs()[0].id(), X86Gpr::R12.id());
+        assert_ne!(ctx.inputs()[0].id(), X86Gpr::R11.id());
+
+        ctx.write_back(&mut translator);
+    }
+
+    #[test]
+    fn duplicate_temp_clobber_reserves_once() {
+        let mut translator = new_translator();
+        let temps = TempAllocator::new(vec![X86Gpr::R11]);
+
+        let ctx = InstructionContextBuilder::<0, 2>::new()
+            .set_inputs([])
+            .ensure_no_clobber([X86Gpr::R11, X86Gpr::R11])
+            .build(&mut translator, &temps);
+
+        assert_eq!(ctx.clobber_restore.len(), 0);
+        assert_eq!(ctx.reserved_temps.len(), 1);
+        ctx.complete_no_output(&mut translator);
     }
 
     #[test]
