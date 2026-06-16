@@ -969,10 +969,6 @@ fn emit_beq(
     rs2: RiscvRegister,
     imm: i32,
 ) {
-    // we need to trigger some compare
-    // and then based on the result
-    // jump to some location
-
     let ctx = InstructionContextBuilder::<2, 0>::new()
         .set_inputs([rs1, rs2])
         .build(translator, temps);
@@ -988,6 +984,8 @@ fn emit_beq(
     let target_label = translator.target_label(branch_target);
 
     dynasm!(translator.emitter ; je => target_label);
+
+    ctx.complete_no_output(translator);
 }
 
 /// RV64 `bne`: branch if not equal.
