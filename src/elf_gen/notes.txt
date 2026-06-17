@@ -37,3 +37,13 @@ TODO
   - for executable segments (of which there should only be one), we want to run it through the assembler
   - then we need to find a new spot for it if its new size has forced an overlap
 - once we have the segments and their new ranges we should build a new elf with those segments
+
+
+translator depends on the base riscv address i.e the entry point of the executable segment no? actually no
+just the riscv base address i.e where does the first instruction in the executable segment belong
+we use it in the jalr translation
+
+essentially translation needs to know the address the translated code will be
+but the algorithm for determining that depends on the size of the translated block
+we could always force it to be the next free vaddr rather than trying to preserve
+the old one if possible

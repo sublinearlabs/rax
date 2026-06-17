@@ -8,26 +8,48 @@ use elf::{
     ElfBytes,
 };
 
-/// Segment-oriented view of an ELF input.
+/// Segment-oriented layout for an AOT output ELF.
 ///
 /// The AOT pipeline cares about what the loader maps into memory. Sections are
 /// intentionally ignored here because they are a tooling/linker view, not the
-/// runtime layout we need to preserve or validate.
+/// runtime layout we need to preserve or validate. During analysis, the
+/// executable segment is moved after all preserved non-executable load segments
+/// so translation knows the output code address before emitting bytes.
 #[derive(Debug)]
-pub struct AnalyzedElf {
+pub struct ElfLayout {
     pub entry: u64,
-    pub load_segments: Vec<AnalyzedSegment>,
+    pub source_executable_vaddr: u64,
+    pub segments: Vec<ElfSegment>,
     pub executable_segment_index: usize,
 }
 
-impl AnalyzedElf {
-    pub fn executable_segment(&self) -> &AnalyzedSegment {
-        &self.load_segments[self.executable_segment_index]
+impl ElfLayout {
+    /// Returns the single executable segment in the planned output layout.
+    pub fn executable_segment(&self) -> &ElfSegment {
+        &self.segments[self.executable_segment_index]
+    }
+
+    /// Returns the single executable segment mutably for layout updates.
+    pub fn executable_segment_mut(&mut self) -> &mut ElfSegment {
+        &mut self.segments[self.executable_segment_index]
+    }
+
+    /// Replaces the executable segment with translated x86 bytes.
+    ///
+    /// The segment's virtual address is not changed here. Analysis already chose
+    /// that address so the translator can use it as its output base while
+    /// emitting code.
+    pub fn replace_executable(&mut self, translated: Vec<u8>) {
+        let len = translated.len() as u64;
+        let executable = self.executable_segment_mut();
+        executable.filesz = len;
+        executable.memsz = len;
+        executable.data = translated;
     }
 }
 
 #[derive(Debug)]
-pub struct AnalyzedSegment {
+pub struct ElfSegment {
     // Program-header index in the original ELF.
     pub index: usize,
     // File offset where this segment's initialized bytes start.
@@ -46,7 +68,7 @@ pub struct AnalyzedSegment {
     pub data: Vec<u8>,
 }
 
-impl AnalyzedSegment {
+impl ElfSegment {
     /// Returns the byte range occupied by this segment in the ELF file.
     pub fn file_range(&self) -> Range<u64> {
         self.offset..self.offset + self.filesz
@@ -92,6 +114,7 @@ pub enum AnalyzeElfError {
     NoExecutableSegment,
     MultipleExecutableSegments,
     EntryNotInExecutableSegment,
+    IntegerOverflow,
     LoadSegmentsOverlap { first: usize, second: usize },
 }
 
@@ -101,7 +124,13 @@ impl From<ParseError> for AnalyzeElfError {
     }
 }
 
-pub fn analyze_elf(bytes: &[u8]) -> Result<AnalyzedElf, AnalyzeElfError> {
+/// Parses a RISC-V ELF and returns the planned loadable layout for AOT output.
+///
+/// All non-executable `PT_LOAD` segments keep their original virtual addresses.
+/// The executable segment keeps its original bytes for translation input, but is
+/// moved after the preserved non-executable segments so its output address is
+/// known before translation begins.
+pub fn analyze_elf(bytes: &[u8]) -> Result<ElfLayout, AnalyzeElfError> {
     let file = ElfBytes::<LittleEndian>::minimal_parse(bytes)?;
     let ehdr = file.ehdr;
 
@@ -118,7 +147,7 @@ pub fn analyze_elf(bytes: &[u8]) -> Result<AnalyzedElf, AnalyzeElfError> {
     let phdrs = file
         .segments()
         .ok_or(AnalyzeElfError::MissingProgramHeaders)?;
-    let mut load_segments = Vec::new();
+    let mut segments = Vec::new();
     let mut executable_segment_index = None;
 
     for (index, phdr) in phdrs.iter().enumerate() {
@@ -141,7 +170,7 @@ pub fn analyze_elf(bytes: &[u8]) -> Result<AnalyzedElf, AnalyzeElfError> {
 
         let start = phdr.p_offset as usize;
         let end = file_end as usize;
-        let segment = AnalyzedSegment {
+        let segment = ElfSegment {
             index,
             offset: phdr.p_offset,
             vaddr: phdr.p_vaddr,
@@ -158,27 +187,31 @@ pub fn analyze_elf(bytes: &[u8]) -> Result<AnalyzedElf, AnalyzeElfError> {
             if executable_segment_index.is_some() {
                 return Err(AnalyzeElfError::MultipleExecutableSegments);
             }
-            executable_segment_index = Some(load_segments.len());
+            executable_segment_index = Some(segments.len());
         }
 
-        load_segments.push(segment);
+        segments.push(segment);
     }
 
-    if load_segments.is_empty() {
+    if segments.is_empty() {
         return Err(AnalyzeElfError::NoLoadSegments);
     }
 
-    reject_memory_overlaps(&load_segments)?;
+    reject_memory_overlaps(&segments)?;
 
     let executable_segment_index =
         executable_segment_index.ok_or(AnalyzeElfError::NoExecutableSegment)?;
-    if !load_segments[executable_segment_index].contains_vaddr(ehdr.e_entry) {
+    if ehdr.e_entry != segments[executable_segment_index].vaddr {
         return Err(AnalyzeElfError::EntryNotInExecutableSegment);
     }
 
-    Ok(AnalyzedElf {
-        entry: ehdr.e_entry,
-        load_segments,
+    let source_executable_vaddr = segments[executable_segment_index].vaddr;
+    let entry = move_executable_after_preserved_segments(&mut segments, executable_segment_index)?;
+
+    Ok(ElfLayout {
+        entry,
+        source_executable_vaddr,
+        segments,
         executable_segment_index,
     })
 }
@@ -191,7 +224,7 @@ fn checked_end(start: u64, size: u64, index: usize) -> Result<u64, AnalyzeElfErr
 }
 
 /// Rejects loadable segments whose runtime memory ranges intersect.
-fn reject_memory_overlaps(segments: &[AnalyzedSegment]) -> Result<(), AnalyzeElfError> {
+fn reject_memory_overlaps(segments: &[ElfSegment]) -> Result<(), AnalyzeElfError> {
     let mut ranges = Vec::with_capacity(segments.len());
     for segment in segments {
         let end = segment.vaddr.checked_add(segment.memsz).ok_or(
@@ -216,6 +249,52 @@ fn reject_memory_overlaps(segments: &[AnalyzedSegment]) -> Result<(), AnalyzeElf
     }
 
     Ok(())
+}
+
+/// Moves the executable segment after all preserved non-executable memory ranges.
+///
+/// Only the executable segment is movable in this layout policy. If the input ELF
+/// has no non-executable loadable segments, the executable segment remains at its
+/// original virtual address.
+fn move_executable_after_preserved_segments(
+    segments: &mut [ElfSegment],
+    executable_segment_index: usize,
+) -> Result<u64, AnalyzeElfError> {
+    let mut preserved_end = None;
+    for (index, segment) in segments.iter().enumerate() {
+        if index == executable_segment_index {
+            continue;
+        }
+
+        let end = checked_end(segment.vaddr, segment.memsz, segment.index)?;
+        preserved_end = Some(preserved_end.map_or(end, |max: u64| max.max(end)));
+    }
+
+    if let Some(preserved_end) = preserved_end {
+        let executable = &mut segments[executable_segment_index];
+        executable.vaddr = align_up(preserved_end, executable.align)?;
+    }
+
+    Ok(segments[executable_segment_index].vaddr)
+}
+
+/// Rounds `value` up to the next multiple of `align`.
+///
+/// ELF treats `p_align` values of 0 and 1 as no alignment requirement, so those
+/// values return `value` unchanged.
+fn align_up(value: u64, align: u64) -> Result<u64, AnalyzeElfError> {
+    if align <= 1 {
+        return Ok(value);
+    }
+
+    let remainder = value % align;
+    if remainder == 0 {
+        Ok(value)
+    } else {
+        value
+            .checked_add(align - remainder)
+            .ok_or(AnalyzeElfError::IntegerOverflow)
+    }
 }
 
 #[cfg(test)]
@@ -304,8 +383,10 @@ mod tests {
 
         let elf = analyze_elf(&bytes).unwrap();
         assert_eq!(elf.entry, 0x400000);
-        assert_eq!(elf.load_segments.len(), 1);
+        assert_eq!(elf.source_executable_vaddr, 0x400000);
+        assert_eq!(elf.segments.len(), 1);
         assert_eq!(elf.executable_segment().data, vec![0x13; 4]);
+        assert_eq!(elf.executable_segment().vaddr, 0x400000);
         assert!(elf.executable_segment().is_executable());
     }
 
@@ -334,9 +415,65 @@ mod tests {
         );
 
         let elf = analyze_elf(&bytes).unwrap();
-        assert_eq!(elf.load_segments.len(), 2);
-        assert_eq!(elf.load_segments[1].data, Vec::<u8>::new());
-        assert_eq!(elf.load_segments[1].memory_range(), 0x401000..0x401100);
+        assert_eq!(elf.segments.len(), 2);
+        assert_eq!(elf.segments[1].data, Vec::<u8>::new());
+        assert_eq!(elf.segments[1].memory_range(), 0x401000..0x401100);
+        assert_eq!(elf.source_executable_vaddr, 0x400000);
+        assert_eq!(elf.executable_segment().vaddr, 0x402000);
+        assert_eq!(elf.entry, 0x402000);
+    }
+
+    #[test]
+    fn moves_executable_after_preserved_non_executable_segments() {
+        let bytes = elf_with(
+            0x400000,
+            &[
+                TestSegment {
+                    offset: 0x1000,
+                    vaddr: 0x400000,
+                    filesz: 4,
+                    memsz: 4,
+                    flags: PF_R | PF_X,
+                    align: 0x1000,
+                },
+                TestSegment {
+                    offset: 0x2000,
+                    vaddr: 0x600000,
+                    filesz: 4,
+                    memsz: 0x1234,
+                    flags: PF_R | PF_W,
+                    align: 0x1000,
+                },
+            ],
+        );
+
+        let elf = analyze_elf(&bytes).unwrap();
+        assert_eq!(elf.source_executable_vaddr, 0x400000);
+        assert_eq!(elf.segments[1].vaddr, 0x600000);
+        assert_eq!(elf.executable_segment().vaddr, 0x602000);
+        assert_eq!(elf.entry, 0x602000);
+    }
+
+    #[test]
+    fn replace_executable_updates_bytes_and_sizes() {
+        let bytes = elf_with(
+            0x400000,
+            &[TestSegment {
+                offset: 0x1000,
+                vaddr: 0x400000,
+                filesz: 4,
+                memsz: 4,
+                flags: PF_R | PF_X,
+                align: 0x1000,
+            }],
+        );
+
+        let mut elf = analyze_elf(&bytes).unwrap();
+        elf.replace_executable(vec![0x90, 0xc3]);
+
+        assert_eq!(elf.executable_segment().filesz, 2);
+        assert_eq!(elf.executable_segment().memsz, 2);
+        assert_eq!(elf.executable_segment().data, vec![0x90, 0xc3]);
     }
 
     #[test]
