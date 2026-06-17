@@ -33,6 +33,12 @@ pub(super) struct ControlFlowState {
     /// This is the RISC-V PC for slot 0 in `riscv_pc_to_x86_offset` and in
     /// the emitted runtime jump table.
     pub(super) base_riscv_pc: u64,
+    /// Virtual address where the translated x86 code segment will be loaded.
+    ///
+    /// This is distinct from `base_riscv_pc` because `base_riscv_pc` is source
+    /// program state, while this is the runtime address used for emitted x86
+    /// absolute targets.
+    pub(super) base_x86_vaddr: u64,
     /// Sparse map of direct control-flow target PCs to x86 labels.
     ///
     /// Only PCs that are targets of direct jumps/branches are present.
@@ -58,7 +64,12 @@ impl Translator {
     /// # Panics
     ///
     /// Panics if the derived temporary register set contains duplicates.
-    pub(super) fn new(mut emitter: Assembler, plan: MappingPlan, base_riscv_pc: u64) -> Self {
+    pub(super) fn new(
+        mut emitter: Assembler,
+        plan: MappingPlan,
+        base_riscv_pc: u64,
+        base_x86_vaddr: u64,
+    ) -> Self {
         let (reg_map, unused_gprs) = plan.into_parts();
         let jt_label = emitter.new_dynamic_label();
         Self {
@@ -68,6 +79,7 @@ impl Translator {
             cf: ControlFlowState {
                 current_riscv_pc: base_riscv_pc,
                 base_riscv_pc,
+                base_x86_vaddr,
                 direct_target_labels: HashMap::new(),
                 riscv_pc_to_x86_offset: Vec::new(),
                 jt_label,
@@ -120,7 +132,7 @@ impl Translator {
             .cf
             .riscv_pc_to_x86_offset
             .iter()
-            .map(|offset| offset.0 + self.cf.base_riscv_pc as usize)
+            .map(|offset| offset.0 + self.cf.base_x86_vaddr as usize)
             .collect::<Vec<_>>();
 
         dynasm!(self.emitter ; =>self.cf.jt_label);
@@ -165,11 +177,21 @@ mod tests {
 
     use dynasmrt::x64::Assembler;
 
-    use crate::elf::parse_elf;
-    use crate::elf_gen::generate_elf;
-    use crate::elf_gen::x86_elf::X86Elf;
+    use crate::decode::decode;
+    use crate::elfgen::analyzer::analyze_elf;
 
     use super::*;
+
+    fn decode_insns(bytes: &[u8]) -> Vec<Instruction> {
+        bytes
+            .chunks(4)
+            .map(|chunk| {
+                let mut insn_bytes = [0u8; 4];
+                insn_bytes[..chunk.len()].copy_from_slice(chunk);
+                decode(u32::from_le_bytes(insn_bytes))
+            })
+            .collect()
+    }
 
     /// Generate an equivalent x86 ELF file given a RISC-V ELF path.
     ///
@@ -178,41 +200,25 @@ mod tests {
     /// - single executable code segment
     fn compile_elf_for_test(path: &str, out_path: &str) {
         let bytes = fs::read(path).expect("failed to read input ELF");
-        let mut elf = parse_elf(&bytes);
+        let mut layout = analyze_elf(&bytes).expect("failed to analyze input ELF");
+        let insns = decode_insns(&layout.executable_segment().data);
 
-        let mut executable_count = 0u32;
-        for segment in &mut elf.segments {
-            if !segment.is_executable() {
-                continue;
-            }
-
-            executable_count = executable_count.wrapping_add(1);
-            if executable_count > 1 {
-                panic!("translator only supports ELFs with a single executable segment");
-            }
-
-            segment.decode();
-
-            let assembler = Assembler::new().expect("failed to create x86 assembler");
-            let mut translator =
-                Translator::new(assembler, RegisterMapping::default_plan(), elf.global_entry);
-            translator.translate_insns(segment.insns());
-            let x86_bytes = translator.finalize();
-
-            let mut x86_elf = X86Elf::new(elf.global_entry);
-            assert_eq!(segment.entry(), elf.global_entry);
-            x86_elf.add_text(x86_bytes, segment.entry(), segment.offset());
-
-            let elf_bytes = generate_elf(&x86_elf).expect("failed to generate x86 ELF");
-            fs::write(out_path, elf_bytes).expect("failed to write x86 ELF output");
-            fs::set_permissions(out_path, fs::Permissions::from_mode(0o755))
-                .expect("failed to set executable permissions");
-        }
-
-        assert_eq!(
-            executable_count, 1,
-            "expected exactly one executable segment"
+        let assembler = Assembler::new().expect("failed to create x86 assembler");
+        let mut translator = Translator::new(
+            assembler,
+            RegisterMapping::default_plan(),
+            layout.source_executable_vaddr,
+            layout.executable_segment().vaddr,
         );
+        translator.translate_insns(&insns);
+        let x86_bytes = translator.finalize();
+
+        layout.replace_executable(x86_bytes);
+        let elf_bytes = layout.emit_x86_elf().expect("failed to emit x86 ELF");
+
+        fs::write(out_path, elf_bytes).expect("failed to write x86 ELF output");
+        fs::set_permissions(out_path, fs::Permissions::from_mode(0o755))
+            .expect("failed to set executable permissions");
     }
 
     #[test]
