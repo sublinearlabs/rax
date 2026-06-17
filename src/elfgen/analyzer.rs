@@ -215,6 +215,8 @@ pub fn analyze_elf(bytes: &[u8]) -> Result<ElfLayout, AnalyzeElfError> {
 
     let executable_segment_index =
         executable_segment_index.ok_or(AnalyzeElfError::NoExecutableSegment)?;
+
+    // TODO: too restrictive to force the entry to equal the v_addr
     if ehdr.e_entry != segments[executable_segment_index].vaddr {
         return Err(AnalyzeElfError::EntryNotInExecutableSegment);
     }
