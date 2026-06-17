@@ -100,20 +100,35 @@ impl ElfSegment {
 }
 
 #[derive(Debug)]
+/// Errors returned while analyzing a RISC-V ELF into an AOT layout.
 pub enum AnalyzeElfError {
+    /// The underlying `elf` crate failed to parse the input bytes.
     Parse(ParseError),
+    /// The input ELF is not a 64-bit ELF.
     NotElf64,
+    /// The input ELF is not an executable ELF.
     NotExecutable,
+    /// The input ELF is not for the RISC-V architecture.
     NotRiscv,
+    /// The input ELF has no program header table.
     MissingProgramHeaders,
+    /// The input ELF has no loadable `PT_LOAD` segments.
     NoLoadSegments,
+    /// A segment's file range overflows or extends past the input bytes.
     SegmentFileRangeOutOfBounds { index: usize },
+    /// A segment's in-memory size is smaller than its file-backed size.
     SegmentMemSmallerThanFile { index: usize },
+    /// A segment violates `p_offset % p_align == p_vaddr % p_align`.
     SegmentMisaligned { index: usize },
+    /// No executable loadable segment was found.
     NoExecutableSegment,
+    /// More than one executable loadable segment was found.
     MultipleExecutableSegments,
+    /// The ELF entry point is not exactly the executable segment base.
     EntryNotInExecutableSegment,
+    /// Checked arithmetic overflowed while analyzing layout.
     IntegerOverflow,
+    /// Two loadable segment memory ranges overlap.
     LoadSegmentsOverlap { first: usize, second: usize },
 }
 

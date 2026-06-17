@@ -734,6 +734,7 @@ mod tests {
             Assembler::new().unwrap(),
             RegisterMapping::default_plan(),
             0,
+            0,
         )
     }
 
@@ -758,6 +759,7 @@ mod tests {
             builder
                 .build()
                 .expect("builder should produce valid mapping"),
+            0,
             0,
         )
     }

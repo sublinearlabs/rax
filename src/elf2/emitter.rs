@@ -6,11 +6,17 @@ const ELF_HEADER_SIZE: u64 = 64;
 const PROGRAM_HEADER_SIZE: u64 = 56;
 
 #[derive(Debug)]
+/// Errors returned while serializing an `ElfLayout` as an x86-64 ELF.
 pub enum EmitElfError {
+    /// Segment count does not fit in the ELF header's `e_phnum` field.
     TooManySegments,
+    /// Checked arithmetic overflowed while computing the output ELF.
     IntegerOverflow,
+    /// A planned segment's memory size is smaller than its output file data.
     SegmentMemSmallerThanFile { index: usize },
+    /// A computed output file offset does not fit in `usize`.
     SegmentFileOffsetOverflow { index: usize },
+    /// Two planned output segment memory ranges overlap.
     SegmentMemoryOverlap { first: usize, second: usize },
 }
 
