@@ -122,13 +122,23 @@ fn align_offset_to_vaddr(offset: u64, vaddr: u64, align: u64) -> Result<u64, Emi
         return Ok(offset);
     }
 
+    // target alignment delta
     let want = vaddr % align;
+    // current alignment delta
     let got = offset % align;
+
     if got <= want {
+        // here the target is larger than current
+        // so we just add the difference
         offset
             .checked_add(want - got)
             .ok_or(EmitElfError::IntegerOverflow)
     } else {
+        // in this case the current is larger than the target
+        // we are supposed to subtract from the offset to fix this
+        // but the current offset is already the minimum valid offset
+        // hence we need to first add segment.align to the offset
+        // and then subtract the delta difference from that result
         offset
             .checked_add(align - got)
             .and_then(|offset| offset.checked_add(want))
