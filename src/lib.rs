@@ -3,7 +3,6 @@ mod decode;
 mod ecall;
 mod elf;
 pub mod elf2;
-pub mod elf_gen;
 mod execute;
 mod host_io;
 mod instr_execute;
