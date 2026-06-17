@@ -47,3 +47,5 @@ essentially translation needs to know the address the translated code will be
 but the algorithm for determining that depends on the size of the translated block
 we could always force it to be the next free vaddr rather than trying to preserve
 the old one if possible
+
+now we have a proper elf analyzer, next is to take the modified layout and produce a proper elf. 
