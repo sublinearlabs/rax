@@ -178,7 +178,7 @@ mod tests {
     use dynasmrt::x64::Assembler;
 
     use crate::decode::decode;
-    use crate::elf2::analyzer::analyze_elf;
+    use crate::elfgen::analyzer::analyze_elf;
 
     use super::*;
 

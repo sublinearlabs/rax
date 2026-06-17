@@ -1,6 +1,6 @@
 use elf::abi::{EM_X86_64, ET_EXEC, PT_LOAD};
 
-use crate::elf2::analyzer::{ElfLayout, ElfSegment};
+use crate::elfgen::analyzer::{ElfLayout, ElfSegment};
 
 const ELF_HEADER_SIZE: u64 = 64;
 const PROGRAM_HEADER_SIZE: u64 = 56;
@@ -182,7 +182,7 @@ fn validate_output_segments(segments: &[ElfSegment]) -> Result<(), EmitElfError>
 mod tests {
     use elf::abi::{EM_RISCV, PF_R, PF_W, PF_X};
 
-    use crate::elf2::analyzer::analyze_elf;
+    use crate::elfgen::analyzer::analyze_elf;
 
     use super::*;
 
