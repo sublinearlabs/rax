@@ -17,9 +17,13 @@ use elf::{
 /// so translation knows the output code address before emitting bytes.
 #[derive(Debug)]
 pub struct ElfLayout {
+    /// Entry address for the output ELF.
     pub entry: u64,
+    /// Original RISC-V virtual address of the executable segment.
     pub source_executable_vaddr: u64,
+    /// Planned output loadable segments.
     pub segments: Vec<ElfSegment>,
+    /// Index of the single executable segment in `segments`.
     pub executable_segment_index: usize,
 }
 
@@ -50,21 +54,21 @@ impl ElfLayout {
 
 #[derive(Debug)]
 pub struct ElfSegment {
-    // Program-header index in the original ELF.
+    /// Program-header index in the original ELF.
     pub index: usize,
-    // File offset where this segment's initialized bytes start.
+    /// File offset where this segment's initialized bytes start.
     pub offset: u64,
-    // Virtual address where the loader maps this segment.
+    /// Virtual address where this segment is planned to be loaded.
     pub vaddr: u64,
-    // Number of segment bytes present in the ELF file.
+    /// Number of segment bytes present in the ELF file.
     pub filesz: u64,
-    // Total segment size in memory, including zero-filled bytes.
+    /// Total segment size in memory, including zero-filled bytes.
     pub memsz: u64,
-    // Raw p_flags from the program header.
+    /// Raw `p_flags` from the program header.
     pub flags: u32,
-    // Per-segment alignment constraint for file offset and virtual address.
+    /// Per-segment alignment constraint for file offset and virtual address.
     pub align: u64,
-    // Initialized bytes copied from the ELF file.
+    /// Initialized bytes copied from the ELF file, or replacement translated bytes.
     pub data: Vec<u8>,
 }
 
