@@ -19,18 +19,145 @@ pub(super) fn emit_instruction(
     insn: &Instruction,
 ) {
     match insn {
+        Instruction::Nop => {}
         Instruction::Add(R { rd, rs1, rs2 }) => {
             emit_add(translator, temps, rv(rd), rv(rs1), rv(rs2))
         }
         Instruction::Sub(R { rd, rs1, rs2 }) => {
             emit_sub(translator, temps, rv(rd), rv(rs1), rv(rs2))
         }
+        Instruction::Xor(R { rd, rs1, rs2 }) => {
+            emit_xor(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
         Instruction::Or(R { rd, rs1, rs2 }) => emit_or(translator, temps, rv(rd), rv(rs1), rv(rs2)),
+        Instruction::And(R { rd, rs1, rs2 }) => {
+            emit_and(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::Addw(R { rd, rs1, rs2 }) => {
+            emit_addw(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
         Instruction::Subw(R { rd, rs1, rs2 }) => {
             emit_subw(translator, temps, rv(rd), rv(rs1), rv(rs2))
         }
+        Instruction::Sllw(R { rd, rs1, rs2 }) => {
+            emit_sllw(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::Srlw(R { rd, rs1, rs2 }) => {
+            emit_srlw(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::Sraw(R { rd, rs1, rs2 }) => {
+            emit_sraw(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::Slt(R { rd, rs1, rs2 }) => {
+            emit_slt(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::Sltu(R { rd, rs1, rs2 }) => {
+            emit_sltu(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::LrW(R { rd, rs1, rs2 }) => {
+            emit_lr_w(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::ScW(R { rd, rs1, rs2 }) => {
+            emit_sc_w(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::AmoSwapW(R { rd, rs1, rs2 }) => {
+            emit_amo_swap_w(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::AmoAddW(R { rd, rs1, rs2 }) => {
+            emit_amo_add_w(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::AmoXorW(R { rd, rs1, rs2 }) => {
+            emit_amo_xor_w(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::AmoAndW(R { rd, rs1, rs2 }) => {
+            emit_amo_and_w(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::AmoOrW(R { rd, rs1, rs2 }) => {
+            emit_amo_or_w(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::AmoMinW(R { rd, rs1, rs2 }) => {
+            emit_amo_min_w(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::AmoMaxW(R { rd, rs1, rs2 }) => {
+            emit_amo_max_w(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::AmoMinuW(R { rd, rs1, rs2 }) => {
+            emit_amo_minu_w(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::AmoMaxuW(R { rd, rs1, rs2 }) => {
+            emit_amo_maxu_w(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::LrD(R { rd, rs1, rs2 }) => {
+            emit_lr_d(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::ScD(R { rd, rs1, rs2 }) => {
+            emit_sc_d(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::AmoSwapD(R { rd, rs1, rs2 }) => {
+            emit_amo_swap_d(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::AmoAddD(R { rd, rs1, rs2 }) => {
+            emit_amo_add_d(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::AmoXorD(R { rd, rs1, rs2 }) => {
+            emit_amo_xor_d(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::AmoAndD(R { rd, rs1, rs2 }) => {
+            emit_amo_and_d(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::AmoOrD(R { rd, rs1, rs2 }) => {
+            emit_amo_or_d(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::AmoMinD(R { rd, rs1, rs2 }) => {
+            emit_amo_min_d(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::AmoMaxD(R { rd, rs1, rs2 }) => {
+            emit_amo_max_d(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::AmoMinuD(R { rd, rs1, rs2 }) => {
+            emit_amo_minu_d(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::AmoMaxuD(R { rd, rs1, rs2 }) => {
+            emit_amo_maxu_d(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::Mul(R { rd, rs1, rs2 }) => {
+            emit_mul(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::Mulh(R { rd, rs1, rs2 }) => {
+            emit_mulh(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::Mulhsu(R { rd, rs1, rs2 }) => {
+            emit_mulhsu(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
         Instruction::Mulhu(R { rd, rs1, rs2 }) => {
             emit_mulhu(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::Div(R { rd, rs1, rs2 }) => {
+            emit_div(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::Divu(R { rd, rs1, rs2 }) => {
+            emit_divu(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::Rem(R { rd, rs1, rs2 }) => {
+            emit_rem(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::Remu(R { rd, rs1, rs2 }) => {
+            emit_remu(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::Mulw(R { rd, rs1, rs2 }) => {
+            emit_mulw(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::Divw(R { rd, rs1, rs2 }) => {
+            emit_divw(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::Divuw(R { rd, rs1, rs2 }) => {
+            emit_divuw(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::Remw(R { rd, rs1, rs2 }) => {
+            emit_remw(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::Remuw(R { rd, rs1, rs2 }) => {
+            emit_remuw(translator, temps, rv(rd), rv(rs1), rv(rs2))
         }
         Instruction::Addi(I { rd, rs1, imm }) => {
             emit_addi(translator, temps, rv(rd), rv(rs1), *imm)
@@ -38,13 +165,56 @@ pub(super) fn emit_instruction(
         Instruction::Andi(I { rd, rs1, imm }) => {
             emit_andi(translator, temps, rv(rd), rv(rs1), *imm)
         }
+        Instruction::Xori(I { rd, rs1, imm }) => {
+            emit_xori(translator, temps, rv(rd), rv(rs1), *imm)
+        }
+        Instruction::Ori(I { rd, rs1, imm }) => emit_ori(translator, temps, rv(rd), rv(rs1), *imm),
+        Instruction::Slti(I { rd, rs1, imm }) => {
+            emit_slti(translator, temps, rv(rd), rv(rs1), *imm)
+        }
+        Instruction::Sltiu(I { rd, rs1, imm }) => {
+            emit_sltiu(translator, temps, rv(rd), rv(rs1), *imm)
+        }
+        Instruction::Addiw(I { rd, rs1, imm }) => {
+            emit_addiw(translator, temps, rv(rd), rv(rs1), *imm)
+        }
         Instruction::Slli(Sh { rd, rs1, shamt }) => {
             emit_slli(translator, temps, rv(rd), rv(rs1), *shamt)
+        }
+        Instruction::Srli(Sh { rd, rs1, shamt }) => {
+            emit_srli(translator, temps, rv(rd), rv(rs1), *shamt)
+        }
+        Instruction::Srai(Sh { rd, rs1, shamt }) => {
+            emit_srai(translator, temps, rv(rd), rv(rs1), *shamt)
+        }
+        Instruction::Slliw(Sh { rd, rs1, shamt }) => {
+            emit_slliw(translator, temps, rv(rd), rv(rs1), *shamt)
+        }
+        Instruction::Srliw(Sh { rd, rs1, shamt }) => {
+            emit_srliw(translator, temps, rv(rd), rv(rs1), *shamt)
+        }
+        Instruction::Sraiw(Sh { rd, rs1, shamt }) => {
+            emit_sraiw(translator, temps, rv(rd), rv(rs1), *shamt)
         }
         Instruction::Sll(R { rd, rs1, rs2 }) => {
             emit_sll(translator, temps, rv(rd), rv(rs1), rv(rs2))
         }
+        Instruction::Srl(R { rd, rs1, rs2 }) => {
+            emit_srl(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::Sra(R { rd, rs1, rs2 }) => {
+            emit_sra(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::Lb(I { rd, rs1, imm }) => emit_lb(translator, temps, rv(rd), rv(rs1), *imm),
+        Instruction::Lh(I { rd, rs1, imm }) => emit_lh(translator, temps, rv(rd), rv(rs1), *imm),
+        Instruction::Lw(I { rd, rs1, imm }) => emit_lw(translator, temps, rv(rd), rv(rs1), *imm),
+        Instruction::Lwu(I { rd, rs1, imm }) => emit_lwu(translator, temps, rv(rd), rv(rs1), *imm),
+        Instruction::Ld(I { rd, rs1, imm }) => emit_ld(translator, temps, rv(rd), rv(rs1), *imm),
+        Instruction::Lbu(I { rd, rs1, imm }) => emit_lbu(translator, temps, rv(rd), rv(rs1), *imm),
+        Instruction::Lhu(I { rd, rs1, imm }) => emit_lhu(translator, temps, rv(rd), rv(rs1), *imm),
         Instruction::Sb(S { rs1, rs2, imm }) => emit_sb(translator, temps, rv(rs1), rv(rs2), *imm),
+        Instruction::Sh(S { rs1, rs2, imm }) => emit_sh(translator, temps, rv(rs1), rv(rs2), *imm),
+        Instruction::Sw(S { rs1, rs2, imm }) => emit_sw(translator, temps, rv(rs1), rv(rs2), *imm),
         Instruction::Sd(S { rs1, rs2, imm }) => emit_sd(translator, temps, rv(rs1), rv(rs2), *imm),
         Instruction::Lui(U { rd, imm }) => emit_lui(translator, temps, rv(rd), *imm),
         Instruction::Auipc(U { rd, imm }) => emit_auipc(translator, temps, rv(rd), *imm),
@@ -53,6 +223,12 @@ pub(super) fn emit_instruction(
         }
         Instruction::Bne(B { rs1, rs2, imm }) => {
             emit_bne(translator, temps, rv(rs1), rv(rs2), *imm)
+        }
+        Instruction::Blt(B { rs1, rs2, imm }) => {
+            emit_blt(translator, temps, rv(rs1), rv(rs2), *imm)
+        }
+        Instruction::Bge(B { rs1, rs2, imm }) => {
+            emit_bge(translator, temps, rv(rs1), rv(rs2), *imm)
         }
         Instruction::Bltu(B { rs1, rs2, imm }) => {
             emit_bltu(translator, temps, rv(rs1), rv(rs2), *imm)
@@ -285,6 +461,19 @@ fn emit_sub(
     }
 }
 
+/// RV64 `xor`: bitwise XOR across all 64 bits.
+/// rd <- rs1 ^ rs2
+#[allow(unused_variables)]
+fn emit_xor(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV64 xor emission.
+}
+
 /// RV64 `or`: bitwise OR across all 64 bits.
 /// rd <- rs1 | rs2
 fn emit_or(
@@ -401,6 +590,45 @@ fn emit_or(
     }
 }
 
+/// RV64 `and`: bitwise and.
+/// rd <- rs1 & rs2
+#[allow(unused_variables)]
+fn emit_and(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV64 and emission.
+}
+
+/// RV64 `slt`: set if less than, signed.
+/// rd <- signed(rs1) < signed(rs2)
+#[allow(unused_variables)]
+fn emit_slt(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV64 slt emission.
+}
+
+/// RV64 `addw`: add low 32 bits, then sign-extend to 64 bits.
+/// rd <- sext32((rs1[31:0] + rs2[31:0]) mod 2^32)
+#[allow(unused_variables)]
+fn emit_addw(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV64 addw emission.
+}
+
 /// RV64 `subw`: subtract low 32 bits, then sign-extend to 64 bits.
 /// rd <- sext32((rs1[31:0] - rs2[31:0]) mod 2^32)
 fn emit_subw(
@@ -510,8 +738,386 @@ fn emit_subw(
     }
 }
 
+/// RV64 `sllw`: logical left shift low word, then sign-extend to 64 bits.
+/// rd <- sext32(rs1[31:0] << (rs2 & 0x1f))
+#[allow(unused_variables)]
+fn emit_sllw(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV64 sllw emission.
+}
+
+/// RV64 `srlw`: logical right shift low word, then sign-extend to 64 bits.
+/// rd <- sext32(rs1[31:0] >> (rs2 & 0x1f))
+#[allow(unused_variables)]
+fn emit_srlw(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV64 srlw emission.
+}
+
+/// RV64 `sraw`: arithmetic right shift low word, then sign-extend to 64 bits.
+/// rd <- sext32(signed(rs1[31:0]) >> (rs2 & 0x1f))
+#[allow(unused_variables)]
+fn emit_sraw(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV64 sraw emission.
+}
+
+/// RV64 `sltu`: set if less than, unsigned.
+/// rd <- unsigned(rs1) < unsigned(rs2) ? 1 : 0
+#[allow(unused_variables)]
+fn emit_sltu(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV64 sltu emission.
+}
+
+/// RV32A `lr.w`: load-reserved word.
+/// rd <- sign_extend(M[rs1][31:0])
+#[allow(unused_variables)]
+fn emit_lr_w(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV32A lr.w emission.
+}
+
+/// RV32A `sc.w`: store-conditional word.
+/// rd <- success ? 0 : nonzero; M[rs1][31:0] <- rs2[31:0] on success
+#[allow(unused_variables)]
+fn emit_sc_w(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV32A sc.w emission.
+}
+
+/// RV32A `amoswap.w`: atomically swap word.
+/// rd <- sign_extend(M[rs1][31:0]); M[rs1][31:0] <- rs2[31:0]
+#[allow(unused_variables)]
+fn emit_amo_swap_w(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV32A amoswap.w emission.
+}
+
+/// RV32A `amoadd.w`: atomically add word.
+/// rd <- sign_extend(M[rs1][31:0]); M[rs1][31:0] <- M[rs1][31:0] + rs2[31:0]
+#[allow(unused_variables)]
+fn emit_amo_add_w(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV32A amoadd.w emission.
+}
+
+/// RV32A `amoxor.w`: atomically xor word.
+/// rd <- sign_extend(M[rs1][31:0]); M[rs1][31:0] <- M[rs1][31:0] ^ rs2[31:0]
+#[allow(unused_variables)]
+fn emit_amo_xor_w(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV32A amoxor.w emission.
+}
+
+/// RV32A `amoand.w`: atomically and word.
+/// rd <- sign_extend(M[rs1][31:0]); M[rs1][31:0] <- M[rs1][31:0] & rs2[31:0]
+#[allow(unused_variables)]
+fn emit_amo_and_w(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV32A amoand.w emission.
+}
+
+/// RV32A `amoor.w`: atomically or word.
+/// rd <- sign_extend(M[rs1][31:0]); M[rs1][31:0] <- M[rs1][31:0] | rs2[31:0]
+#[allow(unused_variables)]
+fn emit_amo_or_w(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV32A amoor.w emission.
+}
+
+/// RV32A `amomin.w`: atomically signed-min word.
+/// rd <- sign_extend(M[rs1][31:0]); M[rs1][31:0] <- min_signed(M[rs1][31:0], rs2[31:0])
+#[allow(unused_variables)]
+fn emit_amo_min_w(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV32A amomin.w emission.
+}
+
+/// RV32A `amomax.w`: atomically signed-max word.
+/// rd <- sign_extend(M[rs1][31:0]); M[rs1][31:0] <- max_signed(M[rs1][31:0], rs2[31:0])
+#[allow(unused_variables)]
+fn emit_amo_max_w(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV32A amomax.w emission.
+}
+
+/// RV32A `amominu.w`: atomically unsigned-min word.
+/// rd <- sign_extend(M[rs1][31:0]); M[rs1][31:0] <- min_unsigned(M[rs1][31:0], rs2[31:0])
+#[allow(unused_variables)]
+fn emit_amo_minu_w(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV32A amominu.w emission.
+}
+
+/// RV32A `amomaxu.w`: atomically unsigned-max word.
+/// rd <- sign_extend(M[rs1][31:0]); M[rs1][31:0] <- max_unsigned(M[rs1][31:0], rs2[31:0])
+#[allow(unused_variables)]
+fn emit_amo_maxu_w(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV32A amomaxu.w emission.
+}
+
+/// RV64A `lr.d`: load-reserved doubleword.
+/// rd <- M[rs1][63:0]
+#[allow(unused_variables)]
+fn emit_lr_d(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV64A lr.d emission.
+}
+
+/// RV64A `sc.d`: store-conditional doubleword.
+/// rd <- success ? 0 : nonzero; M[rs1][63:0] <- rs2 on success
+#[allow(unused_variables)]
+fn emit_sc_d(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV64A sc.d emission.
+}
+
+/// RV64A `amoswap.d`: atomically swap doubleword.
+/// rd <- M[rs1][63:0]; M[rs1][63:0] <- rs2
+#[allow(unused_variables)]
+fn emit_amo_swap_d(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV64A amoswap.d emission.
+}
+
+/// RV64A `amoadd.d`: atomically add doubleword.
+/// rd <- M[rs1][63:0]; M[rs1][63:0] <- M[rs1][63:0] + rs2
+#[allow(unused_variables)]
+fn emit_amo_add_d(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV64A amoadd.d emission.
+}
+
+/// RV64A `amoxor.d`: atomically xor doubleword.
+/// rd <- M[rs1][63:0]; M[rs1][63:0] <- M[rs1][63:0] ^ rs2
+#[allow(unused_variables)]
+fn emit_amo_xor_d(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV64A amoxor.d emission.
+}
+
+/// RV64A `amoand.d`: atomically and doubleword.
+/// rd <- M[rs1][63:0]; M[rs1][63:0] <- M[rs1][63:0] & rs2
+#[allow(unused_variables)]
+fn emit_amo_and_d(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV64A amoand.d emission.
+}
+
+/// RV64A `amoor.d`: atomically or doubleword.
+/// rd <- M[rs1][63:0]; M[rs1][63:0] <- M[rs1][63:0] | rs2
+#[allow(unused_variables)]
+fn emit_amo_or_d(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV64A amoor.d emission.
+}
+
+/// RV64A `amomin.d`: atomically signed-min doubleword.
+/// rd <- M[rs1][63:0]; M[rs1][63:0] <- min_signed(M[rs1][63:0], rs2)
+#[allow(unused_variables)]
+fn emit_amo_min_d(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV64A amomin.d emission.
+}
+
+/// RV64A `amomax.d`: atomically signed-max doubleword.
+/// rd <- M[rs1][63:0]; M[rs1][63:0] <- max_signed(M[rs1][63:0], rs2)
+#[allow(unused_variables)]
+fn emit_amo_max_d(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV64A amomax.d emission.
+}
+
+/// RV64A `amominu.d`: atomically unsigned-min doubleword.
+/// rd <- M[rs1][63:0]; M[rs1][63:0] <- min_unsigned(M[rs1][63:0], rs2)
+#[allow(unused_variables)]
+fn emit_amo_minu_d(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV64A amominu.d emission.
+}
+
+/// RV64A `amomaxu.d`: atomically unsigned-max doubleword.
+/// rd <- M[rs1][63:0]; M[rs1][63:0] <- max_unsigned(M[rs1][63:0], rs2)
+#[allow(unused_variables)]
+fn emit_amo_maxu_d(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV64A amomaxu.d emission.
+}
+
+/// RV64M `mul`: lower 64 bits of signed 64x64 multiply.
+/// rd <- low64(rs1 * rs2)
+#[allow(unused_variables)]
+fn emit_mul(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV64M mul emission.
+}
+
+/// RV64M `mulh`: upper 64 bits of signed 64x64 multiply.
+/// rd <- high64(signed(rs1) * signed(rs2))
+#[allow(unused_variables)]
+fn emit_mulh(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV64M mulh emission.
+}
+
+/// RV64M `mulhsu`: upper 64 bits of signed-by-unsigned 64x64 multiply.
+/// rd <- high64(signed(rs1) * unsigned(rs2))
+#[allow(unused_variables)]
+fn emit_mulhsu(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV64M mulhsu emission.
+}
+
 /// RV64 `mulhu`: upper 64 bits of unsigned 64x64 multiply.
 /// rd <- high64(unsigned(rs1) * unsigned(rs2))
+#[allow(unused_variables)]
 fn emit_mulhu(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -519,56 +1125,124 @@ fn emit_mulhu(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
-    // x86 mul r/m64 uses the rdx and rax as implicit registers
-    // RDX:RAX = RAX * r/m64
-    // high XLEN bits of the multiplication are in RDX
-    // low  XLEN bits of the multiplication are in RAX
+    // TODO: implement RV64M mulhu emission.
+}
 
-    let ctx = InstructionContextBuilder::new()
-        .set_inputs([rs1, rs2])
-        .set_output(rd)
-        .ensure_no_clobber([X86Gpr::Rax, X86Gpr::Rdx])
-        .build(translator, temps);
+/// RV64M `div`: signed 64-bit division.
+/// rd <- signed(rs1) / signed(rs2)
+#[allow(unused_variables)]
+fn emit_div(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV64M div emission.
+}
 
-    let [rs1, rs2] = ctx.inputs();
-    let rd = ctx.output();
+/// RV64M `divu`: unsigned 64-bit division.
+/// rd <- unsigned(rs1) / unsigned(rs2)
+#[allow(unused_variables)]
+fn emit_divu(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV64M divu emission.
+}
 
-    match classify_zero_case(&rd, &rs1, &rs2) {
-        ZeroCase::RdZero => {
-            // x0 is hardwired to zero, writes can be ignored
-            ctx.discard_zero_output(translator);
-            return;
-        }
-        ZeroCase::Rs1Rs2Zero | ZeroCase::Rs1Zero | ZeroCase::Rs2Zero => {
-            // in all of these cases, rd should be set to zero
-            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
-            ctx.write_back(translator);
-            return;
-        }
-        ZeroCase::None => {}
-    }
+/// RV64M `rem`: signed 64-bit remainder.
+/// rd <- signed(rs1) % signed(rs2)
+#[allow(unused_variables)]
+fn emit_rem(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV64M rem emission.
+}
 
-    // I am not handling the shadow case here because,
-    // for most of them, it is pretty difficult to beat the
-    // 3 instruction baseline:
-    // mov rax, rs1;
-    // mul rs2;
-    // mov rd, rdx;
+/// RV64M `remu`: unsigned 64-bit remainder.
+/// rd <- unsigned(rs1) % unsigned(rs2)
+#[allow(unused_variables)]
+fn emit_remu(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV64M remu emission.
+}
 
-    if rs1.id() == X86Gpr::Rax.id() {
-        dynasm!(translator.emitter ; mul Rq(rs2.id()));
-    } else if rs2.id() == X86Gpr::Rax.id() {
-        dynasm!(translator.emitter ; mul Rq(rs1.id()));
-    } else {
-        dynasm!(translator.emitter ; mov Rq(X86Gpr::Rax.id()), Rq(rs1.id()));
-        dynasm!(translator.emitter ; mul Rq(rs2.id()));
-    }
+/// RV64M `mulw`: lower 32 bits of multiply, then sign-extend to 64 bits.
+/// rd <- sext32(rs1[31:0] * rs2[31:0])
+#[allow(unused_variables)]
+fn emit_mulw(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV64M mulw emission.
+}
 
-    if rd.id() != X86Gpr::Rdx.id() {
-        dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(X86Gpr::Rdx.id()));
-    }
+/// RV64M `divw`: signed 32-bit division, then sign-extend to 64 bits.
+/// rd <- sext32(signed(rs1[31:0]) / signed(rs2[31:0]))
+#[allow(unused_variables)]
+fn emit_divw(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV64M divw emission.
+}
 
-    ctx.write_back(translator);
+/// RV64M `divuw`: unsigned 32-bit division, then sign-extend to 64 bits.
+/// rd <- sext32(unsigned(rs1[31:0]) / unsigned(rs2[31:0]))
+#[allow(unused_variables)]
+fn emit_divuw(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV64M divuw emission.
+}
+
+/// RV64M `remw`: signed 32-bit remainder, then sign-extend to 64 bits.
+/// rd <- sext32(signed(rs1[31:0]) % signed(rs2[31:0]))
+#[allow(unused_variables)]
+fn emit_remw(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV64M remw emission.
+}
+
+/// RV64M `remuw`: unsigned 32-bit remainder, then sign-extend to 64 bits.
+/// rd <- sext32(unsigned(rs1[31:0]) % unsigned(rs2[31:0]))
+#[allow(unused_variables)]
+fn emit_remuw(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV64M remuw emission.
 }
 
 /// RV64 `addi`: 64-bit wrapping add with sign-extended immediate.
@@ -640,6 +1314,19 @@ fn emit_addi(
     }
 }
 
+/// RV64 `addiw`: add low 32-bit immediate result, then sign-extend to 64 bits.
+/// rd <- sext32((rs1[31:0] + imm) mod 2^32)
+#[allow(unused_variables)]
+fn emit_addiw(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    imm: i32,
+) {
+    // TODO: implement RV64 addiw emission.
+}
+
 /// RV64 `andi`: bitwise AND with sign-extended immediate.
 /// rd <- rs1 & sext(imm)
 fn emit_andi(
@@ -703,6 +1390,58 @@ fn emit_andi(
             return;
         }
     }
+}
+
+/// RV64 `xori`: bitwise XOR with sign-extended immediate.
+/// rd <- rs1 ^ sext(imm)
+#[allow(unused_variables)]
+fn emit_xori(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    imm: i32,
+) {
+    // TODO: implement RV64 xori emission.
+}
+
+/// RV64 `ori`: bitwise OR with sign-extended immediate.
+/// rd <- rs1 | sext(imm)
+#[allow(unused_variables)]
+fn emit_ori(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    imm: i32,
+) {
+    // TODO: implement RV64 ori emission.
+}
+
+/// RV64 `slti`: set if less than signed immediate.
+/// rd <- signed(rs1) < signed(sext(imm))
+#[allow(unused_variables)]
+fn emit_slti(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    imm: i32,
+) {
+    // TODO: implement RV64 slti emission.
+}
+
+/// RV64 `sltiu`: set if less than unsigned sign-extended immediate.
+/// rd <- unsigned(rs1) < unsigned(sext(imm))
+#[allow(unused_variables)]
+fn emit_sltiu(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    imm: i32,
+) {
+    // TODO: implement RV64 sltiu emission.
 }
 
 /// RV64 `slli`: logical left shift by immediate.
@@ -771,6 +1510,71 @@ fn emit_slli(
             return;
         }
     }
+}
+
+/// RV64 `slliw`: logical left shift low word, then sign-extend to 64 bits.
+/// rd <- sext32(rs1[31:0] << shamt)
+#[allow(unused_variables)]
+fn emit_slliw(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    shamt: u8,
+) {
+    // TODO: implement RV64 slliw emission.
+}
+
+/// RV64 `srli`: logical right shift by immediate.
+/// rd <- rs1 >> shamt
+#[allow(unused_variables)]
+fn emit_srli(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    shamt: u8,
+) {
+    // TODO: implement RV64 srli emission.
+}
+
+/// RV64 `srliw`: logical right shift low word, then sign-extend to 64 bits.
+/// rd <- sext32(rs1[31:0] >> shamt)
+#[allow(unused_variables)]
+fn emit_srliw(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    shamt: u8,
+) {
+    // TODO: implement RV64 srliw emission.
+}
+
+/// RV64 `srai`: arithmetic right shift by immediate.
+/// rd <- signed(rs1) >> shamt
+#[allow(unused_variables)]
+fn emit_srai(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    shamt: u8,
+) {
+    // TODO: implement RV64 srai emission.
+}
+
+/// RV64 `sraiw`: arithmetic right shift low word, then sign-extend to 64 bits.
+/// rd <- sext32(signed(rs1[31:0]) >> shamt)
+#[allow(unused_variables)]
+fn emit_sraiw(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    shamt: u8,
+) {
+    // TODO: implement RV64 sraiw emission.
 }
 
 /// RV64 `sll`: logical left shift by register low bits.
@@ -848,6 +1652,123 @@ fn emit_sll(
     }
 }
 
+/// RV64 `srl`: logical right shift by register low bits.
+/// rd <- rs1 >> (rs2 & 0x3f)
+#[allow(unused_variables)]
+fn emit_srl(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV64 srl emission.
+}
+
+/// RV64 `sra`: arithmetic right shift by register low bits.
+/// rd <- signed(rs1) >> (rs2 & 0x3f)
+#[allow(unused_variables)]
+fn emit_sra(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    // TODO: implement RV64 sra emission.
+}
+
+/// RV64 `lb`: load signed byte.
+/// rd <- sign_extend(M[rs1 + imm][7:0])
+#[allow(unused_variables)]
+fn emit_lb(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    imm: i32,
+) {
+    // TODO: implement RV64 lb emission.
+}
+
+/// RV64 `lh`: load signed halfword.
+/// rd <- sign_extend(M[rs1 + imm][15:0])
+#[allow(unused_variables)]
+fn emit_lh(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    imm: i32,
+) {
+    // TODO: implement RV64 lh emission.
+}
+
+/// RV64 `lw`: load signed word.
+/// rd <- sign_extend(M[rs1 + imm][31:0])
+#[allow(unused_variables)]
+fn emit_lw(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    imm: i32,
+) {
+    // TODO: implement RV64 lw emission.
+}
+
+/// RV64 `lwu`: load unsigned word.
+/// rd <- zero_extend(M[rs1 + imm][31:0])
+#[allow(unused_variables)]
+fn emit_lwu(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    imm: i32,
+) {
+    // TODO: implement RV64 lwu emission.
+}
+
+/// RV64 `ld`: load 64-bit value.
+/// rd <- M[rs1 + imm][63:0]
+#[allow(unused_variables)]
+fn emit_ld(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    imm: i32,
+) {
+    // TODO: implement RV64 ld emission.
+}
+
+/// RV64 `lbu`: load unsigned byte.
+/// rd <- zero_extend(M[rs1 + imm][7:0])
+#[allow(unused_variables)]
+fn emit_lbu(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    imm: i32,
+) {
+    // TODO: implement RV64 lbu emission.
+}
+
+/// RV64 `lhu`: load unsigned halfword.
+/// rd <- zero_extend(M[rs1 + imm][15:0])
+#[allow(unused_variables)]
+fn emit_lhu(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    imm: i32,
+) {
+    // TODO: implement RV64 lhu emission.
+}
+
 /// RV64 `sb`: store low 8 bits of rs2 to memory at rs1 + sext(imm).
 /// mem8[rs1 + sext(imm)] <- rs2[7:0]
 fn emit_sb(
@@ -881,6 +1802,32 @@ fn emit_sb(
         dynasm!(translator.emitter ; mov BYTE [Rq(addr_id) + addr_disp], Rb(rs2.id()));
     }
     ctx.complete_no_output(translator);
+}
+
+/// RV64 `sh`: store low 16 bits of rs2 to memory at rs1 + sext(imm).
+/// mem16[rs1 + sext(imm)] <- rs2[15:0]
+#[allow(unused_variables)]
+fn emit_sh(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+    imm: i32,
+) {
+    // TODO: implement RV64 sh emission.
+}
+
+/// RV64 `sw`: store low 32 bits of rs2 to memory at rs1 + sext(imm).
+/// mem32[rs1 + sext(imm)] <- rs2[31:0]
+#[allow(unused_variables)]
+fn emit_sw(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+    imm: i32,
+) {
+    // TODO: implement RV64 sw emission.
 }
 
 /// RV64 `sd`: store 64 bits of rs2 to memory at rs1 + sext(imm).
@@ -1054,6 +2001,32 @@ fn emit_bne(
     }
 
     ctx.complete_no_output(translator);
+}
+
+/// RV64 `blt`: branch if signed rs1 < rs2.
+/// if signed(rs1) < signed(rs2) then pc <- pc + sext(imm)
+#[allow(unused_variables)]
+fn emit_blt(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+    imm: i32,
+) {
+    // TODO: implement RV64 blt emission.
+}
+
+/// RV64 `bge`: branch if signed rs1 >= rs2.
+/// if signed(rs1) >= signed(rs2) then pc <- pc + sext(imm)
+#[allow(unused_variables)]
+fn emit_bge(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+    imm: i32,
+) {
+    // TODO: implement RV64 bge emission.
 }
 
 /// RV64 `bltu`: branch if unsigned rs1 < rs2.
