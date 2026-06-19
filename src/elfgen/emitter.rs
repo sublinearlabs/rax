@@ -290,7 +290,8 @@ mod tests {
         );
 
         let mut layout = analyze_elf(&bytes).unwrap();
-        layout.replace_executable(vec![0x90, 0xc3]);
+        let translated_entry = layout.executable_segment().vaddr;
+        layout.replace_executable(vec![0x90, 0xc3], translated_entry);
         let output = layout.emit_x86_elf().unwrap();
 
         assert_eq!(&output[0..4], b"\x7FELF");
@@ -360,7 +361,8 @@ mod tests {
         );
 
         let mut layout = analyze_elf(&bytes).unwrap();
-        layout.replace_executable(vec![0x90, 0xc3]);
+        let translated_entry = layout.executable_segment().vaddr;
+        layout.replace_executable(vec![0x90, 0xc3], translated_entry);
         let output = layout.emit_x86_elf().unwrap();
 
         let bss_ph = phdr_offset(1);
