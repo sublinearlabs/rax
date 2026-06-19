@@ -54,7 +54,6 @@ pub(super) fn emit_mulhsu(
 
 /// RV64 `mulhu`: upper 64 bits of unsigned 64x64 multiply.
 /// rd <- high64(unsigned(rs1) * unsigned(rs2))
-#[allow(unused_variables)]
 pub(super) fn emit_mulhu(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -62,7 +61,56 @@ pub(super) fn emit_mulhu(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
-    // TODO: implement RV64M mulhu emission.
+    // x86 mul r/m64 uses the rdx and rax as implicit registers
+    // RDX:RAX = RAX * r/m64
+    // high XLEN bits of the multiplication are in RDX
+    // low  XLEN bits of the multiplication are in RAX
+
+    let ctx = InstructionContextBuilder::new()
+        .set_inputs([rs1, rs2])
+        .set_output(rd)
+        .ensure_no_clobber([X86Gpr::Rax, X86Gpr::Rdx])
+        .build(translator, temps);
+
+    let [rs1, rs2] = ctx.inputs();
+    let rd = ctx.output();
+
+    match classify_zero_case(&rd, &rs1, &rs2) {
+        ZeroCase::RdZero => {
+            // x0 is hardwired to zero, writes can be ignored
+            ctx.discard_zero_output(translator);
+            return;
+        }
+        ZeroCase::Rs1Rs2Zero | ZeroCase::Rs1Zero | ZeroCase::Rs2Zero => {
+            // in all of these cases, rd should be set to zero
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+        ZeroCase::None => {}
+    }
+
+    // I am not handling the shadow case here because,
+    // for most of them, it is pretty difficult to beat the
+    // 3 instruction baseline:
+    // mov rax, rs1;
+    // mul rs2;
+    // mov rd, rdx;
+
+    if rs1.id() == X86Gpr::Rax.id() {
+        dynasm!(translator.emitter ; mul Rq(rs2.id()));
+    } else if rs2.id() == X86Gpr::Rax.id() {
+        dynasm!(translator.emitter ; mul Rq(rs1.id()));
+    } else {
+        dynasm!(translator.emitter ; mov Rq(X86Gpr::Rax.id()), Rq(rs1.id()));
+        dynasm!(translator.emitter ; mul Rq(rs2.id()));
+    }
+
+    if rd.id() != X86Gpr::Rdx.id() {
+        dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(X86Gpr::Rdx.id()));
+    }
+
+    ctx.write_back(translator);
 }
 
 /// RV64M `div`: signed 64-bit division.
