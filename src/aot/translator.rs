@@ -152,6 +152,12 @@ impl Translator {
         buf.to_vec()
     }
 
+    /// Returns the translated x86 virtual address for a source RISC-V PC.
+    pub(super) fn x86_vaddr_for_riscv_pc(&self, riscv_pc: u64) -> u64 {
+        let slot = (riscv_pc - self.cf.base_riscv_pc) / 4;
+        self.cf.base_x86_vaddr + self.cf.riscv_pc_to_x86_offset[slot as usize].0 as u64
+    }
+
     /// Returns the RISC-V PC of the instruction currently being translated.
     ///
     /// The value is advanced only after instruction emission, so PC-relative
@@ -177,7 +183,7 @@ mod tests {
 
     use dynasmrt::x64::Assembler;
 
-    use crate::decode::decode;
+    use crate::decode::{decode, Instruction, I};
     use crate::elfgen::analyzer::analyze_elf;
 
     use super::*;
@@ -191,6 +197,34 @@ mod tests {
                 decode(u32::from_le_bytes(insn_bytes))
             })
             .collect()
+    }
+
+    #[test]
+    fn maps_non_base_source_pc_to_translated_x86_vaddr() {
+        let assembler = Assembler::new().expect("failed to create x86 assembler");
+        let mut translator = Translator::new(
+            assembler,
+            RegisterMapping::default_plan(),
+            0x400000,
+            0x600000,
+        );
+        let insns = [
+            Instruction::Addi(I {
+                rd: 1,
+                rs1: 0,
+                imm: 1,
+            }),
+            Instruction::Addi(I {
+                rd: 2,
+                rs1: 0,
+                imm: 2,
+            }),
+        ];
+
+        translator.translate_insns(&insns);
+
+        assert_eq!(translator.x86_vaddr_for_riscv_pc(0x400000), 0x600000);
+        assert!(translator.x86_vaddr_for_riscv_pc(0x400004) > 0x600000);
     }
 
     /// Generate an equivalent x86 ELF file given a RISC-V ELF path.
@@ -211,6 +245,7 @@ mod tests {
             layout.executable_segment().vaddr,
         );
         translator.translate_insns(&insns);
+        layout.entry = translator.x86_vaddr_for_riscv_pc(layout.source_entry_vaddr);
         let x86_bytes = translator.finalize();
 
         layout.replace_executable(x86_bytes);

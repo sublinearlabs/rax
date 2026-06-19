@@ -19,6 +19,8 @@ use elf::{
 pub struct ElfLayout {
     /// Entry address for the output ELF.
     pub entry: u64,
+    /// Original RISC-V ELF entry address.
+    pub source_entry_vaddr: u64,
     /// Original RISC-V virtual address of the executable segment.
     pub source_executable_vaddr: u64,
     /// Planned output loadable segments.
@@ -97,6 +99,14 @@ impl ElfSegment {
     pub fn contains_vaddr(&self, addr: u64) -> bool {
         self.vaddr <= addr && addr < self.vaddr + self.memsz
     }
+
+    /// Returns whether a virtual address starts a full file-backed instruction.
+    pub fn contains_file_instruction_vaddr(&self, addr: u64) -> bool {
+        let Some(instruction_end) = addr.checked_add(4) else {
+            return false;
+        };
+        self.vaddr <= addr && instruction_end <= self.vaddr + self.filesz
+    }
 }
 
 #[derive(Debug)]
@@ -124,8 +134,10 @@ pub enum AnalyzeElfError {
     NoExecutableSegment,
     /// More than one executable loadable segment was found.
     MultipleExecutableSegments,
-    /// The ELF entry point is not exactly the executable segment base.
+    /// The ELF entry point is not inside executable file-backed bytes.
     EntryNotInExecutableSegment,
+    /// The ELF entry point is not aligned to a 4-byte instruction boundary.
+    EntryMisaligned,
     /// Checked arithmetic overflowed while analyzing layout.
     IntegerOverflow,
     /// Two loadable segment memory ranges overlap.
@@ -216,16 +228,22 @@ pub fn analyze_elf(bytes: &[u8]) -> Result<ElfLayout, AnalyzeElfError> {
     let executable_segment_index =
         executable_segment_index.ok_or(AnalyzeElfError::NoExecutableSegment)?;
 
-    // TODO: too restrictive to force the entry to equal the v_addr
-    if ehdr.e_entry != segments[executable_segment_index].vaddr {
+    let executable = &segments[executable_segment_index];
+    if !executable.contains_file_instruction_vaddr(ehdr.e_entry) {
         return Err(AnalyzeElfError::EntryNotInExecutableSegment);
     }
 
+    if (ehdr.e_entry - executable.vaddr) % 4 != 0 {
+        return Err(AnalyzeElfError::EntryMisaligned);
+    }
+
+    let source_entry_vaddr = ehdr.e_entry;
     let source_executable_vaddr = segments[executable_segment_index].vaddr;
     let entry = move_executable_after_preserved_segments(&mut segments, executable_segment_index)?;
 
     Ok(ElfLayout {
         entry,
+        source_entry_vaddr,
         source_executable_vaddr,
         segments,
         executable_segment_index,
@@ -399,11 +417,32 @@ mod tests {
 
         let elf = analyze_elf(&bytes).unwrap();
         assert_eq!(elf.entry, 0x400000);
+        assert_eq!(elf.source_entry_vaddr, 0x400000);
         assert_eq!(elf.source_executable_vaddr, 0x400000);
         assert_eq!(elf.segments.len(), 1);
         assert_eq!(elf.executable_segment().data, vec![0x13; 4]);
         assert_eq!(elf.executable_segment().vaddr, 0x400000);
         assert!(elf.executable_segment().is_executable());
+    }
+
+    #[test]
+    fn allows_entry_inside_executable_file_bytes() {
+        let bytes = elf_with(
+            0x400004,
+            &[TestSegment {
+                offset: 0x1000,
+                vaddr: 0x400000,
+                filesz: 8,
+                memsz: 8,
+                flags: PF_R | PF_X,
+                align: 0x1000,
+            }],
+        );
+
+        let elf = analyze_elf(&bytes).unwrap();
+        assert_eq!(elf.source_entry_vaddr, 0x400004);
+        assert_eq!(elf.source_executable_vaddr, 0x400000);
+        assert_eq!(elf.entry, 0x400000);
     }
 
     #[test]
@@ -559,6 +598,66 @@ mod tests {
         assert!(matches!(
             analyze_elf(&bytes),
             Err(AnalyzeElfError::EntryNotInExecutableSegment)
+        ));
+    }
+
+    #[test]
+    fn rejects_entry_outside_executable_file_bytes() {
+        let bytes = elf_with(
+            0x400004,
+            &[TestSegment {
+                offset: 0x1000,
+                vaddr: 0x400000,
+                filesz: 4,
+                memsz: 8,
+                flags: PF_R | PF_X,
+                align: 0x1000,
+            }],
+        );
+
+        assert!(matches!(
+            analyze_elf(&bytes),
+            Err(AnalyzeElfError::EntryNotInExecutableSegment)
+        ));
+    }
+
+    #[test]
+    fn rejects_entry_without_full_file_backed_instruction() {
+        let bytes = elf_with(
+            0x400004,
+            &[TestSegment {
+                offset: 0x1000,
+                vaddr: 0x400000,
+                filesz: 6,
+                memsz: 6,
+                flags: PF_R | PF_X,
+                align: 0x1000,
+            }],
+        );
+
+        assert!(matches!(
+            analyze_elf(&bytes),
+            Err(AnalyzeElfError::EntryNotInExecutableSegment)
+        ));
+    }
+
+    #[test]
+    fn rejects_misaligned_entry() {
+        let bytes = elf_with(
+            0x400002,
+            &[TestSegment {
+                offset: 0x1000,
+                vaddr: 0x400000,
+                filesz: 8,
+                memsz: 8,
+                flags: PF_R | PF_X,
+                align: 0x1000,
+            }],
+        );
+
+        assert!(matches!(
+            analyze_elf(&bytes),
+            Err(AnalyzeElfError::EntryMisaligned)
         ));
     }
 }
