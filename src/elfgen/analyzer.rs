@@ -103,6 +103,8 @@ impl ElfSegment {
 
     /// Returns whether a virtual address starts a full file-backed instruction.
     pub fn contains_file_instruction_vaddr(&self, addr: u64) -> bool {
+        // we check the instruction end to ensure the addr
+        // points to at least 4 bytes
         let Some(instruction_end) = addr.checked_add(4) else {
             return false;
         };
