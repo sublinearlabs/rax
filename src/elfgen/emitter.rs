@@ -4,6 +4,17 @@ use crate::elfgen::analyzer::{ElfLayout, ElfSegment};
 
 const ELF_HEADER_SIZE: u64 = 64;
 const PROGRAM_HEADER_SIZE: u64 = 56;
+const SECTION_HEADER_SIZE: u64 = 64;
+const SECTION_HEADER_ALIGN: u64 = 8;
+const SECTION_COUNT: u16 = 3;
+const SHSTRTAB_INDEX: u16 = 2;
+const SHT_PROGBITS: u32 = 1;
+const SHT_STRTAB: u32 = 3;
+const SHF_ALLOC: u64 = 0x2;
+const SHF_EXECINSTR: u64 = 0x4;
+const SHSTRTAB: &[u8] = b"\0.text\0.shstrtab\0";
+const SHSTRTAB_TEXT_NAME_OFFSET: u32 = 1;
+const SHSTRTAB_NAME_OFFSET: u32 = 7;
 
 #[derive(Debug)]
 /// Errors returned while serializing an `ElfLayout` as an x86-64 ELF.
@@ -21,7 +32,7 @@ pub enum EmitElfError {
 }
 
 impl ElfLayout {
-    /// Emits this layout as a sectionless x86-64 ELF executable.
+    /// Emits this layout as an x86-64 ELF executable.
     ///
     /// Segment virtual addresses come from the layout, but file offsets are
     /// assigned freshly here. Offsets are only a serialization detail; the
@@ -31,6 +42,7 @@ impl ElfLayout {
         validate_output_segments(&self.segments)?;
 
         let output_offsets = compute_output_offsets(&self.segments)?;
+        let section_layout = compute_section_layout(self, &output_offsets)?;
         let phnum =
             u16::try_from(self.segments.len()).map_err(|_| EmitElfError::TooManySegments)?;
         let mut elf = Vec::new();
@@ -48,14 +60,14 @@ impl ElfLayout {
         elf.extend_from_slice(&1u32.to_le_bytes());
         elf.extend_from_slice(&self.entry.to_le_bytes());
         elf.extend_from_slice(&ELF_HEADER_SIZE.to_le_bytes());
-        elf.extend_from_slice(&0u64.to_le_bytes()); // no section headers yet
+        elf.extend_from_slice(&section_layout.section_header_offset.to_le_bytes());
         elf.extend_from_slice(&0u32.to_le_bytes());
         elf.extend_from_slice(&(ELF_HEADER_SIZE as u16).to_le_bytes());
         elf.extend_from_slice(&(PROGRAM_HEADER_SIZE as u16).to_le_bytes());
         elf.extend_from_slice(&phnum.to_le_bytes());
-        elf.extend_from_slice(&0u16.to_le_bytes());
-        elf.extend_from_slice(&0u16.to_le_bytes());
-        elf.extend_from_slice(&0u16.to_le_bytes());
+        elf.extend_from_slice(&(SECTION_HEADER_SIZE as u16).to_le_bytes());
+        elf.extend_from_slice(&SECTION_COUNT.to_le_bytes());
+        elf.extend_from_slice(&SHSTRTAB_INDEX.to_le_bytes());
 
         // Program headers.
         for (segment, output_offset) in self.segments.iter().zip(output_offsets.iter()) {
@@ -82,8 +94,128 @@ impl ElfLayout {
             elf.extend_from_slice(&segment.data);
         }
 
+        if elf.len() < section_layout.shstrtab_offset as usize {
+            elf.resize(section_layout.shstrtab_offset as usize, 0);
+        }
+        elf.extend_from_slice(SHSTRTAB);
+
+        if elf.len() < section_layout.section_header_offset as usize {
+            elf.resize(section_layout.section_header_offset as usize, 0);
+        }
+
+        write_null_section_header(&mut elf);
+        write_section_header(
+            &mut elf,
+            SectionHeader {
+                name: SHSTRTAB_TEXT_NAME_OFFSET,
+                section_type: SHT_PROGBITS,
+                flags: SHF_ALLOC | SHF_EXECINSTR,
+                addr: section_layout.text_addr,
+                offset: section_layout.text_offset,
+                size: section_layout.text_size,
+                link: 0,
+                info: 0,
+                addralign: section_layout.text_align,
+                entsize: 0,
+            },
+        );
+        write_section_header(
+            &mut elf,
+            SectionHeader {
+                name: SHSTRTAB_NAME_OFFSET,
+                section_type: SHT_STRTAB,
+                flags: 0,
+                addr: 0,
+                offset: section_layout.shstrtab_offset,
+                size: SHSTRTAB.len() as u64,
+                link: 0,
+                info: 0,
+                addralign: 1,
+                entsize: 0,
+            },
+        );
+
         Ok(elf)
     }
+}
+
+struct SectionLayout {
+    text_offset: u64,
+    text_addr: u64,
+    text_size: u64,
+    text_align: u64,
+    shstrtab_offset: u64,
+    section_header_offset: u64,
+}
+
+struct SectionHeader {
+    name: u32,
+    section_type: u32,
+    flags: u64,
+    addr: u64,
+    offset: u64,
+    size: u64,
+    link: u32,
+    info: u32,
+    addralign: u64,
+    entsize: u64,
+}
+
+fn compute_section_layout(
+    layout: &ElfLayout,
+    output_offsets: &[u64],
+) -> Result<SectionLayout, EmitElfError> {
+    let executable = layout.executable_segment();
+    let text_offset = output_offsets[layout.executable_segment_index];
+    let text_size = executable.data.len() as u64;
+    let mut segment_data_end = ELF_HEADER_SIZE
+        .checked_add(
+            PROGRAM_HEADER_SIZE
+                .checked_mul(layout.segments.len() as u64)
+                .ok_or(EmitElfError::IntegerOverflow)?,
+        )
+        .ok_or(EmitElfError::IntegerOverflow)?;
+
+    for (segment, output_offset) in layout.segments.iter().zip(output_offsets.iter()) {
+        let end = output_offset
+            .checked_add(segment.data.len() as u64)
+            .ok_or(EmitElfError::IntegerOverflow)?;
+        segment_data_end = segment_data_end.max(end);
+    }
+
+    let shstrtab_offset = segment_data_end;
+    let section_header_offset = align_file_offset(
+        shstrtab_offset
+            .checked_add(SHSTRTAB.len() as u64)
+            .ok_or(EmitElfError::IntegerOverflow)?,
+        SECTION_HEADER_ALIGN,
+    )?;
+
+    Ok(SectionLayout {
+        text_offset,
+        text_addr: executable.vaddr,
+        text_size,
+        text_align: executable.align.max(1),
+        shstrtab_offset,
+        section_header_offset,
+    })
+}
+
+fn write_null_section_header(elf: &mut Vec<u8>) {
+    elf.extend_from_slice(&[0; SECTION_HEADER_SIZE as usize]);
+}
+
+fn write_section_header(elf: &mut Vec<u8>, header: SectionHeader) {
+    elf.extend_from_slice(&header.name.to_le_bytes());
+    elf.extend_from_slice(&header.section_type.to_le_bytes());
+    elf.extend_from_slice(&header.flags.to_le_bytes());
+    elf.extend_from_slice(&header.addr.to_le_bytes());
+    elf.extend_from_slice(&header.offset.to_le_bytes());
+    elf.extend_from_slice(&header.size.to_le_bytes());
+    elf.extend_from_slice(&header.link.to_le_bytes());
+    elf.extend_from_slice(&header.info.to_le_bytes());
+    elf.extend_from_slice(&header.addralign.to_le_bytes());
+    elf.extend_from_slice(&header.entsize.to_le_bytes());
 }
 
 /// Computes fresh output file offsets for every segment in order.
@@ -142,6 +274,21 @@ fn align_offset_to_vaddr(offset: u64, vaddr: u64, align: u64) -> Result<u64, Emi
         offset
             .checked_add(align - got)
             .and_then(|offset| offset.checked_add(want))
+            .ok_or(EmitElfError::IntegerOverflow)
+    }
+}
+
+fn align_file_offset(offset: u64, align: u64) -> Result<u64, EmitElfError> {
+    if align <= 1 {
+        return Ok(offset);
+    }
+
+    let remainder = offset % align;
+    if remainder == 0 {
+        Ok(offset)
+    } else {
+        offset
+            .checked_add(align - remainder)
             .ok_or(EmitElfError::IntegerOverflow)
     }
 }
@@ -265,6 +412,10 @@ mod tests {
         ELF_HEADER_SIZE as usize + index * PROGRAM_HEADER_SIZE as usize
     }
 
+    fn shdr_offset(bytes: &[u8], index: usize) -> usize {
+        read_u64(bytes, 40) as usize + index * SECTION_HEADER_SIZE as usize
+    }
+
     #[test]
     fn emits_x86_elf_with_fresh_offsets() {
         let bytes = elf_with(
@@ -301,7 +452,11 @@ mod tests {
         assert_eq!(read_u16(&output, 18), EM_X86_64);
         assert_eq!(read_u64(&output, 24), layout.entry);
         assert_eq!(read_u64(&output, 32), ELF_HEADER_SIZE);
+        assert_ne!(read_u64(&output, 40), 0);
         assert_eq!(read_u16(&output, 56), 2);
+        assert_eq!(read_u16(&output, 58), SECTION_HEADER_SIZE as u16);
+        assert_eq!(read_u16(&output, 60), SECTION_COUNT);
+        assert_eq!(read_u16(&output, 62), SHSTRTAB_INDEX);
 
         let exec_ph = phdr_offset(0);
         let data_ph = phdr_offset(1);
@@ -334,6 +489,40 @@ mod tests {
 
         assert_ne!(exec_offset, layout.executable_segment().source_offset);
         assert_ne!(data_offset, layout.segments[1].source_offset);
+
+        let null_sh = shdr_offset(&output, 0);
+        assert_eq!(
+            &output[null_sh..null_sh + SECTION_HEADER_SIZE as usize],
+            &[0; 64]
+        );
+
+        let text_sh = shdr_offset(&output, 1);
+        assert_eq!(read_u32(&output, text_sh), SHSTRTAB_TEXT_NAME_OFFSET);
+        assert_eq!(read_u32(&output, text_sh + 4), SHT_PROGBITS);
+        assert_eq!(read_u64(&output, text_sh + 8), SHF_ALLOC | SHF_EXECINSTR);
+        assert_eq!(
+            read_u64(&output, text_sh + 16),
+            layout.executable_segment().vaddr
+        );
+        assert_eq!(read_u64(&output, text_sh + 24), exec_offset);
+        assert_eq!(read_u64(&output, text_sh + 32), 2);
+        assert_eq!(
+            read_u64(&output, text_sh + 48),
+            layout.executable_segment().align.max(1)
+        );
+
+        let shstrtab_sh = shdr_offset(&output, 2);
+        assert_eq!(read_u32(&output, shstrtab_sh), SHSTRTAB_NAME_OFFSET);
+        assert_eq!(read_u32(&output, shstrtab_sh + 4), SHT_STRTAB);
+        assert_eq!(read_u64(&output, shstrtab_sh + 8), 0);
+        assert_eq!(read_u64(&output, shstrtab_sh + 16), 0);
+        let shstrtab_offset = read_u64(&output, shstrtab_sh + 24) as usize;
+        assert_eq!(read_u64(&output, shstrtab_sh + 32), SHSTRTAB.len() as u64);
+        assert_eq!(read_u64(&output, shstrtab_sh + 48), 1);
+        assert_eq!(
+            &output[shstrtab_offset..shstrtab_offset + SHSTRTAB.len()],
+            SHSTRTAB
+        );
     }
 
     #[test]
