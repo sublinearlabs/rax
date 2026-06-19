@@ -40,12 +40,13 @@ impl ElfLayout {
         &mut self.segments[self.executable_segment_index]
     }
 
-    /// Replaces the executable segment with translated x86 bytes.
+    /// Replaces the executable segment with translated x86 bytes and entry.
     ///
     /// The segment's virtual address is not changed here. Analysis already chose
     /// that address so the translator can use it as its output base while
     /// emitting code.
-    pub fn replace_executable(&mut self, translated: Vec<u8>) {
+    pub fn replace_executable(&mut self, translated: Vec<u8>, translated_entry: u64) {
+        self.entry = translated_entry;
         let len = translated.len() as u64;
         let executable = self.executable_segment_mut();
         executable.filesz = len;
@@ -510,7 +511,7 @@ mod tests {
     }
 
     #[test]
-    fn replace_executable_updates_bytes_and_sizes() {
+    fn replace_executable_updates_bytes_sizes_and_entry() {
         let bytes = elf_with(
             0x400000,
             &[TestSegment {
@@ -524,8 +525,9 @@ mod tests {
         );
 
         let mut elf = analyze_elf(&bytes).unwrap();
-        elf.replace_executable(vec![0x90, 0xc3]);
+        elf.replace_executable(vec![0x90, 0xc3], 0x500000);
 
+        assert_eq!(elf.entry, 0x500000);
         assert_eq!(elf.executable_segment().filesz, 2);
         assert_eq!(elf.executable_segment().memsz, 2);
         assert_eq!(elf.executable_segment().data, vec![0x90, 0xc3]);

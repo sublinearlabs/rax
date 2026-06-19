@@ -245,10 +245,10 @@ mod tests {
             layout.executable_segment().vaddr,
         );
         translator.translate_insns(&insns);
-        layout.entry = translator.x86_vaddr_for_riscv_pc(layout.source_entry_vaddr);
+        let translated_entry = translator.x86_vaddr_for_riscv_pc(layout.source_entry_vaddr);
         let x86_bytes = translator.finalize();
 
-        layout.replace_executable(x86_bytes);
+        layout.replace_executable(x86_bytes, translated_entry);
         let elf_bytes = layout.emit_x86_elf().expect("failed to emit x86 ELF");
 
         fs::write(out_path, elf_bytes).expect("failed to write x86 ELF output");
