@@ -1,3 +1,4 @@
+use cranelift_codegen::ir::Inst;
 use dynasmrt::{dynasm, DynasmApi, DynasmLabelApi};
 
 use crate::aot::{
@@ -1400,7 +1401,6 @@ pub(super) fn emit_xor(
 
 /// RV64 `ori`: bitwise OR with sign-extended immediate.
 /// rd <- rs1 | sext(imm)
-#[allow(unused_variables)]
 pub(super) fn emit_ori(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -1408,6 +1408,65 @@ pub(super) fn emit_ori(
     rs1: RiscvRegister,
     imm: i32,
 ) {
+    let ctx = InstructionContextBuilder::<1, 0>::new()
+        .set_inputs([rs1])
+        .set_output(rd)
+        .build(translator, temps);
+
+    let [rs1] = ctx.inputs();
+    let rd = ctx.output();
+
+    match classify_unary_zero_case(rd, rs1, imm) {
+        UnaryZeroCase::RdZero => {
+            ctx.discard_zero_output(translator);
+            return;
+        }
+
+        UnaryZeroCase::Rs1ImmZero => {
+            // ori, rd, 0, 0
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryZeroCase::Rs1Zero => {
+            // ori rd, 0, imm
+            dynasm!(translator.emitter ; mov Rq(rd.id()), QWORD imm as i64);
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryZeroCase::ImmZero => {
+            // ori rd, rs1, 0
+            if rd.id() == rs1.id() {
+                ctx.commit_unchanged(translator);
+                return;
+            }
+
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryZeroCase::None => {}
+    }
+
+    match classify_unary_shadow_case(rd, rs1) {
+        UnaryShadowCase::RdEqRs1 => {
+            // ori rd, rd, imm
+            dynasm!(translator.emitter ; or Rq(rd.id()), imm);
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryShadowCase::Distinct => {
+            // ori rd, rs1, imm
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            dynasm!(translator.emitter ; or Rq(rd.id()), imm);
+            ctx.write_back(translator);
+            return;
+        }
+    }
 }
 
 /// RV64 `xori`: bitwise XOR with sign-extended immediate.
