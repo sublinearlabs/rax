@@ -275,7 +275,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "translate_insn is not implemented yet"]
+    #[ignore = "emit_mulhu exhausts temp pool when all 3 operands are XMM-mapped"]
     fn compile_exec_block_ima_writes_output_elf() {
         compile_elf_for_test(
             "test-bin/rust-bin/exec-block/exec-block-ima",

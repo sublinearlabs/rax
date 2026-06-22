@@ -11,72 +11,10 @@ use crate::aot::{
     temp_alloc::TempAllocator,
     translator::Translator,
 };
-use crate::decode::{Instruction, Sh, B, I, J, R, S, U};
-
-pub(super) fn emit_instruction(
-    translator: &mut Translator,
-    temps: &TempAllocator,
-    insn: &Instruction,
-) {
-    match insn {
-        Instruction::Add(R { rd, rs1, rs2 }) => {
-            emit_add(translator, temps, rv(rd), rv(rs1), rv(rs2))
-        }
-        Instruction::Sub(R { rd, rs1, rs2 }) => {
-            emit_sub(translator, temps, rv(rd), rv(rs1), rv(rs2))
-        }
-        Instruction::Or(R { rd, rs1, rs2 }) => emit_or(translator, temps, rv(rd), rv(rs1), rv(rs2)),
-        Instruction::Subw(R { rd, rs1, rs2 }) => {
-            emit_subw(translator, temps, rv(rd), rv(rs1), rv(rs2))
-        }
-        Instruction::Mulhu(R { rd, rs1, rs2 }) => {
-            emit_mulhu(translator, temps, rv(rd), rv(rs1), rv(rs2))
-        }
-        Instruction::Addi(I { rd, rs1, imm }) => {
-            emit_addi(translator, temps, rv(rd), rv(rs1), *imm)
-        }
-        Instruction::Andi(I { rd, rs1, imm }) => {
-            emit_andi(translator, temps, rv(rd), rv(rs1), *imm)
-        }
-        Instruction::Slli(Sh { rd, rs1, shamt }) => {
-            emit_slli(translator, temps, rv(rd), rv(rs1), *shamt)
-        }
-        Instruction::Sll(R { rd, rs1, rs2 }) => {
-            emit_sll(translator, temps, rv(rd), rv(rs1), rv(rs2))
-        }
-        Instruction::Sb(S { rs1, rs2, imm }) => emit_sb(translator, temps, rv(rs1), rv(rs2), *imm),
-        Instruction::Sd(S { rs1, rs2, imm }) => emit_sd(translator, temps, rv(rs1), rv(rs2), *imm),
-        Instruction::Lui(U { rd, imm }) => emit_lui(translator, temps, rv(rd), *imm),
-        Instruction::Auipc(U { rd, imm }) => emit_auipc(translator, temps, rv(rd), *imm),
-        Instruction::Beq(B { rs1, rs2, imm }) => {
-            emit_beq(translator, temps, rv(rs1), rv(rs2), *imm)
-        }
-        Instruction::Bne(B { rs1, rs2, imm }) => {
-            emit_bne(translator, temps, rv(rs1), rv(rs2), *imm)
-        }
-        Instruction::Bltu(B { rs1, rs2, imm }) => {
-            emit_bltu(translator, temps, rv(rs1), rv(rs2), *imm)
-        }
-        Instruction::Bgeu(B { rs1, rs2, imm }) => {
-            emit_bgeu(translator, temps, rv(rs1), rv(rs2), *imm)
-        }
-        Instruction::Jal(J { rd, imm }) => emit_jal(translator, temps, rv(rd), *imm),
-        Instruction::Jalr(I { rd, rs1, imm }) => {
-            emit_jalr(translator, temps, rv(rd), rv(rs1), *imm)
-        }
-        Instruction::Ecall => emit_ecall(translator, temps),
-        Instruction::Csrrw(_) => {}
-        _ => panic!("unknown opcode: {:?}", insn),
-    }
-}
-
-fn rv(reg: &u8) -> RiscvRegister {
-    RiscvRegister::from_index(*reg as usize).expect("invalid decoded RISC-V register")
-}
 
 /// RV64 `add`: 64-bit wrapping addition.
 /// rd <- (rs1 + rs2) mod 2^64
-fn emit_add(
+pub(super) fn emit_add(
     translator: &mut Translator,
     temps: &TempAllocator,
     rd: RiscvRegister,
@@ -92,23 +30,17 @@ fn emit_add(
 
     match classify_zero_case(&rd, &rs1, &rs2) {
         ZeroCase::RdZero => {
-            // x0 is hardwired to zero, writes can be ignored
             ctx.discard_zero_output(translator);
             return;
         }
 
         ZeroCase::Rs1Rs2Zero => {
-            // add rd, 0, 0 -> rd = 0
             dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
             ctx.write_back(translator);
             return;
         }
 
         ZeroCase::Rs1Zero => {
-            // add rd, 0, rs2 -> rd = rs2
-
-            // if rd and rs2 point to the same register
-            // no need to waste a mov instruction
             if rd.id() == rs2.id() {
                 ctx.write_back(translator);
                 return;
@@ -120,10 +52,6 @@ fn emit_add(
         }
 
         ZeroCase::Rs2Zero => {
-            // add rd, rs1, 0 -> rd = rs1
-
-            // if rd and rs1 point to the same register
-            // no need to waste a mov instruction
             if rd.id() == rs1.id() {
                 ctx.write_back(translator);
                 return;
@@ -139,32 +67,24 @@ fn emit_add(
 
     match classify_shadow_case(&rd, &rs1, &rs2) {
         ShadowCase::AllEqual => {
-            // add rd, rd, rd
-            // implies rd += rd
             dynasm!(translator.emitter ; add Rq(rd.id()), Rq(rd.id()));
             ctx.write_back(translator);
             return;
         }
 
         ShadowCase::RdEqRs1 => {
-            // add rd, rd, rs2
-            // imples rd += rs2
             dynasm!(translator.emitter ; add Rq(rd.id()), Rq(rs2.id()));
             ctx.write_back(translator);
             return;
         }
 
         ShadowCase::RdEqRs2 => {
-            // add rd, rs1, rd
-            // implies rd += rs1
             dynasm!(translator.emitter ; add Rq(rd.id()), Rq(rs1.id()));
             ctx.write_back(translator);
             return;
         }
 
         ShadowCase::Rs1EqRs2 => {
-            // add rd, rs1, rs1
-            // implies rd = rs1 + rs1
             dynasm!(translator.emitter ; lea Rq(rd.id()), [Rq(rs1.id()) + Rq(rs1.id())]);
             ctx.write_back(translator);
             return;
@@ -181,7 +101,7 @@ fn emit_add(
 
 /// RV64 `sub`: 64-bit wrapping subtraction.
 /// rd <- (rs1 - rs2) mod 2^64
-fn emit_sub(
+pub(super) fn emit_sub(
     translator: &mut Translator,
     temps: &TempAllocator,
     rd: RiscvRegister,
@@ -197,20 +117,17 @@ fn emit_sub(
 
     match classify_zero_case(&rd, &rs1, &rs2) {
         ZeroCase::RdZero => {
-            // x0 is hardwired to zero. writes can be ignored.
             ctx.discard_zero_output(translator);
             return;
         }
 
         ZeroCase::Rs1Rs2Zero => {
-            // sub rd, 0, 0 -> rd = 0
             dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
             ctx.write_back(translator);
             return;
         }
 
         ZeroCase::Rs1Zero => {
-            // sub rd, 0, rs2 -> rd = -rs2
             if rd.id() != rs2.id() {
                 dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs2.id()));
             }
@@ -221,10 +138,6 @@ fn emit_sub(
         }
 
         ZeroCase::Rs2Zero => {
-            // sub rd, rs1, 0 -> rd = rs1
-
-            // if rd and rs1 point to the same register
-            // no need to waste a mov instruction
             if rd.id() == rs1.id() {
                 ctx.write_back(translator);
                 return;
@@ -240,34 +153,18 @@ fn emit_sub(
 
     match classify_shadow_case(&rd, &rs1, &rs2) {
         ShadowCase::AllEqual | ShadowCase::Rs1EqRs2 => {
-            // sub rd, rd, rd
-            // -> rd = rd - rd
-            // -> rd = 0
-            //
-            // sub rd, rs1, rs1
-            // -> rd = rs1 - rs1
-            // -> rd = 0
-
             dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
             ctx.write_back(translator);
             return;
         }
 
         ShadowCase::RdEqRs1 => {
-            // sub rd, rd, rs2
-            // -> rd -= rs2
-
             dynasm!(translator.emitter ; sub Rq(rd.id()), Rq(rs2.id()));
             ctx.write_back(translator);
             return;
         }
 
         ShadowCase::RdEqRs2 => {
-            // sub rd, rs1, rd
-            // -> rd = rs1 - rd
-            // negate the rd
-            // then add rs1
-
             dynasm!(translator.emitter ; neg Rq(rd.id()));
             dynasm!(translator.emitter ; add Rq(rd.id()), Rq(rs1.id()));
             ctx.write_back(translator);
@@ -275,8 +172,6 @@ fn emit_sub(
         }
 
         ShadowCase::AllDistinct => {
-            // sub rd, rs1, rs2
-
             dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
             dynasm!(translator.emitter ; sub Rq(rd.id()), Rq(rs2.id()));
             ctx.write_back(translator);
@@ -287,7 +182,7 @@ fn emit_sub(
 
 /// RV64 `or`: bitwise OR across all 64 bits.
 /// rd <- rs1 | rs2
-fn emit_or(
+pub(super) fn emit_or(
     translator: &mut Translator,
     temps: &TempAllocator,
     rd: RiscvRegister,
@@ -303,25 +198,17 @@ fn emit_or(
 
     match classify_zero_case(&rd, &rs1, &rs2) {
         ZeroCase::RdZero => {
-            // x0 is hardwired to zero. writes can be ignored.
             ctx.discard_zero_output(translator);
             return;
         }
 
         ZeroCase::Rs1Rs2Zero => {
-            // or rd, 0, 0
-            // -> rd = 0
             dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
             ctx.write_back(translator);
             return;
         }
 
         ZeroCase::Rs1Zero => {
-            // or rd, 0, rs2
-            // -> rd = rs2
-
-            // if they point to the same register
-            // no need to waste a mov
             if rd.id() == rs2.id() {
                 ctx.write_back(translator);
                 return;
@@ -333,11 +220,6 @@ fn emit_or(
         }
 
         ZeroCase::Rs2Zero => {
-            // or rd, rs1, 0
-            // -> rd = rs1
-
-            // if they point to the same register
-            // no need to waste a mov
             if rd.id() == rs1.id() {
                 ctx.write_back(translator);
                 return;
@@ -353,46 +235,29 @@ fn emit_or(
 
     match classify_shadow_case(&rd, &rs1, &rs2) {
         ShadowCase::AllEqual => {
-            // or rd, rd, rd
-            // -> rd = rd | rd
-            // -> rd = rd
-
-            // no emission needed
             ctx.write_back(translator);
             return;
         }
 
         ShadowCase::RdEqRs1 => {
-            // or rd, rd, rs2
-            // -> rd = rd | rs2
-
             dynasm!(translator.emitter ; or Rq(rd.id()), Rq(rs2.id()));
             ctx.write_back(translator);
             return;
         }
 
         ShadowCase::RdEqRs2 => {
-            // or rd, rs1, rd
-            // -> rd = rd | rs1
-
             dynasm!(translator.emitter ; or Rq(rd.id()), Rq(rs1.id()));
             ctx.write_back(translator);
             return;
         }
 
         ShadowCase::Rs1EqRs2 => {
-            // or rd, rs1, rs1
-            // -> rd = rs1 | rs1
-            // -> rd = rs1
-
             dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
             ctx.write_back(translator);
             return;
         }
 
         ShadowCase::AllDistinct => {
-            // or rd, rs1, rs2
-
             dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
             dynasm!(translator.emitter ; or Rq(rd.id()), Rq(rs2.id()));
             ctx.write_back(translator);
@@ -401,179 +266,9 @@ fn emit_or(
     }
 }
 
-/// RV64 `subw`: subtract low 32 bits, then sign-extend to 64 bits.
-/// rd <- sext32((rs1[31:0] - rs2[31:0]) mod 2^32)
-fn emit_subw(
-    translator: &mut Translator,
-    temps: &TempAllocator,
-    rd: RiscvRegister,
-    rs1: RiscvRegister,
-    rs2: RiscvRegister,
-) {
-    let ctx = InstructionContextBuilder::<2, 0>::new()
-        .set_inputs([rs1, rs2])
-        .set_output(rd)
-        .build(translator, temps);
-    let [rs1, rs2] = ctx.inputs();
-    let rd = ctx.output();
-
-    match classify_zero_case(&rd, &rs1, &rs2) {
-        ZeroCase::RdZero => {
-            // x0 is hardwired to zero, writes can be ignored
-            ctx.discard_zero_output(translator);
-            return;
-        }
-
-        ZeroCase::Rs1Rs2Zero => {
-            // subw rd, 0, 0
-            // -> rd = 0
-
-            // zero out the rd register
-            dynasm!(translator.emitter ; xor Rd(rd.id()), Rd(rd.id()));
-            ctx.write_back(translator);
-            return;
-        }
-
-        ZeroCase::Rs1Zero => {
-            // subw rd, 0, rs2
-            // -> rd = 0 - rs2
-            // -> rd = low32(-rs2)
-
-            if rd.id() != rs2.id() {
-                dynasm!(translator.emitter ; mov Rd(rd.id()), Rd(rs2.id()));
-            }
-
-            dynasm!(translator.emitter ; neg Rd(rd.id()));
-            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
-            ctx.write_back(translator);
-            return;
-        }
-
-        ZeroCase::Rs2Zero => {
-            // subw rd, rs1, 0
-            // -> rd = low32(rs1)
-
-            if rd.id() != rs1.id() {
-                dynasm!(translator.emitter ; mov Rd(rd.id()), Rd(rs1.id()));
-            }
-
-            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
-            ctx.write_back(translator);
-            return;
-        }
-
-        ZeroCase::None => {}
-    }
-
-    match classify_shadow_case(&rd, &rs1, &rs2) {
-        ShadowCase::AllEqual | ShadowCase::Rs1EqRs2 => {
-            // subw rd, rd, rd
-            // -> rd = 0
-
-            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
-            ctx.write_back(translator);
-            return;
-        }
-
-        ShadowCase::RdEqRs1 => {
-            // subw rd, rd, rs2
-            // -> rd -= rs2
-
-            dynasm!(translator.emitter ; sub Rd(rd.id()), Rd(rs2.id()));
-            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
-            ctx.write_back(translator);
-            return;
-        }
-
-        ShadowCase::RdEqRs2 => {
-            // subw rd, rs1, rd
-            // -> rd = rs1 - rd
-            // neg rd
-            // add rs1
-
-            dynasm!(translator.emitter ; neg Rd(rd.id()));
-            dynasm!(translator.emitter ; add Rd(rd.id()), Rd(rs1.id()));
-            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
-            ctx.write_back(translator);
-            return;
-        }
-
-        ShadowCase::AllDistinct => {
-            // subw rd, rs1, rs2
-
-            dynasm!(translator.emitter ; mov Rd(rd.id()), Rd(rs1.id()));
-            dynasm!(translator.emitter ; sub Rd(rd.id()), Rd(rs2.id()));
-            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
-            ctx.write_back(translator);
-            return;
-        }
-    }
-}
-
-/// RV64 `mulhu`: upper 64 bits of unsigned 64x64 multiply.
-/// rd <- high64(unsigned(rs1) * unsigned(rs2))
-fn emit_mulhu(
-    translator: &mut Translator,
-    temps: &TempAllocator,
-    rd: RiscvRegister,
-    rs1: RiscvRegister,
-    rs2: RiscvRegister,
-) {
-    // x86 mul r/m64 uses the rdx and rax as implicit registers
-    // RDX:RAX = RAX * r/m64
-    // high XLEN bits of the multiplication are in RDX
-    // low  XLEN bits of the multiplication are in RAX
-
-    let ctx = InstructionContextBuilder::new()
-        .set_inputs([rs1, rs2])
-        .set_output(rd)
-        .ensure_no_clobber([X86Gpr::Rax, X86Gpr::Rdx])
-        .build(translator, temps);
-
-    let [rs1, rs2] = ctx.inputs();
-    let rd = ctx.output();
-
-    match classify_zero_case(&rd, &rs1, &rs2) {
-        ZeroCase::RdZero => {
-            // x0 is hardwired to zero, writes can be ignored
-            ctx.discard_zero_output(translator);
-            return;
-        }
-        ZeroCase::Rs1Rs2Zero | ZeroCase::Rs1Zero | ZeroCase::Rs2Zero => {
-            // in all of these cases, rd should be set to zero
-            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
-            ctx.write_back(translator);
-            return;
-        }
-        ZeroCase::None => {}
-    }
-
-    // I am not handling the shadow case here because,
-    // for most of them, it is pretty difficult to beat the
-    // 3 instruction baseline:
-    // mov rax, rs1;
-    // mul rs2;
-    // mov rd, rdx;
-
-    if rs1.id() == X86Gpr::Rax.id() {
-        dynasm!(translator.emitter ; mul Rq(rs2.id()));
-    } else if rs2.id() == X86Gpr::Rax.id() {
-        dynasm!(translator.emitter ; mul Rq(rs1.id()));
-    } else {
-        dynasm!(translator.emitter ; mov Rq(X86Gpr::Rax.id()), Rq(rs1.id()));
-        dynasm!(translator.emitter ; mul Rq(rs2.id()));
-    }
-
-    if rd.id() != X86Gpr::Rdx.id() {
-        dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(X86Gpr::Rdx.id()));
-    }
-
-    ctx.write_back(translator);
-}
-
 /// RV64 `addi`: 64-bit wrapping add with sign-extended immediate.
 /// rd <- (rs1 + sext(imm)) mod 2^64
-fn emit_addi(
+pub(super) fn emit_addi(
     translator: &mut Translator,
     temps: &TempAllocator,
     rd: RiscvRegister,
@@ -589,27 +284,23 @@ fn emit_addi(
 
     match classify_unary_zero_case(rd, rs1, imm) {
         UnaryZeroCase::RdZero => {
-            // x0 is hardwired to zero, writes can be ignored
             ctx.discard_zero_output(translator);
             return;
         }
 
         UnaryZeroCase::Rs1ImmZero => {
-            // addi rd, 0, 0 -> rd = 0
             dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
             ctx.write_back(translator);
             return;
         }
 
         UnaryZeroCase::Rs1Zero => {
-            // addi rd, 0, imm -> rd = imm
             dynasm!(translator.emitter ; mov Rq(rd.id()), imm);
             ctx.write_back(translator);
             return;
         }
 
         UnaryZeroCase::ImmZero => {
-            // addi rd, rs1, 0 -> rd = rs1
             if rd.id() == rs1.id() {
                 ctx.commit_unchanged(translator);
                 return;
@@ -625,14 +316,12 @@ fn emit_addi(
 
     match classify_unary_shadow_case(rd, rs1) {
         UnaryShadowCase::RdEqRs1 => {
-            // addi rd, rd, imm
             dynasm!(translator.emitter ; add Rq(rd.id()), imm);
             ctx.write_back(translator);
             return;
         }
 
         UnaryShadowCase::Distinct => {
-            // addi rd, rs1, imm
             dynasm!(translator.emitter ; lea Rq(rd.id()), [Rq(rs1.id()) + imm]);
             ctx.write_back(translator);
             return;
@@ -642,7 +331,7 @@ fn emit_addi(
 
 /// RV64 `andi`: bitwise AND with sign-extended immediate.
 /// rd <- rs1 & sext(imm)
-fn emit_andi(
+pub(super) fn emit_andi(
     translator: &mut Translator,
     temps: &TempAllocator,
     rd: RiscvRegister,
@@ -659,13 +348,11 @@ fn emit_andi(
 
     match classify_unary_zero_case(rd, rs1, imm) {
         UnaryZeroCase::RdZero => {
-            // x0 is hardwired to zero, writes can be ignored
             ctx.discard_zero_output(translator);
             return;
         }
 
         UnaryZeroCase::Rs1ImmZero | UnaryZeroCase::Rs1Zero | UnaryZeroCase::ImmZero => {
-            // in all cases, rd = 0
             dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
             ctx.write_back(translator);
             return;
@@ -674,8 +361,6 @@ fn emit_andi(
         UnaryZeroCase::None => {}
     }
 
-    // andi rd, rs1, -1 preserves all bits, so it is just a move/no-op.
-    // Handle it before shadow lowering to avoid emitting `and rd, -1`.
     if imm == -1 {
         if rd.id() == rs1.id() {
             ctx.commit_unchanged(translator);
@@ -689,14 +374,12 @@ fn emit_andi(
 
     match classify_unary_shadow_case(rd, rs1) {
         UnaryShadowCase::RdEqRs1 => {
-            // andi rd, rd, imm
             dynasm!(translator.emitter ; and Rq(rd.id()), imm);
             ctx.write_back(translator);
             return;
         }
 
         UnaryShadowCase::Distinct => {
-            // andi rd, rs1, imm
             dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
             dynasm!(translator.emitter ; and Rq(rd.id()), imm);
             ctx.write_back(translator);
@@ -707,7 +390,7 @@ fn emit_andi(
 
 /// RV64 `slli`: logical left shift by immediate.
 /// rd <- rs1 << shamt
-fn emit_slli(
+pub(super) fn emit_slli(
     translator: &mut Translator,
     temps: &TempAllocator,
     rd: RiscvRegister,
@@ -724,24 +407,17 @@ fn emit_slli(
 
     match classify_unary_zero_case(rd, rs1, shamt as i32) {
         UnaryZeroCase::RdZero => {
-            // x0 is hardwired to zero, writes can be ignored
             ctx.discard_zero_output(translator);
             return;
         }
 
         UnaryZeroCase::Rs1ImmZero | UnaryZeroCase::Rs1Zero => {
-            // Rs1ImmZero
-            // slli rd, 0, 0 -> rd = 0
-            //
-            // Rs1Zero
-            // slli rd, 0, imm -> rd = 0
             dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
             ctx.write_back(translator);
             return;
         }
 
         UnaryZeroCase::ImmZero => {
-            // slli rd, rs1, 0 -> rd = rs1
             if rd.id() == rs1.id() {
                 ctx.commit_unchanged(translator);
                 return;
@@ -757,14 +433,12 @@ fn emit_slli(
 
     match classify_unary_shadow_case(rd, rs1) {
         UnaryShadowCase::RdEqRs1 => {
-            // slli rd, rd, imm
             dynasm!(translator.emitter ; shl Rq(rd.id()), shamt as i8);
             ctx.write_back(translator);
             return;
         }
 
         UnaryShadowCase::Distinct => {
-            // slli rd, rs1, imm
             dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
             dynasm!(translator.emitter ; shl Rq(rd.id()), shamt as i8);
             ctx.write_back(translator);
@@ -775,18 +449,13 @@ fn emit_slli(
 
 /// RV64 `sll`: logical left shift by register low bits.
 /// rd <- rs1 << (rs2 & 0x3f)
-fn emit_sll(
+pub(super) fn emit_sll(
     translator: &mut Translator,
     temps: &TempAllocator,
     rd: RiscvRegister,
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
-    // given that the shift value for this is in a register
-    // we are using this form:
-    // shl r/m64, cl
-    // the shift value must be in rcx before this is called
-    // hence we ensure no clobber for that location
     let ctx = InstructionContextBuilder::new()
         .set_inputs([rs1, rs2])
         .set_output(rd)
@@ -798,24 +467,17 @@ fn emit_sll(
 
     match classify_zero_case(rd, rs1, rs2) {
         ZeroCase::RdZero => {
-            // x0 is hardwired to zero, writes can be ignored
             ctx.discard_zero_output(translator);
             return;
         }
 
         ZeroCase::Rs1Rs2Zero | ZeroCase::Rs1Zero => {
-            // Rs1Rs2Zero
-            // sll rd, 0, 0 -> rd = 0
-            //
-            // Rs1Zero
-            // sll rd, 0, rs2 -> rd = 0
             dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
             ctx.write_back(translator);
             return;
         }
 
         ZeroCase::Rs2Zero => {
-            // sll rd, rs1, 0 -> rd = rs1
             if rd.id() == rs1.id() {
                 ctx.commit_unchanged(translator);
                 return;
@@ -829,7 +491,6 @@ fn emit_sll(
         ZeroCase::None => {}
     }
 
-    // move the shamt value to rcx
     dynasm!(translator.emitter ; mov Rq(X86Gpr::Rcx.id()), Rq(rs2.id()));
 
     match classify_unary_shadow_case(rd, rs1) {
@@ -850,7 +511,7 @@ fn emit_sll(
 
 /// RV64 `sb`: store low 8 bits of rs2 to memory at rs1 + sext(imm).
 /// mem8[rs1 + sext(imm)] <- rs2[7:0]
-fn emit_sb(
+pub(super) fn emit_sb(
     translator: &mut Translator,
     temps: &TempAllocator,
     rs1: RiscvRegister,
@@ -863,8 +524,6 @@ fn emit_sb(
 
     let [rs1, rs2] = ctx.inputs();
 
-    // `x0` has no backing x86 register, but this x86 memory operand needs a
-    // base register. Materialize `x0 + imm` into a temp and use no displacement.
     let (addr_id, addr_disp, _addr_temp) = if rs1.is_zero() {
         let temp = temps
             .allocate()
@@ -885,7 +544,7 @@ fn emit_sb(
 
 /// RV64 `sd`: store 64 bits of rs2 to memory at rs1 + sext(imm).
 /// mem64[rs1 + sext(imm)] <- rs2
-fn emit_sd(
+pub(super) fn emit_sd(
     translator: &mut Translator,
     temps: &TempAllocator,
     rs1: RiscvRegister,
@@ -898,8 +557,6 @@ fn emit_sd(
 
     let [rs1, rs2] = ctx.inputs();
 
-    // `x0` has no backing x86 register, but this x86 memory operand needs a
-    // base register. Materialize `x0 + imm` into a temp and use no displacement.
     let (addr_id, addr_disp, _addr_temp) = if rs1.is_zero() {
         let temp = temps
             .allocate()
@@ -921,9 +578,8 @@ fn emit_sd(
 
 /// RV64 `lui`: write U-immediate to upper bits.
 /// rd <- sext(imm << 12)
-fn emit_lui(translator: &mut Translator, temps: &TempAllocator, rd: RiscvRegister, imm: i32) {
+pub(super) fn emit_lui(translator: &mut Translator, temps: &TempAllocator, rd: RiscvRegister, imm: i32) {
     if rd.is_zero() {
-        // x0 is hardwired to 0, writes can be ignored
         return;
     }
 
@@ -933,7 +589,6 @@ fn emit_lui(translator: &mut Translator, temps: &TempAllocator, rd: RiscvRegiste
 
     let rd = ctx.output();
 
-    // NOTE: the immediate is already shifted by 12 from the decode layer
     dynasm!(translator.emitter ; mov Rq(rd.id()), imm);
 
     ctx.write_back(translator);
@@ -941,9 +596,8 @@ fn emit_lui(translator: &mut Translator, temps: &TempAllocator, rd: RiscvRegiste
 
 /// RV64 `auipc`: add U-immediate (<<12) to current PC.
 /// rd <- pc + sext(imm << 12)
-fn emit_auipc(translator: &mut Translator, temps: &TempAllocator, rd: RiscvRegister, imm: i32) {
+pub(super) fn emit_auipc(translator: &mut Translator, temps: &TempAllocator, rd: RiscvRegister, imm: i32) {
     if rd.is_zero() {
-        // x0 is hardwired to 0, writes can be ignored
         return;
     }
 
@@ -955,7 +609,6 @@ fn emit_auipc(translator: &mut Translator, temps: &TempAllocator, rd: RiscvRegis
 
     let auipc_val = translator.current_pc().wrapping_add(imm as i64 as u64);
 
-    // NOTE: the immediate is already shifted by 12 from the decode layer
     dynasm!(translator.emitter ; mov Rq(rd.id()), QWORD auipc_val as i64);
 
     ctx.write_back(translator);
@@ -963,7 +616,7 @@ fn emit_auipc(translator: &mut Translator, temps: &TempAllocator, rd: RiscvRegis
 
 /// RV64 `beq`: branch if equal.
 /// if rs1 == rs2 then pc <- pc + sext(imm)
-fn emit_beq(
+pub(super) fn emit_beq(
     translator: &mut Translator,
     temps: &TempAllocator,
     rs1: RiscvRegister,
@@ -976,31 +629,23 @@ fn emit_beq(
 
     let [rs1, rs2] = ctx.inputs();
 
-    // compute the target riscv pc
     let branch_target = translator.current_pc().wrapping_add(imm as i64 as u64);
 
-    // retrieve or create a new dynamic label for the riscv pc
     let target_label = translator.target_label(branch_target);
 
     match (rs1.is_zero(), rs2.is_zero()) {
         (true, true) => {
-            // both are zero, hence both equal
             dynasm!(translator.emitter ; jmp => target_label);
         }
         (true, false) => {
-            // rs1 equals zero
-            // we need to check if rs2 equals zero
             dynasm!(translator.emitter ; test Rq(rs2.id()), Rq(rs2.id()));
             dynasm!(translator.emitter ; je => target_label);
         }
         (false, true) => {
-            // rs2 equals zero
-            // we need to check if rs1 equals zero
             dynasm!(translator.emitter ; test Rq(rs1.id()), Rq(rs1.id()));
             dynasm!(translator.emitter ; je => target_label);
         }
         (false, false) => {
-            // both non zero
             dynasm!(translator.emitter ; cmp Rq(rs1.id()), Rq(rs2.id()));
             dynasm!(translator.emitter ; je => target_label);
         }
@@ -1011,7 +656,7 @@ fn emit_beq(
 
 /// RV64 `bne`: branch if not equal.
 /// if rs1 != rs2 then pc <- pc + sext(imm)
-fn emit_bne(
+pub(super) fn emit_bne(
     translator: &mut Translator,
     temps: &TempAllocator,
     rs1: RiscvRegister,
@@ -1024,30 +669,21 @@ fn emit_bne(
 
     let [rs1, rs2] = ctx.inputs();
 
-    // compute the target riscv pc
     let branch_target = translator.current_pc().wrapping_add(imm as i64 as u64);
 
-    // retrieve or create a new dynamic label for the riscv pc
     let target_label = translator.target_label(branch_target);
 
     match (rs1.is_zero(), rs2.is_zero()) {
-        (true, true) => {
-            // both are equal, we shouldn't jump
-        }
+        (true, true) => {}
         (true, false) => {
-            // rs1 is zero
-            // check if rs2 is zero, don't jump if it is
             dynasm!(translator.emitter ; test Rq(rs2.id()), Rq(rs2.id()));
             dynasm!(translator.emitter ; jne => target_label);
         }
         (false, true) => {
-            // rs2 is zero
-            // check if rs1 is zero, don't jump if it is
             dynasm!(translator.emitter ; test Rq(rs1.id()), Rq(rs1.id()));
             dynasm!(translator.emitter ; jne => target_label);
         }
         (false, false) => {
-            // both are not zero
             dynasm!(translator.emitter ; cmp Rq(rs1.id()), Rq(rs2.id()));
             dynasm!(translator.emitter ; jne => target_label);
         }
@@ -1058,7 +694,7 @@ fn emit_bne(
 
 /// RV64 `bltu`: branch if unsigned rs1 < rs2.
 /// if unsigned(rs1) < unsigned(rs2) then pc <- pc + sext(imm)
-fn emit_bltu(
+pub(super) fn emit_bltu(
     translator: &mut Translator,
     temps: &TempAllocator,
     rs1: RiscvRegister,
@@ -1071,29 +707,18 @@ fn emit_bltu(
 
     let [rs1, rs2] = ctx.inputs();
 
-    // compute the target riscv pc
     let branch_target = translator.current_pc().wrapping_add(imm as i64 as u64);
 
-    // retrieve or create a new dynamic label for the riscv pc
     let target_label = translator.target_label(branch_target);
 
     match (rs1.is_zero(), rs2.is_zero()) {
-        (true, true) => {
-            // both are equal, we shouldn't jump
-        }
+        (true, true) => {}
         (true, false) => {
-            // rs1 is zero
-            // if rs2 is anything but zero, it is fine to jump
             dynasm!(translator.emitter ; test Rq(rs2.id()), Rq(rs2.id()));
             dynasm!(translator.emitter ; jne => target_label);
         }
-        (false, true) => {
-            // rs2 is zero
-            // rs1 cannot have a value that will be less than zero
-            // hence we don't jump
-        }
+        (false, true) => {}
         (false, false) => {
-            // both are not zero
             dynasm!(translator.emitter ; cmp Rq(rs1.id()), Rq(rs2.id()));
             dynasm!(translator.emitter ; jb => target_label);
         }
@@ -1103,7 +728,7 @@ fn emit_bltu(
 
 /// RV64 `bgeu`: branch if unsigned rs1 >= rs2.
 /// if unsigned(rs1) >= unsigned(rs2) then pc <- pc + sext(imm)
-fn emit_bgeu(
+pub(super) fn emit_bgeu(
     translator: &mut Translator,
     temps: &TempAllocator,
     rs1: RiscvRegister,
@@ -1116,31 +741,22 @@ fn emit_bgeu(
 
     let [rs1, rs2] = ctx.inputs();
 
-    // compute the target riscv pc
     let branch_target = translator.current_pc().wrapping_add(imm as i64 as u64);
 
-    // retrieve or create a new dynamic label for the riscv pc
     let target_label = translator.target_label(branch_target);
 
     match (rs1.is_zero(), rs2.is_zero()) {
         (true, true) => {
-            // rs1 equals rs2
             dynasm!(translator.emitter ; jmp => target_label);
         }
         (true, false) => {
-            // rs1 is zero
-            // only condition for jump will be if rs2 is also zero
             dynasm!(translator.emitter ; test Rq(rs2.id()), Rq(rs2.id()));
             dynasm!(translator.emitter ; je => target_label);
         }
         (false, true) => {
-            // rs2 is zero
-            // for all values of rs1, rs1 >= rs2
-            // hence we always jump
             dynasm!(translator.emitter ; jmp => target_label);
         }
         (false, false) => {
-            // both are not zero
             dynasm!(translator.emitter ; cmp Rq(rs1.id()), Rq(rs2.id()));
             dynasm!(translator.emitter ; jae => target_label);
         }
@@ -1151,7 +767,7 @@ fn emit_bgeu(
 
 /// RV64 `jal`: jump and link.
 /// rd <- pc + 4; pc <- pc + sext(imm)
-fn emit_jal(translator: &mut Translator, temps: &TempAllocator, rd: RiscvRegister, imm: i32) {
+pub(super) fn emit_jal(translator: &mut Translator, temps: &TempAllocator, rd: RiscvRegister, imm: i32) {
     let ctx = InstructionContextBuilder::<0, 0>::new()
         .set_output(rd)
         .build(translator, temps);
@@ -1159,7 +775,6 @@ fn emit_jal(translator: &mut Translator, temps: &TempAllocator, rd: RiscvRegiste
     let rd = ctx.output();
 
     if !rd.is_zero() {
-        // set the return pc
         let return_pc = translator.current_pc().wrapping_add(4);
         dynasm!(translator.emitter ; mov Rq(rd.id()), QWORD return_pc as i64);
         ctx.write_back(translator);
@@ -1167,7 +782,6 @@ fn emit_jal(translator: &mut Translator, temps: &TempAllocator, rd: RiscvRegiste
         ctx.discard_zero_output(translator);
     }
 
-    // update pc
     let branch_target = translator.current_pc().wrapping_add(imm as i64 as u64);
     let target_label = translator.target_label(branch_target);
     dynasm!(translator.emitter ; jmp => target_label);
@@ -1175,7 +789,7 @@ fn emit_jal(translator: &mut Translator, temps: &TempAllocator, rd: RiscvRegiste
 
 /// RV64 `jalr`: indirect jump and link.
 /// t <- pc + 4; pc <- (rs1 + sext(imm)) & !1; rd <- t
-fn emit_jalr(
+pub(super) fn emit_jalr(
     translator: &mut Translator,
     temps: &TempAllocator,
     rd: RiscvRegister,
@@ -1190,12 +804,9 @@ fn emit_jalr(
     let [rs1] = ctx.inputs();
     let rd = ctx.output();
 
-    // prepare temps
     let branch_target = temps.allocate().unwrap();
     let base_riscv_pc = temps.allocate().unwrap();
 
-    // branch_target = (rs1 + imm) & !1
-    // jump_table_id = (branch_target - base_riscv_pc) >> 2 (assumes uncompressed)
     if rs1.is_zero() {
         dynasm!(translator.emitter ; mov Rq(branch_target.id()), QWORD imm as i64);
     } else {
@@ -1206,7 +817,6 @@ fn emit_jalr(
     dynasm!(translator.emitter ; sub Rq(branch_target.id()), Rq(base_riscv_pc.id()));
     dynasm!(translator.emitter ; shr Rq(branch_target.id()), 2);
 
-    // write return pc
     if !rd.is_zero() {
         let return_pc = translator.current_pc().wrapping_add(4);
         dynasm!(translator.emitter ; mov Rq(rd.id()), QWORD return_pc as i64);
@@ -1215,24 +825,17 @@ fn emit_jalr(
         ctx.discard_zero_output(translator);
     }
 
-    // free the base riscv pc temp
     drop(base_riscv_pc);
 
     let jump_table_base_reg = temps.allocate().unwrap();
 
-    // extract the value at the jump table index
     dynasm!(translator.emitter ; lea Rq(jump_table_base_reg.id()), [=>translator.cf.jt_label]);
     dynasm!(translator.emitter ; jmp QWORD [Rq(jump_table_base_reg.id()) + Rq(branch_target.id()) * 8]);
 }
 
 /// RV64 `ecall`: environment call trap.
 /// raise environment-call-from-U-mode
-fn emit_ecall(translator: &mut Translator, temps: &TempAllocator) {
-    // we only handle the read, write and halt syscalls
-
-    // this emission assumes that there is an
-    // identity mapping between the riscv syscalls
-    // arg registers and the x86 syscall arg registers
+pub(super) fn emit_ecall(translator: &mut Translator, temps: &TempAllocator) {
     assert_eq!(
         translator.reg_map.get(&RiscvRegister::A7),
         &MapTarget::Gpr(X86Gpr::Rax)
@@ -1250,69 +853,292 @@ fn emit_ecall(translator: &mut Translator, temps: &TempAllocator) {
         &MapTarget::Gpr(X86Gpr::Rdx)
     );
 
-    // syscall | riscv_code | x86_code
-    // read    |     63     |    0
-    // write   |     64     |    1
-    // halt    |     93     |   60
-    //
-    // consider the polynomial that represents the mapping
-    // f(x) = $(x^2 - 98x + 2205) / 29$
-    // after simplification
-    // f(x) = $((x - 49)^2 - 196) / 29$
-    //
-    // syscall clobbers rax, rcx and r11
-    // we need to ensure no clobber for rcx and r11
-    // trying to decide if we need the same for rax
-    // technically rax will contain the riscv syscall code
-    // to be semantically correct, we'd want to ensure no clobber also
-    // but probably manually, because the non manual version
-
-    // TODO: ideally Rax(a7) should also be clobber free
-    // but that might be a waste as a7 is usually not live
-    // preferred is to get this information from some liveness analysis
     let ctx = InstructionContextBuilder::<0, 2>::new()
         .ensure_no_clobber([X86Gpr::Rcx, X86Gpr::R11])
         .set_output(RiscvRegister::A0)
         .build(translator, temps);
 
-    // rdx will be clobbered by imul and cqo
-    // when preforming the polynomial evaluation
     let rdx_temp = temps.allocate().unwrap();
     dynasm!(translator.emitter ; mov Rq(rdx_temp.id()), Rq(X86Gpr::Rdx.id()));
 
-    // rax = x - 49
     dynasm!(translator.emitter ; sub Rq(X86Gpr::Rax.id()), 49);
-    // rax = (x - 49)^2
     dynasm!(translator.emitter ; imul Rq(X86Gpr::Rax.id()), Rq(X86Gpr::Rax.id()));
-    // rax = (x - 49)^2 - 196
     dynasm!(translator.emitter ; sub Rq(X86Gpr::Rax.id()), 196);
-    // sign extend rax into rdx
-    // this is needed because idiv divides RDX:RAX
-    // hence RDX:RAX must factually represent the number we
-    // are trying to divide
     dynasm!(translator.emitter ; cqo);
 
-    // computes ((x - 49)^2 - 196) / 29
-    // stores quotient in RAX (correct syscall code)
-    // stores remainder in RDX
-    // after this RAX will contain the correct x86 syscall code
     let divisor_reg = temps.allocate().unwrap();
     dynasm!(translator.emitter ; mov Rq(divisor_reg.id()), 29);
     dynasm!(translator.emitter ; idiv Rq(divisor_reg.id()));
 
-    // before calling syscall, we need to move
-    // the old value of rdx back
     dynasm!(translator.emitter ; mov Rq(X86Gpr::Rdx.id()), Rq(rdx_temp.id()));
 
-    // syscall
     dynasm!(translator.emitter ; syscall);
 
-    // in x86 the result of the syscall is written to RAX
-    // for riscv it is written to a0
-    // given that our mapping doesn't make those locations equal
-    // we need to move from rax to a0
     dynasm!(translator.emitter ; mov Rq(ctx.output().id()), Rq(X86Gpr::Rax.id()));
 
-    // write back context
     ctx.write_back(translator);
+}
+
+/// RV64 `lb`: load 8-bit value (sign-extended).
+/// rd <- sext(M[rs1 + imm][7:0])
+#[allow(unused_variables)]
+pub(super) fn emit_lb(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    imm: i32,
+) {
+}
+
+/// RV64 `lbu`: load 8-bit value (zero-extended).
+/// rd <- M[rs1 + imm][7:0]
+#[allow(unused_variables)]
+pub(super) fn emit_lbu(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    imm: i32,
+) {
+}
+
+/// RV64 `lh`: load 16-bit value (sign-extended).
+/// rd <- sext(M[rs1 + imm][15:0])
+#[allow(unused_variables)]
+pub(super) fn emit_lh(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    imm: i32,
+) {
+}
+
+/// RV64 `lhu`: load 16-bit value (zero-extended).
+/// rd <- M[rs1 + imm][15:0]
+#[allow(unused_variables)]
+pub(super) fn emit_lhu(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    imm: i32,
+) {
+}
+
+/// RV64 `lw`: load 32-bit value (sign-extended).
+/// rd <- sext(M[rs1 + imm][31:0])
+#[allow(unused_variables)]
+pub(super) fn emit_lw(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    imm: i32,
+) {
+}
+
+/// RV64 `lwu`: load 32-bit value (zero-extended).
+/// rd <- M[rs1 + imm][31:0]
+#[allow(unused_variables)]
+pub(super) fn emit_lwu(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    imm: i32,
+) {
+}
+
+/// RV64 `ld`: load 64-bit value.
+/// rd <- M[rs1 + imm][63:0]
+#[allow(unused_variables)]
+pub(super) fn emit_ld(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    imm: i32,
+) {
+}
+
+/// RV64 `sh`: store low 16 bits of rs2 to memory at rs1 + sext(imm).
+/// mem16[rs1 + sext(imm)] <- rs2[15:0]
+#[allow(unused_variables)]
+pub(super) fn emit_sh(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+    imm: i32,
+) {
+}
+
+/// RV64 `sw`: store low 32 bits of rs2 to memory at rs1 + sext(imm).
+/// mem32[rs1 + sext(imm)] <- rs2[31:0]
+#[allow(unused_variables)]
+pub(super) fn emit_sw(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+    imm: i32,
+) {
+}
+
+/// RV64 `and`: bitwise AND across all 64 bits.
+/// rd <- rs1 & rs2
+#[allow(unused_variables)]
+pub(super) fn emit_and(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+}
+
+/// RV64 `xor`: bitwise XOR across all 64 bits.
+/// rd <- rs1 ^ rs2
+#[allow(unused_variables)]
+pub(super) fn emit_xor(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+}
+
+/// RV64 `ori`: bitwise OR with sign-extended immediate.
+/// rd <- rs1 | sext(imm)
+#[allow(unused_variables)]
+pub(super) fn emit_ori(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    imm: i32,
+) {
+}
+
+/// RV64 `xori`: bitwise XOR with sign-extended immediate.
+/// rd <- rs1 ^ sext(imm)
+#[allow(unused_variables)]
+pub(super) fn emit_xori(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    imm: i32,
+) {
+}
+
+/// RV64 `srl`: logical right shift by register low bits.
+/// rd <- rs1 >> (rs2 & 0x3f)
+#[allow(unused_variables)]
+pub(super) fn emit_srl(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+}
+
+/// RV64 `srli`: logical right shift by immediate.
+/// rd <- rs1 >> shamt
+#[allow(unused_variables)]
+pub(super) fn emit_srli(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    shamt: u8,
+) {
+}
+
+/// RV64 `srai`: arithmetic right shift by immediate.
+/// rd <- rs1 >>> shamt
+#[allow(unused_variables)]
+pub(super) fn emit_srai(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    shamt: u8,
+) {
+}
+
+/// RV64 `slt`: set if less than (signed).
+/// rd <- 1 if signed(rs1) < signed(rs2) else 0
+#[allow(unused_variables)]
+pub(super) fn emit_slt(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+}
+
+/// RV64 `sltu`: set if less than (unsigned).
+/// rd <- 1 if unsigned(rs1) < unsigned(rs2) else 0
+#[allow(unused_variables)]
+pub(super) fn emit_sltu(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+}
+
+/// RV64 `slti`: set if less than immediate (signed).
+/// rd <- 1 if signed(rs1) < sext(imm) else 0
+#[allow(unused_variables)]
+pub(super) fn emit_slti(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    imm: i32,
+) {
+}
+
+/// RV64 `sltiu`: set if less than immediate (unsigned).
+/// rd <- 1 if unsigned(rs1) < sext(imm) else 0
+#[allow(unused_variables)]
+pub(super) fn emit_sltiu(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    imm: i32,
+) {
+}
+
+/// RV64 `blt`: branch if less than (signed).
+/// if signed(rs1) < signed(rs2) then pc <- pc + sext(imm)
+#[allow(unused_variables)]
+pub(super) fn emit_blt(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+    imm: i32,
+) {
+}
+
+/// RV64 `bge`: branch if greater or equal (signed).
+/// if signed(rs1) >= signed(rs2) then pc <- pc + sext(imm)
+#[allow(unused_variables)]
+pub(super) fn emit_bge(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+    imm: i32,
+) {
 }
