@@ -1,4 +1,5 @@
 use dynasmrt::{dynasm, DynasmApi, DynasmLabelApi};
+use tracing_subscriber::field::display;
 
 use crate::aot::{
     classification::{
@@ -1227,7 +1228,6 @@ pub(super) fn emit_sw(
 
 /// RV64 `and`: bitwise AND across all 64 bits.
 /// rd <- rs1 & rs2
-#[allow(unused_variables)]
 pub(super) fn emit_and(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -1235,6 +1235,75 @@ pub(super) fn emit_and(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
+    let ctx = InstructionContextBuilder::<2, 0>::new()
+        .set_inputs([rs1, rs2])
+        .set_output(rd)
+        .build(translator, temps);
+
+    let [rs1, rs2] = ctx.inputs();
+    let rd = ctx.output();
+
+    match classify_zero_case(rd, rs1, rs2) {
+        ZeroCase::RdZero => {
+            ctx.discard_zero_output(translator);
+            return;
+        }
+
+        ZeroCase::Rs1Rs2Zero | ZeroCase::Rs1Zero | ZeroCase::Rs2Zero => {
+            // case 1
+            // and rd, 0, 0 -> rd = 0
+            //
+            // case 2
+            // and rd, 0, rs2 -> rd = 0
+            //
+            // case 3
+            // and rd, rs1, 0 -> rd = 0
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        ZeroCase::None => {}
+    }
+
+    match classify_shadow_case(rd, rs1, rs2) {
+        ShadowCase::AllEqual => {
+            // and rd, rd, rd
+            // nothing changes
+            ctx.write_back(translator);
+            return;
+        }
+
+        ShadowCase::RdEqRs1 => {
+            // and rd, rd, rs2
+            dynasm!(translator.emitter ; and Rq(rd.id()), Rq(rs2.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        ShadowCase::RdEqRs2 => {
+            // and rd, rs1, rd
+            dynasm!(translator.emitter ; and Rq(rd.id()), Rq(rs1.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        ShadowCase::Rs1EqRs2 => {
+            // and rd, rs1, rs1
+            // rd = rs1
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        ShadowCase::AllDistinct => {
+            // and rd, rs1, rs2
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            dynasm!(translator.emitter ; and Rq(rd.id()), Rq(rs2.id()));
+            ctx.write_back(translator);
+            return;
+        }
+    }
 }
 
 /// RV64 `xor`: bitwise XOR across all 64 bits.
