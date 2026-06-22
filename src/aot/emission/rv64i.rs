@@ -524,14 +524,15 @@ pub(super) fn emit_sb(
 
     let [rs1, rs2] = ctx.inputs();
 
-    let (addr_id, addr_disp, _addr_temp) = if rs1.is_zero() {
-        let temp = temps
+    let addr_temp;
+    let (addr_id, addr_disp) = if rs1.is_zero() {
+        addr_temp = temps
             .allocate()
             .expect("emit_sb requires a temp to materialize x0 + imm address");
-        dynasm!(translator.emitter ; mov Rq(temp.id()), QWORD imm as i64);
-        (temp.id(), 0, Some(temp))
+        dynasm!(translator.emitter ; mov Rq(addr_temp.id()), QWORD imm as i64);
+        (addr_temp.id(), 0)
     } else {
-        (rs1.id(), imm, None)
+        (rs1.id(), imm)
     };
 
     if rs2.is_zero() {
@@ -557,14 +558,15 @@ pub(super) fn emit_sd(
 
     let [rs1, rs2] = ctx.inputs();
 
-    let (addr_id, addr_disp, _addr_temp) = if rs1.is_zero() {
-        let temp = temps
+    let addr_temp;
+    let (addr_id, addr_disp) = if rs1.is_zero() {
+        addr_temp = temps
             .allocate()
             .expect("emit_sd requires a temp to materialize x0 + imm address");
-        dynasm!(translator.emitter ; mov Rq(temp.id()), QWORD imm as i64);
-        (temp.id(), 0, Some(temp))
+        dynasm!(translator.emitter ; mov Rq(addr_temp.id()), QWORD imm as i64);
+        (addr_temp.id(), 0)
     } else {
-        (rs1.id(), imm, None)
+        (rs1.id(), imm)
     };
 
     if rs2.is_zero() {
@@ -915,15 +917,18 @@ pub(super) fn emit_lb(
     let [rs1] = ctx.inputs();
     let rd = ctx.output();
 
-    let addr_temp = temps.allocate().unwrap();
-
-    if rs1.is_zero() {
+    let addr_temp;
+    let (addr_id, addr_disp) = if rs1.is_zero() {
+        addr_temp = temps
+            .allocate()
+            .expect("emit_lb requires a temp to materialize x0 + imm address");
         dynasm!(translator.emitter ; mov Rq(addr_temp.id()), QWORD imm as i64);
+        (addr_temp.id(), 0)
     } else {
-        dynasm!(translator.emitter ; lea Rq(addr_temp.id()), [Rq(rs1.id()) + imm]);
-    }
+        (rs1.id(), imm)
+    };
 
-    dynasm!(translator.emitter ; movsx Rq(rd.id()), BYTE [Rq(addr_temp.id())]);
+    dynasm!(translator.emitter ; movsx Rq(rd.id()), BYTE [Rq(addr_id) + addr_disp]);
 
     ctx.write_back(translator);
 }
@@ -949,15 +954,18 @@ pub(super) fn emit_lbu(
     let [rs1] = ctx.inputs();
     let rd = ctx.output();
 
-    let addr_temp = temps.allocate().unwrap();
-
-    if rs1.is_zero() {
+    let addr_temp;
+    let (addr_id, addr_disp) = if rs1.is_zero() {
+        addr_temp = temps
+            .allocate()
+            .expect("emit_lbu requires a temp to materialize x0 + imm address");
         dynasm!(translator.emitter ; mov Rq(addr_temp.id()), QWORD imm as i64);
+        (addr_temp.id(), 0)
     } else {
-        dynasm!(translator.emitter ; lea Rq(addr_temp.id()), [Rq(rs1.id()) + imm]);
-    }
+        (rs1.id(), imm)
+    };
 
-    dynasm!(translator.emitter ; movzx Rq(rd.id()), BYTE [Rq(addr_temp.id())]);
+    dynasm!(translator.emitter ; movzx Rq(rd.id()), BYTE [Rq(addr_id) + addr_disp]);
 
     ctx.write_back(translator);
 }
@@ -983,15 +991,18 @@ pub(super) fn emit_lh(
     let [rs1] = ctx.inputs();
     let rd = ctx.output();
 
-    let addr_temp = temps.allocate().unwrap();
-
-    if rs1.is_zero() {
+    let addr_temp;
+    let (addr_id, addr_disp) = if rs1.is_zero() {
+        addr_temp = temps
+            .allocate()
+            .expect("emit_lh requires a temp to materialize x0 + imm address");
         dynasm!(translator.emitter ; mov Rq(addr_temp.id()), QWORD imm as i64);
+        (addr_temp.id(), 0)
     } else {
-        dynasm!(translator.emitter ; lea Rq(addr_temp.id()), [Rq(rs1.id()) + imm]);
-    }
+        (rs1.id(), imm)
+    };
 
-    dynasm!(translator.emitter ; movsx Rq(rd.id()), WORD [Rq(addr_temp.id())]);
+    dynasm!(translator.emitter ; movsx Rq(rd.id()), WORD [Rq(addr_id) + addr_disp]);
 
     ctx.write_back(translator);
 }
@@ -1017,15 +1028,18 @@ pub(super) fn emit_lhu(
     let [rs1] = ctx.inputs();
     let rd = ctx.output();
 
-    let addr_temp = temps.allocate().unwrap();
-
-    if rs1.is_zero() {
+    let addr_temp;
+    let (addr_id, addr_disp) = if rs1.is_zero() {
+        addr_temp = temps
+            .allocate()
+            .expect("emit_lhu requires a temp to materialize x0 + imm address");
         dynasm!(translator.emitter ; mov Rq(addr_temp.id()), QWORD imm as i64);
+        (addr_temp.id(), 0)
     } else {
-        dynasm!(translator.emitter ; lea Rq(addr_temp.id()), [Rq(rs1.id()) + imm]);
-    }
+        (rs1.id(), imm)
+    };
 
-    dynasm!(translator.emitter ; movzx Rq(rd.id()), WORD [Rq(addr_temp.id())]);
+    dynasm!(translator.emitter ; movzx Rq(rd.id()), WORD [Rq(addr_id) + addr_disp]);
 
     ctx.write_back(translator);
 }
@@ -1051,22 +1065,24 @@ pub(super) fn emit_lw(
     let [rs1] = ctx.inputs();
     let rd = ctx.output();
 
-    let addr_temp = temps.allocate().unwrap();
-
-    if rs1.is_zero() {
+    let addr_temp;
+    let (addr_id, addr_disp) = if rs1.is_zero() {
+        addr_temp = temps
+            .allocate()
+            .expect("emit_lw requires a temp to materialize x0 + imm address");
         dynasm!(translator.emitter ; mov Rq(addr_temp.id()), QWORD imm as i64);
+        (addr_temp.id(), 0)
     } else {
-        dynasm!(translator.emitter ; lea Rq(addr_temp.id()), [Rq(rs1.id()) + imm]);
-    }
+        (rs1.id(), imm)
+    };
 
-    dynasm!(translator.emitter ; movsxd Rq(rd.id()), DWORD [Rq(addr_temp.id())]);
+    dynasm!(translator.emitter ; movsxd Rq(rd.id()), DWORD [Rq(addr_id) + addr_disp]);
 
     ctx.write_back(translator);
 }
 
 /// RV64 `lwu`: load 32-bit value (zero-extended).
 /// rd <- M[rs1 + imm][31:0]
-#[allow(unused_variables)]
 pub(super) fn emit_lwu(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -1086,15 +1102,18 @@ pub(super) fn emit_lwu(
     let [rs1] = ctx.inputs();
     let rd = ctx.output();
 
-    let addr_temp = temps.allocate().unwrap();
-
-    if rs1.is_zero() {
+    let addr_temp;
+    let (addr_id, addr_disp) = if rs1.is_zero() {
+        addr_temp = temps
+            .allocate()
+            .expect("emit_lwu requires a temp to materialize x0 + imm address");
         dynasm!(translator.emitter ; mov Rq(addr_temp.id()), QWORD imm as i64);
+        (addr_temp.id(), 0)
     } else {
-        dynasm!(translator.emitter ; lea Rq(addr_temp.id()), [Rq(rs1.id()) + imm]);
-    }
+        (rs1.id(), imm)
+    };
 
-    dynasm!(translator.emitter ; mov Rd(rd.id()), DWORD [Rq(addr_temp.id())]);
+    dynasm!(translator.emitter ; mov Rd(rd.id()), DWORD [Rq(addr_id) + addr_disp]);
 
     ctx.write_back(translator);
 }
@@ -1120,15 +1139,18 @@ pub(super) fn emit_ld(
     let [rs1] = ctx.inputs();
     let rd = ctx.output();
 
-    let addr_temp = temps.allocate().unwrap();
-
-    if rs1.is_zero() {
+    let addr_temp;
+    let (addr_id, addr_disp) = if rs1.is_zero() {
+        addr_temp = temps
+            .allocate()
+            .expect("emit_ld requires a temp to materialize x0 + imm address");
         dynasm!(translator.emitter ; mov Rq(addr_temp.id()), QWORD imm as i64);
+        (addr_temp.id(), 0)
     } else {
-        dynasm!(translator.emitter ; lea Rq(addr_temp.id()), [Rq(rs1.id()) + imm]);
-    }
+        (rs1.id(), imm)
+    };
 
-    dynasm!(translator.emitter ; mov Rq(rd.id()), QWORD [Rq(addr_temp.id())]);
+    dynasm!(translator.emitter ; mov Rq(rd.id()), QWORD [Rq(addr_id) + addr_disp]);
 
     ctx.write_back(translator);
 }
@@ -1148,18 +1170,21 @@ pub(super) fn emit_sh(
 
     let [rs1, rs2] = ctx.inputs();
 
-    let addr_temp = temps.allocate().unwrap();
-
-    if rs1.is_zero() {
+    let addr_temp;
+    let (addr_id, addr_disp) = if rs1.is_zero() {
+        addr_temp = temps
+            .allocate()
+            .expect("emit_sh requires a temp to materialize x0 + imm address");
         dynasm!(translator.emitter ; mov Rq(addr_temp.id()), QWORD imm as i64);
+        (addr_temp.id(), 0)
     } else {
-        dynasm!(translator.emitter ; lea Rq(addr_temp.id()), [Rq(rs1.id()) + imm]);
-    }
+        (rs1.id(), imm)
+    };
 
     if rs2.is_zero() {
-        dynasm!(translator.emitter ; mov WORD [Rq(addr_temp.id())], 0);
+        dynasm!(translator.emitter ; mov WORD [Rq(addr_id) + addr_disp], 0);
     } else {
-        dynasm!(translator.emitter ; mov WORD [Rq(addr_temp.id())], Rw(rs2.id()));
+        dynasm!(translator.emitter ; mov WORD [Rq(addr_id) + addr_disp], Rw(rs2.id()));
     }
 
     ctx.complete_no_output(translator);
@@ -1180,18 +1205,21 @@ pub(super) fn emit_sw(
 
     let [rs1, rs2] = ctx.inputs();
 
-    let addr_temp = temps.allocate().unwrap();
-
-    if rs1.is_zero() {
+    let addr_temp;
+    let (addr_id, addr_disp) = if rs1.is_zero() {
+        addr_temp = temps
+            .allocate()
+            .expect("emit_sw requires a temp to materialize x0 + imm address");
         dynasm!(translator.emitter ; mov Rq(addr_temp.id()), QWORD imm as i64);
+        (addr_temp.id(), 0)
     } else {
-        dynasm!(translator.emitter ; lea Rq(addr_temp.id()), [Rq(rs1.id()) + imm]);
-    }
+        (rs1.id(), imm)
+    };
 
     if rs2.is_zero() {
-        dynasm!(translator.emitter ; mov DWORD [Rq(addr_temp.id())], 0);
+        dynasm!(translator.emitter ; mov DWORD [Rq(addr_id) + addr_disp], 0);
     } else {
-        dynasm!(translator.emitter ; mov DWORD [Rq(addr_temp.id())], Rd(rs2.id()));
+        dynasm!(translator.emitter ; mov DWORD [Rq(addr_id) + addr_disp], Rd(rs2.id()));
     }
 
     ctx.complete_no_output(translator);
