@@ -578,7 +578,12 @@ pub(super) fn emit_sd(
 
 /// RV64 `lui`: write U-immediate to upper bits.
 /// rd <- sext(imm << 12)
-pub(super) fn emit_lui(translator: &mut Translator, temps: &TempAllocator, rd: RiscvRegister, imm: i32) {
+pub(super) fn emit_lui(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    imm: i32,
+) {
     if rd.is_zero() {
         return;
     }
@@ -596,7 +601,12 @@ pub(super) fn emit_lui(translator: &mut Translator, temps: &TempAllocator, rd: R
 
 /// RV64 `auipc`: add U-immediate (<<12) to current PC.
 /// rd <- pc + sext(imm << 12)
-pub(super) fn emit_auipc(translator: &mut Translator, temps: &TempAllocator, rd: RiscvRegister, imm: i32) {
+pub(super) fn emit_auipc(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    imm: i32,
+) {
     if rd.is_zero() {
         return;
     }
@@ -767,7 +777,12 @@ pub(super) fn emit_bgeu(
 
 /// RV64 `jal`: jump and link.
 /// rd <- pc + 4; pc <- pc + sext(imm)
-pub(super) fn emit_jal(translator: &mut Translator, temps: &TempAllocator, rd: RiscvRegister, imm: i32) {
+pub(super) fn emit_jal(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    imm: i32,
+) {
     let ctx = InstructionContextBuilder::<0, 0>::new()
         .set_output(rd)
         .build(translator, temps);
@@ -881,7 +896,6 @@ pub(super) fn emit_ecall(translator: &mut Translator, temps: &TempAllocator) {
 
 /// RV64 `lb`: load 8-bit value (sign-extended).
 /// rd <- sext(M[rs1 + imm][7:0])
-#[allow(unused_variables)]
 pub(super) fn emit_lb(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -889,6 +903,29 @@ pub(super) fn emit_lb(
     rs1: RiscvRegister,
     imm: i32,
 ) {
+    if rd.is_zero() {
+        return;
+    }
+
+    let ctx = InstructionContextBuilder::<1, 0>::new()
+        .set_inputs([rs1])
+        .set_output(rd)
+        .build(translator, temps);
+
+    let [rs1] = ctx.inputs();
+    let rd = ctx.output();
+
+    let addr_temp = temps.allocate().unwrap();
+
+    if rs1.is_zero() {
+        dynasm!(translator.emitter ; mov Rq(addr_temp.id()), QWORD imm as i64);
+    } else {
+        dynasm!(translator.emitter ; lea Rq(addr_temp.id()), [Rq(rs1.id()) + imm]);
+    }
+
+    dynasm!(translator.emitter ; movsx Rq(rd.id()), BYTE [Rq(addr_temp.id())]);
+
+    ctx.write_back(translator);
 }
 
 /// RV64 `lbu`: load 8-bit value (zero-extended).
