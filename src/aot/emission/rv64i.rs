@@ -1167,7 +1167,6 @@ pub(super) fn emit_sh(
 
 /// RV64 `sw`: store low 32 bits of rs2 to memory at rs1 + sext(imm).
 /// mem32[rs1 + sext(imm)] <- rs2[31:0]
-#[allow(unused_variables)]
 pub(super) fn emit_sw(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -1175,6 +1174,27 @@ pub(super) fn emit_sw(
     rs2: RiscvRegister,
     imm: i32,
 ) {
+    let ctx = InstructionContextBuilder::<2, 0>::new()
+        .set_inputs([rs1, rs2])
+        .build(translator, temps);
+
+    let [rs1, rs2] = ctx.inputs();
+
+    let addr_temp = temps.allocate().unwrap();
+
+    if rs1.is_zero() {
+        dynasm!(translator.emitter ; mov Rq(addr_temp.id()), QWORD imm as i64);
+    } else {
+        dynasm!(translator.emitter ; lea Rq(addr_temp.id()), [Rq(rs1.id()) + imm]);
+    }
+
+    if rs2.is_zero() {
+        dynasm!(translator.emitter ; mov DWORD [Rq(addr_temp.id())], 0);
+    } else {
+        dynasm!(translator.emitter ; mov DWORD [Rq(addr_temp.id())], Rd(rs2.id()));
+    }
+
+    ctx.complete_no_output(translator);
 }
 
 /// RV64 `and`: bitwise AND across all 64 bits.
