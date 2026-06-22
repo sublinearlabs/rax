@@ -930,7 +930,6 @@ pub(super) fn emit_lb(
 
 /// RV64 `lbu`: load 8-bit value (zero-extended).
 /// rd <- M[rs1 + imm][7:0]
-#[allow(unused_variables)]
 pub(super) fn emit_lbu(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -1102,7 +1101,6 @@ pub(super) fn emit_lwu(
 
 /// RV64 `ld`: load 64-bit value.
 /// rd <- M[rs1 + imm][63:0]
-#[allow(unused_variables)]
 pub(super) fn emit_ld(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -1110,6 +1108,29 @@ pub(super) fn emit_ld(
     rs1: RiscvRegister,
     imm: i32,
 ) {
+    if rd.is_zero() {
+        return;
+    }
+
+    let ctx = InstructionContextBuilder::<1, 0>::new()
+        .set_inputs([rs1])
+        .set_output(rd)
+        .build(translator, temps);
+
+    let [rs1] = ctx.inputs();
+    let rd = ctx.output();
+
+    let addr_temp = temps.allocate().unwrap();
+
+    if rs1.is_zero() {
+        dynasm!(translator.emitter ; mov Rq(addr_temp.id()), QWORD imm as i64);
+    } else {
+        dynasm!(translator.emitter ; lea Rq(addr_temp.id()), [Rq(rs1.id()) + imm]);
+    }
+
+    dynasm!(translator.emitter ; mov Rq(rd.id()), QWORD [Rq(addr_temp.id())]);
+
+    ctx.write_back(translator);
 }
 
 /// RV64 `sh`: store low 16 bits of rs2 to memory at rs1 + sext(imm).
