@@ -1431,7 +1431,7 @@ pub(super) fn emit_ori(
 
         UnaryZeroCase::Rs1Zero => {
             // ori rd, 0, imm
-            dynasm!(translator.emitter ; mov Rq(rd.id()), QWORD imm as i64);
+            dynasm!(translator.emitter ; mov Rq(rd.id()), imm);
             ctx.write_back(translator);
             return;
         }
