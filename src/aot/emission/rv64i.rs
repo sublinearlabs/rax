@@ -1,4 +1,3 @@
-use cranelift_codegen::ir::Inst;
 use dynasmrt::{dynasm, DynasmApi, DynasmLabelApi};
 
 use crate::aot::{
@@ -1471,7 +1470,6 @@ pub(super) fn emit_ori(
 
 /// RV64 `xori`: bitwise XOR with sign-extended immediate.
 /// rd <- rs1 ^ sext(imm)
-#[allow(unused_variables)]
 pub(super) fn emit_xori(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -1479,6 +1477,65 @@ pub(super) fn emit_xori(
     rs1: RiscvRegister,
     imm: i32,
 ) {
+    let ctx = InstructionContextBuilder::<1, 0>::new()
+        .set_inputs([rs1])
+        .set_output(rd)
+        .build(translator, temps);
+
+    let [rs1] = ctx.inputs();
+    let rd = ctx.output();
+
+    match classify_unary_zero_case(rd, rs1, imm) {
+        UnaryZeroCase::RdZero => {
+            ctx.discard_zero_output(translator);
+            return;
+        }
+
+        UnaryZeroCase::Rs1ImmZero => {
+            // xori rd, 0, 0 -> rd = 0
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryZeroCase::Rs1Zero => {
+            // xori rd, 0, imm -> rd = imm
+            dynasm!(translator.emitter ; mov Rq(rd.id()), imm);
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryZeroCase::ImmZero => {
+            // xori rd, rs1, 0 -> rd = rs1
+            if rd.id() == rs1.id() {
+                ctx.commit_unchanged(translator);
+                return;
+            }
+
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryZeroCase::None => {}
+    }
+
+    match classify_unary_shadow_case(rd, rs1) {
+        UnaryShadowCase::RdEqRs1 => {
+            // xori rd, rd, imm
+            dynasm!(translator.emitter ; xor Rq(rd.id()), imm);
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryShadowCase::Distinct => {
+            // xori rd, rs1, imm
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            dynasm!(translator.emitter ; xor Rq(rd.id()), imm);
+            ctx.write_back(translator);
+            return;
+        }
+    }
 }
 
 /// RV64 `srl`: logical right shift by register low bits.
