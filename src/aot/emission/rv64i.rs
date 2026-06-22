@@ -1540,7 +1540,6 @@ pub(super) fn emit_xori(
 
 /// RV64 `srl`: logical right shift by register low bits.
 /// rd <- rs1 >> (rs2 & 0x3f)
-#[allow(unused_variables)]
 pub(super) fn emit_srl(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -1548,11 +1547,70 @@ pub(super) fn emit_srl(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
+    let ctx = InstructionContextBuilder::new()
+        .set_inputs([rs1, rs2])
+        .set_output(rd)
+        .ensure_no_clobber([X86Gpr::Rcx])
+        .build(translator, temps);
+
+    let [rs1, rs2] = ctx.inputs();
+    let rd = ctx.output();
+
+    match classify_zero_case(rd, rs1, rs2) {
+        ZeroCase::RdZero => {
+            ctx.discard_zero_output(translator);
+            return;
+        }
+
+        ZeroCase::Rs1Rs2Zero | ZeroCase::Rs1Zero => {
+            // case 1
+            // srl rd, 0, 0 -> rd == 0
+            //
+            // case 2
+            // srl rd, 0, shamt -> rd = 0
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        ZeroCase::Rs2Zero => {
+            // srl rd, rs1, 0
+            // -> rd = rs1
+            if rd.id() == rs1.id() {
+                ctx.commit_unchanged(translator);
+                return;
+            }
+
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        ZeroCase::None => {}
+    }
+
+    dynasm!(translator.emitter ; mov Rq(X86Gpr::Rcx.id()), Rq(rs2.id()));
+
+    match classify_unary_shadow_case(rd, rs1) {
+        UnaryShadowCase::RdEqRs1 => {
+            // srl rd, rd, shamt
+            dynasm!(translator.emitter ; shr Rq(rd.id()), cl);
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryShadowCase::Distinct => {
+            // srl rd, rs1, shamt
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            dynasm!(translator.emitter ; shr Rq(rd.id()), cl);
+            ctx.write_back(translator);
+            return;
+        }
+    }
 }
 
 /// RV64 `srli`: logical right shift by immediate.
 /// rd <- rs1 >> shamt
-#[allow(unused_variables)]
 pub(super) fn emit_srli(
     translator: &mut Translator,
     temps: &TempAllocator,
