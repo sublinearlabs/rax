@@ -973,6 +973,29 @@ pub(super) fn emit_lh(
     rs1: RiscvRegister,
     imm: i32,
 ) {
+    if rd.is_zero() {
+        return;
+    }
+
+    let ctx = InstructionContextBuilder::<1, 0>::new()
+        .set_inputs([rs1])
+        .set_output(rd)
+        .build(translator, temps);
+
+    let [rs1] = ctx.inputs();
+    let rd = ctx.output();
+
+    let addr_temp = temps.allocate().unwrap();
+
+    if rs1.is_zero() {
+        dynasm!(translator.emitter ; mov Rq(addr_temp.id()), QWORD imm as i64);
+    } else {
+        dynasm!(translator.emitter ; lea Rq(addr_temp.id()), [Rq(rs1.id()) + imm]);
+    }
+
+    dynasm!(translator.emitter ; movsx Rq(rd.id()), WORD [Rq(addr_temp.id())]);
+
+    ctx.write_back(translator);
 }
 
 /// RV64 `lhu`: load 16-bit value (zero-extended).
@@ -985,6 +1008,29 @@ pub(super) fn emit_lhu(
     rs1: RiscvRegister,
     imm: i32,
 ) {
+    if rd.is_zero() {
+        return;
+    }
+
+    let ctx = InstructionContextBuilder::<1, 0>::new()
+        .set_inputs([rs1])
+        .set_output(rd)
+        .build(translator, temps);
+
+    let [rs1] = ctx.inputs();
+    let rd = ctx.output();
+
+    let addr_temp = temps.allocate().unwrap();
+
+    if rs1.is_zero() {
+        dynasm!(translator.emitter ; mov Rq(addr_temp.id()), QWORD imm as i64);
+    } else {
+        dynasm!(translator.emitter ; lea Rq(addr_temp.id()), [Rq(rs1.id()) + imm]);
+    }
+
+    dynasm!(translator.emitter ; movzx Rq(rd.id()), WORD [Rq(addr_temp.id())]);
+
+    ctx.write_back(translator);
 }
 
 /// RV64 `lw`: load 32-bit value (sign-extended).
