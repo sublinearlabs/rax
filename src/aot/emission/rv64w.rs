@@ -121,6 +121,10 @@ pub(super) fn emit_sraiw(
         }
 
         UnaryZeroCase::Rs1ImmZero | UnaryZeroCase::Rs1Zero => {
+            // case 1
+            // sraiw rd, 0, 0 -> rd = 0
+            //
+            // case 2
             // sraiw rd, 0, shamt -> rd = 0
             dynasm!(translator.emitter ; xor Rd(rd.id()), Rd(rd.id()));
             ctx.write_back(translator);
@@ -128,7 +132,8 @@ pub(super) fn emit_sraiw(
         }
 
         UnaryZeroCase::ImmZero => {
-            // sraiw rd, rs1, 0 -> sext32(rs1[31:0])
+            // sraiw rd, rs1, 0
+            // -> rd = sext32(rs1[31:0])
             dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rs1.id()));
             ctx.write_back(translator);
             return;
