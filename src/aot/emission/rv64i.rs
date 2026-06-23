@@ -1998,7 +1998,6 @@ pub(super) fn emit_sltiu(
 
 /// RV64 `blt`: branch if less than (signed).
 /// if signed(rs1) < signed(rs2) then pc <- pc + sext(imm)
-#[allow(unused_variables)]
 pub(super) fn emit_blt(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -2006,11 +2005,46 @@ pub(super) fn emit_blt(
     rs2: RiscvRegister,
     imm: i32,
 ) {
+    let ctx = InstructionContextBuilder::<2, 0>::new()
+        .set_inputs([rs1, rs2])
+        .build(translator, temps);
+
+    let [rs1, rs2] = ctx.inputs();
+
+    let branch_target = translator.current_pc().wrapping_add(imm as i64 as u64);
+
+    let target_label = translator.target_label(branch_target);
+
+    match (rs1.is_zero(), rs2.is_zero()) {
+        (true, true) => {
+            // rs1 == rs2
+            // so we don't jump
+        }
+        (true, false) | (false, true) | (false, false) => {
+            // case 1
+            // rs1 == 0
+            // rs2 could be less than or greater than
+            // so we need to do a runtime check
+            //
+            // case 2
+            // rs2 == 0
+            // rs1 coult be less than or greater than
+            // a runtime check is also needed in this case
+            //
+            // case 3
+            // both are unknown at compile time
+            // so any permutation is possible
+            // hence we use a runtime check again
+            dynasm!(translator.emitter ; cmp Rq(rs1.id()), Rq(rs2.id()));
+            dynasm!(translator.emitter ; jl => target_label);
+        }
+    }
+
+    ctx.complete_no_output(translator);
 }
 
 /// RV64 `bge`: branch if greater or equal (signed).
 /// if signed(rs1) >= signed(rs2) then pc <- pc + sext(imm)
-#[allow(unused_variables)]
 pub(super) fn emit_bge(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -2018,4 +2052,26 @@ pub(super) fn emit_bge(
     rs2: RiscvRegister,
     imm: i32,
 ) {
+    let ctx = InstructionContextBuilder::<2, 0>::new()
+        .set_inputs([rs1, rs2])
+        .build(translator, temps);
+
+    let [rs1, rs2] = ctx.inputs();
+
+    let branch_target = translator.current_pc().wrapping_add(imm as i64 as u64);
+
+    let target_label = translator.target_label(branch_target);
+
+    match (rs1.is_zero(), rs2.is_zero()) {
+        (true, true) => {
+            // since equal we should jump
+            dynasm!(translator.emitter ; jmp => target_label);
+        }
+        (true, false) | (false, true) | (false, false) => {
+            dynasm!(translator.emitter ; cmp Rq(rs1.id()), Rq(rs2.id()));
+            dynasm!(translator.emitter ; jge => target_label);
+        }
+    }
+
+    ctx.complete_no_output(translator);
 }
