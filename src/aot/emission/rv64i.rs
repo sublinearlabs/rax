@@ -1803,7 +1803,6 @@ pub(super) fn emit_slt(
 
 /// RV64 `sltu`: set if less than (unsigned).
 /// rd <- 1 if unsigned(rs1) < unsigned(rs2) else 0
-#[allow(unused_variables)]
 pub(super) fn emit_sltu(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -1811,6 +1810,55 @@ pub(super) fn emit_sltu(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
+    let ctx = InstructionContextBuilder::<2, 0>::new()
+        .set_inputs([rs1, rs2])
+        .set_output(rd)
+        .build(translator, temps);
+
+    let [rs1, rs2] = ctx.inputs();
+    let rd = ctx.output();
+
+    match classify_zero_case(rd, rs1, rs2) {
+        ZeroCase::RdZero => {
+            ctx.discard_zero_output(translator);
+            return;
+        }
+
+        ZeroCase::Rs1Rs2Zero => {
+            // sltu rd, 0, 0
+            // both equal so rd = 0
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        ZeroCase::Rs1Zero | ZeroCase::Rs2Zero | ZeroCase::None => {
+            // case 1
+            // sltu rd, 0, rs2
+            //
+            // case 2
+            // sltu rd, rs1, 0
+            //
+            // because the unknown in both cases could be a
+            // zero or some value greater than a zero
+            // and there is no way to distinguish at compile time
+            // it is better to just fall through to the generic handler
+        }
+    }
+
+    if rs1.id() == rs2.id() {
+        // since they are equal
+        // rd = 0
+        dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+        ctx.write_back(translator);
+        return;
+    } else {
+        dynasm!(translator.emitter ; cmp Rq(rs1.id()), Rq(rs2.id()));
+        dynasm!(translator.emitter ; setb Rb(rd.id()));
+        dynasm!(translator.emitter ; movzx Rq(rd.id()), Rb(rd.id()));
+        ctx.write_back(translator);
+        return;
+    }
 }
 
 /// RV64 `slti`: set if less than immediate (signed).
