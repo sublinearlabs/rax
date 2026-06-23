@@ -1929,7 +1929,6 @@ pub(super) fn emit_slti(
 
 /// RV64 `sltiu`: set if less than immediate (unsigned).
 /// rd <- 1 if unsigned(rs1) < sext(imm) else 0
-#[allow(unused_variables)]
 pub(super) fn emit_sltiu(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -1937,6 +1936,61 @@ pub(super) fn emit_sltiu(
     rs1: RiscvRegister,
     imm: i32,
 ) {
+    let ctx = InstructionContextBuilder::<1, 0>::new()
+        .set_inputs([rs1])
+        .set_output(rd)
+        .build(translator, temps);
+
+    let [rs1] = ctx.inputs();
+    let rd = ctx.output();
+
+    match classify_unary_zero_case(rd, rs1, imm) {
+        UnaryZeroCase::RdZero => {
+            ctx.discard_zero_output(translator);
+            return;
+        }
+
+        UnaryZeroCase::Rs1ImmZero => {
+            // sltiu rd, 0, 0
+            // -> rd = 0
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryZeroCase::Rs1Zero => {
+            // sltiu rd, 0, imm
+            // since we are dealing with unsigned
+            // 0 is the lowest value
+            // hence rd = 0 only when imm also equals 0
+            if imm == 0 {
+                // rd = 0
+                dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+                ctx.write_back(translator);
+                return;
+            } else {
+                // rd = 1
+                dynasm!(translator.emitter ; mov Rq(rd.id()), 1);
+                ctx.write_back(translator);
+                return;
+            }
+        }
+
+        UnaryZeroCase::ImmZero | UnaryZeroCase::None => {
+            // sltiu rd, rs1, 0
+            //
+            // since rs1 could be a zero
+            // rd could be a 0 or 1
+            // with no way to distinguish at compile time
+            // hence we fall through to the generic handler
+        }
+    }
+
+    dynasm!(translator.emitter ; cmp Rq(rs1.id()), imm);
+    dynasm!(translator.emitter ; setb Rb(rd.id()));
+    dynasm!(translator.emitter ; movzx Rq(rd.id()), Rb(rd.id()));
+    ctx.write_back(translator);
+    return;
 }
 
 /// RV64 `blt`: branch if less than (signed).
