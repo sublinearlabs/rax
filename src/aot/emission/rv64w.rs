@@ -164,7 +164,6 @@ pub(super) fn emit_sraiw(
 
 /// RV64 `sllw`: logical left shift word by register low bits.
 /// rd <- sext32(rs1[31:0] << (rs2 & 0x1f))
-#[allow(unused_variables)]
 pub(super) fn emit_sllw(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -172,6 +171,63 @@ pub(super) fn emit_sllw(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
+    let ctx = InstructionContextBuilder::new()
+        .set_inputs([rs1, rs2])
+        .set_output(rd)
+        .ensure_no_clobber([X86Gpr::Rcx])
+        .build(translator, temps);
+
+    let [rs1, rs2] = ctx.inputs();
+    let rd = ctx.output();
+
+    match classify_zero_case(rd, rs1, rs2) {
+        ZeroCase::RdZero => {
+            ctx.discard_zero_output(translator);
+            return;
+        }
+
+        ZeroCase::Rs1Rs2Zero | ZeroCase::Rs1Zero => {
+            // case 1
+            // sllw rd, 0, 0 -> rd = 0
+            //
+            // case 2
+            // sllw rd, 0, rs2 -> rd = 0
+            dynasm!(translator.emitter ; xor Rd(rd.id()), Rd(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        ZeroCase::Rs2Zero => {
+            // sllw rd, rs1, 0
+            // -> rd = sext32(rs1[31:0])
+            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rs1.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        ZeroCase::None => {}
+    }
+
+    dynasm!(translator.emitter ; mov Rq(X86Gpr::Rcx.id()), Rq(rs2.id()));
+
+    match classify_unary_shadow_case(rd, rs1) {
+        UnaryShadowCase::RdEqRs1 => {
+            // sllw rd, rd, rs2
+            dynasm!(translator.emitter ; shl Rd(rd.id()), cl);
+            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryShadowCase::Distinct => {
+            // sllw rd, rs1, rs2
+            dynasm!(translator.emitter ; mov Rd(rd.id()), Rd(rs1.id()));
+            dynasm!(translator.emitter ; shl Rd(rd.id()), cl);
+            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+    }
 }
 
 /// RV64 `srlw`: logical right shift word by register low bits.
