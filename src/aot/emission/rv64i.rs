@@ -1,4 +1,3 @@
-use cranelift_codegen::gimli::DW_LANG_Dylan;
 use dynasmrt::{dynasm, DynasmApi, DynasmLabelApi};
 
 use crate::aot::{
