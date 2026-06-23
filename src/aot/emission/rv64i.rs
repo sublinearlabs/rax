@@ -139,7 +139,7 @@ pub(super) fn emit_sub(
 
         ZeroCase::Rs2Zero => {
             if rd.id() == rs1.id() {
-                ctx.write_back(translator);
+                ctx.commit_unchanged(translator);
                 return;
             }
 
