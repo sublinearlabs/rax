@@ -451,6 +451,7 @@ pub(super) fn emit_addw(
         }
 
         ZeroCase::Rs1Rs2Zero => {
+            // addw rd, 0, 0 -> rd = 0
             dynasm!(translator.emitter ; xor Rd(rd.id()), Rd(rd.id()));
             ctx.write_back(translator);
             return;
@@ -475,9 +476,12 @@ pub(super) fn emit_addw(
 
     match classify_shadow_case(&rd, &rs1, &rs2) {
         ShadowCase::AllEqual | ShadowCase::Rs1EqRs2 => {
+            // case 1 — AllEqual
+            // addw rd, rd, rd -> sext32(rd[31:0] << 1)
+            //
+            // case 2 — Rs1EqRs2
             // addw rd, rs1, rs1 -> sext32(rs1[31:0] << 1)
-            dynasm!(translator.emitter ; mov Rd(rd.id()), Rd(rs1.id()));
-            dynasm!(translator.emitter ; add Rd(rd.id()), Rd(rs1.id()));
+            dynasm!(translator.emitter ; lea Rd(rd.id()), [Rq(rs1.id()) + Rq(rs1.id())]);
             dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
             ctx.write_back(translator);
             return;
@@ -501,8 +505,7 @@ pub(super) fn emit_addw(
 
         ShadowCase::AllDistinct => {
             // addw rd, rs1, rs2
-            dynasm!(translator.emitter ; mov Rd(rd.id()), Rd(rs1.id()));
-            dynasm!(translator.emitter ; add Rd(rd.id()), Rd(rs2.id()));
+            dynasm!(translator.emitter ; lea Rd(rd.id()), [Rq(rs1.id()) + Rq(rs2.id())]);
             dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
             ctx.write_back(translator);
             return;
