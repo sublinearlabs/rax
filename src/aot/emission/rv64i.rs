@@ -1,3 +1,4 @@
+use cranelift_codegen::gimli::DW_LANG_Dylan;
 use dynasmrt::{dynasm, DynasmApi, DynasmLabelApi};
 
 use crate::aot::{
@@ -1678,7 +1679,6 @@ pub(super) fn emit_srli(
 
 /// RV64 `srai`: arithmetic right shift by immediate.
 /// rd <- rs1 >>> shamt
-#[allow(unused_variables)]
 pub(super) fn emit_srai(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -1686,11 +1686,66 @@ pub(super) fn emit_srai(
     rs1: RiscvRegister,
     shamt: u8,
 ) {
+    let ctx = InstructionContextBuilder::<1, 0>::new()
+        .set_inputs([rs1])
+        .set_output(rd)
+        .build(translator, temps);
+
+    let [rs1] = ctx.inputs();
+    let rd = ctx.output();
+
+    match classify_unary_zero_case(rd, rs1, shamt as i32) {
+        UnaryZeroCase::RdZero => {
+            ctx.discard_zero_output(translator);
+            return;
+        }
+
+        UnaryZeroCase::Rs1ImmZero | UnaryZeroCase::Rs1Zero => {
+            // case 1
+            // srai rd, 0, 0 -> rd = 0
+            //
+            // case 2
+            // srai rd, 0, shamt -> rd = 0
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryZeroCase::ImmZero => {
+            // srai rd, rs1, 0 -> rd = rs1
+            if rd.id() == rs1.id() {
+                ctx.commit_unchanged(translator);
+                return;
+            }
+
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryZeroCase::None => {}
+    }
+
+    match classify_unary_shadow_case(rd, rs1) {
+        UnaryShadowCase::RdEqRs1 => {
+            // srai rd, rd, shamt
+            dynasm!(translator.emitter ; sar Rq(rd.id()), shamt as i8);
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryShadowCase::Distinct => {
+            // srai rd, rs1, shamt
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            dynasm!(translator.emitter ; sar Rq(rd.id()), shamt as i8);
+            ctx.write_back(translator);
+            return;
+        }
+    }
 }
 
 /// RV64 `slt`: set if less than (signed).
 /// rd <- 1 if signed(rs1) < signed(rs2) else 0
-#[allow(unused_variables)]
 pub(super) fn emit_slt(
     translator: &mut Translator,
     temps: &TempAllocator,
