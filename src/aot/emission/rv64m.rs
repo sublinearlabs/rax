@@ -64,6 +64,50 @@ pub(super) fn emit_mul(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
+    let ctx = InstructionContextBuilder::new()
+        .set_inputs([rs1, rs2])
+        .set_output(rd)
+        .ensure_no_clobber([X86Gpr::Rax, X86Gpr::Rdx])
+        .build(translator, temps);
+
+    let [rs1, rs2] = ctx.inputs();
+    let rd = ctx.output();
+
+    // RDX:RAX = RAX * reg64
+
+    match classify_zero_case(rd, rs1, rs2) {
+        ZeroCase::RdZero => {
+            ctx.discard_zero_output(translator);
+            return;
+        }
+
+        ZeroCase::Rs1Rs2Zero | ZeroCase::Rs1Zero | ZeroCase::Rs2Zero => {
+            // since at least one of the multiplication arguments
+            // are zero, the result will be zero
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        ZeroCase::None => {}
+    }
+
+    // perform the multiplication put the
+    // result in RDX:RAX
+    if rs1.id() == X86Gpr::Rax.id() {
+        dynasm!(translator.emitter ; mul Rq(rs2.id()));
+    } else if rs2.id() == X86Gpr::Rax.id() {
+        dynasm!(translator.emitter ; mul Rq(rs1.id()));
+    } else {
+        dynasm!(translator.emitter ; mov Rq(X86Gpr::Rax.id()), Rq(rs1.id()));
+        dynasm!(translator.emitter ; mul Rq(rs2.id()));
+    }
+
+    if rd.id() != X86Gpr::Rax.id() {
+        dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(X86Gpr::Rax.id()));
+    }
+
+    ctx.write_back(translator);
 }
 
 /// RV64 `divu`: unsigned 64-bit division.
