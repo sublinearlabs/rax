@@ -300,7 +300,6 @@ pub(super) fn emit_srlw(
 
 /// RV64 `slliw`: logical left shift word by immediate.
 /// rd <- sext32(rs1[31:0] << shamt)
-#[allow(unused_variables)]
 pub(super) fn emit_slliw(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -308,6 +307,60 @@ pub(super) fn emit_slliw(
     rs1: RiscvRegister,
     shamt: u8,
 ) {
+    let ctx = InstructionContextBuilder::<1, 0>::new()
+        .set_inputs([rs1])
+        .set_output(rd)
+        .build(translator, temps);
+
+    let [rs1] = ctx.inputs();
+    let rd = ctx.output();
+
+    match classify_unary_zero_case(rd, rs1, shamt as i32) {
+        UnaryZeroCase::RdZero => {
+            ctx.discard_zero_output(translator);
+            return;
+        }
+
+        UnaryZeroCase::Rs1ImmZero | UnaryZeroCase::Rs1Zero => {
+            // case 1
+            // slliw rd, 0, 0 -> rd = 0
+            //
+            // case 2
+            // slliw rd, 0, shamt -> rd = 0
+            dynasm!(translator.emitter ; xor Rd(rd.id()), Rd(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryZeroCase::ImmZero => {
+            // slliw rd, rs1, 0
+            // -> rd = sext32(rs1[31:0])
+            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rs1.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryZeroCase::None => {}
+    }
+
+    match classify_unary_shadow_case(rd, rs1) {
+        UnaryShadowCase::RdEqRs1 => {
+            // slliw rd, rd, shamt
+            dynasm!(translator.emitter ; shl Rd(rd.id()), shamt as i8);
+            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryShadowCase::Distinct => {
+            // slliw rd, rs1, shamt
+            dynasm!(translator.emitter ; mov Rd(rd.id()), Rd(rs1.id()));
+            dynasm!(translator.emitter ; shl Rd(rd.id()), shamt as i8);
+            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+    }
 }
 
 /// RV64 `srliw`: logical right shift word by immediate.
