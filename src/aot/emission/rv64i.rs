@@ -1753,6 +1753,52 @@ pub(super) fn emit_slt(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
+    let ctx = InstructionContextBuilder::<2, 0>::new()
+        .set_inputs([rs1, rs2])
+        .set_output(rd)
+        .build(translator, temps);
+
+    let [rs1, rs2] = ctx.inputs();
+    let rd = ctx.output();
+
+    match classify_zero_case(rd, rs1, rs2) {
+        ZeroCase::RdZero => {
+            ctx.discard_zero_output(translator);
+            return;
+        }
+
+        ZeroCase::Rs1Rs2Zero => {
+            // slt rd, 0, 0
+            // since equal rd = 0
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        ZeroCase::Rs1Zero | ZeroCase::Rs2Zero | ZeroCase::None => {
+            // case 1
+            // slt rd, 0, rs2
+            //
+            // case 2
+            // slt rd, rs1, 0
+            //
+            // we just fall through to the generic handler
+        }
+    }
+
+    if rs1.id() == rs2.id() {
+        // since they are equal they can't be less than
+        // hence we set rd = 0
+        dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+        ctx.write_back(translator);
+        return;
+    } else {
+        dynasm!(translator.emitter ; cmp Rq(rs1.id()), Rq(rs2.id()));
+        dynasm!(translator.emitter ; setl Rb(rd.id()));
+        dynasm!(translator.emitter ; movzx Rq(rd.id()), Rb(rd.id()));
+        ctx.write_back(translator);
+        return;
+    }
 }
 
 /// RV64 `sltu`: set if less than (unsigned).
