@@ -138,6 +138,78 @@ pub(super) fn emit_divu(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
+    let ctx = InstructionContextBuilder::new()
+        .set_inputs([rs1, rs2])
+        .set_output(rd)
+        .ensure_no_clobber([X86Gpr::Rax, X86Gpr::Rdx])
+        .build(translator, temps);
+
+    let [rs1, rs2] = ctx.inputs();
+    let rd = ctx.output();
+
+    match classify_zero_case(rd, rs1, rs2) {
+        ZeroCase::RdZero => {
+            ctx.discard_zero_output(translator);
+            return;
+        }
+
+        ZeroCase::Rs1Rs2Zero | ZeroCase::Rs2Zero => {
+            // case 1
+            // divu rd, 0, 0
+            //
+            // case 2
+            // divu rd, rs1, 0
+            //
+            // since both cases divide by 0
+            // -> rd = -1
+            dynasm!(translator.emitter ; mov Rq(rd.id()), -1);
+            ctx.write_back(translator);
+            return;
+        }
+
+        ZeroCase::Rs1Zero => {
+            // divu rd, 0, rs2
+            // it is possible that rs2 might be 0
+            // so rd can be -1 or 0
+            // we can't distinguish this at compile time
+            // so we fall back to the generic handler
+        }
+
+        ZeroCase::None => {}
+    }
+
+    let safe_divide_label = translator.emitter.new_dynamic_label();
+    let done_label = translator.emitter.new_dynamic_label();
+
+    if rs1.id() != X86Gpr::Rax.id() {
+        dynasm!(translator.emitter ; mov Rq(X86Gpr::Rax.id()), Rq(rs1.id()));
+    }
+
+    dynasm!(translator.emitter ; test Rq(rs2.id()), Rq(rs2.id()));
+    // if rs2 != 0 then it is safe to divide
+    dynasm!(translator.emitter ; jnz => safe_divide_label);
+    // rs2 = 0, so we set rd = -1
+    dynasm!(translator.emitter ; mov Rq(rd.id()), -1);
+    dynasm!(translator.emitter ; jmp => done_label);
+
+    // SAFE DIVIDE
+    // -----------
+    dynasm!(translator.emitter ; => safe_divide_label);
+    // zero extend Rax into Rdx
+    dynasm!(translator.emitter ; xor Rq(X86Gpr::Rdx.id()), Rq(X86Gpr::Rdx.id()));
+    // perform Rdx:Rax / rs2
+    dynasm!(translator.emitter ; div Rq(rs2.id()));
+    // move rax into rd
+    if rd.id() != X86Gpr::Rax.id() {
+        dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(X86Gpr::Rax.id()));
+    }
+
+    // DONE
+    // ----
+    dynasm!(translator.emitter ; => done_label);
+
+    ctx.write_back(translator);
+    return;
 }
 
 /// RV64 `remu`: unsigned 64-bit remainder.
