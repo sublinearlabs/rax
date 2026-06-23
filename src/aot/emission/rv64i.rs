@@ -1863,7 +1863,6 @@ pub(super) fn emit_sltu(
 
 /// RV64 `slti`: set if less than immediate (signed).
 /// rd <- 1 if signed(rs1) < sext(imm) else 0
-#[allow(unused_variables)]
 pub(super) fn emit_slti(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -1871,6 +1870,61 @@ pub(super) fn emit_slti(
     rs1: RiscvRegister,
     imm: i32,
 ) {
+    let ctx = InstructionContextBuilder::<1, 0>::new()
+        .set_inputs([rs1])
+        .set_output(rd)
+        .build(translator, temps);
+
+    let [rs1] = ctx.inputs();
+    let rd = ctx.output();
+
+    match classify_unary_zero_case(rd, rs1, imm) {
+        UnaryZeroCase::RdZero => {
+            ctx.discard_zero_output(translator);
+            return;
+        }
+
+        UnaryZeroCase::Rs1ImmZero => {
+            // slti rd, 0, 0
+            // -> rd = 0
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryZeroCase::Rs1Zero => {
+            // slti rd, 0, imm
+            if imm > 0 {
+                // rd = 1
+                dynasm!(translator.emitter ; mov Rq(rd.id()), 1);
+                ctx.write_back(translator);
+                return;
+            } else {
+                // rd = 0
+                dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+                ctx.write_back(translator);
+                return;
+            }
+        }
+
+        UnaryZeroCase::ImmZero | UnaryZeroCase::None => {
+            // slti rd, rs1, 0
+            //
+            // rs1 can take on different value classes
+            // that we cannot distinguish at compile time
+            // hence we fallthrough to the generic handler
+        }
+    }
+
+    // not possible to compare between rs1 and immediate
+    // at compile time, so we use the generic handler
+    // directly.
+
+    dynasm!(translator.emitter ; cmp Rq(rs1.id()), imm);
+    dynasm!(translator.emitter ; setl Rb(rd.id()));
+    dynasm!(translator.emitter ; movzx Rq(rd.id()), Rb(rd.id()));
+    ctx.write_back(translator);
+    return;
 }
 
 /// RV64 `sltiu`: set if less than immediate (unsigned).
