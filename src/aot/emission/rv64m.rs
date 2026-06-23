@@ -1,7 +1,7 @@
 use dynasmrt::{dynasm, DynasmApi, DynasmLabelApi};
 
 use crate::aot::{
-    classification::{classify_zero_case, ZeroCase},
+    classification::{classify_shadow_case, classify_zero_case, ShadowCase, ZeroCase},
     instruction_context::InstructionContextBuilder,
     registers::{RiscvRegister, X86Gpr},
     temp_alloc::TempAllocator,
@@ -64,16 +64,13 @@ pub(super) fn emit_mul(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
-    let ctx = InstructionContextBuilder::new()
+    let ctx = InstructionContextBuilder::<2, 0>::new()
         .set_inputs([rs1, rs2])
         .set_output(rd)
-        .ensure_no_clobber([X86Gpr::Rax, X86Gpr::Rdx])
         .build(translator, temps);
 
     let [rs1, rs2] = ctx.inputs();
     let rd = ctx.output();
-
-    // RDX:RAX = RAX * reg64
 
     match classify_zero_case(rd, rs1, rs2) {
         ZeroCase::RdZero => {
@@ -92,22 +89,44 @@ pub(super) fn emit_mul(
         ZeroCase::None => {}
     }
 
-    // perform the multiplication put the
-    // result in RDX:RAX
-    if rs1.id() == X86Gpr::Rax.id() {
-        dynasm!(translator.emitter ; mul Rq(rs2.id()));
-    } else if rs2.id() == X86Gpr::Rax.id() {
-        dynasm!(translator.emitter ; mul Rq(rs1.id()));
-    } else {
-        dynasm!(translator.emitter ; mov Rq(X86Gpr::Rax.id()), Rq(rs1.id()));
-        dynasm!(translator.emitter ; mul Rq(rs2.id()));
-    }
+    match classify_shadow_case(rd, rs1, rs2) {
+        ShadowCase::AllEqual => {
+            // mul rd, rd, rd
+            dynasm!(translator.emitter ; imul Rq(rd.id()), Rq(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
 
-    if rd.id() != X86Gpr::Rax.id() {
-        dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(X86Gpr::Rax.id()));
-    }
+        ShadowCase::RdEqRs1 => {
+            // mul rd, rd, rs2
+            dynasm!(translator.emitter ; imul Rq(rd.id()), Rq(rs2.id()));
+            ctx.write_back(translator);
+            return;
+        }
 
-    ctx.write_back(translator);
+        ShadowCase::RdEqRs2 => {
+            // mul rd, rs1, rd
+            dynasm!(translator.emitter ; imul Rq(rd.id()), Rq(rs1.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        ShadowCase::Rs1EqRs2 => {
+            // mul rd, rs1, rs1
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            dynasm!(translator.emitter ; imul Rq(rd.id()), Rq(rs1.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        ShadowCase::AllDistinct => {
+            // mul rd, rs1, rs2
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            dynasm!(translator.emitter ; imul Rq(rd.id()), Rq(rs2.id()));
+            ctx.write_back(translator);
+            return;
+        }
+    }
 }
 
 /// RV64 `divu`: unsigned 64-bit division.
