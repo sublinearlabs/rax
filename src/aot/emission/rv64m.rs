@@ -57,7 +57,6 @@ pub(super) fn emit_mulhu(
 
 /// RV64 `mul`: low 64 bits of signed 64x64 multiply.
 /// rd <- low64(signed(rs1) * signed(rs2))
-#[allow(unused_variables)]
 pub(super) fn emit_mul(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -69,7 +68,6 @@ pub(super) fn emit_mul(
 
 /// RV64 `divu`: unsigned 64-bit division.
 /// rd <- unsigned(rs1) / unsigned(rs2)
-#[allow(unused_variables)]
 pub(super) fn emit_divu(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -81,7 +79,6 @@ pub(super) fn emit_divu(
 
 /// RV64 `remu`: unsigned 64-bit remainder.
 /// rd <- unsigned(rs1) % unsigned(rs2)
-#[allow(unused_variables)]
 pub(super) fn emit_remu(
     translator: &mut Translator,
     temps: &TempAllocator,
