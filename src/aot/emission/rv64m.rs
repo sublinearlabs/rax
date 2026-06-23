@@ -188,7 +188,7 @@ pub(super) fn emit_divu(
     dynasm!(translator.emitter ; test Rq(rs2.id()), Rq(rs2.id()));
     // if rs2 != 0 then it is safe to divide
     dynasm!(translator.emitter ; jnz => safe_divide_label);
-    // rs2 = 0, so we set rd = -1
+    // rs2 == 0, so we set rd = -1
     dynasm!(translator.emitter ; mov Rq(rd.id()), -1);
     dynasm!(translator.emitter ; jmp => done_label);
 
@@ -199,7 +199,7 @@ pub(super) fn emit_divu(
     dynasm!(translator.emitter ; xor Rq(X86Gpr::Rdx.id()), Rq(X86Gpr::Rdx.id()));
     // perform Rdx:Rax / rs2
     dynasm!(translator.emitter ; div Rq(rs2.id()));
-    // move rax into rd
+    // move rax (quotient) into rd
     if rd.id() != X86Gpr::Rax.id() {
         dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(X86Gpr::Rax.id()));
     }
@@ -209,7 +209,6 @@ pub(super) fn emit_divu(
     dynasm!(translator.emitter ; => done_label);
 
     ctx.write_back(translator);
-    return;
 }
 
 /// RV64 `remu`: unsigned 64-bit remainder.
@@ -221,4 +220,86 @@ pub(super) fn emit_remu(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
+    let ctx = InstructionContextBuilder::new()
+        .set_inputs([rs1, rs2])
+        .set_output(rd)
+        .ensure_no_clobber([X86Gpr::Rax, X86Gpr::Rdx])
+        .build(translator, temps);
+
+    let [rs1, rs2] = ctx.inputs();
+    let rd = ctx.output();
+
+    match classify_zero_case(rd, rs1, rs2) {
+        ZeroCase::RdZero => {
+            ctx.discard_zero_output(translator);
+            return;
+        }
+
+        ZeroCase::Rs1Rs2Zero | ZeroCase::Rs1Zero => {
+            // case 1
+            // remu rd, 0, 0
+            // when dividing by 0 return rs1
+            // -> rd = 0
+            //
+            // case 2
+            // remu rd, 0, rs2
+            // if rs2 is zero, rd = 0
+            // if rs2 is not zero, rd is still 0
+            // (as 0 divided by anything is 0)
+            // -> rd = 0
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        ZeroCase::Rs2Zero => {
+            // remu rd, rs1, 0
+            // dividing by 0, return rs1
+            // -> rd = rs1
+            if rd.id() == rs1.id() {
+                ctx.commit_unchanged(translator);
+                return;
+            }
+
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        ZeroCase::None => {}
+    }
+
+    let safe_divide_label = translator.emitter.new_dynamic_label();
+    let done_label = translator.emitter.new_dynamic_label();
+
+    if rs1.id() != X86Gpr::Rax.id() {
+        dynasm!(translator.emitter ; mov Rq(X86Gpr::Rax.id()), Rq(rs1.id()));
+    }
+
+    dynasm!(translator.emitter ; test Rq(rs2.id()), Rq(rs2.id()));
+    // if rs2 != 0 then it is safe to divide
+    dynasm!(translator.emitter ; jnz => safe_divide_label);
+    // rs2 == 0, so rd = rs1
+    if rd.id() != rs1.id() {
+        dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+    }
+    dynasm!(translator.emitter ; jmp => done_label);
+
+    // SAFE DIVIDE
+    // -----------
+    dynasm!(translator.emitter ; => safe_divide_label);
+    // zero extend Rax into Rdx
+    dynasm!(translator.emitter ; xor Rq(X86Gpr::Rdx.id()), Rq(X86Gpr::Rdx.id()));
+    // perform Rdx:Rax / rs2
+    dynasm!(translator.emitter ; div Rq(rs2.id()));
+    // move rdx (remainder) into rd
+    if rd.id() != X86Gpr::Rdx.id() {
+        dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(X86Gpr::Rdx.id()));
+    }
+
+    // DONE
+    // ----
+    dynasm!(translator.emitter ; => done_label);
+
+    ctx.write_back(translator);
 }
