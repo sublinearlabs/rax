@@ -1963,27 +1963,31 @@ pub(super) fn emit_sltiu(
             // since we are dealing with unsigned
             // 0 is the lowest value
             // hence rd = 0 only when imm also equals 0
-            if imm == 0 {
-                // rd = 0
-                dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
-                ctx.write_back(translator);
-                return;
-            } else {
-                // rd = 1
-                dynasm!(translator.emitter ; mov Rq(rd.id()), 1);
-                ctx.write_back(translator);
-                return;
-            }
+            //
+            // given that we already handled the Rs1ImmZero case
+            // then we can be sure that imm != 0
+            //
+            // hence:
+            //
+            // rd = 1
+            dynasm!(translator.emitter ; mov Rq(rd.id()), 1);
+            ctx.write_back(translator);
+            return;
         }
 
-        UnaryZeroCase::ImmZero | UnaryZeroCase::None => {
+        UnaryZeroCase::ImmZero => {
             // sltiu rd, rs1, 0
             //
-            // since rs1 could be a zero
-            // rd could be a 0 or 1
-            // with no way to distinguish at compile time
-            // hence we fall through to the generic handler
+            // rs1 cannot be a zero because
+            // Rs1ImmZero didn't execute
+            // so rs1 > imm
+            // which means rd = 0
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            ctx.write_back(translator);
+            return;
         }
+
+        UnaryZeroCase::None => {}
     }
 
     dynasm!(translator.emitter ; cmp Rq(rs1.id()), imm);
