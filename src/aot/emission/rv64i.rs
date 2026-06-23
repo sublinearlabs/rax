@@ -1,3 +1,4 @@
+use cranelift_codegen::gimli::DW_LANG_Dylan;
 use dynasmrt::{dynasm, DynasmApi, DynasmLabelApi};
 
 use crate::aot::{
@@ -1227,7 +1228,6 @@ pub(super) fn emit_sw(
 
 /// RV64 `and`: bitwise AND across all 64 bits.
 /// rd <- rs1 & rs2
-#[allow(unused_variables)]
 pub(super) fn emit_and(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -1235,11 +1235,79 @@ pub(super) fn emit_and(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
+    let ctx = InstructionContextBuilder::<2, 0>::new()
+        .set_inputs([rs1, rs2])
+        .set_output(rd)
+        .build(translator, temps);
+
+    let [rs1, rs2] = ctx.inputs();
+    let rd = ctx.output();
+
+    match classify_zero_case(rd, rs1, rs2) {
+        ZeroCase::RdZero => {
+            ctx.discard_zero_output(translator);
+            return;
+        }
+
+        ZeroCase::Rs1Rs2Zero | ZeroCase::Rs1Zero | ZeroCase::Rs2Zero => {
+            // case 1
+            // and rd, 0, 0 -> rd = 0
+            //
+            // case 2
+            // and rd, 0, rs2 -> rd = 0
+            //
+            // case 3
+            // and rd, rs1, 0 -> rd = 0
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        ZeroCase::None => {}
+    }
+
+    match classify_shadow_case(rd, rs1, rs2) {
+        ShadowCase::AllEqual => {
+            // and rd, rd, rd
+            // nothing changes
+            ctx.write_back(translator);
+            return;
+        }
+
+        ShadowCase::RdEqRs1 => {
+            // and rd, rd, rs2
+            dynasm!(translator.emitter ; and Rq(rd.id()), Rq(rs2.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        ShadowCase::RdEqRs2 => {
+            // and rd, rs1, rd
+            dynasm!(translator.emitter ; and Rq(rd.id()), Rq(rs1.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        ShadowCase::Rs1EqRs2 => {
+            // and rd, rs1, rs1
+            // rd = rs1
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        ShadowCase::AllDistinct => {
+            // and rd, rs1, rs2
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            dynasm!(translator.emitter ; and Rq(rd.id()), Rq(rs2.id()));
+            ctx.write_back(translator);
+            return;
+        }
+    }
 }
 
 /// RV64 `xor`: bitwise XOR across all 64 bits.
 /// rd <- rs1 ^ rs2
-#[allow(unused_variables)]
 pub(super) fn emit_xor(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -1247,11 +1315,92 @@ pub(super) fn emit_xor(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
+    let ctx = InstructionContextBuilder::<2, 0>::new()
+        .set_inputs([rs1, rs2])
+        .set_output(rd)
+        .build(translator, temps);
+
+    let [rs1, rs2] = ctx.inputs();
+    let rd = ctx.output();
+
+    match classify_zero_case(rd, rs1, rs2) {
+        ZeroCase::RdZero => {
+            ctx.discard_zero_output(translator);
+            return;
+        }
+
+        ZeroCase::Rs1Rs2Zero => {
+            // xor rd, 0, 0 -> rd = 0
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        ZeroCase::Rs1Zero => {
+            // xor rd, 0, rs2 -> rd = rs2
+            if rd.id() == rs2.id() {
+                ctx.commit_unchanged(translator);
+                return;
+            }
+
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs2.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        ZeroCase::Rs2Zero => {
+            // xor rd, rs1, 0 -> rd = rs1
+            if rd.id() == rs1.id() {
+                ctx.commit_unchanged(translator);
+                return;
+            }
+
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        ZeroCase::None => {}
+    }
+
+    match classify_shadow_case(rd, rs1, rs2) {
+        ShadowCase::AllEqual | ShadowCase::Rs1EqRs2 => {
+            // case 1
+            // xor rd, rd, rd -> rd = 0
+            //
+            // case 2
+            // xor rd, rs1, rs1 -> rd = 0
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        ShadowCase::RdEqRs1 => {
+            // xor rd, rd, rs2
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rs2.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        ShadowCase::RdEqRs2 => {
+            // xor rd, rs1, rd
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rs1.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        ShadowCase::AllDistinct => {
+            // xor rd, rs1, rs2
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rs2.id()));
+            ctx.write_back(translator);
+            return;
+        }
+    }
 }
 
 /// RV64 `ori`: bitwise OR with sign-extended immediate.
 /// rd <- rs1 | sext(imm)
-#[allow(unused_variables)]
 pub(super) fn emit_ori(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -1259,11 +1408,69 @@ pub(super) fn emit_ori(
     rs1: RiscvRegister,
     imm: i32,
 ) {
+    let ctx = InstructionContextBuilder::<1, 0>::new()
+        .set_inputs([rs1])
+        .set_output(rd)
+        .build(translator, temps);
+
+    let [rs1] = ctx.inputs();
+    let rd = ctx.output();
+
+    match classify_unary_zero_case(rd, rs1, imm) {
+        UnaryZeroCase::RdZero => {
+            ctx.discard_zero_output(translator);
+            return;
+        }
+
+        UnaryZeroCase::Rs1ImmZero => {
+            // ori, rd, 0, 0
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryZeroCase::Rs1Zero => {
+            // ori rd, 0, imm
+            dynasm!(translator.emitter ; mov Rq(rd.id()), imm);
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryZeroCase::ImmZero => {
+            // ori rd, rs1, 0
+            if rd.id() == rs1.id() {
+                ctx.commit_unchanged(translator);
+                return;
+            }
+
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryZeroCase::None => {}
+    }
+
+    match classify_unary_shadow_case(rd, rs1) {
+        UnaryShadowCase::RdEqRs1 => {
+            // ori rd, rd, imm
+            dynasm!(translator.emitter ; or Rq(rd.id()), imm);
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryShadowCase::Distinct => {
+            // ori rd, rs1, imm
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            dynasm!(translator.emitter ; or Rq(rd.id()), imm);
+            ctx.write_back(translator);
+            return;
+        }
+    }
 }
 
 /// RV64 `xori`: bitwise XOR with sign-extended immediate.
 /// rd <- rs1 ^ sext(imm)
-#[allow(unused_variables)]
 pub(super) fn emit_xori(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -1271,11 +1478,69 @@ pub(super) fn emit_xori(
     rs1: RiscvRegister,
     imm: i32,
 ) {
+    let ctx = InstructionContextBuilder::<1, 0>::new()
+        .set_inputs([rs1])
+        .set_output(rd)
+        .build(translator, temps);
+
+    let [rs1] = ctx.inputs();
+    let rd = ctx.output();
+
+    match classify_unary_zero_case(rd, rs1, imm) {
+        UnaryZeroCase::RdZero => {
+            ctx.discard_zero_output(translator);
+            return;
+        }
+
+        UnaryZeroCase::Rs1ImmZero => {
+            // xori rd, 0, 0 -> rd = 0
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryZeroCase::Rs1Zero => {
+            // xori rd, 0, imm -> rd = imm
+            dynasm!(translator.emitter ; mov Rq(rd.id()), imm);
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryZeroCase::ImmZero => {
+            // xori rd, rs1, 0 -> rd = rs1
+            if rd.id() == rs1.id() {
+                ctx.commit_unchanged(translator);
+                return;
+            }
+
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryZeroCase::None => {}
+    }
+
+    match classify_unary_shadow_case(rd, rs1) {
+        UnaryShadowCase::RdEqRs1 => {
+            // xori rd, rd, imm
+            dynasm!(translator.emitter ; xor Rq(rd.id()), imm);
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryShadowCase::Distinct => {
+            // xori rd, rs1, imm
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            dynasm!(translator.emitter ; xor Rq(rd.id()), imm);
+            ctx.write_back(translator);
+            return;
+        }
+    }
 }
 
 /// RV64 `srl`: logical right shift by register low bits.
 /// rd <- rs1 >> (rs2 & 0x3f)
-#[allow(unused_variables)]
 pub(super) fn emit_srl(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -1283,11 +1548,70 @@ pub(super) fn emit_srl(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
+    let ctx = InstructionContextBuilder::new()
+        .set_inputs([rs1, rs2])
+        .set_output(rd)
+        .ensure_no_clobber([X86Gpr::Rcx])
+        .build(translator, temps);
+
+    let [rs1, rs2] = ctx.inputs();
+    let rd = ctx.output();
+
+    match classify_zero_case(rd, rs1, rs2) {
+        ZeroCase::RdZero => {
+            ctx.discard_zero_output(translator);
+            return;
+        }
+
+        ZeroCase::Rs1Rs2Zero | ZeroCase::Rs1Zero => {
+            // case 1
+            // srl rd, 0, 0 -> rd == 0
+            //
+            // case 2
+            // srl rd, 0, shamt -> rd = 0
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        ZeroCase::Rs2Zero => {
+            // srl rd, rs1, 0
+            // -> rd = rs1
+            if rd.id() == rs1.id() {
+                ctx.commit_unchanged(translator);
+                return;
+            }
+
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        ZeroCase::None => {}
+    }
+
+    dynasm!(translator.emitter ; mov Rq(X86Gpr::Rcx.id()), Rq(rs2.id()));
+
+    match classify_unary_shadow_case(rd, rs1) {
+        UnaryShadowCase::RdEqRs1 => {
+            // srl rd, rd, shamt
+            dynasm!(translator.emitter ; shr Rq(rd.id()), cl);
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryShadowCase::Distinct => {
+            // srl rd, rs1, shamt
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            dynasm!(translator.emitter ; shr Rq(rd.id()), cl);
+            ctx.write_back(translator);
+            return;
+        }
+    }
 }
 
 /// RV64 `srli`: logical right shift by immediate.
 /// rd <- rs1 >> shamt
-#[allow(unused_variables)]
 pub(super) fn emit_srli(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -1295,11 +1619,66 @@ pub(super) fn emit_srli(
     rs1: RiscvRegister,
     shamt: u8,
 ) {
+    let ctx = InstructionContextBuilder::<1, 0>::new()
+        .set_inputs([rs1])
+        .set_output(rd)
+        .build(translator, temps);
+
+    let [rs1] = ctx.inputs();
+    let rd = ctx.output();
+
+    match classify_unary_zero_case(rd, rs1, shamt as i32) {
+        UnaryZeroCase::RdZero => {
+            ctx.discard_zero_output(translator);
+            return;
+        }
+
+        UnaryZeroCase::Rs1ImmZero | UnaryZeroCase::Rs1Zero => {
+            // case 1
+            // srli rd, 0, 0 -> rd = 0
+            //
+            // case 2
+            // srli rd, 0, shamt -> rd = 0
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryZeroCase::ImmZero => {
+            // srli rd, rs1, 0 -> rd = rs1
+            if rd.id() == rs1.id() {
+                ctx.commit_unchanged(translator);
+                return;
+            }
+
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryZeroCase::None => {}
+    }
+
+    match classify_unary_shadow_case(rd, rs1) {
+        UnaryShadowCase::RdEqRs1 => {
+            // srli rd, rd, shamt
+            dynasm!(translator.emitter ; shr Rq(rd.id()), shamt as i8);
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryShadowCase::Distinct => {
+            // srli rd, rs1, shamt
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            dynasm!(translator.emitter ; shr Rq(rd.id()), shamt as i8);
+            ctx.write_back(translator);
+            return;
+        }
+    }
 }
 
 /// RV64 `srai`: arithmetic right shift by immediate.
 /// rd <- rs1 >>> shamt
-#[allow(unused_variables)]
 pub(super) fn emit_srai(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -1307,11 +1686,66 @@ pub(super) fn emit_srai(
     rs1: RiscvRegister,
     shamt: u8,
 ) {
+    let ctx = InstructionContextBuilder::<1, 0>::new()
+        .set_inputs([rs1])
+        .set_output(rd)
+        .build(translator, temps);
+
+    let [rs1] = ctx.inputs();
+    let rd = ctx.output();
+
+    match classify_unary_zero_case(rd, rs1, shamt as i32) {
+        UnaryZeroCase::RdZero => {
+            ctx.discard_zero_output(translator);
+            return;
+        }
+
+        UnaryZeroCase::Rs1ImmZero | UnaryZeroCase::Rs1Zero => {
+            // case 1
+            // srai rd, 0, 0 -> rd = 0
+            //
+            // case 2
+            // srai rd, 0, shamt -> rd = 0
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryZeroCase::ImmZero => {
+            // srai rd, rs1, 0 -> rd = rs1
+            if rd.id() == rs1.id() {
+                ctx.commit_unchanged(translator);
+                return;
+            }
+
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryZeroCase::None => {}
+    }
+
+    match classify_unary_shadow_case(rd, rs1) {
+        UnaryShadowCase::RdEqRs1 => {
+            // srai rd, rd, shamt
+            dynasm!(translator.emitter ; sar Rq(rd.id()), shamt as i8);
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryShadowCase::Distinct => {
+            // srai rd, rs1, shamt
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            dynasm!(translator.emitter ; sar Rq(rd.id()), shamt as i8);
+            ctx.write_back(translator);
+            return;
+        }
+    }
 }
 
 /// RV64 `slt`: set if less than (signed).
 /// rd <- 1 if signed(rs1) < signed(rs2) else 0
-#[allow(unused_variables)]
 pub(super) fn emit_slt(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -1319,11 +1753,56 @@ pub(super) fn emit_slt(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
+    let ctx = InstructionContextBuilder::<2, 0>::new()
+        .set_inputs([rs1, rs2])
+        .set_output(rd)
+        .build(translator, temps);
+
+    let [rs1, rs2] = ctx.inputs();
+    let rd = ctx.output();
+
+    match classify_zero_case(rd, rs1, rs2) {
+        ZeroCase::RdZero => {
+            ctx.discard_zero_output(translator);
+            return;
+        }
+
+        ZeroCase::Rs1Rs2Zero => {
+            // slt rd, 0, 0
+            // since equal rd = 0
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        ZeroCase::Rs1Zero | ZeroCase::Rs2Zero | ZeroCase::None => {
+            // case 1
+            // slt rd, 0, rs2
+            //
+            // case 2
+            // slt rd, rs1, 0
+            //
+            // we just fall through to the generic handler
+        }
+    }
+
+    if rs1.id() == rs2.id() {
+        // since they are equal they can't be less than
+        // hence we set rd = 0
+        dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+        ctx.write_back(translator);
+        return;
+    } else {
+        dynasm!(translator.emitter ; cmp Rq(rs1.id()), Rq(rs2.id()));
+        dynasm!(translator.emitter ; setl Rb(rd.id()));
+        dynasm!(translator.emitter ; movzx Rq(rd.id()), Rb(rd.id()));
+        ctx.write_back(translator);
+        return;
+    }
 }
 
 /// RV64 `sltu`: set if less than (unsigned).
 /// rd <- 1 if unsigned(rs1) < unsigned(rs2) else 0
-#[allow(unused_variables)]
 pub(super) fn emit_sltu(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -1331,11 +1810,59 @@ pub(super) fn emit_sltu(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
+    let ctx = InstructionContextBuilder::<2, 0>::new()
+        .set_inputs([rs1, rs2])
+        .set_output(rd)
+        .build(translator, temps);
+
+    let [rs1, rs2] = ctx.inputs();
+    let rd = ctx.output();
+
+    match classify_zero_case(rd, rs1, rs2) {
+        ZeroCase::RdZero => {
+            ctx.discard_zero_output(translator);
+            return;
+        }
+
+        ZeroCase::Rs1Rs2Zero => {
+            // sltu rd, 0, 0
+            // both equal so rd = 0
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        ZeroCase::Rs1Zero | ZeroCase::Rs2Zero | ZeroCase::None => {
+            // case 1
+            // sltu rd, 0, rs2
+            //
+            // case 2
+            // sltu rd, rs1, 0
+            //
+            // because the unknown in both cases could be a
+            // zero or some value greater than a zero
+            // and there is no way to distinguish at compile time
+            // it is better to just fall through to the generic handler
+        }
+    }
+
+    if rs1.id() == rs2.id() {
+        // since they are equal
+        // rd = 0
+        dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+        ctx.write_back(translator);
+        return;
+    } else {
+        dynasm!(translator.emitter ; cmp Rq(rs1.id()), Rq(rs2.id()));
+        dynasm!(translator.emitter ; setb Rb(rd.id()));
+        dynasm!(translator.emitter ; movzx Rq(rd.id()), Rb(rd.id()));
+        ctx.write_back(translator);
+        return;
+    }
 }
 
 /// RV64 `slti`: set if less than immediate (signed).
 /// rd <- 1 if signed(rs1) < sext(imm) else 0
-#[allow(unused_variables)]
 pub(super) fn emit_slti(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -1343,11 +1870,65 @@ pub(super) fn emit_slti(
     rs1: RiscvRegister,
     imm: i32,
 ) {
+    let ctx = InstructionContextBuilder::<1, 0>::new()
+        .set_inputs([rs1])
+        .set_output(rd)
+        .build(translator, temps);
+
+    let [rs1] = ctx.inputs();
+    let rd = ctx.output();
+
+    match classify_unary_zero_case(rd, rs1, imm) {
+        UnaryZeroCase::RdZero => {
+            ctx.discard_zero_output(translator);
+            return;
+        }
+
+        UnaryZeroCase::Rs1ImmZero => {
+            // slti rd, 0, 0
+            // -> rd = 0
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryZeroCase::Rs1Zero => {
+            // slti rd, 0, imm
+            if imm > 0 {
+                // rd = 1
+                dynasm!(translator.emitter ; mov Rq(rd.id()), 1);
+                ctx.write_back(translator);
+                return;
+            } else {
+                // rd = 0
+                dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+                ctx.write_back(translator);
+                return;
+            }
+        }
+
+        UnaryZeroCase::ImmZero | UnaryZeroCase::None => {
+            // slti rd, rs1, 0
+            //
+            // rs1 can take on different value classes
+            // that we cannot distinguish at compile time
+            // hence we fallthrough to the generic handler
+        }
+    }
+
+    // not possible to compare between rs1 and immediate
+    // at compile time, so we use the generic handler
+    // directly.
+
+    dynasm!(translator.emitter ; cmp Rq(rs1.id()), imm);
+    dynasm!(translator.emitter ; setl Rb(rd.id()));
+    dynasm!(translator.emitter ; movzx Rq(rd.id()), Rb(rd.id()));
+    ctx.write_back(translator);
+    return;
 }
 
 /// RV64 `sltiu`: set if less than immediate (unsigned).
 /// rd <- 1 if unsigned(rs1) < sext(imm) else 0
-#[allow(unused_variables)]
 pub(super) fn emit_sltiu(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -1355,6 +1936,65 @@ pub(super) fn emit_sltiu(
     rs1: RiscvRegister,
     imm: i32,
 ) {
+    let ctx = InstructionContextBuilder::<1, 0>::new()
+        .set_inputs([rs1])
+        .set_output(rd)
+        .build(translator, temps);
+
+    let [rs1] = ctx.inputs();
+    let rd = ctx.output();
+
+    match classify_unary_zero_case(rd, rs1, imm) {
+        UnaryZeroCase::RdZero => {
+            ctx.discard_zero_output(translator);
+            return;
+        }
+
+        UnaryZeroCase::Rs1ImmZero => {
+            // sltiu rd, 0, 0
+            // -> rd = 0
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryZeroCase::Rs1Zero => {
+            // sltiu rd, 0, imm
+            // since we are dealing with unsigned
+            // 0 is the lowest value
+            // hence rd = 0 only when imm also equals 0
+            //
+            // given that we already handled the Rs1ImmZero case
+            // then we can be sure that imm != 0
+            //
+            // hence:
+            //
+            // rd = 1
+            dynasm!(translator.emitter ; mov Rq(rd.id()), 1);
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryZeroCase::ImmZero => {
+            // sltiu rd, rs1, 0
+            //
+            // rs1 cannot be a zero because
+            // Rs1ImmZero didn't execute
+            // so rs1 > imm
+            // which means rd = 0
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryZeroCase::None => {}
+    }
+
+    dynasm!(translator.emitter ; cmp Rq(rs1.id()), imm);
+    dynasm!(translator.emitter ; setb Rb(rd.id()));
+    dynasm!(translator.emitter ; movzx Rq(rd.id()), Rb(rd.id()));
+    ctx.write_back(translator);
+    return;
 }
 
 /// RV64 `blt`: branch if less than (signed).
