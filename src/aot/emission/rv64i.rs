@@ -1774,14 +1774,26 @@ pub(super) fn emit_slt(
             return;
         }
 
-        ZeroCase::Rs1Zero | ZeroCase::Rs2Zero | ZeroCase::None => {
-            // case 1
-            // slt rd, 0, rs2
-            //
-            // case 2
-            // slt rd, rs1, 0
-            //
-            // we just fall through to the generic handler
+        ZeroCase::Rs1Zero => {
+            // 0 < rs2 iff rs2 > 0.
+            dynasm!(translator.emitter ; test Rq(rs2.id()), Rq(rs2.id()));
+            dynasm!(translator.emitter ; setg Rb(rd.id()));
+            dynasm!(translator.emitter ; movzx Rq(rd.id()), Rb(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        ZeroCase::Rs2Zero => {
+            // rs1 < 0.
+            dynasm!(translator.emitter ; test Rq(rs1.id()), Rq(rs1.id()));
+            dynasm!(translator.emitter ; setl Rb(rd.id()));
+            dynasm!(translator.emitter ; movzx Rq(rd.id()), Rb(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        ZeroCase::None => {
+            // Fall through to the generic handler.
         }
     }
 
@@ -1831,17 +1843,24 @@ pub(super) fn emit_sltu(
             return;
         }
 
-        ZeroCase::Rs1Zero | ZeroCase::Rs2Zero | ZeroCase::None => {
-            // case 1
-            // sltu rd, 0, rs2
-            //
-            // case 2
-            // sltu rd, rs1, 0
-            //
-            // because the unknown in both cases could be a
-            // zero or some value greater than a zero
-            // and there is no way to distinguish at compile time
-            // it is better to just fall through to the generic handler
+        ZeroCase::Rs1Zero => {
+            // unsigned 0 < rs2 iff rs2 != 0.
+            dynasm!(translator.emitter ; test Rq(rs2.id()), Rq(rs2.id()));
+            dynasm!(translator.emitter ; setne Rb(rd.id()));
+            dynasm!(translator.emitter ; movzx Rq(rd.id()), Rb(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        ZeroCase::Rs2Zero => {
+            // unsigned rs1 < 0 is always false.
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        ZeroCase::None => {
+            // Fall through to the generic handler.
         }
     }
 
