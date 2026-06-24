@@ -1,5 +1,8 @@
+use dynasmrt::{dynasm, DynasmApi};
+
 use crate::aot::{
     emission::rv64i::{emit_ld, emit_lw},
+    instruction_context::InstructionContextBuilder,
     registers::RiscvRegister,
     temp_alloc::TempAllocator,
     translator::Translator,
@@ -25,7 +28,7 @@ pub(super) fn emit_lrd(
     temps: &TempAllocator,
     rd: RiscvRegister,
     rs1: RiscvRegister,
-    rs2: RiscvRegister,
+    _rs2: RiscvRegister,
 ) {
     // NOTE: this delegation is only safe for single core
     emit_ld(translator, temps, rd, rs1, 0);
@@ -33,7 +36,6 @@ pub(super) fn emit_lrd(
 
 /// RV64 `sc.w`: store-conditional word.
 /// if reservation held then M[rs1] <- rs2[31:0], rd <- 0 else rd <- 1
-#[allow(unused_variables)]
 pub(super) fn emit_scw(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -41,6 +43,36 @@ pub(super) fn emit_scw(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
+    // store the content of rs2 in m[rs1]
+    // set rd == 0 (because it will always be successful on single core)
+    let ctx = InstructionContextBuilder::<2, 0>::new()
+        .set_inputs([rs1, rs2])
+        .set_output(rd)
+        .build(translator, temps);
+
+    let [rs1, rs2] = ctx.inputs();
+    let rd = ctx.output();
+
+    let addr_temp;
+    let addr_id = if rs1.is_zero() {
+        addr_temp = temps.allocate().unwrap();
+        dynasm!(translator.emitter ; xor Rq(addr_temp.id()), Rq(addr_temp.id()));
+        addr_temp.id()
+    } else {
+        rs1.id()
+    };
+
+    if rs2.is_zero() {
+        dynasm!(translator.emitter ; mov DWORD [Rq(addr_id)], 0);
+    } else {
+        dynasm!(translator.emitter ; mov DWORD [Rq(addr_id)], Rd(rs2.id()));
+    }
+
+    if !rd.is_zero() {
+        dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+    }
+
+    ctx.write_back(translator);
 }
 
 /// RV64 `sc.d`: store-conditional doubleword.
