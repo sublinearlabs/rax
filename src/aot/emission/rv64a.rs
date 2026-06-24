@@ -43,8 +43,6 @@ pub(super) fn emit_scw(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
-    // store the content of rs2 in m[rs1]
-    // set rd == 0 (because it will always be successful on single core)
     let ctx = InstructionContextBuilder::<2, 0>::new()
         .set_inputs([rs1, rs2])
         .set_output(rd)
@@ -68,11 +66,12 @@ pub(super) fn emit_scw(
         dynasm!(translator.emitter ; mov DWORD [Rq(addr_id)], Rd(rs2.id()));
     }
 
-    if !rd.is_zero() {
+    if rd.is_zero() {
+        ctx.discard_zero_output(translator);
+    } else {
         dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+        ctx.write_back(translator);
     }
-
-    ctx.write_back(translator);
 }
 
 /// RV64 `sc.d`: store-conditional doubleword.
