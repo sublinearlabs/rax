@@ -76,7 +76,6 @@ pub(super) fn emit_scw(
 
 /// RV64 `sc.d`: store-conditional doubleword.
 /// if reservation held then M[rs1] <- rs2[63:0], rd <- 0 else rd <- 1
-#[allow(unused_variables)]
 pub(super) fn emit_scd(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -84,6 +83,35 @@ pub(super) fn emit_scd(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
+    let ctx = InstructionContextBuilder::<2, 0>::new()
+        .set_inputs([rs1, rs2])
+        .set_output(rd)
+        .build(translator, temps);
+
+    let [rs1, rs2] = ctx.inputs();
+    let rd = ctx.output();
+
+    let addr_temp;
+    let addr_id = if rs1.is_zero() {
+        addr_temp = temps.allocate().unwrap();
+        dynasm!(translator.emitter ; xor Rq(addr_temp.id()), Rq(addr_temp.id()));
+        addr_temp.id()
+    } else {
+        rs1.id()
+    };
+
+    if rs2.is_zero() {
+        dynasm!(translator.emitter ; mov QWORD [Rq(addr_id)], 0);
+    } else {
+        dynasm!(translator.emitter ; mov QWORD [Rq(addr_id)], Rq(rs2.id()));
+    }
+
+    if rd.is_zero() {
+        ctx.discard_zero_output(translator);
+    } else {
+        dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+        ctx.write_back(translator);
+    }
 }
 
 /// RV64 `amoswap.w`: atomic swap word.
