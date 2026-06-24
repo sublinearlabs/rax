@@ -2020,21 +2020,17 @@ pub(super) fn emit_blt(
             // rs1 == rs2
             // so we don't jump
         }
-        (true, false) | (false, true) | (false, false) => {
-            // case 1
-            // rs1 == 0
-            // rs2 could be less than or greater than
-            // so we need to do a runtime check
-            //
-            // case 2
-            // rs2 == 0
-            // rs1 coult be less than or greater than
-            // a runtime check is also needed in this case
-            //
-            // case 3
-            // both are unknown at compile time
-            // so any permutation is possible
-            // hence we use a runtime check again
+        (true, false) => {
+            // 0 < rs2 iff rs2 > 0.
+            dynasm!(translator.emitter ; test Rq(rs2.id()), Rq(rs2.id()));
+            dynasm!(translator.emitter ; jg => target_label);
+        }
+        (false, true) => {
+            // rs1 < 0.
+            dynasm!(translator.emitter ; test Rq(rs1.id()), Rq(rs1.id()));
+            dynasm!(translator.emitter ; jl => target_label);
+        }
+        (false, false) => {
             dynasm!(translator.emitter ; cmp Rq(rs1.id()), Rq(rs2.id()));
             dynasm!(translator.emitter ; jl => target_label);
         }
@@ -2067,7 +2063,17 @@ pub(super) fn emit_bge(
             // since equal we should jump
             dynasm!(translator.emitter ; jmp => target_label);
         }
-        (true, false) | (false, true) | (false, false) => {
+        (true, false) => {
+            // 0 >= rs2 iff rs2 <= 0.
+            dynasm!(translator.emitter ; test Rq(rs2.id()), Rq(rs2.id()));
+            dynasm!(translator.emitter ; jle => target_label);
+        }
+        (false, true) => {
+            // rs1 >= 0.
+            dynasm!(translator.emitter ; test Rq(rs1.id()), Rq(rs1.id()));
+            dynasm!(translator.emitter ; jge => target_label);
+        }
+        (false, false) => {
             dynasm!(translator.emitter ; cmp Rq(rs1.id()), Rq(rs2.id()));
             dynasm!(translator.emitter ; jge => target_label);
         }
