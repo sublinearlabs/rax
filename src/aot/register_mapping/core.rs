@@ -101,7 +101,8 @@ impl RegisterMapping {
         b.map_gpr(RiscvRegister::Sp, X86Gpr::Rsp).unwrap();
 
         // Remaining registers: matched mapping.
-        b.map_gpr(RiscvRegister::Ra, X86Gpr::Rbx).unwrap();
+        b.map_xmm_exclusive(RiscvRegister::Ra, X86Xmm::Xmm0)
+            .unwrap();
         b.map_xmm_shared(RiscvRegister::Gp, X86Xmm::Xmm12, XmmLane::Low)
             .unwrap();
         b.map_xmm_shared(RiscvRegister::Tp, X86Xmm::Xmm12, XmmLane::High)
