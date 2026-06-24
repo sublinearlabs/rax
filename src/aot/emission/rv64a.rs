@@ -1,4 +1,5 @@
 use crate::aot::{
+    emission::rv64i::{emit_ld, emit_lw},
     registers::RiscvRegister,
     temp_alloc::TempAllocator,
     translator::Translator,
@@ -6,19 +7,19 @@ use crate::aot::{
 
 /// RV64 `lr.w`: load-reserved word.
 /// rd <- M[rs1][31:0]; reserve for later store-conditional
-#[allow(unused_variables)]
 pub(super) fn emit_lrw(
     translator: &mut Translator,
     temps: &TempAllocator,
     rd: RiscvRegister,
     rs1: RiscvRegister,
-    rs2: RiscvRegister,
+    _rs2: RiscvRegister,
 ) {
+    // NOTE: this delegation is only safe for single core
+    emit_lw(translator, temps, rd, rs1, 0);
 }
 
 /// RV64 `lr.d`: load-reserved doubleword.
 /// rd <- M[rs1][63:0]; reserve for later store-conditional
-#[allow(unused_variables)]
 pub(super) fn emit_lrd(
     translator: &mut Translator,
     temps: &TempAllocator,
@@ -26,6 +27,8 @@ pub(super) fn emit_lrd(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
+    // NOTE: this delegation is only safe for single core
+    emit_ld(translator, temps, rd, rs1, 0);
 }
 
 /// RV64 `sc.w`: store-conditional word.
