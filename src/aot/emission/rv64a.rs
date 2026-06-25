@@ -231,6 +231,15 @@ fn emit_amo_rmw(
         return;
     }
 
+    let rs2_temp;
+    let rs2_id = if !rd.is_zero() && rd.id() == rs2.id() {
+        rs2_temp = temps.allocate().unwrap();
+        dynasm!(translator.emitter ; mov Rq(rs2_temp.id()), Rq(rs2.id()));
+        rs2_temp.id()
+    } else {
+        rs2.id()
+    };
+
     let scratch = temps.allocate().unwrap();
     match (width, rd.is_zero()) {
         (AmoWidth::Word, true) => {
@@ -251,16 +260,16 @@ fn emit_amo_rmw(
 
     match (width, op) {
         (AmoWidth::Word, AmoOp::Add) => {
-            dynasm!(translator.emitter ; add Rd(scratch.id()), Rd(rs2.id()));
+            dynasm!(translator.emitter ; add Rd(scratch.id()), Rd(rs2_id));
         }
         (AmoWidth::Word, AmoOp::Or) => {
-            dynasm!(translator.emitter ; or Rd(scratch.id()), Rd(rs2.id()));
+            dynasm!(translator.emitter ; or Rd(scratch.id()), Rd(rs2_id));
         }
         (AmoWidth::Double, AmoOp::Add) => {
-            dynasm!(translator.emitter ; add Rq(scratch.id()), Rq(rs2.id()));
+            dynasm!(translator.emitter ; add Rq(scratch.id()), Rq(rs2_id));
         }
         (AmoWidth::Double, AmoOp::Or) => {
-            dynasm!(translator.emitter ; or Rq(scratch.id()), Rq(rs2.id()));
+            dynasm!(translator.emitter ; or Rq(scratch.id()), Rq(rs2_id));
         }
     }
 
