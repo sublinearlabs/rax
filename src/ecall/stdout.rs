@@ -15,7 +15,7 @@ pub fn handle_stdout<T: Tracer>(vm: &mut VM<T>) {
     match fd {
         constants::STDOUT_FILENO => {
             let s = String::from_utf8_lossy(&output_slice);
-            println!("{}", s);
+            print!("{}", s);
         }
         constants::STDERR_FILENO => {
             let s = String::from_utf8_lossy(&output_slice);
