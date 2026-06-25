@@ -41,8 +41,6 @@ pub(super) fn emit_add(
         }
 
         ZeroCase::Rs1Zero => {
-            // add rd, 0, ,rs2
-            // -> rd = rs2
             if rd.id() == rs2.id() {
                 ctx.write_back(translator);
                 return;
