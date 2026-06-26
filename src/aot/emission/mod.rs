@@ -191,14 +191,56 @@ pub(super) fn emit_instruction(
         Instruction::AmoAddW(R { rd, rs1, rs2 }) => {
             rv64a::emit_amoaddw(translator, temps, rv(rd), rv(rs1), rv(rs2))
         }
+        Instruction::AmoSwapW(R { rd, rs1, rs2 }) => {
+            rv64a::emit_amoswapw(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::AmoXorW(R { rd, rs1, rs2 }) => {
+            rv64a::emit_amoxorw(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::AmoAndW(R { rd, rs1, rs2 }) => {
+            rv64a::emit_amoandw(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
         Instruction::AmoAddD(R { rd, rs1, rs2 }) => {
             rv64a::emit_amoaddd(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::AmoSwapD(R { rd, rs1, rs2 }) => {
+            rv64a::emit_amoswapd(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::AmoXorD(R { rd, rs1, rs2 }) => {
+            rv64a::emit_amoxord(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::AmoAndD(R { rd, rs1, rs2 }) => {
+            rv64a::emit_amoandd(translator, temps, rv(rd), rv(rs1), rv(rs2))
         }
         Instruction::AmoOrW(R { rd, rs1, rs2 }) => {
             rv64a::emit_amoorw(translator, temps, rv(rd), rv(rs1), rv(rs2))
         }
         Instruction::AmoOrD(R { rd, rs1, rs2 }) => {
             rv64a::emit_amoodd(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::AmoMinW(R { rd, rs1, rs2 }) => {
+            rv64a::emit_amominw(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::AmoMinD(R { rd, rs1, rs2 }) => {
+            rv64a::emit_amomind(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::AmoMaxW(R { rd, rs1, rs2 }) => {
+            rv64a::emit_amomaxw(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::AmoMaxD(R { rd, rs1, rs2 }) => {
+            rv64a::emit_amomaxd(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::AmoMinuW(R { rd, rs1, rs2 }) => {
+            rv64a::emit_amominuw(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::AmoMinuD(R { rd, rs1, rs2 }) => {
+            rv64a::emit_amominud(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::AmoMaxuW(R { rd, rs1, rs2 }) => {
+            rv64a::emit_amomaxuw(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::AmoMaxuD(R { rd, rs1, rs2 }) => {
+            rv64a::emit_amomaxud(translator, temps, rv(rd), rv(rs1), rv(rs2))
         }
         _ => panic!("unknown opcode: {:?}", insn),
     }
