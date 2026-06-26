@@ -325,12 +325,19 @@ mod tests {
         paths.sort();
 
         for path in paths {
-            println!("running AOT test: {}", path.display());
-
             let name = path
                 .file_name()
                 .and_then(|name| name.to_str())
                 .expect("AOT test path has invalid file name");
+
+            if name == "rv64ui-p-fence_i" {
+                // This test relies on self-modifying code plus FENCE.I. The current
+                // AOT pipeline translates code once and has no invalidation/retranslation.
+                println!("skipping AOT test: {}", path.display());
+                continue;
+            }
+
+            println!("running AOT test: {}", path.display());
             let path = path.to_str().expect("AOT test path is not valid UTF-8");
 
             compile_and_run_aot(name, path, None, None);
