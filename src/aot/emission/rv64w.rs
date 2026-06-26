@@ -298,6 +298,65 @@ pub(super) fn emit_srlw(
     }
 }
 
+/// RV64 `sraw`: arithmetic right shift word by register low bits.
+/// rd <- sext32(rs1[31:0] >>> (rs2 & 0x1f))
+pub(super) fn emit_sraw(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    let ctx = InstructionContextBuilder::new()
+        .set_inputs([rs1, rs2])
+        .set_output(rd)
+        .ensure_no_clobber([X86Gpr::Rcx])
+        .build(translator, temps);
+
+    let [rs1, rs2] = ctx.inputs();
+    let rd = ctx.output();
+
+    match classify_zero_case(rd, rs1, rs2) {
+        ZeroCase::RdZero => {
+            ctx.discard_zero_output(translator);
+            return;
+        }
+
+        ZeroCase::Rs1Rs2Zero | ZeroCase::Rs1Zero => {
+            dynasm!(translator.emitter ; xor Rd(rd.id()), Rd(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        ZeroCase::Rs2Zero => {
+            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rs1.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        ZeroCase::None => {}
+    }
+
+    dynasm!(translator.emitter ; mov Rq(X86Gpr::Rcx.id()), Rq(rs2.id()));
+
+    match classify_unary_shadow_case(rd, rs1) {
+        UnaryShadowCase::RdEqRs1 => {
+            dynasm!(translator.emitter ; sar Rd(rd.id()), cl);
+            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryShadowCase::Distinct => {
+            dynasm!(translator.emitter ; mov Rd(rd.id()), Rd(rs1.id()));
+            dynasm!(translator.emitter ; sar Rd(rd.id()), cl);
+            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+    }
+}
+
 /// RV64 `slliw`: logical left shift word by immediate.
 /// rd <- sext32(rs1[31:0] << shamt)
 pub(super) fn emit_slliw(
