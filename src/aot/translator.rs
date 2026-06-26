@@ -179,7 +179,9 @@ impl Translator {
 #[cfg(test)]
 mod tests {
     use std::fs;
+    use std::io::Write;
     use std::os::unix::fs::PermissionsExt;
+    use std::process::{Command, Stdio};
 
     use dynasmrt::x64::Assembler;
 
@@ -256,8 +258,55 @@ mod tests {
             .expect("failed to set executable permissions");
     }
 
+    fn compile_and_run_aot(
+        name: &str,
+        elf_path: &str,
+        stdin_input: Option<&[u8]>,
+        expected_stdout: Option<&[u8]>,
+    ) {
+        let out_path =
+            std::env::temp_dir().join(format!("riscv_aot_test_{}_{}", std::process::id(), name));
+        let out_path_str = out_path.to_str().expect("temp path is not valid UTF-8");
+
+        compile_elf_for_test(elf_path, out_path_str);
+
+        let mut command = Command::new(&out_path);
+        command.stdin(if stdin_input.is_some() {
+            Stdio::piped()
+        } else {
+            Stdio::null()
+        });
+        command.stdout(Stdio::piped()).stderr(Stdio::piped());
+
+        let mut child = command.spawn().expect("failed to spawn AOT binary");
+        if let Some(input) = stdin_input {
+            child
+                .stdin
+                .take()
+                .expect("failed to open AOT stdin")
+                .write_all(input)
+                .expect("failed to write AOT stdin");
+        }
+
+        let output = child
+            .wait_with_output()
+            .expect("failed to wait on AOT binary");
+        let _ = fs::remove_file(&out_path);
+
+        assert!(
+            output.status.success(),
+            "AOT binary failed: status={:?}\nstdout:\n{}\nstderr:\n{}",
+            output.status.code(),
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr),
+        );
+
+        if let Some(expected) = expected_stdout {
+            assert_eq!(output.stdout.as_slice(), expected, "AOT stdout mismatch");
+        }
+    }
+
     #[test]
-    #[ignore = "translate_insn is not implemented yet"]
     fn compile_echo_ima_writes_output_elf() {
         compile_elf_for_test("test-bin/rust-bin/echo/echo-ima", "test-bin/output_echo");
 
@@ -266,7 +315,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "translate_insn is not implemented yet"]
     fn compile_fib_ima_writes_output_elf() {
         compile_elf_for_test("test-bin/rust-bin/fib/fib-ima", "test-bin/output_fib");
 
@@ -275,7 +323,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "emit_mulhu exhausts temp pool when all 3 operands are XMM-mapped"]
     fn compile_exec_block_ima_writes_output_elf() {
         compile_elf_for_test(
             "test-bin/rust-bin/exec-block/exec-block-ima",
@@ -284,5 +331,35 @@ mod tests {
 
         let out = fs::metadata("test-bin/output_exec_block").expect("missing output ELF");
         assert!(out.len() > 0, "output ELF should not be empty");
+    }
+
+    #[test]
+    fn aot_fib_ima() {
+        compile_and_run_aot("fib", "test-bin/rust-bin/fib/fib-ima", None, None);
+    }
+
+    #[test]
+    fn aot_echo_ima() {
+        let input = "Hola Riscv, buenos días".as_bytes();
+        compile_and_run_aot(
+            "echo",
+            "test-bin/rust-bin/echo/echo-ima",
+            Some(input),
+            Some(input),
+        );
+    }
+
+    #[test]
+    fn aot_exec_block_ima() {
+        let input_hex = fs::read_to_string("examples/exec-block.input")
+            .expect("failed to read exec-block input");
+        let input = hex::decode(input_hex.trim()).expect("failed to decode exec-block input");
+
+        compile_and_run_aot(
+            "exec_block",
+            "test-bin/rust-bin/exec-block/exec-block-ima",
+            Some(&input),
+            None,
+        );
     }
 }
