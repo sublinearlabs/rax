@@ -42,7 +42,7 @@ pub(super) fn emit_add(
 
         ZeroCase::Rs1Zero => {
             if rd.id() == rs2.id() {
-                ctx.write_back(translator);
+                ctx.commit_unchanged(translator);
                 return;
             }
 
@@ -53,7 +53,7 @@ pub(super) fn emit_add(
 
         ZeroCase::Rs2Zero => {
             if rd.id() == rs1.id() {
-                ctx.write_back(translator);
+                ctx.commit_unchanged(translator);
                 return;
             }
 
@@ -85,13 +85,15 @@ pub(super) fn emit_add(
         }
 
         ShadowCase::Rs1EqRs2 => {
-            dynasm!(translator.emitter ; lea Rq(rd.id()), [Rq(rs1.id()) + Rq(rs1.id())]);
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            dynasm!(translator.emitter ; add Rq(rd.id()), Rq(rs1.id()));
             ctx.write_back(translator);
             return;
         }
 
         ShadowCase::AllDistinct => {
-            dynasm!(translator.emitter ; lea Rq(rd.id()), [Rq(rs1.id()) + Rq(rs2.id())]);
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            dynasm!(translator.emitter ; add Rq(rd.id()), Rq(rs2.id()));
             ctx.write_back(translator);
             return;
         }
