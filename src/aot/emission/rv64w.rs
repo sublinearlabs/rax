@@ -481,6 +481,8 @@ pub(super) fn emit_addw(
             //
             // case 2 — Rs1EqRs2
             // addw rd, rs1, rs1 -> sext32(rs1[31:0] << 1)
+            // Avoid LEA here: x86-64 cannot encode RSP as an index register, so a
+            // source operand carried in RSP would be misencoded or omitted.
             dynasm!(translator.emitter ; mov Rd(rd.id()), Rd(rs1.id()));
             dynasm!(translator.emitter ; add Rd(rd.id()), Rd(rs1.id()));
             dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
@@ -506,6 +508,8 @@ pub(super) fn emit_addw(
 
         ShadowCase::AllDistinct => {
             // addw rd, rs1, rs2
+            // Avoid LEA here: x86-64 cannot encode RSP as an index register, so a
+            // source operand carried in RSP would be misencoded or omitted.
             dynasm!(translator.emitter ; mov Rd(rd.id()), Rd(rs1.id()));
             dynasm!(translator.emitter ; add Rd(rd.id()), Rd(rs2.id()));
             dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));

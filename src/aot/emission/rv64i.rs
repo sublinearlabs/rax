@@ -85,6 +85,8 @@ pub(super) fn emit_add(
         }
 
         ShadowCase::Rs1EqRs2 => {
+            // Avoid LEA here: x86-64 cannot encode RSP as an index register, so a
+            // source operand carried in RSP would be misencoded or omitted.
             dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
             dynasm!(translator.emitter ; add Rq(rd.id()), Rq(rs1.id()));
             ctx.write_back(translator);
@@ -92,6 +94,8 @@ pub(super) fn emit_add(
         }
 
         ShadowCase::AllDistinct => {
+            // Avoid LEA here: x86-64 cannot encode RSP as an index register, so a
+            // source operand carried in RSP would be misencoded or omitted.
             dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
             dynasm!(translator.emitter ; add Rq(rd.id()), Rq(rs2.id()));
             ctx.write_back(translator);
