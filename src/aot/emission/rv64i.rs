@@ -9,7 +9,7 @@ use crate::aot::{
     register_mapping::MapTarget,
     registers::{RiscvRegister, X86Gpr},
     temp_alloc::TempAllocator,
-    translator::Translator,
+    translator::{self, Translator},
 };
 
 /// RV64 `add`: 64-bit wrapping addition.
@@ -42,7 +42,7 @@ pub(super) fn emit_add(
 
         ZeroCase::Rs1Zero => {
             if rd.id() == rs2.id() {
-                ctx.write_back(translator);
+                ctx.commit_unchanged(translator);
                 return;
             }
 
@@ -53,7 +53,7 @@ pub(super) fn emit_add(
 
         ZeroCase::Rs2Zero => {
             if rd.id() == rs1.id() {
-                ctx.write_back(translator);
+                ctx.commit_unchanged(translator);
                 return;
             }
 
@@ -85,13 +85,19 @@ pub(super) fn emit_add(
         }
 
         ShadowCase::Rs1EqRs2 => {
-            dynasm!(translator.emitter ; lea Rq(rd.id()), [Rq(rs1.id()) + Rq(rs1.id())]);
+            // Avoid LEA here: x86-64 cannot encode RSP as an index register, so a
+            // source operand carried in RSP would be misencoded or omitted.
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            dynasm!(translator.emitter ; add Rq(rd.id()), Rq(rs1.id()));
             ctx.write_back(translator);
             return;
         }
 
         ShadowCase::AllDistinct => {
-            dynasm!(translator.emitter ; lea Rq(rd.id()), [Rq(rs1.id()) + Rq(rs2.id())]);
+            // Avoid LEA here: x86-64 cannot encode RSP as an index register, so a
+            // source operand carried in RSP would be misencoded or omitted.
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            dynasm!(translator.emitter ; add Rq(rd.id()), Rq(rs2.id()));
             ctx.write_back(translator);
             return;
         }
@@ -1602,6 +1608,68 @@ pub(super) fn emit_srl(
             // srl rd, rs1, shamt
             dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
             dynasm!(translator.emitter ; shr Rq(rd.id()), cl);
+            ctx.write_back(translator);
+            return;
+        }
+    }
+}
+
+/// RV64 `sra`: arithmetic right shift by register low bits.
+/// rd <- signed(rs1) >> (rs2 & 0x3f)
+pub(super) fn emit_sra(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    let ctx = InstructionContextBuilder::new()
+        .set_inputs([rs1, rs2])
+        .set_output(rd)
+        .ensure_no_clobber([X86Gpr::Rcx])
+        .build(translator, temps);
+
+    let [rs1, rs2] = ctx.inputs();
+    let rd = ctx.output();
+
+    match classify_zero_case(rd, rs1, rs2) {
+        ZeroCase::RdZero => {
+            ctx.discard_zero_output(translator);
+            return;
+        }
+
+        ZeroCase::Rs1Rs2Zero | ZeroCase::Rs1Zero => {
+            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        ZeroCase::Rs2Zero => {
+            if rd.id() == rs1.id() {
+                ctx.commit_unchanged(translator);
+                return;
+            }
+
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            ctx.write_back(translator);
+            return;
+        }
+
+        ZeroCase::None => {}
+    }
+
+    dynasm!(translator.emitter ; mov Rq(X86Gpr::Rcx.id()), Rq(rs2.id()));
+
+    match classify_unary_shadow_case(rd, rs1) {
+        UnaryShadowCase::RdEqRs1 => {
+            dynasm!(translator.emitter ; sar Rq(rd.id()), cl);
+            ctx.write_back(translator);
+            return;
+        }
+
+        UnaryShadowCase::Distinct => {
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+            dynasm!(translator.emitter ; sar Rq(rd.id()), cl);
             ctx.write_back(translator);
             return;
         }
