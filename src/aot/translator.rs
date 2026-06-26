@@ -293,16 +293,47 @@ mod tests {
             .expect("failed to wait on AOT binary");
         let _ = fs::remove_file(&out_path);
 
+        let status_code = output.status.code();
+        if let Some(code) = status_code {
+            if code != 0 {
+                println!("failing test {}", code >> 1);
+            }
+        }
+
         assert!(
             output.status.success(),
-            "AOT binary failed: status={:?}\nstdout:\n{}\nstderr:\n{}",
-            output.status.code(),
+            "AOT binary failed: status={:?}, failing_test={:?}\nstdout:\n{}\nstderr:\n{}",
+            status_code,
+            status_code.map(|code| code >> 1),
             String::from_utf8_lossy(&output.stdout),
             String::from_utf8_lossy(&output.stderr),
         );
 
         if let Some(expected) = expected_stdout {
             assert_eq!(output.stdout.as_slice(), expected, "AOT stdout mismatch");
+        }
+    }
+
+    fn compile_and_run_aot_dir(dir: &str) {
+        let mut paths = fs::read_dir(dir)
+            .expect("failed to read AOT test directory")
+            .filter_map(|entry| entry.ok())
+            .map(|entry| entry.path())
+            .filter(|path| path.is_file())
+            .collect::<Vec<_>>();
+
+        paths.sort();
+
+        for path in paths {
+            println!("running AOT test: {}", path.display());
+
+            let name = path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .expect("AOT test path has invalid file name");
+            let path = path.to_str().expect("AOT test path is not valid UTF-8");
+
+            compile_and_run_aot(name, path, None, None);
         }
     }
 
@@ -361,5 +392,22 @@ mod tests {
             Some(&input),
             None,
         );
+    }
+
+    #[test]
+    fn aot_rv64ui() {
+        compile_and_run_aot_dir("test-bin/rv64ui");
+    }
+
+    #[cfg(feature = "ext_m")]
+    #[test]
+    fn aot_rv64um() {
+        compile_and_run_aot_dir("test-bin/rv64um");
+    }
+
+    #[cfg(feature = "ext_a")]
+    #[test]
+    fn aot_rv64ua() {
+        compile_and_run_aot_dir("test-bin/rv64ua");
     }
 }
