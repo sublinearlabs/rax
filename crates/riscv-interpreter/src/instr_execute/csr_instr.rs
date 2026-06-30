@@ -1,4 +1,4 @@
-use crate::decode::I;
+use riscv_core::decode::I;
 /// CSR instructions
 use crate::VM;
 

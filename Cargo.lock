@@ -867,12 +867,21 @@ name = "riscv"
 version = "0.1.0"
 dependencies = [
  "criterion",
- "dynasmrt",
- "elf",
- "fxhash",
  "hex",
+ "riscv-aot",
+ "riscv-core",
+ "riscv-elfgen",
+ "riscv-interpreter",
  "riscv-jit",
- "serde",
+]
+
+[[package]]
+name = "riscv-aot"
+version = "0.1.0"
+dependencies = [
+ "dynasmrt",
+ "riscv-core",
+ "riscv-elfgen",
 ]
 
 [[package]]
@@ -886,6 +895,30 @@ dependencies = [
  "riscv-jit",
  "serde_json",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "riscv-core"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "riscv-elfgen"
+version = "0.1.0"
+dependencies = [
+ "elf",
+]
+
+[[package]]
+name = "riscv-interpreter"
+version = "0.1.0"
+dependencies = [
+ "elf",
+ "fxhash",
+ "hex",
+ "riscv-core",
 ]
 
 [[package]]

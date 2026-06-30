@@ -1,5 +1,5 @@
-use crate::decode::{I, R4, RF, S};
-use crate::util::{classify64, is_snan_f32, is_snan_f64, mask};
+use riscv_core::decode::{I, R4, RF, S};
+use riscv_core::util::{classify64, is_snan_f32, is_snan_f64, mask};
 /// D-extension
 use crate::VM;
 

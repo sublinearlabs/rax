@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "crates/riscv-cli", "crates/riscv-jit"]
+members = [".", "crates/riscv-cli", "crates/riscv-jit", "crates/riscv-core", "crates/riscv-elfgen", "crates/riscv-aot", "crates/riscv-interpreter"]
 resolver = "2"
 
 [workspace.package]
@@ -22,25 +22,24 @@ panic = "abort"
 
 [features]
 default = ["gc"]
-
-ext_i = []
-ext_m = []
-ext_a = []
-ext_f = []
-ext_d = []
-ext_c = []
+ext_i = ["riscv-core/ext_i", "riscv-interpreter/ext_i", "riscv-aot/ext_i"]
+ext_m = ["riscv-core/ext_m", "riscv-interpreter/ext_m", "riscv-aot/ext_m"]
+ext_a = ["riscv-core/ext_a", "riscv-interpreter/ext_a", "riscv-aot/ext_a"]
+ext_f = ["riscv-core/ext_f", "riscv-interpreter/ext_f", "riscv-aot/ext_f"]
+ext_d = ["riscv-core/ext_d", "riscv-interpreter/ext_d", "riscv-aot/ext_d"]
+ext_c = ["riscv-core/ext_c", "riscv-interpreter/ext_c", "riscv-aot/ext_c"]
 imac = ["ext_i", "ext_m", "ext_a", "ext_c"]
 gc = ["imac", "ext_f", "ext_d"]
 
 [dependencies]
-elf = "0.8.0"
-serde = { version = "1.0", features = ["derive"] }
-hex = "0.4.3"
-fxhash = "0.2.1"
-dynasmrt = "5.0.0"
+riscv-core = { path = "crates/riscv-core" }
+riscv-elfgen = { path = "crates/riscv-elfgen" }
+riscv-interpreter = { path = "crates/riscv-interpreter" }
+riscv-aot = { path = "crates/riscv-aot" }
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
+hex = "0.4.3"
 riscv-jit = { path = "crates/riscv-jit", default-features = false }
 
 [[bench]]

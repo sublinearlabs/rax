@@ -1,6 +1,6 @@
 /// A Extension - Load Reserved / Store Conditional
-use crate::decode::R;
-use crate::util::{mask, sext};
+use riscv_core::decode::R;
+use riscv_core::util::{mask, sext};
 use crate::VM;
 
 #[inline(always)]

@@ -1,5 +1,5 @@
 use super::memory::MemoryDefault;
-use crate::util::{is_snan_f32, is_snan_f64, is_subnormal_f32, is_subnormal_f64};
+use riscv_core::util::{is_snan_f32, is_snan_f64, is_subnormal_f32, is_subnormal_f64};
 use std::mem::offset_of;
 
 /// RISC-V Virtual Machine.

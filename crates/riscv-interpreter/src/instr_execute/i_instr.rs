@@ -1,7 +1,7 @@
 // Register Opcodes
 
-use crate::decode::{Sh, B, I, J, R, S, U};
-use crate::util::{mask, sext};
+use riscv_core::decode::{Sh, B, I, J, R, S, U};
+use riscv_core::util::{mask, sext};
 use crate::VM;
 
 #[inline(always)]

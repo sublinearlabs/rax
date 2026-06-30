@@ -26,7 +26,7 @@ pub const fn mask(n: u8) -> u64 {
 }
 
 /// Sign-extend the low `bit_count` bits of `val` into a u64.
-pub(crate) fn sext(val: u64, bit_count: usize) -> u64 {
+pub fn sext(val: u64, bit_count: usize) -> u64 {
     debug_assert_eq!(val >> bit_count, 0, "upper bits must be zero");
 
     // bit count must be at least 1 and at most 32
@@ -53,7 +53,7 @@ pub(crate) fn sext(val: u64, bit_count: usize) -> u64 {
 /// Assumption
 ///     ORs the mapped slice into `dest` rather than overwriting it.
 ///     Bits already set in the destination range remain set.
-pub(crate) fn map_range(src: u32, dest: u32, src_start: u8, dest_start: u8, len: u8) -> u32 {
+pub fn map_range(src: u32, dest: u32, src_start: u8, dest_start: u8, len: u8) -> u32 {
     debug_assert!(len > 0 && len <= 32);
     debug_assert!(src_start + 1 >= len);
     debug_assert!(dest_start + 1 >= len);
@@ -62,21 +62,21 @@ pub(crate) fn map_range(src: u32, dest: u32, src_start: u8, dest_start: u8, len:
     dest | src_slice << (dest_start + 1 - len)
 }
 
-pub(crate) fn is_snan_f32(val: f32) -> bool {
+pub fn is_snan_f32(val: f32) -> bool {
     let bits = val.to_bits();
     let exp = (bits >> 23) & 0xFF;
     let frac = bits & 0x7FFFFF;
     exp == 0xFF && frac != 0 && (frac & 0x400000) == 0
 }
 
-pub(crate) fn is_subnormal_f32(val: f32) -> bool {
+pub fn is_subnormal_f32(val: f32) -> bool {
     let bits = val.to_bits();
     let exp = (bits >> 23) & 0xFF;
     let frac = bits & 0x7FFFFF;
     exp == 0 && frac != 0
 }
 
-pub(crate) fn is_snan_f64(val: f64) -> bool {
+pub fn is_snan_f64(val: f64) -> bool {
     let bits = val.to_bits();
     let exp = (bits >> 52) & 0x7FF;
     let frac = bits & 0xFFFFFFFFFFFFF;
@@ -84,14 +84,14 @@ pub(crate) fn is_snan_f64(val: f64) -> bool {
     exp == 0x7FF && frac != 0 && (frac & 0x8000000000000) == 0
 }
 
-pub(crate) fn is_subnormal_f64(val: f64) -> bool {
+pub fn is_subnormal_f64(val: f64) -> bool {
     let bits = val.to_bits();
     let exp = (bits >> 52) & 0x7FF;
     let frac = bits & 0xFFFFFFFFFFFFF;
     exp == 0 && frac != 0
 }
 
-pub(crate) fn classify32(val: u32) -> u64 {
+pub fn classify32(val: u32) -> u64 {
     let sign = val >> 31;
     let exponent = (val >> 23) & mask32(8);
     let frac = val & mask32(23);
@@ -122,7 +122,7 @@ pub(crate) fn classify32(val: u32) -> u64 {
     }
 }
 
-pub(crate) fn classify64(val: u64) -> u64 {
+pub fn classify64(val: u64) -> u64 {
     let sign = val >> 63;
     let exponent = (val >> 52) & mask(11);
     let frac = val & mask(52);
@@ -155,7 +155,7 @@ pub(crate) fn classify64(val: u64) -> u64 {
 
 #[cfg(test)]
 mod test {
-    use crate::util::{map_range, mask, sext};
+    use super::{map_range, mask, sext};
 
     #[test]
     fn test_mask_basic() {

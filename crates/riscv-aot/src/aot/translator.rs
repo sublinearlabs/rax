@@ -8,7 +8,7 @@ use crate::aot::{
     registers::X86Gpr,
     temp_alloc::TempAllocator,
 };
-use crate::decode::Instruction;
+use riscv_core::decode::Instruction;
 
 /// AOT translator state used while lowering RISC-V instructions to x86.
 ///
@@ -187,7 +187,7 @@ mod tests {
 
     use dynasmrt::x64::Assembler;
 
-    use crate::decode::{Instruction, I};
+    use riscv_core::decode::{Instruction, I};
 
     use super::*;
 

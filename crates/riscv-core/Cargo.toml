@@ -1,0 +1,18 @@
+[package]
+name = "riscv-core"
+version.workspace = true
+edition.workspace = true
+
+[features]
+default = ["gc"]
+ext_i = []
+ext_m = []
+ext_a = []
+ext_f = []
+ext_d = []
+ext_c = []
+imac = ["ext_i", "ext_m", "ext_a", "ext_c"]
+gc = ["imac", "ext_f", "ext_d"]
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }

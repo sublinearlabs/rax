@@ -1,0 +1,20 @@
+[package]
+name = "riscv-aot"
+version.workspace = true
+edition.workspace = true
+
+[features]
+default = ["gc"]
+ext_i = []
+ext_m = []
+ext_a = []
+ext_f = []
+ext_d = []
+ext_c = []
+imac = ["ext_i", "ext_m", "ext_a", "ext_c"]
+gc = ["imac", "ext_f", "ext_d"]
+
+[dependencies]
+riscv-core = { path = "../riscv-core" }
+riscv-elfgen = { path = "../riscv-elfgen" }
+dynasmrt = "5.0.0"
