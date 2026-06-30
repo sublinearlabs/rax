@@ -1,7 +1,7 @@
 //! Common CLI utilities and types
 
 use colored::*;
-use riscv::aot::compiler::AotCompileError;
+use riscv_aot::compiler::AotCompileError;
 use std::fmt;
 
 /// Result type for CLI operations

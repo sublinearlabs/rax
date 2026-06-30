@@ -626,7 +626,6 @@ dependencies = [
 name = "riscv"
 version = "0.1.0"
 dependencies = [
- "hex",
  "riscv-aot",
  "riscv-core",
  "riscv-elfgen",
@@ -651,7 +650,8 @@ dependencies = [
  "anyhow",
  "clap",
  "colored",
- "riscv",
+ "riscv-aot",
+ "riscv-interpreter",
  "riscv-jit",
  "serde_json",
  "tracing-subscriber",

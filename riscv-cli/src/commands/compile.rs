@@ -1,7 +1,7 @@
 //! RISC-V compile command
 
 use crate::common::{check_file_exists, print_info, print_success, CliResult};
-use riscv::aot::compiler::compile_elf_file;
+use riscv_aot::compiler::compile_elf_file;
 
 /// Execute the compile command
 pub fn execute_compile(input_path: &str, output_path: &str) -> CliResult<()> {

@@ -6,7 +6,7 @@ use clap::{Parser, Subcommand};
 
 /// RISC-V CLI tool for executing and analyzing RISC-V binaries
 #[derive(Parser, Debug)]
-#[command(name = "riscv-cli")]
+#[command(name = "riscv")]
 #[command(about = "RISC-V VM executor and analyzer", long_about = None)]
 #[command(version)]
 pub struct RiscvCli {
@@ -22,6 +22,10 @@ pub struct RiscvCli {
 pub enum RiscvCommand {
     /// Run a RISC-V ELF binary
     Run {
+        /// Run with the JIT engine instead of the interpreter
+        #[arg(long)]
+        jit: bool,
+
         /// Path to the ELF binary
         #[arg(value_name = "FILE")]
         binary: String,
@@ -42,7 +46,7 @@ pub enum RiscvCommand {
         input_path: String,
 
         /// Path to write the output x86-64 ELF
-        #[arg(value_name = "output")]
+        #[arg(short = 'o', long = "output", value_name = "output")]
         output_path: String,
     },
 }

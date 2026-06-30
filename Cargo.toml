@@ -22,24 +22,22 @@ panic = "abort"
 
 [features]
 default = ["gc"]
-ext_i = ["riscv-core/ext_i", "riscv-interpreter/ext_i", "riscv-aot/ext_i", "riscv-jit/ext_i"]
-ext_m = ["riscv-core/ext_m", "riscv-interpreter/ext_m", "riscv-aot/ext_m", "riscv-jit/ext_m"]
-ext_a = ["riscv-core/ext_a", "riscv-interpreter/ext_a", "riscv-aot/ext_a", "riscv-jit/ext_a"]
-ext_f = ["riscv-core/ext_f", "riscv-interpreter/ext_f", "riscv-aot/ext_f", "riscv-jit/ext_f"]
-ext_d = ["riscv-core/ext_d", "riscv-interpreter/ext_d", "riscv-aot/ext_d", "riscv-jit/ext_d"]
-ext_c = ["riscv-core/ext_c", "riscv-interpreter/ext_c", "riscv-aot/ext_c", "riscv-jit/ext_c"]
+ext_i = ["riscv-core/ext_i", "riscv-interpreter/ext_i", "riscv-aot/ext_i", "riscv-jit?/ext_i"]
+ext_m = ["riscv-core/ext_m", "riscv-interpreter/ext_m", "riscv-aot/ext_m", "riscv-jit?/ext_m"]
+ext_a = ["riscv-core/ext_a", "riscv-interpreter/ext_a", "riscv-aot/ext_a", "riscv-jit?/ext_a"]
+ext_f = ["riscv-core/ext_f", "riscv-interpreter/ext_f", "riscv-aot/ext_f", "riscv-jit?/ext_f"]
+ext_d = ["riscv-core/ext_d", "riscv-interpreter/ext_d", "riscv-aot/ext_d", "riscv-jit?/ext_d"]
+ext_c = ["riscv-core/ext_c", "riscv-interpreter/ext_c", "riscv-aot/ext_c", "riscv-jit?/ext_c"]
 imac = ["ext_i", "ext_m", "ext_a", "ext_c"]
 gc = ["imac", "ext_f", "ext_d"]
+jit = ["dep:riscv-jit"]
 
 [dependencies]
 riscv-core = { path = "riscv-core" }
 riscv-elfgen = { path = "riscv-elfgen" }
 riscv-interpreter = { path = "riscv-interpreter" }
 riscv-aot = { path = "riscv-aot" }
-
-[dev-dependencies]
-hex = "0.4.3"
-riscv-jit = { path = "riscv-jit", default-features = false }
+riscv-jit = { path = "riscv-jit", optional = true, default-features = false }
 
 [[example]]
 name = "fib_interpreter"
@@ -47,4 +45,4 @@ required-features = ["gc"]
 
 [[example]]
 name = "fib_jit"
-required-features = ["gc"]
+required-features = ["gc", "jit"]

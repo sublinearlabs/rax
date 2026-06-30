@@ -2,8 +2,7 @@
 
 use crate::common::{check_file_exists, print_header, print_info, CliError, CliResult};
 use colored::*;
-use riscv::init_from_elf;
-use riscv_jit::Runner;
+use riscv_interpreter::init_from_elf;
 use std::time::Instant;
 
 /// Execution result data
@@ -18,6 +17,7 @@ pub struct ExecutionResult {
 /// Execute the run command
 pub fn execute_run(
     binary: &str,
+    jit: bool,
     format: &str,
     output: Option<&str>,
 ) -> CliResult<()> {
@@ -30,19 +30,30 @@ pub fn execute_run(
     // Load ELF file
     let mut vm = init_from_elf(binary);
 
-    // Create runner and execute
-    print_info("Starting execution...");
-    let mut runner = Runner::new();
+    print_info(if jit {
+        "Starting JIT execution..."
+    } else {
+        "Starting interpreter execution..."
+    });
+
     let start = Instant::now();
-    runner.run(&mut vm);
+    let cycles = if jit {
+        let mut runner = riscv_jit::Runner::new();
+        runner.run(&mut vm);
+        runner.cycles()
+    } else {
+        let mut runner = riscv_interpreter::Runner::new();
+        runner.run(&mut vm);
+        runner.cycles()
+    };
     let elapsed = start.elapsed();
 
     // Collect results
     let result = ExecutionResult {
         exit_code: vm.exit_code(),
-        cycles: runner.cycles(),
+        cycles,
         elapsed_ms: elapsed.as_secs_f64() * 1000.0,
-        instructions_per_cycle: runner.cycles() as f64 / elapsed.as_micros() as f64,
+        instructions_per_cycle: cycles as f64 / elapsed.as_micros() as f64,
     };
 
     // Format output as string
