@@ -19,7 +19,7 @@ Execute and analyze RISC-V ELF binaries.
 #### Building
 
 ```bash
-cargo build --release --bin riscv-cli
+cargo build --release -p riscv-cli
 ```
 
 #### Commands
@@ -40,6 +40,19 @@ Options:
 
 ```bash
 riscv-cli run test-bin/rust-bin/fib/fib-imac --format json --output results.json
+```
+
+##### `compile` - Compile a RISC-V ELF to a native x86-64 executable
+
+```bash
+riscv-cli compile <input> <output>
+```
+
+**Example:**
+
+```bash
+riscv-cli compile test-bin/rust-bin/echo/echo-ima ./echo-native
+echo "Hola" | ./echo-native
 ```
 
 ## Tracing
