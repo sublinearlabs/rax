@@ -1,64 +1,63 @@
 use crate::interpreter::handle_ecall;
 use crate::ir::AtomicRmwOp;
-use crate::trace::NoopTracer;
 use crate::util::mask;
 use crate::{HostIO, VM};
 
 #[inline]
-fn vm_ptr<'a>(vm: *mut VM<NoopTracer>) -> &'a mut VM<NoopTracer> {
+fn vm_ptr<'a>(vm: *mut VM) -> &'a mut VM {
     unsafe { &mut *vm }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn jit_load_u8(vm: *mut VM<NoopTracer>, addr: u64) -> u64 {
+pub extern "C" fn jit_load_u8(vm: *mut VM, addr: u64) -> u64 {
     let vm = vm_ptr(vm);
     vm.load_u8(addr as usize) as u64
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn jit_load_u16(vm: *mut VM<NoopTracer>, addr: u64) -> u64 {
+pub extern "C" fn jit_load_u16(vm: *mut VM, addr: u64) -> u64 {
     let vm = vm_ptr(vm);
     vm.load_u16(addr as usize) as u64
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn jit_load_u32(vm: *mut VM<NoopTracer>, addr: u64) -> u64 {
+pub extern "C" fn jit_load_u32(vm: *mut VM, addr: u64) -> u64 {
     let vm = vm_ptr(vm);
     vm.load_u32(addr as usize) as u64
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn jit_load_u64(vm: *mut VM<NoopTracer>, addr: u64) -> u64 {
+pub extern "C" fn jit_load_u64(vm: *mut VM, addr: u64) -> u64 {
     let vm = vm_ptr(vm);
     vm.load_u64(addr as usize)
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn jit_store_u8(vm: *mut VM<NoopTracer>, addr: u64, val: u64) {
+pub extern "C" fn jit_store_u8(vm: *mut VM, addr: u64, val: u64) {
     let vm = vm_ptr(vm);
     vm.store_u8(addr as usize, val as u8);
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn jit_store_u16(vm: *mut VM<NoopTracer>, addr: u64, val: u64) {
+pub extern "C" fn jit_store_u16(vm: *mut VM, addr: u64, val: u64) {
     let vm = vm_ptr(vm);
     vm.store_u16(addr as usize, val as u16);
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn jit_store_u32(vm: *mut VM<NoopTracer>, addr: u64, val: u64) {
+pub extern "C" fn jit_store_u32(vm: *mut VM, addr: u64, val: u64) {
     let vm = vm_ptr(vm);
     vm.store_u32(addr as usize, val as u32);
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn jit_store_u64(vm: *mut VM<NoopTracer>, addr: u64, val: u64) {
+pub extern "C" fn jit_store_u64(vm: *mut VM, addr: u64, val: u64) {
     let vm = vm_ptr(vm);
     vm.store_u64(addr as usize, val);
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn jit_load_reserved_w(vm: *mut VM<NoopTracer>, addr: u64) -> u64 {
+pub extern "C" fn jit_load_reserved_w(vm: *mut VM, addr: u64) -> u64 {
     let vm = vm_ptr(vm);
     let value = vm.load_u32(addr as usize) as u64;
     vm.reservation_set = addr;
@@ -66,7 +65,7 @@ pub extern "C" fn jit_load_reserved_w(vm: *mut VM<NoopTracer>, addr: u64) -> u64
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn jit_load_reserved_d(vm: *mut VM<NoopTracer>, addr: u64) -> u64 {
+pub extern "C" fn jit_load_reserved_d(vm: *mut VM, addr: u64) -> u64 {
     let vm = vm_ptr(vm);
     let value = vm.load_u64(addr as usize);
     vm.reservation_set = addr;
@@ -74,7 +73,7 @@ pub extern "C" fn jit_load_reserved_d(vm: *mut VM<NoopTracer>, addr: u64) -> u64
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn jit_store_conditional_w(vm: *mut VM<NoopTracer>, addr: u64, val: u64) -> u64 {
+pub extern "C" fn jit_store_conditional_w(vm: *mut VM, addr: u64, val: u64) -> u64 {
     let vm = vm_ptr(vm);
     let success = addr == vm.reservation_set;
     if success {
@@ -89,7 +88,7 @@ pub extern "C" fn jit_store_conditional_w(vm: *mut VM<NoopTracer>, addr: u64, va
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn jit_store_conditional_d(vm: *mut VM<NoopTracer>, addr: u64, val: u64) -> u64 {
+pub extern "C" fn jit_store_conditional_d(vm: *mut VM, addr: u64, val: u64) -> u64 {
     let vm = vm_ptr(vm);
     let success = addr == vm.reservation_set;
     if success {
@@ -104,7 +103,7 @@ pub extern "C" fn jit_store_conditional_d(vm: *mut VM<NoopTracer>, addr: u64, va
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn jit_atomic_rmw_w(vm: *mut VM<NoopTracer>, addr: u64, val: u64, op: u32) -> u64 {
+pub extern "C" fn jit_atomic_rmw_w(vm: *mut VM, addr: u64, val: u64, op: u32) -> u64 {
     let vm = vm_ptr(vm);
     let read_value = vm.load_u32(addr as usize) as u64;
     let rs2_val = val & mask(32);
@@ -115,7 +114,7 @@ pub extern "C" fn jit_atomic_rmw_w(vm: *mut VM<NoopTracer>, addr: u64, val: u64,
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn jit_atomic_rmw_d(vm: *mut VM<NoopTracer>, addr: u64, val: u64, op: u32) -> u64 {
+pub extern "C" fn jit_atomic_rmw_d(vm: *mut VM, addr: u64, val: u64, op: u32) -> u64 {
     let vm = vm_ptr(vm);
     let read_value = vm.load_u64(addr as usize);
     let op = decode_atomic_rmw_op(op);
@@ -125,7 +124,7 @@ pub extern "C" fn jit_atomic_rmw_d(vm: *mut VM<NoopTracer>, addr: u64, val: u64,
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn jit_ecall(vm: *mut VM<NoopTracer>, io: *mut HostIO) -> u64 {
+pub extern "C" fn jit_ecall(vm: *mut VM, io: *mut HostIO) -> u64 {
     let vm = vm_ptr(vm);
     let io = unsafe { &mut *io };
     handle_ecall(vm, io);
@@ -133,14 +132,14 @@ pub extern "C" fn jit_ecall(vm: *mut VM<NoopTracer>, io: *mut HostIO) -> u64 {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn jit_ebreak(vm: *mut VM<NoopTracer>, io: *mut HostIO) {
+pub extern "C" fn jit_ebreak(vm: *mut VM, io: *mut HostIO) {
     let vm = vm_ptr(vm);
     let io = unsafe { &mut *io };
     handle_ecall(vm, io);
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn jit_halt(vm: *mut VM<NoopTracer>, code: u64) {
+pub extern "C" fn jit_halt(vm: *mut VM, code: u64) {
     let vm = vm_ptr(vm);
     vm.exit_code = code;
     vm.halted = true;

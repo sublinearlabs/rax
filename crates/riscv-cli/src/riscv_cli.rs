@@ -26,10 +26,6 @@ pub enum RiscvCommand {
         #[arg(value_name = "FILE")]
         binary: String,
 
-        /// Enable instruction tracing
-        #[arg(short, long)]
-        trace: bool,
-
         /// Output format (text, json, csv)
         #[arg(short, long, default_value = "text")]
         format: String,

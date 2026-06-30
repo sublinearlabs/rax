@@ -2,7 +2,6 @@ use crate::interpreter::ecall::constants;
 use crate::ir::{execute_ir, IrBuilder, IrFunction, IrType, MemWidth, Reg};
 use crate::jit::compile::compile_ir_function;
 use crate::jit::jit_module::{build_jit_module, declare_helpers};
-use crate::trace::NoopTracer;
 use crate::{HostIO, VM};
 use cranelift_module::Module;
 
@@ -14,13 +13,13 @@ fn lower_ir_function_matches_interpreter() {
     let helper_ids = declare_helpers(&mut jit, ptr_ty);
     let jit_fn = compile_ir_function(&mut jit, &helper_ids, &ir, "test_ir_entry");
 
-    let mut vm_ir = VM::<NoopTracer>::init();
+    let mut vm_ir = VM::init();
     let mut io_ir = HostIO::new();
     vm_ir.reg_mut(1, 10);
     vm_ir.reg_mut(2, 10);
     execute_ir(&ir, &mut vm_ir, &mut io_ir);
 
-    let mut vm_jit = VM::<NoopTracer>::init();
+    let mut vm_jit = VM::init();
     let mut io_jit = HostIO::new();
     vm_jit.reg_mut(1, 10);
     vm_jit.reg_mut(2, 10);
@@ -29,13 +28,13 @@ fn lower_ir_function_matches_interpreter() {
     }
     assert_vm_matches(&mut vm_ir, &mut vm_jit);
 
-    let mut vm_ir = VM::<NoopTracer>::init();
+    let mut vm_ir = VM::init();
     let mut io_ir = HostIO::new();
     vm_ir.reg_mut(1, 5);
     vm_ir.reg_mut(2, 9);
     execute_ir(&ir, &mut vm_ir, &mut io_ir);
 
-    let mut vm_jit = VM::<NoopTracer>::init();
+    let mut vm_jit = VM::init();
     let mut io_jit = HostIO::new();
     vm_jit.reg_mut(1, 5);
     vm_jit.reg_mut(2, 9);
@@ -84,7 +83,7 @@ fn build_test_ir() -> IrFunction {
     builder.finish()
 }
 
-fn assert_vm_matches(vm_ir: &mut VM<NoopTracer>, vm_jit: &mut VM<NoopTracer>) {
+fn assert_vm_matches(vm_ir: &mut VM, vm_jit: &mut VM) {
     assert_eq!(vm_ir.halted, vm_jit.halted, "halted mismatch");
     assert_eq!(vm_ir.exit_code, vm_jit.exit_code, "exit code mismatch");
     assert_eq!(vm_ir.pc(), vm_jit.pc(), "pc mismatch");
@@ -114,11 +113,11 @@ fn jit_ecall_halt_stops_following_effects() {
 
     let func = builder.finish();
 
-    let mut vm_ir = VM::<NoopTracer>::init();
+    let mut vm_ir = VM::init();
     let mut io_ir = HostIO::new();
     execute_ir(&func, &mut vm_ir, &mut io_ir);
 
-    let mut vm_jit = VM::<NoopTracer>::init();
+    let mut vm_jit = VM::init();
     let mut io_jit = HostIO::new();
     let mut jit = build_jit_module();
     let ptr_ty = jit.isa().pointer_type();

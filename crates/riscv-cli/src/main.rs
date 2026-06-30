@@ -16,12 +16,11 @@ fn main() {
     let result = match cli.command {
         RiscvCommand::Run {
             binary,
-            trace,
             format,
             output,
         } => {
             print_info(&format!("Running RISC-V binary: {}", binary));
-            commands::execute_run(&binary, trace, &format, output.as_deref())
+            commands::execute_run(&binary, &format, output.as_deref())
         }
         RiscvCommand::Compile {
             input_path,

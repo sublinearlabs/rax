@@ -10,11 +10,9 @@ use crate::interpreter::instr_execute::f_instr::*;
 use crate::interpreter::instr_execute::i_instr::*;
 #[cfg(feature = "ext_m")]
 use crate::interpreter::instr_execute::m_instr::*;
-use crate::trace::Tracer;
 use crate::{HostIO, VM};
 
-// TODO consider cleaning up sext logic
-impl<T: Tracer> VM<T> {
+impl VM {
     pub(crate) fn execute_instruction(
         &mut self,
         insn: &Instruction,
@@ -454,10 +452,9 @@ impl<T: Tracer> VM<T> {
 mod test {
     use crate::decode::decode;
     use crate::interpreter::ecall::constants;
-    use crate::trace::NoopTracer;
     use crate::{HostIO, VM};
 
-    fn run_insn(vm: &mut VM<NoopTracer>, io: &mut HostIO, insn: u32, is_compressed: bool) {
+    fn run_insn(vm: &mut VM, io: &mut HostIO, insn: u32, is_compressed: bool) {
         let current_pc = vm.pc();
         let next_pc = current_pc.wrapping_add(if is_compressed { 2 } else { 4 });
         vm.set_pc(next_pc);
@@ -467,7 +464,7 @@ mod test {
 
     #[test]
     fn test_add_instruction() {
-        let mut vm = VM::<NoopTracer>::init();
+        let mut vm = VM::init();
         let mut io = HostIO::new();
         vm.reg_mut(3, 12);
         vm.reg_mut(5, 32);
@@ -480,7 +477,7 @@ mod test {
 
     #[test]
     fn test_store_byte() {
-        let mut vm = VM::<NoopTracer>::init();
+        let mut vm = VM::init();
         let mut io = HostIO::new();
         vm.reg_mut(3, 12);
         vm.reg_mut(2, 5);
@@ -492,7 +489,7 @@ mod test {
 
     #[test]
     fn test_store_half_word() {
-        let mut vm = VM::<NoopTracer>::init();
+        let mut vm = VM::init();
         let mut io = HostIO::new();
         vm.reg_mut(3, 64008);
         vm.reg_mut(2, 5);
@@ -505,7 +502,7 @@ mod test {
 
     #[test]
     fn test_store_word() {
-        let mut vm = VM::<NoopTracer>::init();
+        let mut vm = VM::init();
         let mut io = HostIO::new();
         vm.reg_mut(3, 2299561908);
         vm.reg_mut(2, 5);
@@ -519,7 +516,7 @@ mod test {
 
     #[test]
     fn test_store_double_word() {
-        let mut vm = VM::<NoopTracer>::init();
+        let mut vm = VM::init();
         let mut io = HostIO::new();
         vm.reg_mut(3, 1234567898765432123);
         vm.reg_mut(2, 5);
@@ -536,7 +533,7 @@ mod test {
 
     #[test]
     fn test_jal_opcode() {
-        let mut vm = VM::<NoopTracer>::init();
+        let mut vm = VM::init();
         let mut io = HostIO::new();
         vm.set_pc(8);
         // 0xC001EF = Instruction::Jal(J { rd: 3, imm: 12 });
@@ -548,7 +545,7 @@ mod test {
 
     #[test]
     fn test_jalr_opcode() {
-        let mut vm = VM::<NoopTracer>::init();
+        let mut vm = VM::init();
         let mut io = HostIO::new();
         vm.set_pc(8);
         vm.reg_mut(5, 6);
@@ -561,7 +558,7 @@ mod test {
 
     #[test]
     fn test_ecall_stdin() {
-        let mut vm = VM::<NoopTracer>::init();
+        let mut vm = VM::init();
         let mut io = HostIO::new();
 
         // Prepare an input stream "hello"
@@ -586,7 +583,7 @@ mod test {
 
     #[test]
     fn test_ecall_stdout() {
-        let mut vm = VM::<NoopTracer>::init();
+        let mut vm = VM::init();
         let mut io = HostIO::new();
 
         // Write "world" into guest memory at address 0
