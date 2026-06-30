@@ -38,4 +38,15 @@ pub enum RiscvCommand {
         #[arg(short, long)]
         output: Option<String>,
     },
+
+    /// Compile a RISC-V ELF to a native x86-64 executable
+    Compile {
+        /// Path to the input RISC-V ELF
+        #[arg(value_name = "input")]
+        input_path: String,
+
+        /// Path to write the output x86-64 ELF
+        #[arg(value_name = "output")]
+        output_path: String,
+    },
 }

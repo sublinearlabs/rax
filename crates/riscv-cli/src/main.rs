@@ -23,6 +23,10 @@ fn main() {
             print_info(&format!("Running RISC-V binary: {}", binary));
             commands::execute_run(&binary, trace, &format, output.as_deref())
         }
+        RiscvCommand::Compile {
+            input_path,
+            output_path,
+        } => commands::execute_compile(&input_path, &output_path),
     };
 
     match result {

@@ -1,6 +1,7 @@
 //! Common CLI utilities and types
 
 use colored::*;
+use riscv::aot::compiler::AotCompileError;
 use std::fmt;
 
 /// Result type for CLI operations
@@ -51,6 +52,12 @@ impl From<anyhow::Error> for CliError {
 impl From<std::io::Error> for CliError {
     fn from(err: std::io::Error) -> Self {
         CliError::new(format!("IO error: {}", err))
+    }
+}
+
+impl From<AotCompileError> for CliError {
+    fn from(err: AotCompileError) -> Self {
+        CliError::new(err.to_string())
     }
 }
 
