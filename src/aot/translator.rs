@@ -179,9 +179,12 @@ impl Translator {
 #[cfg(test)]
 mod tests {
     use std::fs;
+    use std::io::ErrorKind;
     use std::io::Write;
     use std::os::unix::fs::PermissionsExt;
     use std::process::{Command, Stdio};
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::Duration;
 
     use dynasmrt::x64::Assembler;
 
@@ -189,6 +192,8 @@ mod tests {
     use crate::elfgen::analyzer::analyze_elf;
 
     use super::*;
+
+    static AOT_TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
 
     fn decode_insns(bytes: &[u8]) -> Vec<Instruction> {
         bytes
@@ -264,8 +269,15 @@ mod tests {
         stdin_input: Option<&[u8]>,
         expected_stdout: Option<&[u8]>,
     ) {
-        let out_path =
-            std::env::temp_dir().join(format!("riscv_aot_test_{}_{}", std::process::id(), name));
+        let id = AOT_TEST_COUNTER.fetch_add(1, Ordering::Relaxed);
+        let out_dir = std::env::temp_dir().join(format!(
+            "riscv_aot_test_{}_{}_{}",
+            std::process::id(),
+            name,
+            id
+        ));
+        fs::create_dir(&out_dir).expect("failed to create AOT temp directory");
+        let out_path = out_dir.join("aot-bin");
         let out_path_str = out_path.to_str().expect("temp path is not valid UTF-8");
 
         compile_elf_for_test(elf_path, out_path_str);
@@ -278,7 +290,19 @@ mod tests {
         });
         command.stdout(Stdio::piped()).stderr(Stdio::piped());
 
-        let mut child = command.spawn().expect("failed to spawn AOT binary");
+        let mut retries_remaining = 50;
+        let mut child = loop {
+            match command.spawn() {
+                Ok(child) => break child,
+                Err(err)
+                    if err.kind() == ErrorKind::ExecutableFileBusy && retries_remaining > 0 =>
+                {
+                    retries_remaining -= 1;
+                    std::thread::sleep(Duration::from_millis(10));
+                }
+                Err(err) => panic!("failed to spawn AOT binary: {err}"),
+            }
+        };
         if let Some(input) = stdin_input {
             child
                 .stdin
@@ -292,6 +316,7 @@ mod tests {
             .wait_with_output()
             .expect("failed to wait on AOT binary");
         let _ = fs::remove_file(&out_path);
+        let _ = fs::remove_dir(&out_dir);
 
         let status_code = output.status.code();
         if let Some(code) = status_code {

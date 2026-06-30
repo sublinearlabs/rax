@@ -40,31 +40,4 @@ pub enum RiscvCommand {
         #[arg(short, long)]
         output: Option<String>,
     },
-
-    /// Verify Ethereum block execution on RISC-V VM
-    VerifyBlock {
-        /// Ethereum block number
-        #[arg(value_name = "BLOCK")]
-        block: String,
-
-        /// Path to RISC-V verifier binary
-        #[arg(short, long)]
-        binary: String,
-
-        /// Ethereum RPC endpoint
-        #[arg(short, long)]
-        rpc_url: String,
-
-        /// Path to save the witness file
-        #[arg(short, long)]
-        witness: Option<String>,
-
-        /// Output format (text, json, csv)
-        #[arg(short, long, default_value = "text")]
-        format: String,
-
-        /// Save output to file
-        #[arg(short, long)]
-        output: Option<String>,
-    },
 }

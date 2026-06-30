@@ -19,25 +19,6 @@ fn main() {
             print_info(&format!("Running RISC-V binary: {}", binary));
             riscv::cli::riscv_cli::commands::execute_run(&binary, trace, &format, output.as_deref())
         }
-
-        RiscvCommand::VerifyBlock {
-            block,
-            binary,
-            rpc_url,
-            witness,
-            format,
-            output,
-        } => {
-            print_info(&format!("Verifying Ethereum block {} on RISC-V", block));
-            riscv::cli::riscv_cli::commands::execute_verify_block(
-                &block,
-                &binary,
-                &rpc_url,
-                witness.as_deref(),
-                &format,
-                output.as_deref(),
-            )
-        }
     };
 
     match result {
