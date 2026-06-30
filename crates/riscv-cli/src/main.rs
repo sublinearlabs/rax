@@ -1,9 +1,13 @@
 //! RISC-V CLI binary entry point
 
 use clap::Parser;
-use riscv::cli::common::{print_error, print_info};
-use riscv::cli::riscv_cli::{RiscvCli, RiscvCommand};
+use common::{print_error, print_info};
+use riscv_cli::{RiscvCli, RiscvCommand};
 use tracing_subscriber::EnvFilter;
+
+mod commands;
+mod common;
+mod riscv_cli;
 
 fn main() {
     let cli = RiscvCli::parse();
@@ -17,7 +21,7 @@ fn main() {
             output,
         } => {
             print_info(&format!("Running RISC-V binary: {}", binary));
-            riscv::cli::riscv_cli::commands::execute_run(&binary, trace, &format, output.as_deref())
+            commands::execute_run(&binary, trace, &format, output.as_deref())
         }
     };
 

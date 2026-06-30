@@ -4,8 +4,6 @@
 
 use clap::{Parser, Subcommand};
 
-pub mod commands;
-
 /// RISC-V CLI tool for executing and analyzing RISC-V binaries
 #[derive(Parser, Debug)]
 #[command(name = "riscv-cli")]

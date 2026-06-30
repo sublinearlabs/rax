@@ -1,0 +1,28 @@
+[package]
+name = "riscv-cli"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "riscv-cli"
+path = "src/main.rs"
+required-features = ["gc"]
+
+[features]
+default = ["gc"]
+ext_i = ["riscv/ext_i"]
+ext_m = ["riscv/ext_m"]
+ext_a = ["riscv/ext_a"]
+ext_f = ["riscv/ext_f"]
+ext_d = ["riscv/ext_d"]
+ext_c = ["riscv/ext_c"]
+imac = ["ext_i", "ext_m", "ext_a", "ext_c"]
+gc = ["imac", "ext_f", "ext_d"]
+
+[dependencies]
+riscv = { path = "../..", default-features = false }
+anyhow = "1.0"
+clap = { version = "4.5", features = ["derive"] }
+colored = "2.0"
+serde_json = "1.0"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
