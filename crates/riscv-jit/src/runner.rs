@@ -1,16 +1,16 @@
 use std::collections::HashMap;
 
 #[cfg(feature = "ext_c")]
-use riscv::decode::compressed::decode_compressed;
-use riscv::decode::Instruction;
+use riscv_core::decode::compressed::decode_compressed;
+use riscv_core::decode::Instruction;
 use crate::ir::lower::lower_instruction_into;
 use crate::ir::{IrBuilder, IrFunction};
 use crate::jit::compile::{compile_ir_function, JitFn};
 use crate::jit::jit_module::{build_jit_module, declare_helpers, HelperFuncIds};
 #[cfg(feature = "ext_c")]
-use riscv::util::mask16;
-use riscv::decode;
-use riscv::{HostIO, VM};
+use riscv_core::util::mask16;
+use riscv_core::decode;
+use riscv_interpreter::{HostIO, VM};
 use cranelift_module::Module;
 
 pub struct Runner {

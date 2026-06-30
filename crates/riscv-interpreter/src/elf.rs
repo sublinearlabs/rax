@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use elf::{
     abi::{EM_RISCV, ET_EXEC, PF_X, PT_LOAD},
     endian::LittleEndian,

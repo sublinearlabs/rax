@@ -1,5 +1,5 @@
 use crate::ir::{BlockId, IrFunction, Op, Terminator};
-use riscv::{HostIO, VM};
+use riscv_interpreter::{HostIO, VM};
 
 mod effect;
 mod pure;
@@ -87,10 +87,10 @@ pub fn execute_ir(func: &IrFunction, vm: &mut VM, io: &mut HostIO) {
 #[cfg(test)]
 mod tests {
     use super::execute_ir;
-    use riscv::decode::{Instruction, B, I};
+    use riscv_core::decode::{Instruction, B, I};
     use crate::ir::lower::lower_instruction_into;
     use crate::ir::IrBuilder;
-    use riscv::{HostIO, VM};
+    use riscv_interpreter::{HostIO, VM};
 
     #[test]
     fn execute_ir_addi_then_beq_sets_reg_and_pc() {

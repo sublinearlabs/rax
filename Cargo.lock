@@ -880,6 +880,7 @@ name = "riscv-aot"
 version = "0.1.0"
 dependencies = [
  "dynasmrt",
+ "hex",
  "riscv-core",
  "riscv-elfgen",
 ]
@@ -930,7 +931,8 @@ dependencies = [
  "cranelift-jit",
  "cranelift-module",
  "cranelift-native",
- "riscv",
+ "riscv-core",
+ "riscv-interpreter",
 ]
 
 [[package]]

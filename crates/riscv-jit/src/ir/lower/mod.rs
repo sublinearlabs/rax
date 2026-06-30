@@ -1,6 +1,6 @@
 pub mod i;
 
-use riscv::decode::Instruction;
+use riscv_core::decode::Instruction;
 use crate::ir::lower::a::lower_a_into;
 use crate::ir::lower::i::lower_i_into;
 use crate::ir::lower::m::lower_m_into;

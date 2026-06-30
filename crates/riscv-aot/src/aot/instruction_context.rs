@@ -78,6 +78,7 @@ impl<'a> PreparedInput<'a> {
     ///
     /// Panics when this input is `ConstZero`.
     /// Callers must branch on zero-valued inputs before calling this method.
+    #[allow(dead_code)]
     pub(super) fn gpr(&self) -> X86Gpr {
         self.src.gpr()
     }
@@ -541,6 +542,7 @@ pub(super) struct InstructionContext<'a, const NI: usize, const NCT: usize> {
     /// Deferred restores for mapped values moved out of clobber targets.
     clobber_restore: Vec<PreparedOutput<'a>>,
     /// Reserved temp clobber targets kept unavailable for this context lifetime.
+    #[allow(dead_code)]
     reserved_temps: Vec<AllocatedTemp<'a>>,
 }
 
