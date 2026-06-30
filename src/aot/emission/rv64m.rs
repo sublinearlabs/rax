@@ -303,3 +303,351 @@ pub(super) fn emit_remu(
 
     ctx.write_back(translator);
 }
+
+/// RV64 `mulh`: upper 64 bits of signed 64x64 multiply.
+/// rd <- high64(signed(rs1) * signed(rs2))
+pub(super) fn emit_mulh(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    if rd.is_zero() {
+        return;
+    }
+
+    if rs1.is_zero() || rs2.is_zero() {
+        let ctx = InstructionContextBuilder::<0, 0>::new()
+            .set_output(rd)
+            .build(translator, temps);
+        let rd = ctx.output();
+        dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+        ctx.write_back(translator);
+        return;
+    }
+
+    let ctx = InstructionContextBuilder::new()
+        .set_inputs([rs1, rs2])
+        .set_output(rd)
+        .ensure_no_clobber([X86Gpr::Rax, X86Gpr::Rdx])
+        .build(translator, temps);
+
+    let [rs1, rs2] = ctx.inputs();
+    let rd = ctx.output();
+
+    dynasm!(translator.emitter ; mov Rq(X86Gpr::Rax.id()), Rq(rs1.id()));
+    dynasm!(translator.emitter ; imul Rq(rs2.id()));
+    if rd.id() != X86Gpr::Rdx.id() {
+        dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(X86Gpr::Rdx.id()));
+    }
+
+    ctx.write_back(translator);
+}
+
+/// RV64 `mulhsu`: upper 64 bits of signed x unsigned 64x64 multiply.
+/// rd <- high64(signed(rs1) * unsigned(rs2))
+pub(super) fn emit_mulhsu(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    if rd.is_zero() {
+        return;
+    }
+
+    if rs1.is_zero() || rs2.is_zero() {
+        let ctx = InstructionContextBuilder::<0, 0>::new()
+            .set_output(rd)
+            .build(translator, temps);
+        let rd = ctx.output();
+        dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+        ctx.write_back(translator);
+        return;
+    }
+
+    let ctx = InstructionContextBuilder::new()
+        .set_inputs([rs1, rs2])
+        .set_output(rd)
+        .ensure_no_clobber([X86Gpr::Rax, X86Gpr::Rdx])
+        .build(translator, temps);
+
+    let [rs1, rs2] = ctx.inputs();
+    let rd = ctx.output();
+
+    let non_negative_label = translator.emitter.new_dynamic_label();
+
+    dynasm!(translator.emitter ; mov Rq(X86Gpr::Rax.id()), Rq(rs1.id()));
+    dynasm!(translator.emitter ; mul Rq(rs2.id()));
+    dynasm!(translator.emitter ; test Rq(rs1.id()), Rq(rs1.id()));
+    dynasm!(translator.emitter ; jns => non_negative_label);
+    dynasm!(translator.emitter ; sub Rq(X86Gpr::Rdx.id()), Rq(rs2.id()));
+    dynasm!(translator.emitter ; => non_negative_label);
+
+    if rd.id() != X86Gpr::Rdx.id() {
+        dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(X86Gpr::Rdx.id()));
+    }
+
+    ctx.write_back(translator);
+}
+
+/// RV64 `mulw`: low 32 bits of multiply, sign-extended to 64 bits.
+/// rd <- sext((rs1 * rs2)[31:0])
+pub(super) fn emit_mulw(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    if rd.is_zero() {
+        return;
+    }
+
+    if rs1.is_zero() || rs2.is_zero() {
+        let ctx = InstructionContextBuilder::<0, 0>::new()
+            .set_output(rd)
+            .build(translator, temps);
+        let rd = ctx.output();
+        dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+        ctx.write_back(translator);
+        return;
+    }
+
+    let ctx = InstructionContextBuilder::<2, 0>::new()
+        .set_inputs([rs1, rs2])
+        .set_output(rd)
+        .build(translator, temps);
+
+    let [rs1, rs2] = ctx.inputs();
+    let rd = ctx.output();
+
+    let scratch = temps.allocate().unwrap();
+    dynasm!(translator.emitter ; mov Rd(scratch.id()), Rd(rs1.id()));
+    dynasm!(translator.emitter ; imul Rd(scratch.id()), Rd(rs2.id()));
+    dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(scratch.id()));
+
+    ctx.write_back(translator);
+}
+
+/// RV64 `div`: signed 64-bit division.
+/// rd <- signed(rs1) / signed(rs2)
+pub(super) fn emit_div(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    emit_signed_div_rem(translator, temps, rd, rs1, rs2, false, false);
+}
+
+/// RV64 `rem`: signed 64-bit remainder.
+/// rd <- signed(rs1) % signed(rs2)
+pub(super) fn emit_rem(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    emit_signed_div_rem(translator, temps, rd, rs1, rs2, true, false);
+}
+
+/// RV64 `divw`: signed 32-bit division, sign-extended to 64 bits.
+/// rd <- sext(signed(rs1[31:0]) / signed(rs2[31:0]))
+pub(super) fn emit_divw(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    emit_signed_div_rem(translator, temps, rd, rs1, rs2, false, true);
+}
+
+/// RV64 `remw`: signed 32-bit remainder, sign-extended to 64 bits.
+/// rd <- sext(signed(rs1[31:0]) % signed(rs2[31:0]))
+pub(super) fn emit_remw(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    emit_signed_div_rem(translator, temps, rd, rs1, rs2, true, true);
+}
+
+/// RV64 `divuw`: unsigned 32-bit division, sign-extended to 64 bits.
+/// rd <- sext(unsigned(rs1[31:0]) / unsigned(rs2[31:0]))
+pub(super) fn emit_divuw(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    emit_unsigned_word_div_rem(translator, temps, rd, rs1, rs2, false);
+}
+
+/// RV64 `remuw`: unsigned 32-bit remainder, sign-extended to 64 bits.
+/// rd <- sext(unsigned(rs1[31:0]) % unsigned(rs2[31:0]))
+pub(super) fn emit_remuw(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+) {
+    emit_unsigned_word_div_rem(translator, temps, rd, rs1, rs2, true);
+}
+
+fn emit_signed_div_rem(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+    want_remainder: bool,
+    word: bool,
+) {
+    let ctx = InstructionContextBuilder::new()
+        .set_inputs([rs1, rs2])
+        .set_output(rd)
+        .ensure_no_clobber([X86Gpr::Rax, X86Gpr::Rdx])
+        .build(translator, temps);
+
+    let [rs1, rs2] = ctx.inputs();
+    let rd = ctx.output();
+
+    if rd.is_zero() {
+        ctx.discard_zero_output(translator);
+        return;
+    }
+
+    let divide_by_zero_label = translator.emitter.new_dynamic_label();
+    let overflow_label = translator.emitter.new_dynamic_label();
+    let safe_divide_label = translator.emitter.new_dynamic_label();
+    let done_label = translator.emitter.new_dynamic_label();
+    let min_temp = temps.allocate().unwrap();
+
+    if word {
+        dynasm!(translator.emitter ; movsxd Rq(X86Gpr::Rax.id()), Rd(rs1.id()));
+        dynasm!(translator.emitter ; movsxd Rq(min_temp.id()), Rd(rs2.id()));
+    } else {
+        dynasm!(translator.emitter ; mov Rq(X86Gpr::Rax.id()), Rq(rs1.id()));
+        dynasm!(translator.emitter ; mov Rq(min_temp.id()), Rq(rs2.id()));
+    }
+
+    dynasm!(translator.emitter ; test Rq(min_temp.id()), Rq(min_temp.id()));
+    dynasm!(translator.emitter ; jz => divide_by_zero_label);
+
+    if word {
+        dynasm!(translator.emitter ; cmp Rq(X86Gpr::Rax.id()), -2147483648i32);
+        dynasm!(translator.emitter ; jne => safe_divide_label);
+    } else {
+        // i64::MIN is the only negative value whose low 63 bits are all zero.
+        dynasm!(translator.emitter ; mov Rq(min_temp.id()), Rq(X86Gpr::Rax.id()));
+        dynasm!(translator.emitter ; shl Rq(min_temp.id()), 1);
+        dynasm!(translator.emitter ; jne => safe_divide_label);
+        dynasm!(translator.emitter ; test Rq(X86Gpr::Rax.id()), Rq(X86Gpr::Rax.id()));
+        dynasm!(translator.emitter ; jns => safe_divide_label);
+    }
+    if word {
+        dynasm!(translator.emitter ; cmp Rd(rs2.id()), -1);
+    } else {
+        dynasm!(translator.emitter ; cmp Rq(rs2.id()), -1);
+    }
+    dynasm!(translator.emitter ; je => overflow_label);
+
+    dynasm!(translator.emitter ; => safe_divide_label);
+    dynasm!(translator.emitter ; cqo);
+    if word {
+        dynasm!(translator.emitter ; idiv Rq(min_temp.id()));
+    } else {
+        dynasm!(translator.emitter ; idiv Rq(rs2.id()));
+    }
+    if want_remainder {
+        dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(X86Gpr::Rdx.id()));
+    } else {
+        dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(X86Gpr::Rax.id()));
+    }
+    if word {
+        dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
+    }
+    dynasm!(translator.emitter ; jmp => done_label);
+
+    dynasm!(translator.emitter ; => divide_by_zero_label);
+    if want_remainder {
+        if word {
+            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rs1.id()));
+        } else {
+            dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(rs1.id()));
+        }
+    } else {
+        dynasm!(translator.emitter ; mov Rq(rd.id()), -1);
+    }
+    dynasm!(translator.emitter ; jmp => done_label);
+
+    dynasm!(translator.emitter ; => overflow_label);
+    if want_remainder {
+        dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+    } else {
+        dynasm!(translator.emitter ; mov Rq(rd.id()), Rq(X86Gpr::Rax.id()));
+    }
+
+    dynasm!(translator.emitter ; => done_label);
+    ctx.write_back(translator);
+}
+
+fn emit_unsigned_word_div_rem(
+    translator: &mut Translator,
+    temps: &TempAllocator,
+    rd: RiscvRegister,
+    rs1: RiscvRegister,
+    rs2: RiscvRegister,
+    want_remainder: bool,
+) {
+    let ctx = InstructionContextBuilder::new()
+        .set_inputs([rs1, rs2])
+        .set_output(rd)
+        .ensure_no_clobber([X86Gpr::Rax, X86Gpr::Rdx])
+        .build(translator, temps);
+
+    let [rs1, rs2] = ctx.inputs();
+    let rd = ctx.output();
+
+    if rd.is_zero() {
+        ctx.discard_zero_output(translator);
+        return;
+    }
+
+    let divide_by_zero_label = translator.emitter.new_dynamic_label();
+    let done_label = translator.emitter.new_dynamic_label();
+    let divisor = temps.allocate().unwrap();
+
+    dynasm!(translator.emitter ; mov Rd(X86Gpr::Rax.id()), Rd(rs1.id()));
+    dynasm!(translator.emitter ; mov Rd(divisor.id()), Rd(rs2.id()));
+    dynasm!(translator.emitter ; test Rd(divisor.id()), Rd(divisor.id()));
+    dynasm!(translator.emitter ; jz => divide_by_zero_label);
+    dynasm!(translator.emitter ; xor Rq(X86Gpr::Rdx.id()), Rq(X86Gpr::Rdx.id()));
+    dynasm!(translator.emitter ; div Rd(divisor.id()));
+    if want_remainder {
+        dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(X86Gpr::Rdx.id()));
+    } else {
+        dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(X86Gpr::Rax.id()));
+    }
+    dynasm!(translator.emitter ; jmp => done_label);
+
+    dynasm!(translator.emitter ; => divide_by_zero_label);
+    if want_remainder {
+        dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rs1.id()));
+    } else {
+        dynasm!(translator.emitter ; mov Rq(rd.id()), -1);
+    }
+
+    dynasm!(translator.emitter ; => done_label);
+    ctx.write_back(translator);
+}

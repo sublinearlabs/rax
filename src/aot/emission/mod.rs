@@ -170,11 +170,38 @@ pub(super) fn emit_instruction(
         Instruction::Mul(R { rd, rs1, rs2 }) => {
             rv64m::emit_mul(translator, temps, rv(rd), rv(rs1), rv(rs2))
         }
+        Instruction::Mulh(R { rd, rs1, rs2 }) => {
+            rv64m::emit_mulh(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::Mulhsu(R { rd, rs1, rs2 }) => {
+            rv64m::emit_mulhsu(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::Mulw(R { rd, rs1, rs2 }) => {
+            rv64m::emit_mulw(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::Div(R { rd, rs1, rs2 }) => {
+            rv64m::emit_div(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
         Instruction::Divu(R { rd, rs1, rs2 }) => {
             rv64m::emit_divu(translator, temps, rv(rd), rv(rs1), rv(rs2))
         }
+        Instruction::Rem(R { rd, rs1, rs2 }) => {
+            rv64m::emit_rem(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
         Instruction::Remu(R { rd, rs1, rs2 }) => {
             rv64m::emit_remu(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::Divw(R { rd, rs1, rs2 }) => {
+            rv64m::emit_divw(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::Divuw(R { rd, rs1, rs2 }) => {
+            rv64m::emit_divuw(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::Remw(R { rd, rs1, rs2 }) => {
+            rv64m::emit_remw(translator, temps, rv(rd), rv(rs1), rv(rs2))
+        }
+        Instruction::Remuw(R { rd, rs1, rs2 }) => {
+            rv64m::emit_remuw(translator, temps, rv(rd), rv(rs1), rv(rs2))
         }
         Instruction::LrW(R { rd, rs1, rs2 }) => {
             rv64a::emit_lrw(translator, temps, rv(rd), rv(rs1), rv(rs2))
