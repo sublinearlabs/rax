@@ -181,6 +181,7 @@ mod tests {
     use std::fs;
     use std::io::ErrorKind;
     use std::io::Write;
+    use std::path::PathBuf;
     use std::process::{Command, Stdio};
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::Duration;
@@ -190,6 +191,11 @@ mod tests {
     use riscv_core::decode::{Instruction, I};
 
     use super::*;
+
+    fn workspace_path(path: &str) -> PathBuf {
+        let root = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."));
+        root.canonicalize().unwrap().join(path)
+    }
 
     static AOT_TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -344,42 +350,56 @@ mod tests {
 
     #[test]
     fn compile_echo_ima_writes_output_elf() {
-        compile_elf_for_test("test-bin/rust-bin/echo/echo-ima", "test-bin/output_echo");
+        let elf_path = workspace_path("test-bin/rust-bin/echo/echo-ima");
+        let out_path = workspace_path("test-bin/output_echo");
+        compile_elf_for_test(
+            elf_path.to_str().unwrap(),
+            out_path.to_str().unwrap(),
+        );
 
-        let out = fs::metadata("test-bin/output_echo").expect("missing output ELF");
+        let out = fs::metadata(out_path).expect("missing output ELF");
         assert!(out.len() > 0, "output ELF should not be empty");
     }
 
     #[test]
     fn compile_fib_ima_writes_output_elf() {
-        compile_elf_for_test("test-bin/rust-bin/fib/fib-ima", "test-bin/output_fib");
+        let elf_path = workspace_path("test-bin/rust-bin/fib/fib-ima");
+        let out_path = workspace_path("test-bin/output_fib");
+        compile_elf_for_test(
+            elf_path.to_str().unwrap(),
+            out_path.to_str().unwrap(),
+        );
 
-        let out = fs::metadata("test-bin/output_fib").expect("missing output ELF");
+        let out = fs::metadata(out_path).expect("missing output ELF");
         assert!(out.len() > 0, "output ELF should not be empty");
     }
 
     #[test]
     fn compile_exec_block_ima_writes_output_elf() {
+        let elf_path = workspace_path("test-bin/rust-bin/exec-block/exec-block-ima");
+        let out_path = workspace_path("test-bin/output_exec_block");
         compile_elf_for_test(
-            "test-bin/rust-bin/exec-block/exec-block-ima",
-            "test-bin/output_exec_block",
+            elf_path.to_str().unwrap(),
+            out_path.to_str().unwrap(),
         );
 
-        let out = fs::metadata("test-bin/output_exec_block").expect("missing output ELF");
+        let out = fs::metadata(out_path).expect("missing output ELF");
         assert!(out.len() > 0, "output ELF should not be empty");
     }
 
     #[test]
     fn aot_fib_ima() {
-        compile_and_run_aot("fib", "test-bin/rust-bin/fib/fib-ima", None, None);
+        let elf_path = workspace_path("test-bin/rust-bin/fib/fib-ima");
+        compile_and_run_aot("fib", elf_path.to_str().unwrap(), None, None);
     }
 
     #[test]
     fn aot_echo_ima() {
         let input = "Hola Riscv, buenos días".as_bytes();
+        let elf_path = workspace_path("test-bin/rust-bin/echo/echo-ima");
         compile_and_run_aot(
             "echo",
-            "test-bin/rust-bin/echo/echo-ima",
+            elf_path.to_str().unwrap(),
             Some(input),
             Some(input),
         );
@@ -387,13 +407,15 @@ mod tests {
 
     #[test]
     fn aot_exec_block_ima() {
-        let input_hex = fs::read_to_string("examples/exec-block.input")
+        let input_path = workspace_path("examples/exec-block.input");
+        let input_hex = fs::read_to_string(&input_path)
             .expect("failed to read exec-block input");
         let input = hex::decode(input_hex.trim()).expect("failed to decode exec-block input");
 
+        let elf_path = workspace_path("test-bin/rust-bin/exec-block/exec-block-ima");
         compile_and_run_aot(
             "exec_block",
-            "test-bin/rust-bin/exec-block/exec-block-ima",
+            elf_path.to_str().unwrap(),
             Some(&input),
             None,
         );
@@ -401,18 +423,21 @@ mod tests {
 
     #[test]
     fn aot_rv64ui() {
-        compile_and_run_aot_dir("test-bin/rv64ui");
+        let dir = workspace_path("test-bin/rv64ui");
+        compile_and_run_aot_dir(dir.to_str().unwrap());
     }
 
     #[cfg(feature = "ext_m")]
     #[test]
     fn aot_rv64um() {
-        compile_and_run_aot_dir("test-bin/rv64um");
+        let dir = workspace_path("test-bin/rv64um");
+        compile_and_run_aot_dir(dir.to_str().unwrap());
     }
 
     #[cfg(feature = "ext_a")]
     #[test]
     fn aot_rv64ua() {
-        compile_and_run_aot_dir("test-bin/rv64ua");
+        let dir = workspace_path("test-bin/rv64ua");
+        compile_and_run_aot_dir(dir.to_str().unwrap());
     }
 }

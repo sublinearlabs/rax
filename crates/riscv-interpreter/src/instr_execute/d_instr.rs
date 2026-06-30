@@ -49,7 +49,7 @@ pub(crate) fn execute_fadd_d(vm: &mut VM, insn: &RF) {
     let b = vm.read_f64(insn.rs2);
     let mut res = a + b;
 
-    if res.is_nan() && !a.is_nan() && !b.is_nan() {
+    if res.is_nan() {
         res = f64::from_bits(0x7FF8000000000000); // Canonical positive qNaN
     }
 
@@ -63,7 +63,7 @@ pub(crate) fn execute_fsub_d(vm: &mut VM, insn: &RF) {
     let b = vm.read_f64(insn.rs2);
     let mut res = a - b;
 
-    if res.is_nan() && !a.is_nan() && !b.is_nan() {
+    if res.is_nan() {
         res = f64::from_bits(0x7FF8000000000000);
     }
 
@@ -77,7 +77,7 @@ pub(crate) fn execute_fmul_d(vm: &mut VM, insn: &RF) {
     let b = vm.read_f64(insn.rs2);
     let mut res = a * b;
 
-    if res.is_nan() && !a.is_nan() && !b.is_nan() {
+    if res.is_nan() {
         res = f64::from_bits(0x7FF8000000000000);
     }
 
@@ -91,7 +91,7 @@ pub(crate) fn execute_fdiv_d(vm: &mut VM, insn: &RF) {
     let b = vm.read_f64(insn.rs2);
     let mut res = a / b;
 
-    if res.is_nan() && !a.is_nan() && !b.is_nan() {
+    if res.is_nan() {
         res = f64::from_bits(0x7FF8000000000000);
     }
 
@@ -109,7 +109,7 @@ pub(crate) fn execute_fsqrt_d(vm: &mut VM, insn: &RF) {
 
     let mut res = a.sqrt();
 
-    if res.is_nan() && !a.is_nan() {
+    if res.is_nan() {
         res = f64::from_bits(0x7FF8000000000000);
     }
 

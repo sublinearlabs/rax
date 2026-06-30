@@ -12,7 +12,7 @@ pub(crate) fn execute_fmadd_s(vm: &mut VM, insn: &R4) {
     let mut res = a.mul_add(b, c);
 
     // Canonicalize NaN
-    if res.is_nan() && !a.is_nan() && !b.is_nan() && !c.is_nan() {
+    if res.is_nan() {
         res = f32::from_bits(0x7FC00000);
     }
 
@@ -57,7 +57,7 @@ pub(crate) fn execute_fadd_s(vm: &mut VM, insn: &RF) {
     let mut res = a + b;
 
     // Canonicalize NaN
-    if res.is_nan() && !a.is_nan() && !b.is_nan() {
+    if res.is_nan() {
         res = f32::from_bits(0x7FC00000);
     }
 
@@ -72,7 +72,7 @@ pub(crate) fn execute_fsub_s(vm: &mut VM, insn: &RF) {
     let mut res = a - b;
 
     // Canonicalize NaN: RISC-V requires positive quiet NaN
-    if res.is_nan() && !a.is_nan() && !b.is_nan() {
+    if res.is_nan() {
         res = f32::from_bits(0x7FC00000); // Canonical positive qNaN
     }
 
@@ -87,7 +87,7 @@ pub(crate) fn execute_fmul_s(vm: &mut VM, insn: &RF) {
     let mut res = a * b;
 
     // Canonicalize NaN
-    if res.is_nan() && !a.is_nan() && !b.is_nan() {
+    if res.is_nan() {
         res = f32::from_bits(0x7FC00000);
     }
 
@@ -102,7 +102,7 @@ pub(crate) fn execute_fdiv_s(vm: &mut VM, insn: &RF) {
     let mut res = a / b;
 
     // Canonicalize NaN
-    if res.is_nan() && !a.is_nan() && !b.is_nan() {
+    if res.is_nan() {
         res = f32::from_bits(0x7FC00000);
     }
 
@@ -121,7 +121,7 @@ pub(crate) fn execute_fsqrt_s(vm: &mut VM, insn: &RF) {
     let mut res = a.sqrt();
 
     // Canonicalize NaN for sqrt of negative
-    if res.is_nan() && !a.is_nan() {
+    if res.is_nan() {
         res = f32::from_bits(0x7FC00000);
     }
 
