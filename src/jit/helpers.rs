@@ -1,4 +1,4 @@
-use crate::ecall::handle_ecall;
+use crate::interpreter::handle_ecall;
 use crate::ir::AtomicRmwOp;
 use crate::trace::NoopTracer;
 use crate::util::mask;

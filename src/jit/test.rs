@@ -1,4 +1,4 @@
-use crate::ecall::constants;
+use crate::interpreter::ecall::constants;
 use crate::ir::{execute_ir, IrBuilder, IrFunction, IrType, MemWidth, Reg};
 use crate::jit::compile::compile_ir_function;
 use crate::jit::jit_module::{build_jit_module, declare_helpers};

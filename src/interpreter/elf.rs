@@ -5,8 +5,8 @@ use elf::{
     ElfBytes,
 };
 
-use crate::decode::Instruction;
-use crate::{decode::decode, memory::MemoryDefault};
+use crate::decode::{decode, Instruction};
+use super::memory::MemoryDefault;
 
 /// Decodes the elf bytes,
 /// loads segments into memory and return the pc.

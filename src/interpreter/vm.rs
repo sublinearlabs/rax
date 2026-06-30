@@ -1,4 +1,4 @@
-use crate::memory::MemoryDefault;
+use super::memory::MemoryDefault;
 use crate::trace::{DefaultTracer, NoopTracer, Tracer};
 use crate::util::{is_snan_f32, is_snan_f64, is_subnormal_f32, is_subnormal_f64};
 use std::mem::offset_of;
@@ -560,7 +560,7 @@ mod tests {
         vm.write_bytes(0, &fib_prog);
         vm.reg_mut(1, 1);
         vm.reg_mut(2, 1);
-        vm.reg_mut(17, crate::ecall::constants::ECALL_HALT);
+        vm.reg_mut(17, crate::interpreter::ecall::constants::ECALL_HALT);
 
         let mut runner = Runner::new();
         runner.step(&mut vm);

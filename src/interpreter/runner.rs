@@ -10,8 +10,8 @@ use crate::jit::jit_module::{build_jit_module, declare_helpers, HelperFuncIds};
 use crate::trace::NoopTracer;
 #[cfg(feature = "ext_c")]
 use crate::util::mask16;
-use crate::HostIO;
-use crate::{decode, VM};
+use crate::decode;
+use super::{HostIO, VM};
 use cranelift_module::Module;
 
 pub struct Runner {
