@@ -24,6 +24,7 @@ impl CliError {
     }
 
     /// Add context to the error
+    #[allow(dead_code)]
     pub fn with_context(mut self, context: impl Into<String>) -> Self {
         self.context = Some(context.into());
         self
@@ -63,6 +64,7 @@ impl From<AotCompileError> for CliError {
 
 /// Output format for CLI results
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
 pub enum OutputFormat {
     /// Plain text format (default)
     Text,
@@ -74,6 +76,7 @@ pub enum OutputFormat {
 
 impl OutputFormat {
     /// Parse output format from string
+    #[allow(dead_code)]
     pub fn from_str(s: &str) -> CliResult<Self> {
         match s.to_lowercase().as_str() {
             "text" | "t" | "plain" | "p" => Ok(OutputFormat::Text),
@@ -109,6 +112,7 @@ pub fn print_error(text: &str) {
 }
 
 /// Print a warning message
+#[allow(dead_code)]
 pub fn print_warning(text: &str) {
     println!("{} {}", "⚠".yellow(), text);
 }

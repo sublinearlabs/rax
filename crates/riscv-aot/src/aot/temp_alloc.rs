@@ -176,14 +176,14 @@ mod tests {
 
     #[test]
     fn allocate_returns_managed_register() {
-        let mut alloc = TempAllocator::new(vec![X86Gpr::Rax, X86Gpr::Rbx]);
+        let alloc = TempAllocator::new(vec![X86Gpr::Rax, X86Gpr::Rbx]);
         let guard = alloc.allocate().expect("must allocate first temp");
         assert!(*guard == X86Gpr::Rax || *guard == X86Gpr::Rbx);
     }
 
     #[test]
     fn dropping_guard_releases_slot() {
-        let mut alloc = TempAllocator::new(vec![X86Gpr::Rax]);
+        let alloc = TempAllocator::new(vec![X86Gpr::Rax]);
 
         let g1 = alloc.allocate().expect("first allocation should succeed");
         assert!(*g1 == X86Gpr::Rax);
@@ -197,18 +197,18 @@ mod tests {
 
     #[test]
     fn allocated_temp_deref_exposes_register() {
-        let mut alloc = TempAllocator::new(vec![X86Gpr::R10]);
+        let alloc = TempAllocator::new(vec![X86Gpr::R10]);
         let guard = alloc.allocate().expect("allocation should succeed");
         assert!(*guard == X86Gpr::R10);
     }
 
     #[test]
     fn allocates_more_than_one_temp_at_once() {
-        let mut alloc = TempAllocator::new(vec![X86Gpr::Rax, X86Gpr::Rbx]);
+        let alloc = TempAllocator::new(vec![X86Gpr::Rax, X86Gpr::Rbx]);
         let t1 = alloc.allocate().unwrap();
-        let t2 = alloc.allocate().unwrap();
+        let _t2 = alloc.allocate().unwrap();
         drop(t1);
-        let t3 = alloc.allocate().unwrap();
+        let _t3 = alloc.allocate().unwrap();
     }
 
     #[test]

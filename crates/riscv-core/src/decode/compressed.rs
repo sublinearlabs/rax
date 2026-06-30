@@ -435,7 +435,7 @@ fn dec_c_sdsp(insn: u16) -> Instruction {
 
 #[cfg(test)]
 mod tests {
-    use crate::decode::{compressed::decode_compressed, insn, Instruction, Sh, B, I, J, S, U};
+    use crate::decode::{compressed::decode_compressed, Instruction, Sh, B, I, J, S, U};
 
     #[test]
     fn test_decode_compressed() {
