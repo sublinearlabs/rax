@@ -1,5 +1,5 @@
 use cranelift_codegen::ir::{
-    condcodes::IntCC, types, BlockArg, FuncRef, Function, InstBuilder, Value,
+    condcodes::IntCC, types, BlockArg, FuncRef, Function, InstBuilder,
 };
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 

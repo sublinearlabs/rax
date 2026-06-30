@@ -45,7 +45,7 @@ impl VM {
         Self::default()
     }
 
-    pub fn from_parts(registers: [u64; 32], memory: MemoryDefault, pc: u64) -> Self {
+    pub(crate) fn from_parts(registers: [u64; 32], memory: MemoryDefault, pc: u64) -> Self {
         Self {
             registers,
             memory,
@@ -505,7 +505,7 @@ mod tests {
         vm.write_bytes(0, &fib_prog);
         vm.reg_mut(1, 1);
         vm.reg_mut(2, 1);
-        vm.reg_mut(17, crate::interpreter::ecall::constants::ECALL_HALT);
+        vm.reg_mut(17, crate::ecall::constants::ECALL_HALT);
 
         let mut runner = Runner::new();
         runner.run(&mut vm);

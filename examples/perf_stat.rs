@@ -10,6 +10,7 @@ pub fn print_perf_stat(runner: &Runner, vm: &VM, name: &'static str) {
     }
 }
 
+#[allow(dead_code)]
 fn main() {
     println!("shared code not an executable");
 }

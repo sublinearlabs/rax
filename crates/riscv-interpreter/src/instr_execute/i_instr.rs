@@ -269,7 +269,7 @@ pub(crate) fn execute_jal(
     vm: &mut VM,
     insn: &J,
     current_pc: u64,
-    is_compressed: bool,
+    _is_compressed: bool,
 ) {
     vm.reg_mut(insn.rd, vm.pc());
     vm.set_pc(current_pc.wrapping_add(insn.imm as u64));
@@ -279,8 +279,8 @@ pub(crate) fn execute_jal(
 pub(crate) fn execute_jalr(
     vm: &mut VM,
     insn: &I,
-    current_pc: u64,
-    is_compressed: bool,
+    _current_pc: u64,
+    _is_compressed: bool,
 ) {
     let target = vm.reg(insn.rs1).wrapping_add(insn.imm as u64);
     vm.reg_mut(insn.rd, vm.pc());

@@ -1,4 +1,4 @@
-use riscv::decode::Instruction;
+use riscv_core::decode::Instruction;
 use crate::ir::{IrBuilder, IrType, MemWidth, Reg, ValueId};
 
 pub(crate) fn lower_i_into(

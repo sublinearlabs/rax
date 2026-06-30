@@ -90,6 +90,7 @@ impl RiscvRegister {
 }
 
 /// x86-64 register class used by lowering and mapping logic.
+#[allow(dead_code)]
 pub(crate) enum X86Register {
     Gpr(X86Gpr),
     Xmm(X86Xmm),
@@ -182,6 +183,7 @@ impl X86Xmm {
     /// Converts a 0-based index to an `X86Xmm` enum variant.
     ///
     /// Returns `None` if the index is out of bounds (i.e., >= 16).
+    #[allow(dead_code)]
     pub(crate) fn from_index(idx: usize) -> Option<Self> {
         match idx {
             0 => Some(Self::Xmm0),

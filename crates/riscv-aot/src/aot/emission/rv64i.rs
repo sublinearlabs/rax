@@ -9,7 +9,7 @@ use crate::aot::{
     register_mapping::MapTarget,
     registers::{RiscvRegister, X86Gpr},
     temp_alloc::TempAllocator,
-    translator::{self, Translator},
+    translator::Translator,
 };
 
 /// RV64 `add`: 64-bit wrapping addition.

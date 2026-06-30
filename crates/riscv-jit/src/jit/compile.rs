@@ -6,7 +6,7 @@ use cranelift_module::{Linkage, Module};
 use crate::ir::IrFunction;
 use crate::jit::jit_module::HelperFuncIds;
 use crate::jit::lower::{lower_ir_function, HelperFuncRefs};
-use riscv::{HostIO, VM};
+use riscv_interpreter::{HostIO, VM};
 
 pub type JitFn = unsafe extern "C" fn(*mut VM, *mut HostIO);
 

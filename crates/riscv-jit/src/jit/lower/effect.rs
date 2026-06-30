@@ -2,7 +2,7 @@ use cranelift_codegen::ir::{condcodes::IntCC, types, InstBuilder, MemFlags, Valu
 use cranelift_frontend::FunctionBuilder;
 
 use crate::ir::{AtomicWidth, EffectOp, MemWidth};
-use riscv::interpreter::{VM_FCSR_OFFSET, VM_PC_OFFSET, VM_REGS_OFFSET};
+use riscv_interpreter::{VM_FCSR_OFFSET, VM_PC_OFFSET, VM_REGS_OFFSET};
 
 use super::pure::atomic_rmw_tag_value;
 use super::HelperFuncRefs;

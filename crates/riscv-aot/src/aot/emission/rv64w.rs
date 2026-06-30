@@ -1,4 +1,4 @@
-use dynasmrt::{dynasm, DynasmApi, DynasmLabelApi};
+use dynasmrt::{dynasm, DynasmApi};
 
 use crate::aot::{
     classification::{

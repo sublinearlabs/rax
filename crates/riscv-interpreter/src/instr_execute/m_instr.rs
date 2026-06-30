@@ -8,7 +8,7 @@ use crate::VM;
 pub(crate) fn execute_mul(vm: &mut VM, insn: &R) {
     let a = vm.reg(insn.rs1) as i64;
     let b = vm.reg(insn.rs2) as i64;
-    let full = (a as i128).wrapping_mul(b as i128);
+    let _full = (a as i128).wrapping_mul(b as i128);
     let result = a.wrapping_mul(b) as u64;
     vm.reg_mut(insn.rd, result);
 }
@@ -18,7 +18,6 @@ pub(crate) fn execute_mulh(vm: &mut VM, insn: &R) {
     let a = (vm.reg(insn.rs1) as i64) as i128;
     let b = (vm.reg(insn.rs2) as i64) as i128;
     let full = a.wrapping_mul(b);
-    let lo = full as u64;
     let hi = (full >> 64) as u64;
     vm.reg_mut(insn.rd, hi);
 }
@@ -28,7 +27,6 @@ pub(crate) fn execute_mulhsu(vm: &mut VM, insn: &R) {
     let a = (vm.reg(insn.rs1) as i64) as i128;
     let b = (vm.reg(insn.rs2) as u128) as i128;
     let full = a.wrapping_mul(b);
-    let lo = full as u64;
     let hi = (full >> 64) as u64;
     vm.reg_mut(insn.rd, hi);
 }
@@ -38,7 +36,6 @@ pub(crate) fn execute_mulhu(vm: &mut VM, insn: &R) {
     let a = vm.reg(insn.rs1) as u128;
     let b = vm.reg(insn.rs2) as u128;
     let full = a.wrapping_mul(b);
-    let lo = full as u64;
     let hi = (full >> 64) as u64;
     vm.reg_mut(insn.rd, hi);
 }
