@@ -4,7 +4,7 @@ mod rv64m;
 mod rv64w;
 
 use crate::aot::{registers::RiscvRegister, temp_alloc::TempAllocator, translator::Translator};
-use crate::decode::{Instruction, Sh, B, I, J, R, S, U};
+use riscv_core::decode::{Instruction, Sh, B, I, J, R, S, U};
 
 pub(super) fn emit_instruction(
     translator: &mut Translator,

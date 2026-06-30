@@ -5,7 +5,7 @@ use elf::{
     ElfBytes,
 };
 
-use crate::decode::{decode, Instruction};
+use riscv_core::decode::{decode, Instruction};
 use super::memory::MemoryDefault;
 
 /// Decodes the elf bytes,
@@ -190,7 +190,7 @@ pub(crate) fn parse_elf(bytes: &[u8]) -> Elf {
 
 #[cfg(test)]
 mod tests {
-    use crate::decode::I;
+    use riscv_core::decode::I;
 
     use super::*;
 

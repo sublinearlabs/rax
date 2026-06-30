@@ -1,8 +1,8 @@
-use crate::decode::decode;
+use riscv_core::decode::decode;
 #[cfg(feature = "ext_c")]
-use crate::decode::compressed::decode_compressed;
+use riscv_core::decode::compressed::decode_compressed;
 #[cfg(feature = "ext_c")]
-use crate::util::mask16;
+use riscv_core::util::mask16;
 use super::{HostIO, VM};
 
 pub struct Runner {
@@ -11,7 +11,7 @@ pub struct Runner {
     elapsed: std::time::Duration,
 }
 
-fn fetch_insn(vm: &mut VM) -> (crate::decode::Instruction, bool) {
+fn fetch_insn(vm: &mut VM) -> (riscv_core::decode::Instruction, bool) {
     let pc = vm.pc();
     #[cfg(feature = "ext_c")]
     {

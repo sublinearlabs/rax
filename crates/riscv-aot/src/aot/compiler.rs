@@ -7,9 +7,9 @@ use dynasmrt::x64::Assembler;
 
 use crate::aot::register_mapping::RegisterMapping;
 use crate::aot::translator::Translator;
-use crate::decode::{decode, Instruction};
-use crate::elfgen::analyzer::{analyze_elf, AnalyzeElfError};
-use crate::elfgen::emitter::EmitElfError;
+use riscv_core::decode::{decode, Instruction};
+use riscv_elfgen::elfgen::analyzer::{analyze_elf, AnalyzeElfError};
+use riscv_elfgen::elfgen::emitter::EmitElfError;
 
 #[derive(Debug)]
 pub enum AotCompileError {

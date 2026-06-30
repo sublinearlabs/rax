@@ -1,7 +1,7 @@
 // F instructions
 
-use crate::decode::{I, R4, RF, S};
-use crate::util::{classify32, is_snan_f32, mask32, sext};
+use riscv_core::decode::{I, R4, RF, S};
+use riscv_core::util::{classify32, is_snan_f32, mask32, sext};
 use crate::VM;
 
 #[inline(always)]

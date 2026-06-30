@@ -1,8 +1,8 @@
-pub mod aot;
-pub mod decode;
-pub mod elfgen;
-pub mod interpreter;
-pub mod util;
+pub use riscv_core as core;
+pub use riscv_core::{decode, util};
+pub use riscv_elfgen as elfgen;
+pub use riscv_interpreter as interpreter;
+pub use riscv_aot as aot;
 
 pub use interpreter::{HostIO, Runner, VM};
 pub use interpreter::init_from_elf;

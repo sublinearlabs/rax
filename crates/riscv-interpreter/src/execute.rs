@@ -1,15 +1,15 @@
-use crate::decode::Instruction;
-use crate::interpreter::ecall::handle_ecall;
+use riscv_core::decode::Instruction;
+use crate::ecall::handle_ecall;
 #[cfg(feature = "ext_a")]
-use crate::interpreter::instr_execute::a_instr::*;
-use crate::interpreter::instr_execute::csr_instr::*;
+use crate::instr_execute::a_instr::*;
+use crate::instr_execute::csr_instr::*;
 #[cfg(feature = "ext_d")]
-use crate::interpreter::instr_execute::d_instr::*;
+use crate::instr_execute::d_instr::*;
 #[cfg(feature = "ext_f")]
-use crate::interpreter::instr_execute::f_instr::*;
-use crate::interpreter::instr_execute::i_instr::*;
+use crate::instr_execute::f_instr::*;
+use crate::instr_execute::i_instr::*;
 #[cfg(feature = "ext_m")]
-use crate::interpreter::instr_execute::m_instr::*;
+use crate::instr_execute::m_instr::*;
 use crate::{HostIO, VM};
 
 impl VM {
@@ -452,8 +452,8 @@ impl VM {
 
 #[cfg(test)]
 mod test {
-    use crate::decode::decode;
-    use crate::interpreter::ecall::constants;
+    use riscv_core::decode::decode;
+    use crate::ecall::constants;
     use crate::{HostIO, VM};
 
     fn run_insn(vm: &mut VM, io: &mut HostIO, insn: u32, is_compressed: bool) {
