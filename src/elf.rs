@@ -107,6 +107,22 @@ impl Segment {
 
         self.insns = instructions;
     }
+
+    pub(crate) fn is_executable(&self) -> bool {
+        self.is_executable
+    }
+
+    pub(crate) fn insns(&self) -> &[Instruction] {
+        &self.insns
+    }
+
+    pub(crate) fn entry(&self) -> u64 {
+        self.entry
+    }
+
+    pub(crate) fn offset(&self) -> usize {
+        self.offset
+    }
 }
 
 pub(crate) struct Elf {
