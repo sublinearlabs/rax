@@ -1,5 +1,5 @@
 /// Mask with the lowest `n` bits set (0–16).
-pub(crate) const fn mask16(n: u8) -> u16 {
+pub const fn mask16(n: u8) -> u16 {
     if n == 16 {
         return u16::MAX;
     }
@@ -8,7 +8,7 @@ pub(crate) const fn mask16(n: u8) -> u16 {
 }
 
 /// Mask with the lowest `n` bits set (0–32).
-pub(crate) const fn mask32(n: u8) -> u32 {
+pub const fn mask32(n: u8) -> u32 {
     if n == 32 {
         return u32::MAX;
     }
@@ -17,7 +17,7 @@ pub(crate) const fn mask32(n: u8) -> u32 {
 }
 
 /// Mask with the lowest `n` bits set (0–64).
-pub(crate) const fn mask(n: u8) -> u64 {
+pub const fn mask(n: u8) -> u64 {
     if n == 64 {
         return u64::MAX;
     }

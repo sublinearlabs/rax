@@ -1,7 +1,7 @@
 #[cfg(feature = "ext_a")]
 mod a;
 #[cfg(feature = "ext_c")]
-pub(crate) mod compressed;
+pub mod compressed;
 #[cfg(feature = "ext_d")]
 mod d;
 #[cfg(feature = "ext_f")]
@@ -20,11 +20,11 @@ mod zicsr;
 #[cfg(not(feature = "ext_i"))]
 compile_error!("feature \"ext_i\" is required for the decoder");
 
-pub(crate) use insn::Instruction;
-pub(crate) use insn_formats::{Sh, B, I, J, R, R4, RF, S, U};
+pub use insn::Instruction;
+pub use insn_formats::{Sh, B, I, J, R, R4, RF, S, U};
 use util::{funct3, opcode};
 
-pub(crate) fn decode(insn: u32) -> Instruction {
+pub fn decode(insn: u32) -> Instruction {
     match opcode(insn) {
         0b0110011 => i::decode_op(insn),
         0b0010011 => i::decode_op_imm(insn),

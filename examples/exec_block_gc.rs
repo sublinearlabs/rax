@@ -8,7 +8,8 @@
 use std::fs;
 use std::path::Path;
 
-use riscv::{init_from_elf, Runner};
+use riscv::init_from_elf;
+use riscv_jit::Runner;
 
 #[path = "perf_stat.rs"]
 mod perf_stat;

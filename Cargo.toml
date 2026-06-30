@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "crates/riscv-cli"]
+members = [".", "crates/riscv-cli", "crates/riscv-jit"]
 resolver = "2"
 
 [workspace.package]
@@ -37,15 +37,11 @@ elf = "0.8.0"
 serde = { version = "1.0", features = ["derive"] }
 hex = "0.4.3"
 fxhash = "0.2.1"
-cranelift-codegen = "0.129.1"
-cranelift-jit = "0.129.1"
-cranelift-module = "0.129.1"
-cranelift-native = "0.129.1"
-cranelift-frontend = "0.129.1"
 dynasmrt = "5.0.0"
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
+riscv-jit = { path = "crates/riscv-jit", default-features = false }
 
 [[bench]]
 name = "vm_benchmark"

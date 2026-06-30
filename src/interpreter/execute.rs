@@ -13,7 +13,7 @@ use crate::interpreter::instr_execute::m_instr::*;
 use crate::{HostIO, VM};
 
 impl VM {
-    pub(crate) fn execute_instruction(
+    pub fn execute_instruction(
         &mut self,
         insn: &Instruction,
         is_compressed: bool,
@@ -441,8 +441,10 @@ impl VM {
             Instruction::Ecall => {
                 handle_ecall(self, io);
             }
+            Instruction::Ebreak => {
+                handle_ecall(self, io);
+            }
 
-            // TODO remove the eager check once all opcodes have been implemented
             _ => {}
         }
     }

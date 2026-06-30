@@ -1,4 +1,5 @@
-use riscv::{Runner, VM};
+use riscv::VM;
+use riscv_jit::Runner;
 
 pub fn print_perf_stat(runner: &Runner, vm: &VM, name: &'static str) {
     if std::env::var("PERF").as_deref() == Ok("1") {

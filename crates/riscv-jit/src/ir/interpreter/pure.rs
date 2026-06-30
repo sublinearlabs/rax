@@ -1,5 +1,5 @@
 use crate::ir::{ConstVal, IrType, PureOp};
-use crate::util::mask;
+use riscv::util::mask;
 
 pub(crate) fn eval_pure(op: &PureOp, values: &[u64], types: &[IrType]) -> u64 {
     match op {

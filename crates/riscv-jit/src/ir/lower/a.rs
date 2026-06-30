@@ -1,4 +1,4 @@
-use crate::decode::Instruction;
+use riscv::decode::Instruction;
 use crate::ir::{AtomicRmwOp, AtomicWidth, IrBuilder, IrType, Reg};
 
 pub(crate) fn lower_a_into(insn: &Instruction, builder: &mut IrBuilder) {

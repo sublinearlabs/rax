@@ -13,10 +13,9 @@ pub use loader::init_from_elf;
 pub use runner::Runner;
 pub use vm::VM;
 
-// Re-exports for JIT/AOT that need pub(crate) items from the interpreter:
-pub(crate) use vm::{
+// Re-exports for JIT/AOT that need items from the interpreter:
+pub use vm::{
     VM_EXIT_CODE_OFFSET, VM_FCSR_OFFSET, VM_FREGS_OFFSET, VM_HALTED_OFFSET, VM_PC_OFFSET,
     VM_REGS_OFFSET, VM_RESERVATION_OFFSET,
 };
-pub(crate) use ecall::handle_ecall;
-pub(crate) use memory::MemoryDefault;
+pub use ecall::handle_ecall;

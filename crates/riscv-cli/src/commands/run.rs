@@ -2,7 +2,8 @@
 
 use crate::common::{check_file_exists, print_header, print_info, CliError, CliResult};
 use colored::*;
-use riscv::{init_from_elf, Runner};
+use riscv::init_from_elf;
+use riscv_jit::Runner;
 use std::time::Instant;
 
 /// Execution result data

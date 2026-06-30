@@ -4,24 +4,25 @@ use std::mem::offset_of;
 
 /// RISC-V Virtual Machine.
 #[repr(C)]
+#[non_exhaustive]
 pub struct VM {
-    pub(crate) registers: [u64; 32],
-    pc: u64,
-    pub(crate) f_reg: [u64; 32],
-    pub(crate) fcsr_reg: u32,
-    pub(crate) reservation_set: u64,
+    pub registers: [u64; 32],
+    pub pc: u64,
+    pub f_reg: [u64; 32],
+    pub fcsr_reg: u32,
+    pub reservation_set: u64,
     pub halted: bool,
     pub exit_code: u64,
-    memory: MemoryDefault,
+    pub(crate) memory: MemoryDefault,
 }
 
-pub(crate) const VM_REGS_OFFSET: usize = offset_of!(VM, registers);
-pub(crate) const VM_PC_OFFSET: usize = offset_of!(VM, pc);
-pub(crate) const VM_FREGS_OFFSET: usize = offset_of!(VM, f_reg);
-pub(crate) const VM_FCSR_OFFSET: usize = offset_of!(VM, fcsr_reg);
-pub(crate) const VM_RESERVATION_OFFSET: usize = offset_of!(VM, reservation_set);
-pub(crate) const VM_HALTED_OFFSET: usize = offset_of!(VM, halted);
-pub(crate) const VM_EXIT_CODE_OFFSET: usize = offset_of!(VM, exit_code);
+pub const VM_REGS_OFFSET: usize = offset_of!(VM, registers);
+pub const VM_PC_OFFSET: usize = offset_of!(VM, pc);
+pub const VM_FREGS_OFFSET: usize = offset_of!(VM, f_reg);
+pub const VM_FCSR_OFFSET: usize = offset_of!(VM, fcsr_reg);
+pub const VM_RESERVATION_OFFSET: usize = offset_of!(VM, reservation_set);
+pub const VM_HALTED_OFFSET: usize = offset_of!(VM, halted);
+pub const VM_EXIT_CODE_OFFSET: usize = offset_of!(VM, exit_code);
 
 impl Default for VM {
     fn default() -> Self {
@@ -44,7 +45,7 @@ impl VM {
         Self::default()
     }
 
-    pub(crate) fn from_parts(registers: [u64; 32], memory: MemoryDefault, pc: u64) -> Self {
+    pub fn from_parts(registers: [u64; 32], memory: MemoryDefault, pc: u64) -> Self {
         Self {
             registers,
             memory,
@@ -58,7 +59,7 @@ impl VM {
         self.pc
     }
 
-    pub(crate) fn set_pc(&mut self, pc: u64) {
+    pub fn set_pc(&mut self, pc: u64) {
         self.pc = pc;
     }
 
@@ -73,7 +74,7 @@ impl VM {
     }
 
     /// Returns the current value at the idx register
-    pub(crate) fn reg(&self, idx: u8) -> u64 {
+    pub fn reg(&self, idx: u8) -> u64 {
         if idx == 0 {
             0
         } else {
@@ -82,7 +83,7 @@ impl VM {
     }
 
     /// Returns a mutable reference to the idx register
-    pub(crate) fn reg_mut(&mut self, idx: u8, value: u64) {
+    pub fn reg_mut(&mut self, idx: u8, value: u64) {
         if idx == 0 {
             self.registers[idx as usize] = 0;
         } else {
@@ -91,18 +92,18 @@ impl VM {
     }
 
     /// Returns the current value at the idx floating point register
-    pub(crate) fn read_f64(&self, idx: u8) -> f64 {
+    pub fn read_f64(&self, idx: u8) -> f64 {
         f64::from_bits(self.f_reg[idx as usize])
     }
 
     /// Updates idx floating point register to value
-    pub(crate) fn write_f64(&mut self, idx: u8, value: f64) {
+    pub fn write_f64(&mut self, idx: u8, value: f64) {
         let res = value.to_bits();
         self.f_reg[idx as usize] = res;
     }
 
     // Read f32
-    pub(crate) fn read_f32(&self, idx: u8) -> f32 {
+    pub fn read_f32(&self, idx: u8) -> f32 {
         let val = self.f_reg[idx as usize];
         if val >> 32 != 0xffff_ffff {
             // signal quiet
@@ -112,51 +113,51 @@ impl VM {
     }
 
     // Write f32
-    pub(crate) fn write_f32(&mut self, idx: u8, val: f32) {
+    pub fn write_f32(&mut self, idx: u8, val: f32) {
         let res = 0xffff_ffff_0000_0000 | (val.to_bits() as u64);
         self.f_reg[idx as usize] = res;
     }
 
     /// Load 8 bytes from memory at the given addr
     /// assumes value at memory address is the LSB
-    pub(crate) fn load_u64(&mut self, addr: usize) -> u64 {
+    pub fn load_u64(&mut self, addr: usize) -> u64 {
         self.memory.read_u64(addr as u64)
     }
 
     /// Load 4 bytes from memory at the given addr
     /// assumes value at memory address is the LSB
-    pub(crate) fn load_u32(&mut self, addr: usize) -> u32 {
+    pub fn load_u32(&mut self, addr: usize) -> u32 {
         self.memory.read_u32(addr as u64)
     }
 
     /// Load 2 bytes from memory at the given addr
     /// assumes value at memory address is the LSB
-    pub(crate) fn load_u16(&mut self, addr: usize) -> u16 {
+    pub fn load_u16(&mut self, addr: usize) -> u16 {
         self.memory.read_u16(addr as u64)
     }
 
     /// Load 1 byte from memory at the given addr
-    pub(crate) fn load_u8(&mut self, addr: usize) -> u8 {
+    pub fn load_u8(&mut self, addr: usize) -> u8 {
         self.memory.read_u8(addr as u64)
     }
 
     /// Write 8 butes to memory at the given addr
-    pub(crate) fn store_u64(&mut self, addr: usize, value: u64) {
+    pub fn store_u64(&mut self, addr: usize, value: u64) {
         self.memory.write_u64(addr as u64, value);
     }
 
     /// Write 4 bytes to memory at the given addr
-    pub(crate) fn store_u32(&mut self, addr: usize, value: u32) {
+    pub fn store_u32(&mut self, addr: usize, value: u32) {
         self.memory.write_u32(addr as u64, value);
     }
 
     /// Write 2 bytes to memory at the given addr
-    pub(crate) fn store_u16(&mut self, addr: usize, value: u16) {
+    pub fn store_u16(&mut self, addr: usize, value: u16) {
         self.memory.write_u16(addr as u64, value);
     }
 
     /// Write 1 byte to memory at the given addr
-    pub(crate) fn store_u8(&mut self, addr: usize, value: u8) {
+    pub fn store_u8(&mut self, addr: usize, value: u8) {
         self.memory.write_u8(addr as u64, value);
     }
 
@@ -166,11 +167,11 @@ impl VM {
     }
 
     /// Read multiple bytes from a given address
-    pub(crate) fn read_bytes(&mut self, addr: usize, len: usize) -> Vec<u8> {
+    pub fn read_bytes(&mut self, addr: usize, len: usize) -> Vec<u8> {
         self.memory.read_n_bytes(addr as u64, len)
     }
 
-    pub(crate) fn read_csr(&self, csr: u32) -> u32 {
+    pub fn read_csr(&self, csr: u32) -> u32 {
         match csr {
             // Read fflags
             0x1 => self.fcsr_reg & 0x1f,
@@ -182,7 +183,7 @@ impl VM {
         }
     }
 
-    pub(crate) fn set_csr(&mut self, csr: u32, val: u32) {
+    pub fn set_csr(&mut self, csr: u32, val: u32) {
         match csr {
             // Set fflags
             0x1 => {
@@ -203,7 +204,7 @@ impl VM {
         }
     }
 
-    pub(crate) fn raise_fflags_f32(&mut self, a: f32, b: f32, res: f32, op: char) {
+    pub fn raise_fflags_f32(&mut self, a: f32, b: f32, res: f32, op: char) {
         let mut flags = 0u32;
 
         // NV: Invalid operation
@@ -277,10 +278,9 @@ impl VM {
         }
 
         self.fcsr_reg |= flags;
-
     }
 
-    pub(crate) fn raise_fflags_f64(&mut self, a: f64, b: f64, res: f64, op: char) {
+    pub fn raise_fflags_f64(&mut self, a: f64, b: f64, res: f64, op: char) {
         let mut flags = 0u32;
 
         // NV: Invalid operation - result is NaN but neither input was NaN
@@ -327,7 +327,7 @@ impl VM {
         self.fcsr_reg |= flags;
     }
 
-    pub(crate) fn raise_fflags_fma_f32(&mut self, a: f32, b: f32, c: f32, res: f32) {
+    pub fn raise_fflags_fma_f32(&mut self, a: f32, b: f32, c: f32, res: f32) {
         let mut flags = 0u32;
 
         // NV: Invalid operation
@@ -376,10 +376,9 @@ impl VM {
         }
 
         self.fcsr_reg |= flags;
-
     }
 
-    pub(crate) fn raise_fflags_fma_f64(&mut self, a: f64, b: f64, c: f64, res: f64) {
+    pub fn raise_fflags_fma_f64(&mut self, a: f64, b: f64, c: f64, res: f64) {
         let mut flags = 0u32;
 
         // NV: Invalid operation
@@ -412,7 +411,6 @@ impl VM {
         }
 
         self.fcsr_reg |= flags;
-
     }
 }
 
@@ -510,7 +508,7 @@ mod tests {
         vm.reg_mut(17, crate::interpreter::ecall::constants::ECALL_HALT);
 
         let mut runner = Runner::new();
-        runner.step(&mut vm);
+        runner.run(&mut vm);
         assert_eq!(vm.reg(2), 5);
 
         assert_eq!(vm.exit_code, 0);

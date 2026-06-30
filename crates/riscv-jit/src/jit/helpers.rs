@@ -1,7 +1,7 @@
-use crate::interpreter::handle_ecall;
+use riscv::interpreter::handle_ecall;
 use crate::ir::AtomicRmwOp;
-use crate::util::mask;
-use crate::{HostIO, VM};
+use riscv::util::mask;
+use riscv::{HostIO, VM};
 
 #[inline]
 fn vm_ptr<'a>(vm: *mut VM) -> &'a mut VM {

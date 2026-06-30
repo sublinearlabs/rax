@@ -1,7 +1,7 @@
-use crate::interpreter::handle_ecall;
+use riscv::interpreter::handle_ecall;
 use crate::ir::{AtomicRmwOp, AtomicWidth, EffectOp, IrType, MemWidth, Reg};
-use crate::util::mask;
-use crate::{HostIO, VM};
+use riscv::util::mask;
+use riscv::{HostIO, VM};
 
 use super::pure::mask_value;
 

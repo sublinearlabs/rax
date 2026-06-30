@@ -1,4 +1,4 @@
-use crate::decode::Instruction;
+use riscv::decode::Instruction;
 use crate::ir::{IrBuilder, IrType, Reg};
 
 pub(crate) fn lower_system_into(insn: &Instruction, builder: &mut IrBuilder) {

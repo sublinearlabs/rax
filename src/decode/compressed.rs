@@ -10,7 +10,7 @@ use crate::{
     util::mask16,
 };
 
-pub(crate) fn decode_compressed(insn: u16) -> Instruction {
+pub fn decode_compressed(insn: u16) -> Instruction {
     let quad = quadrant(insn);
     let funct3 = c_funct3(insn);
 

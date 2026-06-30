@@ -4,20 +4,20 @@ use serde::Deserialize;
 ///
 /// Semantics `rd <- f(rs1, rs2)`
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq)]
-pub(crate) struct R {
-    pub(crate) rd: u8,
-    pub(crate) rs1: u8,
-    pub(crate) rs2: u8,
+pub struct R {
+    pub rd: u8,
+    pub rs1: u8,
+    pub rs2: u8,
 }
 
 /// I-type register-immediate format
 ///
 /// `imm` is a sign-extended immediate
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq)]
-pub(crate) struct I {
-    pub(crate) rd: u8,
-    pub(crate) rs1: u8,
-    pub(crate) imm: i32,
+pub struct I {
+    pub rd: u8,
+    pub rs1: u8,
+    pub imm: i32,
 }
 
 /// Shift immediate sub-format (I type shifts)
@@ -26,10 +26,10 @@ pub(crate) struct I {
 /// - RV32: 5 bits
 /// - RV64: 6 bits
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq)]
-pub(crate) struct Sh {
-    pub(crate) rd: u8,
-    pub(crate) rs1: u8,
-    pub(crate) shamt: u8,
+pub struct Sh {
+    pub rd: u8,
+    pub rs1: u8,
+    pub shamt: u8,
 }
 
 /// S-type store format
@@ -38,10 +38,10 @@ pub(crate) struct Sh {
 ///
 /// Semantics `mem[rs1 + imm] <- rs2`
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq)]
-pub(crate) struct S {
-    pub(crate) rs1: u8,
-    pub(crate) rs2: u8,
-    pub(crate) imm: i32,
+pub struct S {
+    pub rs1: u8,
+    pub rs2: u8,
+    pub imm: i32,
 }
 
 /// B-type branch format
@@ -52,10 +52,10 @@ pub(crate) struct S {
 ///
 /// `imm` is the sign-extended PC-relative byte offset
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq)]
-pub(crate) struct B {
-    pub(crate) rs1: u8,
-    pub(crate) rs2: u8,
-    pub(crate) imm: i32,
+pub struct B {
+    pub rs1: u8,
+    pub rs2: u8,
+    pub imm: i32,
 }
 
 /// J-type jump format
@@ -66,9 +66,9 @@ pub(crate) struct B {
 /// - `rd <- next_pc`
 /// - `pc <- pc + imm`
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq)]
-pub(crate) struct J {
-    pub(crate) rd: u8,
-    pub(crate) imm: i32,
+pub struct J {
+    pub rd: u8,
+    pub imm: i32,
 }
 
 /// U-type upper-immediate format
@@ -77,28 +77,28 @@ pub(crate) struct J {
 ///
 /// stores the imm already shifted left by 12 bits
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq)]
-pub(crate) struct U {
-    pub(crate) rd: u8,
-    pub(crate) imm: i32,
+pub struct U {
+    pub rd: u8,
+    pub imm: i32,
 }
 
 /// RF format (floating-point)
 ///
 /// Same register fields as R, but includes rounding mode `rm`
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq)]
-pub(crate) struct RF {
-    pub(crate) rd: u8,
-    pub(crate) rs1: u8,
-    pub(crate) rs2: u8,
-    pub(crate) rm: u8,
+pub struct RF {
+    pub rd: u8,
+    pub rs1: u8,
+    pub rs2: u8,
+    pub rm: u8,
 }
 
 /// R4-type (fused multiply-add format)
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq)]
-pub(crate) struct R4 {
-    pub(crate) rd: u8,
-    pub(crate) rs1: u8,
-    pub(crate) rs2: u8,
-    pub(crate) rs3: u8,
-    pub(crate) rm: u8,
+pub struct R4 {
+    pub rd: u8,
+    pub rs1: u8,
+    pub rs2: u8,
+    pub rs3: u8,
+    pub rm: u8,
 }

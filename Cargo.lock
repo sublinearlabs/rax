@@ -866,16 +866,12 @@ dependencies = [
 name = "riscv"
 version = "0.1.0"
 dependencies = [
- "cranelift-codegen",
- "cranelift-frontend",
- "cranelift-jit",
- "cranelift-module",
- "cranelift-native",
  "criterion",
  "dynasmrt",
  "elf",
  "fxhash",
  "hex",
+ "riscv-jit",
  "serde",
 ]
 
@@ -887,8 +883,21 @@ dependencies = [
  "clap",
  "colored",
  "riscv",
+ "riscv-jit",
  "serde_json",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "riscv-jit"
+version = "0.1.0"
+dependencies = [
+ "cranelift-codegen",
+ "cranelift-frontend",
+ "cranelift-jit",
+ "cranelift-module",
+ "cranelift-native",
+ "riscv",
 ]
 
 [[package]]
