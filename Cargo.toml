@@ -38,13 +38,8 @@ riscv-interpreter = { path = "crates/riscv-interpreter" }
 riscv-aot = { path = "crates/riscv-aot" }
 
 [dev-dependencies]
-criterion = { version = "0.5", features = ["html_reports"] }
 hex = "0.4.3"
 riscv-jit = { path = "crates/riscv-jit", default-features = false }
-
-[[bench]]
-name = "vm_benchmark"
-harness = false
 
 [[example]]
 name = "fib_ima"
