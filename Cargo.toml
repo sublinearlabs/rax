@@ -1,5 +1,5 @@
 [workspace]
-members = ["."]
+members = [".", "crates/riscv-cli"]
 resolver = "2"
 
 [workspace.package]
@@ -14,11 +14,6 @@ edition.workspace = true
 [lib]
 name = "riscv"
 path = "src/lib.rs"
-
-[[bin]]
-name = "riscv-cli"
-path = "src/bin/riscv_cli.rs"
-required-features = ["gc"]
 
 [profile.release]
 debug = true
@@ -47,12 +42,6 @@ cranelift-jit = "0.129.1"
 cranelift-module = "0.129.1"
 cranelift-native = "0.129.1"
 cranelift-frontend = "0.129.1"
-serde_json = "1.0"
-anyhow = "1.0"
-clap = { version = "4.5", features = ["derive"] }
-colored = "2.0"
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 dynasmrt = "5.0.0"
 
 [dev-dependencies]

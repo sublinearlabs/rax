@@ -1,8 +1,8 @@
 //! RISC-V run command
 
-use crate::cli::common::{check_file_exists, print_header, print_info, CliError, CliResult};
-use crate::{init_from_elf, trace::NoopTracer, Runner, VM};
+use crate::common::{check_file_exists, print_header, print_info, CliError, CliResult};
 use colored::*;
+use riscv::{init_from_elf, trace::NoopTracer, Runner, VM};
 use std::time::Instant;
 
 /// Execution result data
@@ -98,12 +98,10 @@ fn format_output(format: &str, result: &ExecutionResult) -> CliResult<String> {
             ));
             Ok(output)
         }
-        _ => {
-            return Err(CliError::new(format!(
-                "Unknown output format: '{}'. Use: text, json, csv",
-                format
-            )));
-        }
+        _ => Err(CliError::new(format!(
+            "Unknown output format: '{}'. Use: text, json, csv",
+            format
+        ))),
     }
 }
 
