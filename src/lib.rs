@@ -1,4 +1,4 @@
-mod aot;
+pub mod aot;
 mod decode;
 mod ecall;
 mod elf;
