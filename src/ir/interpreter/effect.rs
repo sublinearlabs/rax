@@ -1,4 +1,4 @@
-use crate::ecall::handle_ecall;
+use crate::interpreter::handle_ecall;
 use crate::ir::{AtomicRmwOp, AtomicWidth, EffectOp, IrType, MemWidth, Reg};
 use crate::trace::Tracer;
 use crate::util::mask;

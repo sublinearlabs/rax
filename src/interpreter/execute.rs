@@ -1,18 +1,17 @@
 use crate::decode::Instruction;
-use crate::ecall::handle_ecall;
+use crate::interpreter::ecall::handle_ecall;
 #[cfg(feature = "ext_a")]
-use crate::instr_execute::a_instr::*;
-use crate::instr_execute::csr_instr::*;
+use crate::interpreter::instr_execute::a_instr::*;
+use crate::interpreter::instr_execute::csr_instr::*;
 #[cfg(feature = "ext_d")]
-use crate::instr_execute::d_instr::*;
+use crate::interpreter::instr_execute::d_instr::*;
 #[cfg(feature = "ext_f")]
-use crate::instr_execute::f_instr::*;
-use crate::instr_execute::i_instr::*;
+use crate::interpreter::instr_execute::f_instr::*;
+use crate::interpreter::instr_execute::i_instr::*;
 #[cfg(feature = "ext_m")]
-use crate::instr_execute::m_instr::*;
+use crate::interpreter::instr_execute::m_instr::*;
 use crate::trace::Tracer;
-use crate::HostIO;
-use crate::VM;
+use crate::{HostIO, VM};
 
 // TODO consider cleaning up sext logic
 impl<T: Tracer> VM<T> {
@@ -454,7 +453,7 @@ impl<T: Tracer> VM<T> {
 #[cfg(test)]
 mod test {
     use crate::decode::decode;
-    use crate::ecall::constants;
+    use crate::interpreter::ecall::constants;
     use crate::trace::NoopTracer;
     use crate::{HostIO, VM};
 
