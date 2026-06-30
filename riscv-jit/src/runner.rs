@@ -1,17 +1,17 @@
 use std::collections::HashMap;
 
-#[cfg(feature = "ext_c")]
-use riscv_core::decode::compressed::decode_compressed;
-use riscv_core::decode::Instruction;
 use crate::ir::lower::lower_instruction_into;
 use crate::ir::{IrBuilder, IrFunction};
 use crate::jit::compile::{compile_ir_function, JitFn};
 use crate::jit::jit_module::{build_jit_module, declare_helpers, HelperFuncIds};
+use cranelift_module::Module;
+use riscv_core::decode;
+#[cfg(feature = "ext_c")]
+use riscv_core::decode::compressed::decode_compressed;
+use riscv_core::decode::Instruction;
 #[cfg(feature = "ext_c")]
 use riscv_core::util::mask16;
-use riscv_core::decode;
 use riscv_interpreter::{HostIO, VM};
-use cranelift_module::Module;
 
 pub struct Runner {
     io: HostIO,
@@ -56,6 +56,18 @@ impl Runner {
 
     pub fn set_input_stream(&mut self, input: Vec<u8>) {
         self.io.set_input_stream(input);
+    }
+
+    pub fn set_capture_output(&mut self, capture_output: bool) {
+        self.io.set_capture_output(capture_output);
+    }
+
+    pub fn stdout(&self) -> &[u8] {
+        self.io.stdout()
+    }
+
+    pub fn stderr(&self) -> &[u8] {
+        self.io.stderr()
     }
 
     pub fn cycles(&self) -> u64 {

@@ -1,8 +1,8 @@
+use super::super::{HostIO, VM};
 use super::constants;
-use super::super::VM;
 
 /// @dev this function would heavily be designed following the Linux ABI
-pub fn handle_stdout(vm: &mut VM) {
+pub fn handle_stdout(vm: &mut VM, io: &mut HostIO) {
     // Arguments according to RISC-V calling convention:
     // a0 (x10) = File Descriptor
     // a1 (x11) = Buffer Pointer (Guest Virtual Address)
@@ -15,12 +15,10 @@ pub fn handle_stdout(vm: &mut VM) {
 
     match fd {
         constants::STDOUT_FILENO => {
-            let s = String::from_utf8_lossy(&output_slice);
-            print!("{}", s);
+            io.write_stdout(&output_slice);
         }
         constants::STDERR_FILENO => {
-            let s = String::from_utf8_lossy(&output_slice);
-            eprintln!("{}", s);
+            io.write_stderr(&output_slice);
         }
         _ => {
             // Return -1 (error) in a0

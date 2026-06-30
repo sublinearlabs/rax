@@ -1,9 +1,9 @@
-use riscv_core::decode::decode;
+use super::{HostIO, VM};
 #[cfg(feature = "ext_c")]
 use riscv_core::decode::compressed::decode_compressed;
+use riscv_core::decode::decode;
 #[cfg(feature = "ext_c")]
 use riscv_core::util::mask16;
-use super::{HostIO, VM};
 
 pub struct Runner {
     io: HostIO,
@@ -42,6 +42,18 @@ impl Runner {
 
     pub fn set_input_stream(&mut self, input: Vec<u8>) {
         self.io.set_input_stream(input);
+    }
+
+    pub fn set_capture_output(&mut self, capture_output: bool) {
+        self.io.set_capture_output(capture_output);
+    }
+
+    pub fn stdout(&self) -> &[u8] {
+        self.io.stdout()
+    }
+
+    pub fn stderr(&self) -> &[u8] {
+        self.io.stderr()
     }
 
     pub fn cycles(&self) -> u64 {

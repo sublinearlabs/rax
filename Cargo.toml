@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "riscv-cli", "riscv-jit", "riscv-core", "riscv-elfgen", "riscv-aot", "riscv-interpreter"]
+members = [".", "riscv-cli", "riscv-jit", "riscv-core", "riscv-elfgen", "riscv-aot", "riscv-interpreter", "riscv-perf"]
 resolver = "2"
 
 [workspace.package]
