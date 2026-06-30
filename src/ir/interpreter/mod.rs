@@ -1,5 +1,4 @@
 use crate::ir::{BlockId, IrFunction, Op, Terminator};
-use crate::trace::Tracer;
 use crate::{HostIO, VM};
 
 mod effect;
@@ -8,7 +7,7 @@ mod pure;
 use effect::exec_effect;
 use pure::eval_pure;
 
-pub fn execute_ir<T: Tracer>(func: &IrFunction, vm: &mut VM<T>, io: &mut HostIO) {
+pub fn execute_ir(func: &IrFunction, vm: &mut VM, io: &mut HostIO) {
     let mut values = vec![0u64; func.value_types.len()];
     let mut current = BlockId(0);
     let mut max_args = 0usize;
@@ -91,7 +90,6 @@ mod tests {
     use crate::decode::{Instruction, B, I};
     use crate::ir::lower::lower_instruction_into;
     use crate::ir::IrBuilder;
-    use crate::trace::NoopTracer;
     use crate::{HostIO, VM};
 
     #[test]
@@ -115,7 +113,7 @@ mod tests {
         lower_instruction_into(&beq, 4, 8, &mut builder);
 
         let func = builder.finish();
-        let mut vm = VM::<NoopTracer>::init();
+        let mut vm = VM::init();
         let mut io = HostIO::new();
         execute_ir(&func, &mut vm, &mut io);
 

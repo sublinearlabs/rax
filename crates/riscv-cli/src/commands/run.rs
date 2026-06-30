@@ -2,7 +2,7 @@
 
 use crate::common::{check_file_exists, print_header, print_info, CliError, CliResult};
 use colored::*;
-use riscv::{init_from_elf, trace::NoopTracer, Runner, VM};
+use riscv::{init_from_elf, Runner};
 use std::time::Instant;
 
 /// Execution result data
@@ -17,7 +17,6 @@ pub struct ExecutionResult {
 /// Execute the run command
 pub fn execute_run(
     binary: &str,
-    _trace: bool,
     format: &str,
     output: Option<&str>,
 ) -> CliResult<()> {
@@ -28,7 +27,7 @@ pub fn execute_run(
     print_info(&format!("Loading ELF: {}", binary));
 
     // Load ELF file
-    let mut vm: VM<NoopTracer> = init_from_elf(binary);
+    let mut vm = init_from_elf(binary);
 
     // Create runner and execute
     print_info("Starting execution...");

@@ -1,9 +1,8 @@
-use crate::trace::Tracer;
 use super::constants;
 use super::super::{HostIO, VM};
 
 /// @dev this function would heavily be designed following the Linux ABI
-pub fn handle_stdin<T: Tracer>(vm: &mut VM<T>, io: &mut HostIO) {
+pub fn handle_stdin(vm: &mut VM, io: &mut HostIO) {
     // Arguments according to RISC-V calling convention:
     // a0 (x10) = File Descriptor
     // a1 (x11) = Buffer Pointer (Guest Virtual Address)

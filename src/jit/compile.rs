@@ -6,10 +6,9 @@ use cranelift_module::{Linkage, Module};
 use crate::ir::IrFunction;
 use crate::jit::jit_module::HelperFuncIds;
 use crate::jit::lower::{lower_ir_function, HelperFuncRefs};
-use crate::trace::NoopTracer;
 use crate::{HostIO, VM};
 
-pub type JitFn = unsafe extern "C" fn(*mut VM<NoopTracer>, *mut HostIO);
+pub type JitFn = unsafe extern "C" fn(*mut VM, *mut HostIO);
 
 pub fn compile_ir_function(
     module: &mut JITModule,
