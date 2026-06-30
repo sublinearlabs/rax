@@ -342,7 +342,15 @@ pub(super) fn emit_amomind(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
-    emit_amo_rmw(translator, temps, rd, rs1, rs2, AmoWidth::Double, AmoOp::Min);
+    emit_amo_rmw(
+        translator,
+        temps,
+        rd,
+        rs1,
+        rs2,
+        AmoWidth::Double,
+        AmoOp::Min,
+    );
 }
 
 /// RV64 `amomax.d`: atomic signed max doubleword.
@@ -354,7 +362,15 @@ pub(super) fn emit_amomaxd(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
-    emit_amo_rmw(translator, temps, rd, rs1, rs2, AmoWidth::Double, AmoOp::Max);
+    emit_amo_rmw(
+        translator,
+        temps,
+        rd,
+        rs1,
+        rs2,
+        AmoWidth::Double,
+        AmoOp::Max,
+    );
 }
 
 /// RV64 `amominu.d`: atomic unsigned min doubleword.

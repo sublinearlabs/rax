@@ -104,7 +104,7 @@ impl Translator {
     ///
     /// This v1 path assumes a non-compressed input stream, so the RISC-V PC
     /// advances by 4 bytes per instruction.
-    fn translate_insns(&mut self, insns: &[Instruction]) {
+    pub(super) fn translate_insns(&mut self, insns: &[Instruction]) {
         // Record instruction start offsets by PC slot, then translate.
         for insn in insns {
             self.cf.riscv_pc_to_x86_offset.push(self.emitter.offset());
@@ -181,30 +181,17 @@ mod tests {
     use std::fs;
     use std::io::ErrorKind;
     use std::io::Write;
-    use std::os::unix::fs::PermissionsExt;
     use std::process::{Command, Stdio};
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::Duration;
 
     use dynasmrt::x64::Assembler;
 
-    use crate::decode::{decode, Instruction, I};
-    use crate::elfgen::analyzer::analyze_elf;
+    use crate::decode::{Instruction, I};
 
     use super::*;
 
     static AOT_TEST_COUNTER: AtomicU64 = AtomicU64::new(0);
-
-    fn decode_insns(bytes: &[u8]) -> Vec<Instruction> {
-        bytes
-            .chunks(4)
-            .map(|chunk| {
-                let mut insn_bytes = [0u8; 4];
-                insn_bytes[..chunk.len()].copy_from_slice(chunk);
-                decode(u32::from_le_bytes(insn_bytes))
-            })
-            .collect()
-    }
 
     #[test]
     fn maps_non_base_source_pc_to_translated_x86_vaddr() {
@@ -236,31 +223,9 @@ mod tests {
 
     /// Generate an equivalent x86 ELF file given a RISC-V ELF path.
     ///
-    /// RISC-V ELF constraints:
-    /// - uncompressed format (without the C extension)
-    /// - single executable code segment
+    /// Delegates to the public [`crate::aot::compiler::compile_elf_file`] API.
     fn compile_elf_for_test(path: &str, out_path: &str) {
-        let bytes = fs::read(path).expect("failed to read input ELF");
-        let mut layout = analyze_elf(&bytes).expect("failed to analyze input ELF");
-        let insns = decode_insns(&layout.executable_segment().data);
-
-        let assembler = Assembler::new().expect("failed to create x86 assembler");
-        let mut translator = Translator::new(
-            assembler,
-            RegisterMapping::default_plan(),
-            layout.source_executable_vaddr,
-            layout.executable_segment().vaddr,
-        );
-        translator.translate_insns(&insns);
-        let translated_entry = translator.x86_vaddr_for_riscv_pc(layout.source_entry_vaddr);
-        let x86_bytes = translator.finalize();
-
-        layout.replace_executable(x86_bytes, translated_entry);
-        let elf_bytes = layout.emit_x86_elf().expect("failed to emit x86 ELF");
-
-        fs::write(out_path, elf_bytes).expect("failed to write x86 ELF output");
-        fs::set_permissions(out_path, fs::Permissions::from_mode(0o755))
-            .expect("failed to set executable permissions");
+        crate::aot::compiler::compile_elf_file(path, out_path).expect("AOT compilation failed");
     }
 
     fn compile_and_run_aot(

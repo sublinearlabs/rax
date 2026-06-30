@@ -1,4 +1,5 @@
 mod classification;
+pub mod compiler;
 mod emission;
 mod instruction_context;
 mod register_mapping;
