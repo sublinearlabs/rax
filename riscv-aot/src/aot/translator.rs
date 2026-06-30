@@ -193,7 +193,7 @@ mod tests {
     use super::*;
 
     fn workspace_path(path: &str) -> PathBuf {
-        let root = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../.."));
+        let root = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/.."));
         root.canonicalize().unwrap().join(path)
     }
 

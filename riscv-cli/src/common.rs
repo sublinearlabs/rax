@@ -1,7 +1,7 @@
 //! Common CLI utilities and types
 
 use colored::*;
-use riscv::aot::compiler::AotCompileError;
+use riscv_aot::compiler::AotCompileError;
 use std::fmt;
 
 /// Result type for CLI operations
@@ -98,23 +98,23 @@ pub fn print_header(text: &str) {
 
 /// Print an info message
 pub fn print_info(text: &str) {
-    println!("{} {}", "ℹ".cyan(), text);
+    println!("{}", text.cyan());
 }
 
 /// Print a success message
 pub fn print_success(text: &str) {
-    println!("{} {}", "✓".green(), text);
+    println!("{}", text.green());
 }
 
 /// Print an error message
 pub fn print_error(text: &str) {
-    eprintln!("{} {}", "✗".red(), text);
+    eprintln!("{}", text.red());
 }
 
 /// Print a warning message
 #[allow(dead_code)]
 pub fn print_warning(text: &str) {
-    println!("{} {}", "⚠".yellow(), text);
+    println!("{}", text.yellow());
 }
 
 /// Check if a file exists

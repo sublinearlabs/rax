@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "crates/riscv-cli", "crates/riscv-jit", "crates/riscv-core", "crates/riscv-elfgen", "crates/riscv-aot", "crates/riscv-interpreter"]
+members = [".", "riscv-cli", "riscv-jit", "riscv-core", "riscv-elfgen", "riscv-aot", "riscv-interpreter"]
 resolver = "2"
 
 [workspace.package]
@@ -22,69 +22,27 @@ panic = "abort"
 
 [features]
 default = ["gc"]
-ext_i = ["riscv-core/ext_i", "riscv-interpreter/ext_i", "riscv-aot/ext_i"]
-ext_m = ["riscv-core/ext_m", "riscv-interpreter/ext_m", "riscv-aot/ext_m"]
-ext_a = ["riscv-core/ext_a", "riscv-interpreter/ext_a", "riscv-aot/ext_a"]
-ext_f = ["riscv-core/ext_f", "riscv-interpreter/ext_f", "riscv-aot/ext_f"]
-ext_d = ["riscv-core/ext_d", "riscv-interpreter/ext_d", "riscv-aot/ext_d"]
-ext_c = ["riscv-core/ext_c", "riscv-interpreter/ext_c", "riscv-aot/ext_c"]
+ext_i = ["riscv-core/ext_i", "riscv-interpreter/ext_i", "riscv-aot/ext_i", "riscv-jit?/ext_i"]
+ext_m = ["riscv-core/ext_m", "riscv-interpreter/ext_m", "riscv-aot/ext_m", "riscv-jit?/ext_m"]
+ext_a = ["riscv-core/ext_a", "riscv-interpreter/ext_a", "riscv-aot/ext_a", "riscv-jit?/ext_a"]
+ext_f = ["riscv-core/ext_f", "riscv-interpreter/ext_f", "riscv-aot/ext_f", "riscv-jit?/ext_f"]
+ext_d = ["riscv-core/ext_d", "riscv-interpreter/ext_d", "riscv-aot/ext_d", "riscv-jit?/ext_d"]
+ext_c = ["riscv-core/ext_c", "riscv-interpreter/ext_c", "riscv-aot/ext_c", "riscv-jit?/ext_c"]
 imac = ["ext_i", "ext_m", "ext_a", "ext_c"]
 gc = ["imac", "ext_f", "ext_d"]
+jit = ["dep:riscv-jit"]
 
 [dependencies]
-riscv-core = { path = "crates/riscv-core" }
-riscv-elfgen = { path = "crates/riscv-elfgen" }
-riscv-interpreter = { path = "crates/riscv-interpreter" }
-riscv-aot = { path = "crates/riscv-aot" }
-
-[dev-dependencies]
-hex = "0.4.3"
-riscv-jit = { path = "crates/riscv-jit", default-features = false }
+riscv-core = { path = "riscv-core" }
+riscv-elfgen = { path = "riscv-elfgen" }
+riscv-interpreter = { path = "riscv-interpreter" }
+riscv-aot = { path = "riscv-aot" }
+riscv-jit = { path = "riscv-jit", optional = true, default-features = false }
 
 [[example]]
-name = "fib_ima"
-required-features = ["ext_i", "ext_m", "ext_a"]
-
-[[example]]
-name = "exec_block_ima"
-required-features = ["ext_i", "ext_m", "ext_a"]
-
-[[example]]
-name = "echo_ima"
-required-features = ["ext_i", "ext_m", "ext_a"]
-
-[[example]]
-name = "fib_imac"
-required-features = ["imac"]
-
-[[example]]
-name = "exec_block_imac"
-required-features = ["imac"]
-
-[[example]]
-name = "echo_imac"
-required-features = ["imac"]
-
-[[example]]
-name = "fib_gc"
+name = "fib_interpreter"
 required-features = ["gc"]
 
 [[example]]
-name = "exec_block_gc"
-required-features = ["gc"]
-
-[[example]]
-name = "echo_gc"
-required-features = ["gc"]
-
-[[test]]
-name = "block_exec_elf"
-required-features = ["gc"]
-
-[[test]]
-name = "echo_elf"
-required-features = ["gc"]
-
-[[test]]
-name = "fib_elf"
-required-features = ["gc"]
+name = "fib_jit"
+required-features = ["gc", "jit"]
