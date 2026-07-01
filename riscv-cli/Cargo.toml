@@ -6,17 +6,18 @@ edition.workspace = true
 [[bin]]
 name = "riscv"
 path = "src/main.rs"
-required-features = ["gc"]
+required-features = ["ima"]
 
 [features]
-default = ["gc"]
+default = ["ima"]
 ext_i = ["riscv-interpreter/ext_i", "riscv-aot/ext_i", "riscv-jit/ext_i"]
 ext_m = ["riscv-interpreter/ext_m", "riscv-aot/ext_m", "riscv-jit/ext_m"]
 ext_a = ["riscv-interpreter/ext_a", "riscv-aot/ext_a", "riscv-jit/ext_a"]
 ext_f = ["riscv-interpreter/ext_f", "riscv-aot/ext_f", "riscv-jit/ext_f"]
 ext_d = ["riscv-interpreter/ext_d", "riscv-aot/ext_d", "riscv-jit/ext_d"]
 ext_c = ["riscv-interpreter/ext_c", "riscv-aot/ext_c", "riscv-jit/ext_c"]
-imac = ["ext_i", "ext_m", "ext_a", "ext_c"]
+ima = ["ext_i", "ext_m", "ext_a"]
+imac = ["ima", "ext_c"]
 gc = ["imac", "ext_f", "ext_d"]
 
 [dependencies]

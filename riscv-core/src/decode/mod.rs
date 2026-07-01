@@ -22,7 +22,9 @@ compile_error!("feature \"ext_i\" is required for the decoder");
 
 pub use insn::Instruction;
 pub use insn_formats::{Sh, B, I, J, R, R4, RF, S, U};
-use util::{funct3, opcode};
+#[cfg(any(feature = "ext_f", feature = "ext_d"))]
+use util::funct3;
+use util::opcode;
 
 pub fn decode(insn: u32) -> Instruction {
     match opcode(insn) {
@@ -88,19 +90,26 @@ pub fn decode(insn: u32) -> Instruction {
             Instruction::Illegal(insn)
         }
         0b1010011 => {
-            let mut decoded = Instruction::Illegal(insn);
-            #[cfg(feature = "ext_f")]
+            #[cfg(not(any(feature = "ext_f", feature = "ext_d")))]
             {
-                let candidate = f::decode_fp_op(insn);
-                if !matches!(candidate, Instruction::Illegal(_)) {
-                    decoded = candidate;
+                Instruction::Illegal(insn)
+            }
+            #[cfg(any(feature = "ext_f", feature = "ext_d"))]
+            {
+                let mut decoded = Instruction::Illegal(insn);
+                #[cfg(feature = "ext_f")]
+                {
+                    let candidate = f::decode_fp_op(insn);
+                    if !matches!(candidate, Instruction::Illegal(_)) {
+                        decoded = candidate;
+                    }
                 }
+                #[cfg(feature = "ext_d")]
+                if matches!(decoded, Instruction::Illegal(_)) {
+                    decoded = d::decode_fp_op(insn);
+                }
+                decoded
             }
-            #[cfg(feature = "ext_d")]
-            if matches!(decoded, Instruction::Illegal(_)) {
-                decoded = d::decode_fp_op(insn);
-            }
-            decoded
         }
 
         _ => Instruction::Illegal(insn),

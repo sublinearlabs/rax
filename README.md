@@ -17,16 +17,7 @@ This project is experimental and under active development. The AOT path is the p
 
 ## Supported ISA
 
-The workspace has feature-gated support for:
-
-- `I` - base integer instructions
-- `M` - multiply/divide instructions
-- `A` - atomic instructions
-- `F` - single-precision floating-point instructions
-- `D` - double-precision floating-point instructions
-- `C` - compressed instructions
-
-The default feature set is `gc`.
+The AOT compiler supports RV64IMA. Other ISA extensions exist in the workspace behind feature flags, but the default build is RV64IMA-focused.
 
 ## Quick Start
 
@@ -113,8 +104,8 @@ riscv run --jit program.elf
 When developing from the workspace, use Cargo:
 
 ```sh
-cargo run -p riscv-cli -- run test-bin/rust-bin/fib/fib-gc
-cargo run -p riscv-cli -- run --jit test-bin/rust-bin/fib/fib-gc
+cargo run -p riscv-cli -- run test-bin/rust-bin/fib/fib-ima
+cargo run -p riscv-cli -- run --jit test-bin/rust-bin/fib/fib-ima
 ```
 
 ## Library Usage
@@ -146,7 +137,7 @@ let mut runner = Runner::new();
 runner.run(&mut vm);
 ```
 
-The JIT backend is optional for library users:
+The JIT backend is optional for library users to avoid pulling Cranelift into default builds:
 
 ```toml
 riscv = { version = "0.1", features = ["jit"] }
@@ -190,8 +181,7 @@ make perf-aot PERF_BASE=origin/main
 - AOT output currently targets x86-64 ELF.
 - The current AOT path is intended for uncompressed RISC-V instruction streams.
 - Syscall support is Linux-like and limited.
-- Floating-point NaN canonicalization is incomplete; related standard ELF tests are currently ignored.
-- The JIT backend is optional and experimental.
+- The JIT backend is optional because it depends on Cranelift, which increases build times.
 
 ## Resources
 

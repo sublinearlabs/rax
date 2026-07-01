@@ -1,7 +1,7 @@
 use riscv::init_from_elf;
 use riscv_jit::Runner;
 
-const FIB_BINARY: &str = "test-bin/rust-bin/fib/fib-gc";
+const FIB_BINARY: &str = "test-bin/rust-bin/fib/fib-ima";
 
 fn main() {
     let mut vm = init_from_elf(FIB_BINARY.to_string());
