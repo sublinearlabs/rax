@@ -44,6 +44,10 @@ impl Runner {
         self.io.set_input_stream(input);
     }
 
+    pub fn set_input_from_host(&mut self) {
+        self.io.set_input_from_host();
+    }
+
     pub fn set_capture_output(&mut self, capture_output: bool) {
         self.io.set_capture_output(capture_output);
     }

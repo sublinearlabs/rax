@@ -1,5 +1,5 @@
-use super::constants;
 use super::super::{HostIO, VM};
+use super::constants;
 
 /// @dev this function would heavily be designed following the Linux ABI
 pub fn handle_stdin(vm: &mut VM, io: &mut HostIO) {
@@ -17,15 +17,13 @@ pub fn handle_stdin(vm: &mut VM, io: &mut HostIO) {
         return;
     }
 
-    let available_bytes = io.input_stream.len() - io.input_cursor;
-    let bytes_to_read = std::cmp::min(len as usize, available_bytes);
-
-    let start = io.input_cursor;
-    let end = start + bytes_to_read;
-    let src_slice = &io.input_stream[start..end];
-    vm.write_bytes(guest_ptr as usize, src_slice);
-
-    io.input_cursor = end;
-
-    vm.reg_mut(10, bytes_to_read as u64);
+    match io.read_stdin(len as usize) {
+        Ok(bytes) => {
+            vm.write_bytes(guest_ptr as usize, &bytes);
+            vm.reg_mut(10, bytes.len() as u64);
+        }
+        Err(_) => {
+            vm.reg_mut(10, (-1i64) as u64);
+        }
+    }
 }
