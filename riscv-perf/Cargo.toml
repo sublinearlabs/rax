@@ -1,0 +1,14 @@
+[package]
+name = "riscv-perf"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+clap = { version = "4.5", features = ["derive"] }
+hex = "0.4.3"
+riscv-aot = { path = "../riscv-aot", default-features = false, features = ["ext_i", "ext_m", "ext_a"] }
+riscv-interpreter = { path = "../riscv-interpreter", default-features = false, features = ["ext_i", "ext_m", "ext_a"] }
+riscv-jit = { path = "../riscv-jit", default-features = false, features = ["ext_i", "ext_m", "ext_a"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
