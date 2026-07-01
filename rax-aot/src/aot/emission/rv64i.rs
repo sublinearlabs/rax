@@ -875,8 +875,8 @@ pub(super) fn emit_ecall(translator: &mut Translator, temps: &TempAllocator) {
         &MapTarget::Gpr(X86Gpr::Rdx)
     );
 
-    let ctx = InstructionContextBuilder::<0, 2>::new()
-        .ensure_no_clobber([X86Gpr::Rcx, X86Gpr::R11])
+    let ctx = InstructionContextBuilder::<0, 3>::new()
+        .ensure_no_clobber([X86Gpr::Rcx, X86Gpr::R11, X86Gpr::Rax])
         .set_output(RiscvRegister::A0)
         .build(translator, temps);
 
