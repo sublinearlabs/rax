@@ -435,8 +435,7 @@ mod tests {
     #[test]
     fn aot_exec_block_ima() {
         let input_path = workspace_path("examples/exec-block.input");
-        let input_hex = fs::read_to_string(&input_path).expect("failed to read exec-block input");
-        let input = hex::decode(input_hex.trim()).expect("failed to decode exec-block input");
+        let input = fs::read(&input_path).expect("failed to read exec-block input");
 
         let elf_path = workspace_path("test-bin/rust-bin/exec-block/exec-block-ima");
         compile_and_run_aot("exec_block", elf_path.to_str().unwrap(), Some(&input), None);
