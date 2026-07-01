@@ -60,7 +60,7 @@ pub fn render_report(baseline: &PerfSuite, compare: &PerfSuite) -> String {
             true,
         ));
         out.push_str(&line_float(
-            "eff",
+            "guest/s",
             base.effective_guest_mhz,
             now.effective_guest_mhz,
             false,
