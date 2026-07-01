@@ -21,16 +21,16 @@ The AOT compiler supports RV64IMA. Other ISA extensions exist in the workspace b
 
 ## Quick Start
 
-Build the CLI:
+Install the CLI from the workspace:
 
 ```sh
-cargo build --release -p riscv-cli
+cargo install --path riscv-cli
 ```
 
 Compile a RISC-V ELF to a native x86-64 executable:
 
 ```sh
-./target/release/riscv compile test-bin/rust-bin/fib/fib-ima -o /tmp/fib-native
+riscv compile test-bin/rust-bin/fib/fib-ima -o /tmp/fib-native
 ```
 
 Run the native executable:
@@ -39,7 +39,7 @@ Run the native executable:
 /tmp/fib-native
 ```
 
-## AOT Compilation
+## Compile A RISC-V ELF
 
 The main CLI command is `compile`:
 
@@ -50,7 +50,7 @@ riscv compile <input-riscv-elf> -o <output-x86-elf>
 Example:
 
 ```sh
-cargo run -p riscv-cli -- compile test-bin/rust-bin/fib/fib-ima -o /tmp/fib-native
+riscv compile test-bin/rust-bin/fib/fib-ima -o /tmp/fib-native
 ```
 
 Example output:
@@ -85,23 +85,23 @@ The compiler reports static codegen stats for each AOT build:
 
 Jump-table bytes are reported separately and are not included in the x86 instruction count.
 
-## Running RISC-V Programs
+## Run A RISC-V ELF
 
 The interpreter and JIT are useful for debugging, validation, and comparison.
 
 Run with the interpreter:
 
 ```sh
-riscv run program.elf
+riscv run test-bin/rust-bin/fib/fib-ima
 ```
 
 Run with the JIT:
 
 ```sh
-riscv run --jit program.elf
+riscv run --jit test-bin/rust-bin/fib/fib-ima
 ```
 
-When developing from the workspace, use Cargo:
+When developing from the workspace without installing the CLI, use Cargo:
 
 ```sh
 cargo run -p riscv-cli -- run test-bin/rust-bin/fib/fib-ima
