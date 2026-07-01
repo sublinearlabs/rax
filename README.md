@@ -1,85 +1,197 @@
-# RISC-V 64GC ISA
+# RISC-V AOT Compiler
 
-This is an implementation of the RISC-V RV64GC ISA which incorporates:
-- **I** - Base Integer Instructions
-- **M** - Multiply/Divide Instructions
-- **A** - Atomic Instructions
-- **F** - Single-Precision Floating-Point Instructions
-- **D** - Double-Precision FLoating-Point Instructions
-- **C** - Compressed Instructions(16-bit)
+A RISC-V to x86-64 ahead-of-time compiler for ELF binaries.
 
-It supports trace generation for the execution of programs that can be compiled down to ELF.
+This project focuses on compiling supported RISC-V ELF programs into native x86-64 ELF executables. It also includes interpreter and JIT backends for validation, debugging, and comparison.
 
-## CLI Tools
+## Status
 
-### RISC-V CLI (`riscv-cli`)
+This project is experimental and under active development. The AOT path is the primary focus.
 
-Execute and analyze RISC-V ELF binaries.
+## Highlights
 
-#### Building
+- Compiles supported RISC-V ELF binaries to native x86-64 ELF executables.
+- Reports compile-time codegen stats, including static x86/RISC-V instruction ratio.
+- Provides interpreter and JIT execution paths for comparison and validation.
+- Includes contributor tooling for AOT performance regression checks.
 
-```bash
+## Supported ISA
+
+The workspace has feature-gated support for:
+
+- `I` - base integer instructions
+- `M` - multiply/divide instructions
+- `A` - atomic instructions
+- `F` - single-precision floating-point instructions
+- `D` - double-precision floating-point instructions
+- `C` - compressed instructions
+
+The default feature set is `gc`.
+
+## Quick Start
+
+Build the CLI:
+
+```sh
 cargo build --release -p riscv-cli
 ```
 
-#### Commands
+Compile a RISC-V ELF to a native x86-64 executable:
 
-##### `run` - Execute a RISC-V ELF binary
-
-```bash
-riscv-cli run <BINARY> [OPTIONS]
-
-Options:
-  -t, --trace              Enable instruction tracing
-  -f, --format <FORMAT>    Output format: text, json, csv [default: text]
-  -o, --output <FILE>      Save output to file
-  -v, --verbose...         Verbosity level (0-3)
+```sh
+./target/release/riscv compile test-bin/rust-bin/fib/fib-ima -o /tmp/fib-native
 ```
 
-**Example:**
+Run the native executable:
 
-```bash
-riscv-cli run test-bin/rust-bin/fib/fib-imac --format json --output results.json
+```sh
+/tmp/fib-native
 ```
 
-##### `compile` - Compile a RISC-V ELF to a native x86-64 executable
+## AOT Compilation
 
-```bash
-riscv-cli compile <input> <output>
+The main CLI command is `compile`:
+
+```sh
+riscv compile <input-riscv-elf> -o <output-x86-elf>
 ```
 
-**Example:**
+Example:
 
-```bash
-riscv-cli compile test-bin/rust-bin/echo/echo-ima ./echo-native
-echo "Hola" | ./echo-native
+```sh
+cargo run -p riscv-cli -- compile test-bin/rust-bin/fib/fib-ima -o /tmp/fib-native
 ```
 
-## Tracing
+Example output:
 
-Direct API usage for tracing:
+```text
+Compiling test-bin/rust-bin/fib/fib-ima to /tmp/fib-native
+Output written to /tmp/fib-native
+
+Compilation Stats
+------------------------------------------------------------
+metric  value
+compile 1.821ms
+riscv   27
+x86     60
+x86/rv  2.22
+code    316B
+jtable  216B
+output  8.73KiB
+```
+
+## Compile Stats
+
+The compiler reports static codegen stats for each AOT build:
+
+- `compile`: elapsed AOT compilation time
+- `riscv`: static RISC-V instructions in the translated executable segment
+- `x86`: static x86 instructions emitted for translated code
+- `x86/rv`: average x86 instructions emitted per RISC-V instruction
+- `code`: translated x86 code bytes, excluding jump-table data
+- `jtable`: runtime jump-table bytes
+- `output`: final native ELF size
+
+Jump-table bytes are reported separately and are not included in the x86 instruction count.
+
+## Running RISC-V Programs
+
+The interpreter and JIT are useful for debugging, validation, and comparison.
+
+Run with the interpreter:
+
+```sh
+riscv run program.elf
+```
+
+Run with the JIT:
+
+```sh
+riscv run --jit program.elf
+```
+
+When developing from the workspace, use Cargo:
+
+```sh
+cargo run -p riscv-cli -- run test-bin/rust-bin/fib/fib-gc
+cargo run -p riscv-cli -- run --jit test-bin/rust-bin/fib/fib-gc
+```
+
+## Library Usage
+
+Use the AOT compiler directly:
 
 ```rust
-let mut vm = VM::<FullTracer>::init_from_elf(<path-to-elf>);
-vm.run_with_timing();
+use riscv::aot::compiler::compile_elf_file;
+
+compile_elf_file("program.elf", "program-native")?;
 ```
 
-Without tracing:
+Compile and inspect codegen stats:
 
 ```rust
-let mut vm = VM::<NoopTracer>::init_from_elf(<path-to-elf>);
-vm.run_with_timing();
+use riscv::aot::compiler::compile_elf_file_with_stats;
+
+let stats = compile_elf_file_with_stats("program.elf", "program-native")?;
+println!("x86/rv = {:.2}", stats.x86_instructions_per_riscv_instruction());
 ```
 
-## Examples
+Run through the interpreter:
 
-Run the bundled ELF examples through the CLI:
+```rust
+use riscv::{init_from_elf, Runner};
 
-```bash
-cargo run --bin riscv-cli -- run test-bin/rust-bin/fib/fib-imac
+let mut vm = init_from_elf("program.elf");
+let mut runner = Runner::new();
+runner.run(&mut vm);
 ```
 
-## Benchmarks
+The JIT backend is optional for library users:
+
+```toml
+riscv = { version = "0.1", features = ["jit"] }
+```
+
+## Workspace Crates
+
+- `riscv`: facade crate for common library APIs
+- `riscv-core`: instruction decoding and shared utilities
+- `riscv-interpreter`: interpreter VM and runner
+- `riscv-aot`: RISC-V to x86-64 AOT compiler
+- `riscv-jit`: Cranelift-backed JIT runner
+- `riscv-elfgen`: ELF analysis and emission helpers
+- `riscv-cli`: command-line interface
+- `riscv-perf`: contributor-only performance tooling
+
+## Contributor Tooling
+
+For AOT compiler development, the repository includes a branch-to-branch perf tool:
+
+```sh
+make perf-aot
+```
+
+This command requires a clean working tree. It compares the current branch against `main` by default, writes artifacts under `target/perf/`, and prints a report with compile-time, native run-time, code-size, jump-table-size, and x86/RISC-V instruction-ratio deltas.
+
+You can tune the run count:
+
+```sh
+make perf-aot PERF_RUNS=11 PERF_WARMUPS=2
+```
+
+Or compare against a different base branch:
+
+```sh
+make perf-aot PERF_BASE=origin/main
+```
+
+## Limitations
+
+- AOT output currently targets x86-64 ELF.
+- The current AOT path is intended for uncompressed RISC-V instruction streams.
+- Syscall support is Linux-like and limited.
+- Floating-point NaN canonicalization is incomplete; related standard ELF tests are currently ignored.
+- The JIT backend is optional and experimental.
 
 ## Resources
 
