@@ -51,6 +51,8 @@ pub(super) struct ControlFlowState {
     ///
     /// Indirect jump paths use this as the base for indexed table lookups.
     pub(super) jt_label: DynamicLabel,
+    /// Byte offset immediately after translated x86 code and before jump-table data.
+    code_end_offset: Option<AssemblyOffset>,
 }
 
 impl Translator {
@@ -83,6 +85,7 @@ impl Translator {
                 direct_target_labels: HashMap::new(),
                 riscv_pc_to_x86_offset: Vec::new(),
                 jt_label,
+                code_end_offset: None,
             },
         }
     }
@@ -135,6 +138,7 @@ impl Translator {
             .map(|offset| offset.0 + self.cf.base_x86_vaddr as usize)
             .collect::<Vec<_>>();
 
+        self.cf.code_end_offset = Some(self.emitter.offset());
         dynasm!(self.emitter ; =>self.cf.jt_label);
         for target_pc in jump_table_abs_addrs {
             dynasm!(self.emitter; .i64 target_pc as i64);
@@ -150,6 +154,13 @@ impl Translator {
     pub(crate) fn finalize(self) -> Vec<u8> {
         let buf = self.emitter.finalize().unwrap();
         buf.to_vec()
+    }
+
+    pub(super) fn code_end_offset(&self) -> usize {
+        self.cf
+            .code_end_offset
+            .expect("translation must finish before code_end_offset is available")
+            .0
     }
 
     /// Returns the translated x86 virtual address for a source RISC-V PC.
@@ -225,6 +236,36 @@ mod tests {
 
         assert_eq!(translator.x86_vaddr_for_riscv_pc(0x400000), 0x600000);
         assert!(translator.x86_vaddr_for_riscv_pc(0x400004) > 0x600000);
+    }
+
+    #[test]
+    fn code_end_offset_excludes_jump_table() {
+        let assembler = Assembler::new().expect("failed to create x86 assembler");
+        let mut translator = Translator::new(
+            assembler,
+            RegisterMapping::default_plan(),
+            0x400000,
+            0x600000,
+        );
+        let insns = [
+            Instruction::Addi(I {
+                rd: 1,
+                rs1: 0,
+                imm: 1,
+            }),
+            Instruction::Addi(I {
+                rd: 2,
+                rs1: 0,
+                imm: 2,
+            }),
+        ];
+
+        translator.translate_insns(&insns);
+        let code_end_offset = translator.code_end_offset();
+        let bytes = translator.finalize();
+
+        assert!(code_end_offset < bytes.len());
+        assert_eq!(bytes.len() - code_end_offset, insns.len() * 8);
     }
 
     /// Generate an equivalent x86 ELF file given a RISC-V ELF path.
@@ -352,10 +393,7 @@ mod tests {
     fn compile_echo_ima_writes_output_elf() {
         let elf_path = workspace_path("test-bin/rust-bin/echo/echo-ima");
         let out_path = workspace_path("test-bin/output_echo");
-        compile_elf_for_test(
-            elf_path.to_str().unwrap(),
-            out_path.to_str().unwrap(),
-        );
+        compile_elf_for_test(elf_path.to_str().unwrap(), out_path.to_str().unwrap());
 
         let out = fs::metadata(out_path).expect("missing output ELF");
         assert!(out.len() > 0, "output ELF should not be empty");
@@ -365,10 +403,7 @@ mod tests {
     fn compile_fib_ima_writes_output_elf() {
         let elf_path = workspace_path("test-bin/rust-bin/fib/fib-ima");
         let out_path = workspace_path("test-bin/output_fib");
-        compile_elf_for_test(
-            elf_path.to_str().unwrap(),
-            out_path.to_str().unwrap(),
-        );
+        compile_elf_for_test(elf_path.to_str().unwrap(), out_path.to_str().unwrap());
 
         let out = fs::metadata(out_path).expect("missing output ELF");
         assert!(out.len() > 0, "output ELF should not be empty");
@@ -378,10 +413,7 @@ mod tests {
     fn compile_exec_block_ima_writes_output_elf() {
         let elf_path = workspace_path("test-bin/rust-bin/exec-block/exec-block-ima");
         let out_path = workspace_path("test-bin/output_exec_block");
-        compile_elf_for_test(
-            elf_path.to_str().unwrap(),
-            out_path.to_str().unwrap(),
-        );
+        compile_elf_for_test(elf_path.to_str().unwrap(), out_path.to_str().unwrap());
 
         let out = fs::metadata(out_path).expect("missing output ELF");
         assert!(out.len() > 0, "output ELF should not be empty");
@@ -397,28 +429,17 @@ mod tests {
     fn aot_echo_ima() {
         let input = "Hola Riscv, buenos días".as_bytes();
         let elf_path = workspace_path("test-bin/rust-bin/echo/echo-ima");
-        compile_and_run_aot(
-            "echo",
-            elf_path.to_str().unwrap(),
-            Some(input),
-            Some(input),
-        );
+        compile_and_run_aot("echo", elf_path.to_str().unwrap(), Some(input), Some(input));
     }
 
     #[test]
     fn aot_exec_block_ima() {
         let input_path = workspace_path("examples/exec-block.input");
-        let input_hex = fs::read_to_string(&input_path)
-            .expect("failed to read exec-block input");
+        let input_hex = fs::read_to_string(&input_path).expect("failed to read exec-block input");
         let input = hex::decode(input_hex.trim()).expect("failed to decode exec-block input");
 
         let elf_path = workspace_path("test-bin/rust-bin/exec-block/exec-block-ima");
-        compile_and_run_aot(
-            "exec_block",
-            elf_path.to_str().unwrap(),
-            Some(&input),
-            None,
-        );
+        compile_and_run_aot("exec_block", elf_path.to_str().unwrap(), Some(&input), None);
     }
 
     #[test]

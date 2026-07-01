@@ -65,6 +65,18 @@ pub fn render_report(baseline: &PerfSuite, compare: &PerfSuite) -> String {
             now.effective_guest_mhz,
             false,
         ));
+        out.push_str(&line_ratio("x86/rv", base.x86_per_riscv, now.x86_per_riscv));
+        out.push_str(&line_count(
+            "x86",
+            base.x86_static_instructions,
+            now.x86_static_instructions,
+        ));
+        out.push_str(&line_bytes("code", base.x86_code_bytes, now.x86_code_bytes));
+        out.push_str(&line_bytes(
+            "jtable",
+            base.jump_table_bytes,
+            now.jump_table_bytes,
+        ));
         out.push_str(&line_bytes("size", base.output_size, now.output_size));
         out.push_str(&line_plain(
             "guest",
@@ -132,6 +144,24 @@ fn line_bytes(label: &str, base: u64, now: u64) -> String {
     )
 }
 
+fn line_count(label: &str, base: u64, now: u64) -> String {
+    row(
+        label,
+        format_integer(base),
+        format_integer(now),
+        delta(base as f64, now as f64, true, "smaller", "larger"),
+    )
+}
+
+fn line_ratio(label: &str, base: f64, now: f64) -> String {
+    row(
+        label,
+        format!("{base:.2}"),
+        format!("{now:.2}"),
+        delta(base, now, true, "smaller", "larger"),
+    )
+}
+
 fn line_plain(label: &str, base: String, now: String) -> String {
     row(label, base, now, String::new())
 }
@@ -194,6 +224,11 @@ mod tests {
             native_run_ns_min: run_ns,
             native_run_ns_samples: vec![run_ns],
             effective_guest_mhz: eff,
+            riscv_static_instructions: 10,
+            x86_static_instructions: 50,
+            x86_per_riscv: 5.0,
+            x86_code_bytes: 100,
+            jump_table_bytes: 80,
             output_size: 1024,
             stdout_matches: true,
             stderr_matches: true,
@@ -222,6 +257,7 @@ mod tests {
         assert!(report.contains("delta"));
         assert!(report.contains("compile"));
         assert!(report.contains("run"));
+        assert!(report.contains("x86/rv"));
     }
 
     #[test]
