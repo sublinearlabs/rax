@@ -6,6 +6,9 @@ use crate::aot::{BenchResult, PerfSuite};
 use crate::timing::{format_bytes, format_duration_ns};
 use crate::PerfResult;
 
+const LABEL_WIDTH: usize = 8;
+const VALUE_WIDTH: usize = 15;
+
 pub fn render_report_files(baseline: &Path, compare: &Path) -> PerfResult<String> {
     let baseline = read_suite(baseline)?;
     let compare = read_suite(compare)?;
@@ -33,6 +36,11 @@ pub fn render_report(baseline: &PerfSuite, compare: &PerfSuite) -> String {
 
         out.push_str(&header(base, now));
         out.push('\n');
+        out.push_str(&format!(
+            "{:<LABEL_WIDTH$}{:<VALUE_WIDTH$}{:<VALUE_WIDTH$}{}\n",
+            "metric", "baseline", "now", "delta"
+        ));
+        out.push_str(&format!("{}\n", "-".repeat(60)));
         out.push_str(&line_duration(
             "compile",
             base.compile_ns,
@@ -59,10 +67,12 @@ pub fn render_report(baseline: &PerfSuite, compare: &PerfSuite) -> String {
             "MHz",
         ));
         out.push_str(&line_bytes("size", base.output_size, now.output_size));
-        out.push_str(&format!(
-            "guest    baseline: {:<12} now: {:<12}\n\n",
-            base.guest_instructions, now.guest_instructions
+        out.push_str(&line_plain(
+            "guest",
+            base.guest_instructions.to_string(),
+            now.guest_instructions.to_string(),
         ));
+        out.push('\n');
     }
 
     out
@@ -97,30 +107,38 @@ fn header(base: &BenchResult, now: &BenchResult) -> String {
 }
 
 fn line_duration(label: &str, base: u64, now: u64, lower_is_better: bool) -> String {
-    format!(
-        "{label:<8} baseline: {:<10} now: {:<10} {}\n",
+    row(
+        label,
         format_duration_ns(base),
         format_duration_ns(now),
-        delta(base as f64, now as f64, lower_is_better, "faster", "slower")
+        delta(base as f64, now as f64, lower_is_better, "faster", "slower"),
     )
 }
 
 fn line_float(label: &str, base: f64, now: f64, lower_is_better: bool, unit: &str) -> String {
-    format!(
-        "{label:<8} baseline: {:>8.2} {unit:<3} now: {:>8.2} {unit:<3} {}\n",
-        base,
-        now,
-        delta(base, now, lower_is_better, "faster", "slower")
+    row(
+        label,
+        format!("{base:.2} {unit}"),
+        format!("{now:.2} {unit}"),
+        delta(base, now, lower_is_better, "faster", "slower"),
     )
 }
 
 fn line_bytes(label: &str, base: u64, now: u64) -> String {
-    format!(
-        "{label:<8} baseline: {:<10} now: {:<10} {}\n",
+    row(
+        label,
         format_bytes(base),
         format_bytes(now),
-        delta(base as f64, now as f64, true, "smaller", "larger")
+        delta(base as f64, now as f64, true, "smaller", "larger"),
     )
+}
+
+fn line_plain(label: &str, base: String, now: String) -> String {
+    row(label, base, now, String::new())
+}
+
+fn row(label: &str, baseline: String, now: String, delta: String) -> String {
+    format!("{label:<LABEL_WIDTH$}{baseline:<VALUE_WIDTH$}{now:<VALUE_WIDTH$}{delta}\n")
 }
 
 fn delta(base: f64, now: f64, lower_is_better: bool, good: &str, bad: &str) -> String {
@@ -178,6 +196,9 @@ mod tests {
 
         let report = render_report(&baseline, &compare);
         assert!(report.contains("fib"));
+        assert!(report.contains("metric"));
+        assert!(report.contains("baseline"));
+        assert!(report.contains("delta"));
         assert!(report.contains("compile"));
         assert!(report.contains("run"));
     }
