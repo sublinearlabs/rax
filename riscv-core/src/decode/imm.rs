@@ -1,4 +1,6 @@
-use crate::util::{mask16, mask32};
+#[cfg(feature = "ext_c")]
+use crate::util::mask16;
+use crate::util::mask32;
 
 #[inline]
 pub(crate) fn imm_i(insn: u32) -> i32 {
@@ -71,6 +73,7 @@ pub(crate) fn shamt6(insn: u32) -> u8 {
 
 // Compressed Immediate Extraction
 
+#[cfg(feature = "ext_c")]
 #[inline]
 pub(crate) fn imm_ciw_addi4spn(insn: u16) -> i32 {
     // insn [12 11 | 10 9 8 7 | 6 | 5]
@@ -83,6 +86,7 @@ pub(crate) fn imm_ciw_addi4spn(insn: u16) -> i32 {
     imm as i32
 }
 
+#[cfg(feature = "ext_c")]
 #[inline]
 pub(crate) fn imm_addi16sp(insn: u16) -> i32 {
     // insn [12]
@@ -101,6 +105,7 @@ pub(crate) fn imm_addi16sp(insn: u16) -> i32 {
     ((imm as i32) << 22) >> 22
 }
 
+#[cfg(feature = "ext_c")]
 #[inline]
 pub(crate) fn imm_clui(insn: u16) -> i32 {
     // insn [12]
@@ -115,6 +120,7 @@ pub(crate) fn imm_clui(insn: u16) -> i32 {
     ((imm as i32) << 14) >> 14
 }
 
+#[cfg(feature = "ext_c")]
 #[inline]
 pub(crate) fn imm_ci_signed(insn: u16) -> i32 {
     // insn [12]
@@ -129,6 +135,7 @@ pub(crate) fn imm_ci_signed(insn: u16) -> i32 {
     ((imm as i32) << 26) >> 26
 }
 
+#[cfg(feature = "ext_c")]
 #[inline]
 pub(crate) fn shamt_ci(insn: u16) -> u8 {
     // insn [12 | 6 5 4 3 2]
@@ -141,6 +148,7 @@ pub(crate) fn shamt_ci(insn: u16) -> u8 {
     imm as u8
 }
 
+#[cfg(feature = "ext_c")]
 #[inline]
 pub(crate) fn imm_cl_w(insn: u16) -> i32 {
     // insn [12 11 10]
@@ -156,6 +164,7 @@ pub(crate) fn imm_cl_w(insn: u16) -> i32 {
     imm as i32
 }
 
+#[cfg(feature = "ext_c")]
 #[inline]
 pub(crate) fn imm_cl_d(insn: u16) -> i32 {
     // insn [12 11 10]
@@ -170,6 +179,7 @@ pub(crate) fn imm_cl_d(insn: u16) -> i32 {
     imm as i32
 }
 
+#[cfg(feature = "ext_c")]
 #[inline]
 pub(crate) fn imm_cj(insn: u16) -> i32 {
     // insn [ 12 | 11 | 10 9 |  8 | 7 | 6 | 5 4 3 | 2]
@@ -188,6 +198,7 @@ pub(crate) fn imm_cj(insn: u16) -> i32 {
     ((imm as i32) << 20) >> 20
 }
 
+#[cfg(feature = "ext_c")]
 #[inline]
 pub(crate) fn imm_csp_d_load(insn: u16) -> i32 {
     // insn [12 | 6 5 | 4 3 2]
@@ -198,6 +209,7 @@ pub(crate) fn imm_csp_d_load(insn: u16) -> i32 {
     (imm8_6 | imm5 | imm4_3) as i32
 }
 
+#[cfg(feature = "ext_c")]
 #[inline]
 pub(crate) fn imm_csp_lw(insn: u16) -> i32 {
     // insn [12 | 6 5 4 | 3 2]
@@ -208,6 +220,7 @@ pub(crate) fn imm_csp_lw(insn: u16) -> i32 {
     (imm7_6 | imm5 | imm4_2) as i32
 }
 
+#[cfg(feature = "ext_c")]
 #[inline]
 pub(crate) fn imm_css_w(insn: u16) -> i32 {
     // insn [12 11 10 9 | 8 7]
@@ -217,6 +230,7 @@ pub(crate) fn imm_css_w(insn: u16) -> i32 {
     (imm7_6 | imm5_2) as i32
 }
 
+#[cfg(feature = "ext_c")]
 #[inline]
 pub(crate) fn imm_css_d(insn: u16) -> i32 {
     // insn [12 11 10 | 9 8 7]
@@ -226,6 +240,7 @@ pub(crate) fn imm_css_d(insn: u16) -> i32 {
     (imm8_6 | imm5_3) as i32
 }
 
+#[cfg(feature = "ext_c")]
 #[inline]
 pub(crate) fn imm_cb(insn: u16) -> i32 {
     // insn [ 12 | 11 10 | 6 5 | 4 3 | 2]
