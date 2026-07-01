@@ -30,6 +30,5 @@ pub fn aot_benchmarks() -> PerfResult<Vec<Benchmark>> {
 }
 
 fn exec_block_input() -> PerfResult<Vec<u8>> {
-    let hex = fs::read_to_string("examples/exec-block.input")?;
-    Ok(hex::decode(hex.trim())?)
+    Ok(fs::read("examples/exec-block.input")?)
 }

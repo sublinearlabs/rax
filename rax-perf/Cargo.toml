@@ -6,7 +6,6 @@ publish = false
 
 [dependencies]
 clap = { version = "4.5", features = ["derive"] }
-hex = "0.4.3"
 rax-aot = { path = "../rax-aot", default-features = false, features = ["ext_i", "ext_m", "ext_a"] }
 rax-interpreter = { path = "../rax-interpreter", default-features = false, features = ["ext_i", "ext_m", "ext_a"] }
 rax-jit = { path = "../rax-jit", default-features = false, features = ["ext_i", "ext_m", "ext_a"] }

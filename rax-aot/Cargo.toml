@@ -20,6 +20,3 @@ rax-core = { path = "../rax-core" }
 rax-elfgen = { path = "../rax-elfgen" }
 dynasmrt = "5.0.0"
 iced-x86 = "1.21.0"
-
-[dev-dependencies]
-hex = "0.4.3"
