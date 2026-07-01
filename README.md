@@ -1,4 +1,4 @@
-# RAX — RISC-V to x86-64 AOT Compiler
+# RAX: A RISC-V to x86-64 AOT Compiler
 
 A RISC-V to x86-64 ahead-of-time compiler for ELF binaries.
 
@@ -6,7 +6,7 @@ This project focuses on compiling supported RISC-V ELF programs into native x86-
 
 ## Status
 
-This project is experimental and under active development. The AOT path is the primary focus.
+🚧 This project is experimental and under active development. The AOT path is the primary focus.
 
 ## Highlights
 
