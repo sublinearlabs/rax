@@ -15,12 +15,7 @@ pub struct ExecutionResult {
 }
 
 /// Execute the run command
-pub fn execute_run(
-    binary: &str,
-    jit: bool,
-    format: &str,
-    output: Option<&str>,
-) -> CliResult<()> {
+pub fn execute_run(binary: &str, jit: bool, format: &str, output: Option<&str>) -> CliResult<()> {
     print_header("RISC-V CLI - Run Command");
 
     // Check file exists
@@ -39,10 +34,12 @@ pub fn execute_run(
     let start = Instant::now();
     let cycles = if jit {
         let mut runner = rax_jit::Runner::new();
+        runner.set_input_from_host();
         runner.run(&mut vm);
         runner.cycles()
     } else {
         let mut runner = rax_interpreter::Runner::new();
+        runner.set_input_from_host();
         runner.run(&mut vm);
         runner.cycles()
     };
