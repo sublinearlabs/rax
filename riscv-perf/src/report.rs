@@ -7,7 +7,7 @@ use crate::timing::{format_bytes, format_duration_ns};
 use crate::PerfResult;
 
 const LABEL_WIDTH: usize = 8;
-const VALUE_WIDTH: usize = 15;
+const VALUE_WIDTH: usize = 17;
 
 pub fn render_report_files(baseline: &Path, compare: &Path) -> PerfResult<String> {
     let baseline = read_suite(baseline)?;
@@ -64,13 +64,12 @@ pub fn render_report(baseline: &PerfSuite, compare: &PerfSuite) -> String {
             base.effective_guest_mhz,
             now.effective_guest_mhz,
             false,
-            "MHz",
         ));
         out.push_str(&line_bytes("size", base.output_size, now.output_size));
         out.push_str(&line_plain(
             "guest",
-            base.guest_instructions.to_string(),
-            now.guest_instructions.to_string(),
+            format_integer(base.guest_instructions),
+            format_integer(now.guest_instructions),
         ));
         out.push('\n');
     }
@@ -115,11 +114,11 @@ fn line_duration(label: &str, base: u64, now: u64, lower_is_better: bool) -> Str
     )
 }
 
-fn line_float(label: &str, base: f64, now: f64, lower_is_better: bool, unit: &str) -> String {
+fn line_float(label: &str, base: f64, now: f64, lower_is_better: bool) -> String {
     row(
         label,
-        format!("{base:.2} {unit}"),
-        format!("{now:.2} {unit}"),
+        format_frequency_mhz(base),
+        format_frequency_mhz(now),
         delta(base, now, lower_is_better, "faster", "slower"),
     )
 }
@@ -139,6 +138,28 @@ fn line_plain(label: &str, base: String, now: String) -> String {
 
 fn row(label: &str, baseline: String, now: String, delta: String) -> String {
     format!("{label:<LABEL_WIDTH$}{baseline:<VALUE_WIDTH$}{now:<VALUE_WIDTH$}{delta}\n")
+}
+
+fn format_frequency_mhz(mhz: f64) -> String {
+    if mhz >= 1000.0 {
+        format!("{:.2} GHz", mhz / 1000.0)
+    } else {
+        format!("{mhz:.2} MHz")
+    }
+}
+
+fn format_integer(value: u64) -> String {
+    let digits = value.to_string();
+    let mut out = String::with_capacity(digits.len() + digits.len() / 3);
+
+    for (idx, ch) in digits.chars().enumerate() {
+        if idx > 0 && (digits.len() - idx) % 3 == 0 {
+            out.push(',');
+        }
+        out.push(ch);
+    }
+
+    out
 }
 
 fn delta(base: f64, now: f64, lower_is_better: bool, good: &str, bad: &str) -> String {
@@ -207,5 +228,20 @@ mod tests {
     fn lower_duration_reports_faster_when_now_is_smaller() {
         assert!(line_duration("run", 100, 50, true).contains("faster"));
         assert!(line_duration("run", 50, 100, true).contains("slower"));
+    }
+
+    #[test]
+    fn frequency_uses_ghz_at_threshold() {
+        assert_eq!(format_frequency_mhz(999.0), "999.00 MHz");
+        assert_eq!(format_frequency_mhz(1000.0), "1.00 GHz");
+        assert_eq!(format_frequency_mhz(5470.0), "5.47 GHz");
+    }
+
+    #[test]
+    fn integer_formatting_uses_commas() {
+        assert_eq!(format_integer(0), "0");
+        assert_eq!(format_integer(115), "115");
+        assert_eq!(format_integer(72_000_008), "72,000,008");
+        assert_eq!(format_integer(2_165_224_904), "2,165,224,904");
     }
 }
