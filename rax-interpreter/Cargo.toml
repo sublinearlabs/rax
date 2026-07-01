@@ -1,0 +1,22 @@
+[package]
+name = "rax-interpreter"
+version.workspace = true
+edition.workspace = true
+
+[features]
+default = ["ima"]
+ext_i = []
+ext_m = []
+ext_a = []
+ext_f = []
+ext_d = []
+ext_c = []
+ima = ["ext_i", "ext_m", "ext_a"]
+imac = ["ima", "ext_c"]
+gc = ["imac", "ext_f", "ext_d"]
+
+[dependencies]
+rax-core = { path = "../rax-core" }
+elf = "0.8.0"
+hex = "0.4.3"
+fxhash = "0.2.1"

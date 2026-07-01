@@ -1,0 +1,31 @@
+[package]
+name = "rax-cli"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "rax"
+path = "src/main.rs"
+required-features = ["ima"]
+
+[features]
+default = ["ima"]
+ext_i = ["rax-interpreter/ext_i", "rax-aot/ext_i", "rax-jit/ext_i"]
+ext_m = ["rax-interpreter/ext_m", "rax-aot/ext_m", "rax-jit/ext_m"]
+ext_a = ["rax-interpreter/ext_a", "rax-aot/ext_a", "rax-jit/ext_a"]
+ext_f = ["rax-interpreter/ext_f", "rax-aot/ext_f", "rax-jit/ext_f"]
+ext_d = ["rax-interpreter/ext_d", "rax-aot/ext_d", "rax-jit/ext_d"]
+ext_c = ["rax-interpreter/ext_c", "rax-aot/ext_c", "rax-jit/ext_c"]
+ima = ["ext_i", "ext_m", "ext_a"]
+imac = ["ima", "ext_c"]
+gc = ["imac", "ext_f", "ext_d"]
+
+[dependencies]
+rax-interpreter = { path = "../rax-interpreter", default-features = false }
+rax-aot = { path = "../rax-aot", default-features = false }
+rax-jit = { path = "../rax-jit", default-features = false }
+anyhow = "1.0"
+clap = { version = "4.5", features = ["derive"] }
+colored = "2.0"
+serde_json = "1.0"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }

@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "riscv-cli", "riscv-jit", "riscv-core", "riscv-elfgen", "riscv-aot", "riscv-interpreter", "riscv-perf"]
+members = [".", "rax-cli", "rax-jit", "rax-core", "rax-elfgen", "rax-aot", "rax-interpreter", "rax-perf"]
 resolver = "2"
 
 [workspace.package]
@@ -7,12 +7,12 @@ version = "0.1.0"
 edition = "2021"
 
 [package]
-name = "riscv"
+name = "rax"
 version.workspace = true
 edition.workspace = true
 
 [lib]
-name = "riscv"
+name = "rax"
 path = "src/lib.rs"
 
 [profile.release]
@@ -22,23 +22,23 @@ panic = "abort"
 
 [features]
 default = ["ima"]
-ext_i = ["riscv-core/ext_i", "riscv-interpreter/ext_i", "riscv-aot/ext_i", "riscv-jit?/ext_i"]
-ext_m = ["riscv-core/ext_m", "riscv-interpreter/ext_m", "riscv-aot/ext_m", "riscv-jit?/ext_m"]
-ext_a = ["riscv-core/ext_a", "riscv-interpreter/ext_a", "riscv-aot/ext_a", "riscv-jit?/ext_a"]
-ext_f = ["riscv-core/ext_f", "riscv-interpreter/ext_f", "riscv-aot/ext_f", "riscv-jit?/ext_f"]
-ext_d = ["riscv-core/ext_d", "riscv-interpreter/ext_d", "riscv-aot/ext_d", "riscv-jit?/ext_d"]
-ext_c = ["riscv-core/ext_c", "riscv-interpreter/ext_c", "riscv-aot/ext_c", "riscv-jit?/ext_c"]
+ext_i = ["rax-core/ext_i", "rax-interpreter/ext_i", "rax-aot/ext_i", "rax-jit?/ext_i"]
+ext_m = ["rax-core/ext_m", "rax-interpreter/ext_m", "rax-aot/ext_m", "rax-jit?/ext_m"]
+ext_a = ["rax-core/ext_a", "rax-interpreter/ext_a", "rax-aot/ext_a", "rax-jit?/ext_a"]
+ext_f = ["rax-core/ext_f", "rax-interpreter/ext_f", "rax-aot/ext_f", "rax-jit?/ext_f"]
+ext_d = ["rax-core/ext_d", "rax-interpreter/ext_d", "rax-aot/ext_d", "rax-jit?/ext_d"]
+ext_c = ["rax-core/ext_c", "rax-interpreter/ext_c", "rax-aot/ext_c", "rax-jit?/ext_c"]
 ima = ["ext_i", "ext_m", "ext_a"]
 imac = ["ima", "ext_c"]
 gc = ["imac", "ext_f", "ext_d"]
-jit = ["dep:riscv-jit"]
+jit = ["dep:rax-jit"]
 
 [dependencies]
-riscv-core = { path = "riscv-core" }
-riscv-elfgen = { path = "riscv-elfgen" }
-riscv-interpreter = { path = "riscv-interpreter" }
-riscv-aot = { path = "riscv-aot" }
-riscv-jit = { path = "riscv-jit", optional = true, default-features = false }
+rax-core = { path = "rax-core" }
+rax-elfgen = { path = "rax-elfgen" }
+rax-interpreter = { path = "rax-interpreter" }
+rax-aot = { path = "rax-aot" }
+rax-jit = { path = "rax-jit", optional = true, default-features = false }
 
 [[example]]
 name = "fib_interpreter"

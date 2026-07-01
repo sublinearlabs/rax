@@ -1,0 +1,25 @@
+[package]
+name = "rax-jit"
+version.workspace = true
+edition.workspace = true
+
+[features]
+default = ["ima"]
+ext_i = ["rax-core/ext_i", "rax-interpreter/ext_i"]
+ext_m = ["rax-core/ext_m", "rax-interpreter/ext_m"]
+ext_a = ["rax-core/ext_a", "rax-interpreter/ext_a"]
+ext_f = ["rax-core/ext_f", "rax-interpreter/ext_f"]
+ext_d = ["rax-core/ext_d", "rax-interpreter/ext_d"]
+ext_c = ["rax-core/ext_c", "rax-interpreter/ext_c"]
+ima = ["ext_i", "ext_m", "ext_a"]
+imac = ["ima", "ext_c"]
+gc = ["imac", "ext_f", "ext_d"]
+
+[dependencies]
+rax-core = { path = "../rax-core" }
+rax-interpreter = { path = "../rax-interpreter" }
+cranelift-codegen = "0.129.1"
+cranelift-jit = "0.129.1"
+cranelift-module = "0.129.1"
+cranelift-native = "0.129.1"
+cranelift-frontend = "0.129.1"
