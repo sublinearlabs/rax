@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::Instant;
 
-use riscv_aot::compiler::compile_elf_file;
+use riscv_aot::compiler::compile_elf_file_with_stats;
 use riscv_interpreter::init_from_elf;
 use serde::{Deserialize, Serialize};
 
@@ -32,6 +32,11 @@ pub struct BenchResult {
     pub native_run_ns_min: u64,
     pub native_run_ns_samples: Vec<u64>,
     pub effective_guest_mhz: f64,
+    pub riscv_static_instructions: u64,
+    pub x86_static_instructions: u64,
+    pub x86_per_riscv: f64,
+    pub x86_code_bytes: u64,
+    pub jump_table_bytes: u64,
     pub output_size: u64,
     pub stdout_matches: bool,
     pub stderr_matches: bool,
@@ -83,7 +88,7 @@ fn run_benchmark(
     let native_path = artifact_dir.join(format!("{}-{}", benchmark.name, std::process::id()));
 
     let compile_start = Instant::now();
-    compile_elf_file(&benchmark.elf_path, &native_path)?;
+    let compile_stats = compile_elf_file_with_stats(&benchmark.elf_path, &native_path)?;
     let compile_ns = duration_ns(compile_start.elapsed());
     let output_size = fs::metadata(&native_path)?.len();
 
@@ -122,6 +127,11 @@ fn run_benchmark(
         native_run_ns_min,
         native_run_ns_samples: samples,
         effective_guest_mhz,
+        riscv_static_instructions: compile_stats.riscv_instruction_count as u64,
+        x86_static_instructions: compile_stats.x86_instruction_count as u64,
+        x86_per_riscv: compile_stats.x86_instructions_per_riscv_instruction(),
+        x86_code_bytes: compile_stats.x86_code_bytes as u64,
+        jump_table_bytes: compile_stats.jump_table_bytes as u64,
         output_size,
         stdout_matches,
         stderr_matches,

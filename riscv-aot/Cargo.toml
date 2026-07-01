@@ -18,6 +18,7 @@ gc = ["imac", "ext_f", "ext_d"]
 riscv-core = { path = "../riscv-core" }
 riscv-elfgen = { path = "../riscv-elfgen" }
 dynasmrt = "5.0.0"
+iced-x86 = "1.21.0"
 
 [dev-dependencies]
 hex = "0.4.3"
