@@ -1,7 +1,0 @@
-[package]
-name = "riscv-elfgen"
-version.workspace = true
-edition.workspace = true
-
-[dependencies]
-elf = "0.8.0"

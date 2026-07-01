@@ -1,4 +1,4 @@
-use riscv::{init_from_elf, Runner};
+use rax::{init_from_elf, Runner};
 
 const FIB_BINARY: &str = "test-bin/rust-bin/fib/fib-ima";
 

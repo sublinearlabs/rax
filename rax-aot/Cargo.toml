@@ -1,0 +1,25 @@
+[package]
+name = "rax-aot"
+version.workspace = true
+edition.workspace = true
+
+[features]
+default = ["ima"]
+ext_i = []
+ext_m = []
+ext_a = []
+ext_f = []
+ext_d = []
+ext_c = []
+ima = ["ext_i", "ext_m", "ext_a"]
+imac = ["ima", "ext_c"]
+gc = ["imac", "ext_f", "ext_d"]
+
+[dependencies]
+rax-core = { path = "../rax-core" }
+rax-elfgen = { path = "../rax-elfgen" }
+dynasmrt = "5.0.0"
+iced-x86 = "1.21.0"
+
+[dev-dependencies]
+hex = "0.4.3"

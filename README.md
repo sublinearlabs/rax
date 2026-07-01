@@ -1,4 +1,4 @@
-# RISC-V AOT Compiler
+# RAX — RISC-V to x86-64 AOT Compiler
 
 A RISC-V to x86-64 ahead-of-time compiler for ELF binaries.
 
@@ -24,13 +24,13 @@ The AOT compiler supports RV64IMA. Other ISA extensions exist in the workspace b
 Install the CLI from the workspace:
 
 ```sh
-cargo install --path riscv-cli
+cargo install --path rax-cli
 ```
 
 Compile a RISC-V ELF to a native x86-64 executable:
 
 ```sh
-riscv compile test-bin/rust-bin/fib/fib-ima -o /tmp/fib-native
+rax compile test-bin/rust-bin/fib/fib-ima -o /tmp/fib-native
 ```
 
 Run the native executable:
@@ -44,13 +44,13 @@ Run the native executable:
 The main CLI command is `compile`:
 
 ```sh
-riscv compile <input-riscv-elf> -o <output-x86-elf>
+rax compile <input-riscv-elf> -o <output-x86-elf>
 ```
 
 Example:
 
 ```sh
-riscv compile test-bin/rust-bin/fib/fib-ima -o /tmp/fib-native
+rax compile test-bin/rust-bin/fib/fib-ima -o /tmp/fib-native
 ```
 
 Example output:
@@ -92,20 +92,20 @@ The interpreter and JIT are useful for debugging, validation, and comparison.
 Run with the interpreter:
 
 ```sh
-riscv run test-bin/rust-bin/fib/fib-ima
+rax run test-bin/rust-bin/fib/fib-ima
 ```
 
 Run with the JIT:
 
 ```sh
-riscv run --jit test-bin/rust-bin/fib/fib-ima
+rax run --jit test-bin/rust-bin/fib/fib-ima
 ```
 
 When developing from the workspace without installing the CLI, use Cargo:
 
 ```sh
-cargo run -p riscv-cli -- run test-bin/rust-bin/fib/fib-ima
-cargo run -p riscv-cli -- run --jit test-bin/rust-bin/fib/fib-ima
+cargo run -p rax-cli -- run test-bin/rust-bin/fib/fib-ima
+cargo run -p rax-cli -- run --jit test-bin/rust-bin/fib/fib-ima
 ```
 
 ## Library Usage
@@ -113,7 +113,7 @@ cargo run -p riscv-cli -- run --jit test-bin/rust-bin/fib/fib-ima
 Use the AOT compiler directly:
 
 ```rust
-use riscv::aot::compiler::compile_elf_file;
+use rax::aot::compiler::compile_elf_file;
 
 compile_elf_file("program.elf", "program-native")?;
 ```
@@ -121,7 +121,7 @@ compile_elf_file("program.elf", "program-native")?;
 Compile and inspect codegen stats:
 
 ```rust
-use riscv::aot::compiler::compile_elf_file_with_stats;
+use rax::aot::compiler::compile_elf_file_with_stats;
 
 let stats = compile_elf_file_with_stats("program.elf", "program-native")?;
 println!("x86/rv = {:.2}", stats.x86_instructions_per_riscv_instruction());
@@ -130,7 +130,7 @@ println!("x86/rv = {:.2}", stats.x86_instructions_per_riscv_instruction());
 Run through the interpreter:
 
 ```rust
-use riscv::{init_from_elf, Runner};
+use rax::{init_from_elf, Runner};
 
 let mut vm = init_from_elf("program.elf");
 let mut runner = Runner::new();
@@ -140,19 +140,19 @@ runner.run(&mut vm);
 The JIT backend is optional for library users to avoid pulling Cranelift into default builds:
 
 ```toml
-riscv = { version = "0.1", features = ["jit"] }
+rax = { version = "0.1", features = ["jit"] }
 ```
 
 ## Workspace Crates
 
-- `riscv`: facade crate for common library APIs
-- `riscv-core`: instruction decoding and shared utilities
-- `riscv-interpreter`: interpreter VM and runner
-- `riscv-aot`: RISC-V to x86-64 AOT compiler
-- `riscv-jit`: Cranelift-backed JIT runner
-- `riscv-elfgen`: ELF analysis and emission helpers
-- `riscv-cli`: command-line interface
-- `riscv-perf`: contributor-only performance tooling
+- `rax`: facade crate for common library APIs
+- `rax-core`: instruction decoding and shared utilities
+- `rax-interpreter`: interpreter VM and runner
+- `rax-aot`: RISC-V to x86-64 AOT compiler
+- `rax-jit`: Cranelift-backed JIT runner
+- `rax-elfgen`: ELF analysis and emission helpers
+- `rax-cli`: command-line interface
+- `rax-perf`: contributor-only performance tooling
 
 ## Contributor Tooling
 

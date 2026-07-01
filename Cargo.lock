@@ -589,6 +589,92 @@ dependencies = [
 ]
 
 [[package]]
+name = "rax"
+version = "0.1.0"
+dependencies = [
+ "rax-aot",
+ "rax-core",
+ "rax-elfgen",
+ "rax-interpreter",
+ "rax-jit",
+]
+
+[[package]]
+name = "rax-aot"
+version = "0.1.0"
+dependencies = [
+ "dynasmrt",
+ "hex",
+ "iced-x86",
+ "rax-core",
+ "rax-elfgen",
+]
+
+[[package]]
+name = "rax-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "colored",
+ "rax-aot",
+ "rax-interpreter",
+ "rax-jit",
+ "serde_json",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "rax-core"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "rax-elfgen"
+version = "0.1.0"
+dependencies = [
+ "elf",
+]
+
+[[package]]
+name = "rax-interpreter"
+version = "0.1.0"
+dependencies = [
+ "elf",
+ "fxhash",
+ "hex",
+ "rax-core",
+]
+
+[[package]]
+name = "rax-jit"
+version = "0.1.0"
+dependencies = [
+ "cranelift-codegen",
+ "cranelift-frontend",
+ "cranelift-jit",
+ "cranelift-module",
+ "cranelift-native",
+ "rax-core",
+ "rax-interpreter",
+]
+
+[[package]]
+name = "rax-perf"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "hex",
+ "rax-aot",
+ "rax-interpreter",
+ "rax-jit",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "regalloc2"
 version = "0.13.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -629,92 +715,6 @@ dependencies = [
  "libc",
  "mach2",
  "windows-sys 0.52.0",
-]
-
-[[package]]
-name = "riscv"
-version = "0.1.0"
-dependencies = [
- "riscv-aot",
- "riscv-core",
- "riscv-elfgen",
- "riscv-interpreter",
- "riscv-jit",
-]
-
-[[package]]
-name = "riscv-aot"
-version = "0.1.0"
-dependencies = [
- "dynasmrt",
- "hex",
- "iced-x86",
- "riscv-core",
- "riscv-elfgen",
-]
-
-[[package]]
-name = "riscv-cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "colored",
- "riscv-aot",
- "riscv-interpreter",
- "riscv-jit",
- "serde_json",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "riscv-core"
-version = "0.1.0"
-dependencies = [
- "serde",
-]
-
-[[package]]
-name = "riscv-elfgen"
-version = "0.1.0"
-dependencies = [
- "elf",
-]
-
-[[package]]
-name = "riscv-interpreter"
-version = "0.1.0"
-dependencies = [
- "elf",
- "fxhash",
- "hex",
- "riscv-core",
-]
-
-[[package]]
-name = "riscv-jit"
-version = "0.1.0"
-dependencies = [
- "cranelift-codegen",
- "cranelift-frontend",
- "cranelift-jit",
- "cranelift-module",
- "cranelift-native",
- "riscv-core",
- "riscv-interpreter",
-]
-
-[[package]]
-name = "riscv-perf"
-version = "0.1.0"
-dependencies = [
- "clap",
- "hex",
- "riscv-aot",
- "riscv-interpreter",
- "riscv-jit",
- "serde",
- "serde_json",
 ]
 
 [[package]]
