@@ -1,23 +1,26 @@
+use std::cell::RefCell;
+use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
-use dynasmrt::{dynasm, x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
+use dynasmrt::{x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
 
 use crate::aot::{
     emission,
     register_mapping::{MappingPlan, RegisterMapping},
-    registers::X86Gpr,
     temp_alloc::TempAllocator,
 };
 use rax_core::decode::Instruction;
+
+use crate::aot::emit_asm;
 
 /// AOT translator state used while lowering RISC-V instructions to x86.
 ///
 /// This type owns the emitter and all translation-local state required to
 /// materialize inputs and stage outputs for architectural write-back.
 pub(super) struct Translator {
-    pub(super) emitter: Assembler,
+    pub(super) emitter: RefCell<Assembler>,
     pub(super) reg_map: RegisterMapping,
-    unused_gprs: Vec<X86Gpr>,
+    pub(super) temp_pool: TempAllocator,
     pub(super) cf: ControlFlowState,
 }
 
@@ -42,7 +45,7 @@ pub(super) struct ControlFlowState {
     /// Sparse map of direct control-flow target PCs to x86 labels.
     ///
     /// Only PCs that are targets of direct jumps/branches are present.
-    direct_target_labels: HashMap<u64, DynamicLabel>,
+    direct_target_labels: RefCell<HashMap<u64, DynamicLabel>>,
     /// Dense mapping from RISC-V PC slot to x86 instruction-start offset.
     ///
     /// Slot index is `(pc - base_riscv_pc) / 4` in the no-compressed model.
@@ -75,32 +78,19 @@ impl Translator {
         let (reg_map, unused_gprs) = plan.into_parts();
         let jt_label = emitter.new_dynamic_label();
         Self {
-            emitter,
+            emitter: RefCell::new(emitter),
             reg_map,
-            unused_gprs,
+            temp_pool: TempAllocator::new(unused_gprs),
             cf: ControlFlowState {
                 current_riscv_pc: base_riscv_pc,
                 base_riscv_pc,
                 base_x86_vaddr,
-                direct_target_labels: HashMap::new(),
+                direct_target_labels: RefCell::new(HashMap::new()),
                 riscv_pc_to_x86_offset: Vec::new(),
                 jt_label,
                 code_end_offset: None,
             },
         }
-    }
-
-    /// Builds a temp-register allocator from this translator's temp GPR list.
-    ///
-    /// Use one allocator while lowering an instruction and pass it to helper
-    /// emission functions. Temps are released automatically when their
-    /// `AllocatedTemp` values are dropped.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the temp register list contains duplicates.
-    fn temp_allocator(&self) -> TempAllocator {
-        TempAllocator::new(self.unused_gprs.clone())
     }
 
     /// Converts decoded RISC-V instructions to x86 and finalizes control-flow metadata.
@@ -110,15 +100,18 @@ impl Translator {
     pub(super) fn translate_insns(&mut self, insns: &[Instruction]) {
         // Record instruction start offsets by PC slot, then translate.
         for insn in insns {
-            self.cf.riscv_pc_to_x86_offset.push(self.emitter.offset());
+            self.cf
+                .riscv_pc_to_x86_offset
+                .push(self.emitter.borrow().offset());
             self.translate_insn(insn);
             self.cf.current_riscv_pc = self.cf.current_riscv_pc.wrapping_add(4);
         }
 
         // Resolve dynamic labels after instruction offsets are known.
-        for (pc, label) in &self.cf.direct_target_labels {
+        for (pc, label) in self.cf.direct_target_labels.borrow().iter() {
             let riscv_pc_slot = (pc - self.cf.base_riscv_pc) / 4;
             self.emitter
+                .borrow_mut()
                 .labels_mut()
                 .define_dynamic(
                     *label,
@@ -138,21 +131,20 @@ impl Translator {
             .map(|offset| offset.0 + self.cf.base_x86_vaddr as usize)
             .collect::<Vec<_>>();
 
-        self.cf.code_end_offset = Some(self.emitter.offset());
-        dynasm!(self.emitter ; =>self.cf.jt_label);
+        self.cf.code_end_offset = Some(self.emitter.borrow().offset());
+        emit_asm!(self ; =>self.cf.jt_label);
         for target_pc in jump_table_abs_addrs {
-            dynasm!(self.emitter; .i64 target_pc as i64);
+            emit_asm!(self ; .i64 target_pc as i64);
         }
     }
 
-    fn translate_insn(&mut self, insn: &Instruction) {
-        let temps = self.temp_allocator();
-        emission::emit_instruction(self, &temps, insn);
+    fn translate_insn(&self, insn: &Instruction) {
+        emission::emit_instruction(self, insn);
     }
 
     /// Consumes the translator and returns the emitted machine code bytes.
     pub(crate) fn finalize(self) -> Vec<u8> {
-        let buf = self.emitter.finalize().unwrap();
+        let buf = self.emitter.into_inner().finalize().unwrap();
         buf.to_vec()
     }
 
@@ -177,13 +169,21 @@ impl Translator {
         self.cf.current_riscv_pc
     }
 
+    /// Allocates a fresh dynamic label through the RefCell-wrapped emitter.
+    ///
+    /// This hides the `RefCell::borrow_mut()` call so consumers do not need
+    /// to reach into the emitter directly.
+    pub(super) fn new_dynamic_label(&self) -> DynamicLabel {
+        self.emitter.borrow_mut().new_dynamic_label()
+    }
+
     /// Returns or Creates a new dynamic label for a riscv pc
-    pub(super) fn target_label(&mut self, branch_target: u64) -> DynamicLabel {
-        *self
-            .cf
-            .direct_target_labels
-            .entry(branch_target)
-            .or_insert_with(|| self.emitter.new_dynamic_label())
+    pub(super) fn target_label(&self, branch_target: u64) -> DynamicLabel {
+        let mut labels = self.cf.direct_target_labels.borrow_mut();
+        match labels.entry(branch_target) {
+            Entry::Occupied(entry) => *entry.get(),
+            Entry::Vacant(entry) => *entry.insert(self.new_dynamic_label())
+        }
     }
 }
 
@@ -422,7 +422,7 @@ mod tests {
     #[test]
     fn aot_fib_ima() {
         let elf_path = workspace_path("test-bin/rust-bin/fib/fib-ima");
-        compile_and_run_aot("fib", elf_path.to_str().unwrap(), None, None);
+        compile_and_run_aot("fib", elf_path.to_str().unwrap(), Some(b"10\n"), None);
     }
 
     #[test]
