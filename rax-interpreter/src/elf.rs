@@ -7,8 +7,8 @@ use elf::{
     ElfBytes,
 };
 
-use rax_core::decode::{decode, Instruction};
 use super::memory::MemoryDefault;
+use rax_core::decode::{decode, Instruction};
 
 /// Decodes the elf bytes,
 /// loads segments into memory and return the pc.

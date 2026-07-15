@@ -1,6 +1,4 @@
-use cranelift_codegen::ir::{
-    condcodes::IntCC, types, BlockArg, FuncRef, Function, InstBuilder,
-};
+use cranelift_codegen::ir::{condcodes::IntCC, types, BlockArg, FuncRef, Function, InstBuilder};
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 
 use crate::ir::{IrFunction, Op, Terminator};

@@ -1,5 +1,5 @@
-use rax_core::decode::Instruction;
 use crate::ir::{IrBuilder, IrType, MemWidth, Reg, ValueId};
+use rax_core::decode::Instruction;
 
 pub(crate) fn lower_i_into(
     insn: &Instruction,

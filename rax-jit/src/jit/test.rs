@@ -1,9 +1,9 @@
-use rax_interpreter::ecall::constants;
 use crate::ir::{execute_ir, IrBuilder, IrFunction, IrType, MemWidth, Reg};
 use crate::jit::compile::compile_ir_function;
 use crate::jit::jit_module::{build_jit_module, declare_helpers};
-use rax_interpreter::{HostIO, VM};
 use cranelift_module::Module;
+use rax_interpreter::ecall::constants;
+use rax_interpreter::{HostIO, VM};
 
 #[test]
 fn lower_ir_function_matches_interpreter() {

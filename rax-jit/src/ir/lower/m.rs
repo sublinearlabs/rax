@@ -1,5 +1,5 @@
-use rax_core::decode::Instruction;
 use crate::ir::{IrBuilder, IrType, Reg, ValueId};
+use rax_core::decode::Instruction;
 
 pub(crate) fn lower_m_into(insn: &Instruction, builder: &mut IrBuilder) {
     match insn {

@@ -6,10 +6,7 @@ mod rv64w;
 use crate::aot::{registers::RiscvRegister, translator::Translator};
 use rax_core::decode::{Instruction, Sh, B, I, J, R, S, U};
 
-pub(super) fn emit_instruction(
-    translator: &Translator,
-    insn: &Instruction,
-) {
+pub(super) fn emit_instruction(translator: &Translator, insn: &Instruction) {
     match insn {
         Instruction::Add(R { rd, rs1, rs2 }) => {
             rv64i::emit_add(translator, rv(rd), rv(rs1), rv(rs2))
@@ -17,9 +14,7 @@ pub(super) fn emit_instruction(
         Instruction::Sub(R { rd, rs1, rs2 }) => {
             rv64i::emit_sub(translator, rv(rd), rv(rs1), rv(rs2))
         }
-        Instruction::Or(R { rd, rs1, rs2 }) => {
-            rv64i::emit_or(translator, rv(rd), rv(rs1), rv(rs2))
-        }
+        Instruction::Or(R { rd, rs1, rs2 }) => rv64i::emit_or(translator, rv(rd), rv(rs1), rv(rs2)),
         Instruction::Subw(R { rd, rs1, rs2 }) => {
             rv64w::emit_subw(translator, rv(rd), rv(rs1), rv(rs2))
         }
@@ -38,12 +33,8 @@ pub(super) fn emit_instruction(
         Instruction::Sll(R { rd, rs1, rs2 }) => {
             rv64i::emit_sll(translator, rv(rd), rv(rs1), rv(rs2))
         }
-        Instruction::Sb(S { rs1, rs2, imm }) => {
-            rv64i::emit_sb(translator, rv(rs1), rv(rs2), *imm)
-        }
-        Instruction::Sd(S { rs1, rs2, imm }) => {
-            rv64i::emit_sd(translator, rv(rs1), rv(rs2), *imm)
-        }
+        Instruction::Sb(S { rs1, rs2, imm }) => rv64i::emit_sb(translator, rv(rs1), rv(rs2), *imm),
+        Instruction::Sd(S { rs1, rs2, imm }) => rv64i::emit_sd(translator, rv(rs1), rv(rs2), *imm),
         Instruction::Lui(U { rd, imm }) => rv64i::emit_lui(translator, rv(rd), *imm),
         Instruction::Auipc(U { rd, imm }) => rv64i::emit_auipc(translator, rv(rd), *imm),
         Instruction::Beq(B { rs1, rs2, imm }) => {
@@ -73,42 +64,22 @@ pub(super) fn emit_instruction(
         Instruction::Csrrwi(_) => {}
         Instruction::Csrrsi(_) => {}
         Instruction::Csrrci(_) => {}
-        Instruction::Lb(I { rd, rs1, imm }) => {
-            rv64i::emit_lb(translator, rv(rd), rv(rs1), *imm)
-        }
-        Instruction::Lbu(I { rd, rs1, imm }) => {
-            rv64i::emit_lbu(translator, rv(rd), rv(rs1), *imm)
-        }
-        Instruction::Lh(I { rd, rs1, imm }) => {
-            rv64i::emit_lh(translator, rv(rd), rv(rs1), *imm)
-        }
-        Instruction::Lhu(I { rd, rs1, imm }) => {
-            rv64i::emit_lhu(translator, rv(rd), rv(rs1), *imm)
-        }
-        Instruction::Lw(I { rd, rs1, imm }) => {
-            rv64i::emit_lw(translator, rv(rd), rv(rs1), *imm)
-        }
-        Instruction::Lwu(I { rd, rs1, imm }) => {
-            rv64i::emit_lwu(translator, rv(rd), rv(rs1), *imm)
-        }
-        Instruction::Ld(I { rd, rs1, imm }) => {
-            rv64i::emit_ld(translator, rv(rd), rv(rs1), *imm)
-        }
-        Instruction::Sh(S { rs1, rs2, imm }) => {
-            rv64i::emit_sh(translator, rv(rs1), rv(rs2), *imm)
-        }
-        Instruction::Sw(S { rs1, rs2, imm }) => {
-            rv64i::emit_sw(translator, rv(rs1), rv(rs2), *imm)
-        }
+        Instruction::Lb(I { rd, rs1, imm }) => rv64i::emit_lb(translator, rv(rd), rv(rs1), *imm),
+        Instruction::Lbu(I { rd, rs1, imm }) => rv64i::emit_lbu(translator, rv(rd), rv(rs1), *imm),
+        Instruction::Lh(I { rd, rs1, imm }) => rv64i::emit_lh(translator, rv(rd), rv(rs1), *imm),
+        Instruction::Lhu(I { rd, rs1, imm }) => rv64i::emit_lhu(translator, rv(rd), rv(rs1), *imm),
+        Instruction::Lw(I { rd, rs1, imm }) => rv64i::emit_lw(translator, rv(rd), rv(rs1), *imm),
+        Instruction::Lwu(I { rd, rs1, imm }) => rv64i::emit_lwu(translator, rv(rd), rv(rs1), *imm),
+        Instruction::Ld(I { rd, rs1, imm }) => rv64i::emit_ld(translator, rv(rd), rv(rs1), *imm),
+        Instruction::Sh(S { rs1, rs2, imm }) => rv64i::emit_sh(translator, rv(rs1), rv(rs2), *imm),
+        Instruction::Sw(S { rs1, rs2, imm }) => rv64i::emit_sw(translator, rv(rs1), rv(rs2), *imm),
         Instruction::And(R { rd, rs1, rs2 }) => {
             rv64i::emit_and(translator, rv(rd), rv(rs1), rv(rs2))
         }
         Instruction::Xor(R { rd, rs1, rs2 }) => {
             rv64i::emit_xor(translator, rv(rd), rv(rs1), rv(rs2))
         }
-        Instruction::Ori(I { rd, rs1, imm }) => {
-            rv64i::emit_ori(translator, rv(rd), rv(rs1), *imm)
-        }
+        Instruction::Ori(I { rd, rs1, imm }) => rv64i::emit_ori(translator, rv(rd), rv(rs1), *imm),
         Instruction::Xori(I { rd, rs1, imm }) => {
             rv64i::emit_xori(translator, rv(rd), rv(rs1), *imm)
         }

@@ -1,8 +1,8 @@
 // F instructions
 
+use crate::VM;
 use rax_core::decode::{I, R4, RF, S};
 use rax_core::util::{classify32, is_snan_f32, mask32, sext};
-use crate::VM;
 
 #[inline(always)]
 pub(crate) fn execute_fmadd_s(vm: &mut VM, insn: &R4) {

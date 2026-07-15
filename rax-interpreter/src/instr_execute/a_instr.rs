@@ -1,7 +1,7 @@
+use crate::VM;
 /// A Extension - Load Reserved / Store Conditional
 use rax_core::decode::R;
 use rax_core::util::{mask, sext};
-use crate::VM;
 
 #[inline(always)]
 pub(crate) fn execute_lr_w(vm: &mut VM, insn: &R) {

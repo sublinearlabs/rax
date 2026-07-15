@@ -1,4 +1,3 @@
-use rax_core::decode::Instruction;
 use crate::ecall::handle_ecall;
 #[cfg(feature = "ext_a")]
 use crate::instr_execute::a_instr::*;
@@ -11,6 +10,7 @@ use crate::instr_execute::i_instr::*;
 #[cfg(feature = "ext_m")]
 use crate::instr_execute::m_instr::*;
 use crate::{HostIO, VM};
+use rax_core::decode::Instruction;
 
 impl VM {
     pub fn execute_instruction(
@@ -452,9 +452,9 @@ impl VM {
 
 #[cfg(test)]
 mod test {
-    use rax_core::decode::decode;
     use crate::ecall::constants;
     use crate::{HostIO, VM};
+    use rax_core::decode::decode;
 
     fn run_insn(vm: &mut VM, io: &mut HostIO, insn: u32, is_compressed: bool) {
         let current_pc = vm.pc();

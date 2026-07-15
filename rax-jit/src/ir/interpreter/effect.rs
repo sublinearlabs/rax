@@ -1,6 +1,6 @@
-use rax_interpreter::handle_ecall;
 use crate::ir::{AtomicRmwOp, AtomicWidth, EffectOp, IrType, MemWidth, Reg};
 use rax_core::util::mask;
+use rax_interpreter::handle_ecall;
 use rax_interpreter::{HostIO, VM};
 
 use super::pure::mask_value;

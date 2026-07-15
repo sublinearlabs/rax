@@ -3,8 +3,6 @@ use std::{
     rc::Rc,
 };
 
-use dynasmrt::DynasmApi;
-
 use crate::aot::emit_asm;
 
 use crate::aot::{
@@ -51,7 +49,7 @@ impl<'a> ValueLoc<'a> {
     /// Panics for `ConstZero`, which has no backing x86 GPR.
     /// Zero-valued sources must be handled by lowering logic before requesting
     /// a concrete carrier id.
-    fn id(&self) -> u8 {
+    pub fn id(&self) -> u8 {
         self.gpr().id()
     }
 }
@@ -321,10 +319,7 @@ impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
     /// Panics when a required temp GPR cannot be allocated.
     /// Zero outputs must be completed with
     /// `InstructionContext::discard_zero_output()`.
-    pub(super) fn build(
-        self,
-        translator: &Translator,
-    ) -> InstructionContext<'_, NI, NCT> {
+    pub(super) fn build(self, translator: &Translator) -> InstructionContext<'_, NI, NCT> {
         let inputs = match self.inputs {
             Some(inputs) => inputs,
             None => {
@@ -338,8 +333,8 @@ impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
         let (clobber_restore, reserved_temps) =
             Self::preserve_clobbers(self.clobber_targets, &mut cache, translator);
         let prepared_inputs = Self::prepare_inputs(inputs, &mut cache, translator);
-        let prepared_output = output
-            .map(|output| Self::prepare_output(output, &mut cache, translator));
+        let prepared_output =
+            output.map(|output| Self::prepare_output(output, &mut cache, translator));
         let no_output_completion = prepared_output.is_none().then(NoOutputCompletion::new);
 
         InstructionContext {
@@ -718,7 +713,9 @@ impl<'a, const NI: usize, const NCT: usize> InstructionContext<'a, NI, NCT> {
 mod tests {
     use dynasmrt::x64::Assembler;
 
-    use crate::aot::{register_mapping::RegisterMapping, registers::X86Xmm, temp_alloc::TempAllocator};
+    use crate::aot::{
+        register_mapping::RegisterMapping, registers::X86Xmm, temp_alloc::TempAllocator,
+    };
 
     use super::*;
 

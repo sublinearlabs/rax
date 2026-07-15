@@ -1,5 +1,3 @@
-use dynasmrt::{DynasmApi, DynasmLabelApi};
-
 use crate::aot::emit_asm;
 
 use crate::aot::{

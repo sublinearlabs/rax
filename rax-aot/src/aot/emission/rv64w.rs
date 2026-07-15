@@ -1,5 +1,3 @@
-use dynasmrt::DynasmApi;
-
 use crate::aot::emit_asm;
 
 use crate::aot::{
@@ -573,12 +571,7 @@ pub(super) fn emit_addw(
 
 /// RV64 `addiw`: add sign-extended immediate to low 32 bits, then sign-extend.
 /// rd <- sext32((rs1[31:0] + sext(imm)) mod 2^32)
-pub(super) fn emit_addiw(
-    translator: &Translator,
-    rd: RiscvRegister,
-    rs1: RiscvRegister,
-    imm: i32,
-) {
+pub(super) fn emit_addiw(translator: &Translator, rd: RiscvRegister, rs1: RiscvRegister, imm: i32) {
     let ctx = InstructionContextBuilder::<1, 0>::new()
         .set_inputs([rs1])
         .set_output(rd)

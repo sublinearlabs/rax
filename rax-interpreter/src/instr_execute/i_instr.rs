@@ -1,8 +1,8 @@
 // Register Opcodes
 
+use crate::VM;
 use rax_core::decode::{Sh, B, I, J, R, S, U};
 use rax_core::util::{mask, sext};
-use crate::VM;
 
 #[inline(always)]
 pub(crate) fn execute_add(vm: &mut VM, insn: &R) {
@@ -265,23 +265,13 @@ pub(crate) fn execute_bgeu(vm: &mut VM, insn: &B, current_pc: u64) {
 
 // Jump opcodes
 #[inline(always)]
-pub(crate) fn execute_jal(
-    vm: &mut VM,
-    insn: &J,
-    current_pc: u64,
-    _is_compressed: bool,
-) {
+pub(crate) fn execute_jal(vm: &mut VM, insn: &J, current_pc: u64, _is_compressed: bool) {
     vm.reg_mut(insn.rd, vm.pc());
     vm.set_pc(current_pc.wrapping_add(insn.imm as u64));
 }
 
 #[inline(always)]
-pub(crate) fn execute_jalr(
-    vm: &mut VM,
-    insn: &I,
-    _current_pc: u64,
-    _is_compressed: bool,
-) {
+pub(crate) fn execute_jalr(vm: &mut VM, insn: &I, _current_pc: u64, _is_compressed: bool) {
     let target = vm.reg(insn.rs1).wrapping_add(insn.imm as u64);
     vm.reg_mut(insn.rd, vm.pc());
     vm.set_pc(target);

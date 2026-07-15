@@ -1,5 +1,3 @@
-use dynasmrt::{DynasmApi, DynasmLabelApi};
-
 use crate::aot::emit_asm;
 
 use crate::aot::{
@@ -271,12 +269,7 @@ pub(super) fn emit_or(
 
 /// RV64 `addi`: 64-bit wrapping add with sign-extended immediate.
 /// rd <- (rs1 + sext(imm)) mod 2^64
-pub(super) fn emit_addi(
-    translator: &Translator,
-    rd: RiscvRegister,
-    rs1: RiscvRegister,
-    imm: i32,
-) {
+pub(super) fn emit_addi(translator: &Translator, rd: RiscvRegister, rs1: RiscvRegister, imm: i32) {
     let ctx = InstructionContextBuilder::<1, 0>::new()
         .set_inputs([rs1])
         .set_output(rd)
@@ -333,12 +326,7 @@ pub(super) fn emit_addi(
 
 /// RV64 `andi`: bitwise AND with sign-extended immediate.
 /// rd <- rs1 & sext(imm)
-pub(super) fn emit_andi(
-    translator: &Translator,
-    rd: RiscvRegister,
-    rs1: RiscvRegister,
-    imm: i32,
-) {
+pub(super) fn emit_andi(translator: &Translator, rd: RiscvRegister, rs1: RiscvRegister, imm: i32) {
     let ctx = InstructionContextBuilder::<1, 0>::new()
         .set_inputs([rs1])
         .set_output(rd)
@@ -391,12 +379,7 @@ pub(super) fn emit_andi(
 
 /// RV64 `slli`: logical left shift by immediate.
 /// rd <- rs1 << shamt
-pub(super) fn emit_slli(
-    translator: &Translator,
-    rd: RiscvRegister,
-    rs1: RiscvRegister,
-    shamt: u8,
-) {
+pub(super) fn emit_slli(translator: &Translator, rd: RiscvRegister, rs1: RiscvRegister, shamt: u8) {
     let ctx = InstructionContextBuilder::<1, 0>::new()
         .set_inputs([rs1])
         .set_output(rd)
@@ -510,12 +493,7 @@ pub(super) fn emit_sll(
 
 /// RV64 `sb`: store low 8 bits of rs2 to memory at rs1 + sext(imm).
 /// mem8[rs1 + sext(imm)] <- rs2[7:0]
-pub(super) fn emit_sb(
-    translator: &Translator,
-    rs1: RiscvRegister,
-    rs2: RiscvRegister,
-    imm: i32,
-) {
+pub(super) fn emit_sb(translator: &Translator, rs1: RiscvRegister, rs2: RiscvRegister, imm: i32) {
     let ctx = InstructionContextBuilder::<2, 0>::new()
         .set_inputs([rs1, rs2])
         .build(translator);
@@ -524,7 +502,8 @@ pub(super) fn emit_sb(
 
     let addr_temp;
     let (addr_id, addr_disp) = if rs1.is_zero() {
-        addr_temp = translator.temp_pool
+        addr_temp = translator
+            .temp_pool
             .allocate()
             .expect("emit_sb requires a temp to materialize x0 + imm address");
         emit_asm!(translator ; mov Rq(addr_temp.id()), QWORD imm as i64);
@@ -543,12 +522,7 @@ pub(super) fn emit_sb(
 
 /// RV64 `sd`: store 64 bits of rs2 to memory at rs1 + sext(imm).
 /// mem64[rs1 + sext(imm)] <- rs2
-pub(super) fn emit_sd(
-    translator: &Translator,
-    rs1: RiscvRegister,
-    rs2: RiscvRegister,
-    imm: i32,
-) {
+pub(super) fn emit_sd(translator: &Translator, rs1: RiscvRegister, rs2: RiscvRegister, imm: i32) {
     let ctx = InstructionContextBuilder::<2, 0>::new()
         .set_inputs([rs1, rs2])
         .build(translator);
@@ -557,7 +531,8 @@ pub(super) fn emit_sd(
 
     let addr_temp;
     let (addr_id, addr_disp) = if rs1.is_zero() {
-        addr_temp = translator.temp_pool
+        addr_temp = translator
+            .temp_pool
             .allocate()
             .expect("emit_sd requires a temp to materialize x0 + imm address");
         emit_asm!(translator ; mov Rq(addr_temp.id()), QWORD imm as i64);
@@ -577,11 +552,7 @@ pub(super) fn emit_sd(
 
 /// RV64 `lui`: write U-immediate to upper bits.
 /// rd <- sext(imm << 12)
-pub(super) fn emit_lui(
-    translator: &Translator,
-    rd: RiscvRegister,
-    imm: i32,
-) {
+pub(super) fn emit_lui(translator: &Translator, rd: RiscvRegister, imm: i32) {
     if rd.is_zero() {
         return;
     }
@@ -599,11 +570,7 @@ pub(super) fn emit_lui(
 
 /// RV64 `auipc`: add U-immediate (<<12) to current PC.
 /// rd <- pc + sext(imm << 12)
-pub(super) fn emit_auipc(
-    translator: &Translator,
-    rd: RiscvRegister,
-    imm: i32,
-) {
+pub(super) fn emit_auipc(translator: &Translator, rd: RiscvRegister, imm: i32) {
     if rd.is_zero() {
         return;
     }
@@ -623,12 +590,7 @@ pub(super) fn emit_auipc(
 
 /// RV64 `beq`: branch if equal.
 /// if rs1 == rs2 then pc <- pc + sext(imm)
-pub(super) fn emit_beq(
-    translator: &Translator,
-    rs1: RiscvRegister,
-    rs2: RiscvRegister,
-    imm: i32,
-) {
+pub(super) fn emit_beq(translator: &Translator, rs1: RiscvRegister, rs2: RiscvRegister, imm: i32) {
     let ctx = InstructionContextBuilder::<2, 0>::new()
         .set_inputs([rs1, rs2])
         .build(translator);
@@ -662,12 +624,7 @@ pub(super) fn emit_beq(
 
 /// RV64 `bne`: branch if not equal.
 /// if rs1 != rs2 then pc <- pc + sext(imm)
-pub(super) fn emit_bne(
-    translator: &Translator,
-    rs1: RiscvRegister,
-    rs2: RiscvRegister,
-    imm: i32,
-) {
+pub(super) fn emit_bne(translator: &Translator, rs1: RiscvRegister, rs2: RiscvRegister, imm: i32) {
     let ctx = InstructionContextBuilder::<2, 0>::new()
         .set_inputs([rs1, rs2])
         .build(translator);
@@ -699,12 +656,7 @@ pub(super) fn emit_bne(
 
 /// RV64 `bltu`: branch if unsigned rs1 < rs2.
 /// if unsigned(rs1) < unsigned(rs2) then pc <- pc + sext(imm)
-pub(super) fn emit_bltu(
-    translator: &Translator,
-    rs1: RiscvRegister,
-    rs2: RiscvRegister,
-    imm: i32,
-) {
+pub(super) fn emit_bltu(translator: &Translator, rs1: RiscvRegister, rs2: RiscvRegister, imm: i32) {
     let ctx = InstructionContextBuilder::<2, 0>::new()
         .set_inputs([rs1, rs2])
         .build(translator);
@@ -732,12 +684,7 @@ pub(super) fn emit_bltu(
 
 /// RV64 `bgeu`: branch if unsigned rs1 >= rs2.
 /// if unsigned(rs1) >= unsigned(rs2) then pc <- pc + sext(imm)
-pub(super) fn emit_bgeu(
-    translator: &Translator,
-    rs1: RiscvRegister,
-    rs2: RiscvRegister,
-    imm: i32,
-) {
+pub(super) fn emit_bgeu(translator: &Translator, rs1: RiscvRegister, rs2: RiscvRegister, imm: i32) {
     let ctx = InstructionContextBuilder::<2, 0>::new()
         .set_inputs([rs1, rs2])
         .build(translator);
@@ -770,11 +717,7 @@ pub(super) fn emit_bgeu(
 
 /// RV64 `jal`: jump and link.
 /// rd <- pc + 4; pc <- pc + sext(imm)
-pub(super) fn emit_jal(
-    translator: &Translator,
-    rd: RiscvRegister,
-    imm: i32,
-) {
+pub(super) fn emit_jal(translator: &Translator, rd: RiscvRegister, imm: i32) {
     let ctx = InstructionContextBuilder::<0, 0>::new()
         .set_output(rd)
         .build(translator);
@@ -796,12 +739,7 @@ pub(super) fn emit_jal(
 
 /// RV64 `jalr`: indirect jump and link.
 /// t <- pc + 4; pc <- (rs1 + sext(imm)) & !1; rd <- t
-pub(super) fn emit_jalr(
-    translator: &Translator,
-    rd: RiscvRegister,
-    rs1: RiscvRegister,
-    imm: i32,
-) {
+pub(super) fn emit_jalr(translator: &Translator, rd: RiscvRegister, rs1: RiscvRegister, imm: i32) {
     let ctx = InstructionContextBuilder::<1, 0>::new()
         .set_inputs([rs1])
         .set_output(rd)
@@ -887,12 +825,7 @@ pub(super) fn emit_ecall(translator: &Translator) {
 
 /// RV64 `lb`: load 8-bit value (sign-extended).
 /// rd <- sext(M[rs1 + imm][7:0])
-pub(super) fn emit_lb(
-    translator: &Translator,
-    rd: RiscvRegister,
-    rs1: RiscvRegister,
-    imm: i32,
-) {
+pub(super) fn emit_lb(translator: &Translator, rd: RiscvRegister, rs1: RiscvRegister, imm: i32) {
     if rd.is_zero() {
         return;
     }
@@ -907,7 +840,8 @@ pub(super) fn emit_lb(
 
     let addr_temp;
     let (addr_id, addr_disp) = if rs1.is_zero() {
-        addr_temp = translator.temp_pool
+        addr_temp = translator
+            .temp_pool
             .allocate()
             .expect("emit_lb requires a temp to materialize x0 + imm address");
         emit_asm!(translator ; mov Rq(addr_temp.id()), QWORD imm as i64);
@@ -923,12 +857,7 @@ pub(super) fn emit_lb(
 
 /// RV64 `lbu`: load 8-bit value (zero-extended).
 /// rd <- M[rs1 + imm][7:0]
-pub(super) fn emit_lbu(
-    translator: &Translator,
-    rd: RiscvRegister,
-    rs1: RiscvRegister,
-    imm: i32,
-) {
+pub(super) fn emit_lbu(translator: &Translator, rd: RiscvRegister, rs1: RiscvRegister, imm: i32) {
     if rd.is_zero() {
         return;
     }
@@ -943,7 +872,8 @@ pub(super) fn emit_lbu(
 
     let addr_temp;
     let (addr_id, addr_disp) = if rs1.is_zero() {
-        addr_temp = translator.temp_pool
+        addr_temp = translator
+            .temp_pool
             .allocate()
             .expect("emit_lbu requires a temp to materialize x0 + imm address");
         emit_asm!(translator ; mov Rq(addr_temp.id()), QWORD imm as i64);
@@ -959,12 +889,7 @@ pub(super) fn emit_lbu(
 
 /// RV64 `lh`: load 16-bit value (sign-extended).
 /// rd <- sext(M[rs1 + imm][15:0])
-pub(super) fn emit_lh(
-    translator: &Translator,
-    rd: RiscvRegister,
-    rs1: RiscvRegister,
-    imm: i32,
-) {
+pub(super) fn emit_lh(translator: &Translator, rd: RiscvRegister, rs1: RiscvRegister, imm: i32) {
     if rd.is_zero() {
         return;
     }
@@ -979,7 +904,8 @@ pub(super) fn emit_lh(
 
     let addr_temp;
     let (addr_id, addr_disp) = if rs1.is_zero() {
-        addr_temp = translator.temp_pool
+        addr_temp = translator
+            .temp_pool
             .allocate()
             .expect("emit_lh requires a temp to materialize x0 + imm address");
         emit_asm!(translator ; mov Rq(addr_temp.id()), QWORD imm as i64);
@@ -995,12 +921,7 @@ pub(super) fn emit_lh(
 
 /// RV64 `lhu`: load 16-bit value (zero-extended).
 /// rd <- M[rs1 + imm][15:0]
-pub(super) fn emit_lhu(
-    translator: &Translator,
-    rd: RiscvRegister,
-    rs1: RiscvRegister,
-    imm: i32,
-) {
+pub(super) fn emit_lhu(translator: &Translator, rd: RiscvRegister, rs1: RiscvRegister, imm: i32) {
     if rd.is_zero() {
         return;
     }
@@ -1015,7 +936,8 @@ pub(super) fn emit_lhu(
 
     let addr_temp;
     let (addr_id, addr_disp) = if rs1.is_zero() {
-        addr_temp = translator.temp_pool
+        addr_temp = translator
+            .temp_pool
             .allocate()
             .expect("emit_lhu requires a temp to materialize x0 + imm address");
         emit_asm!(translator ; mov Rq(addr_temp.id()), QWORD imm as i64);
@@ -1031,12 +953,7 @@ pub(super) fn emit_lhu(
 
 /// RV64 `lw`: load 32-bit value (sign-extended).
 /// rd <- sext(M[rs1 + imm][31:0])
-pub(super) fn emit_lw(
-    translator: &Translator,
-    rd: RiscvRegister,
-    rs1: RiscvRegister,
-    imm: i32,
-) {
+pub(super) fn emit_lw(translator: &Translator, rd: RiscvRegister, rs1: RiscvRegister, imm: i32) {
     if rd.is_zero() {
         return;
     }
@@ -1051,7 +968,8 @@ pub(super) fn emit_lw(
 
     let addr_temp;
     let (addr_id, addr_disp) = if rs1.is_zero() {
-        addr_temp = translator.temp_pool
+        addr_temp = translator
+            .temp_pool
             .allocate()
             .expect("emit_lw requires a temp to materialize x0 + imm address");
         emit_asm!(translator ; mov Rq(addr_temp.id()), QWORD imm as i64);
@@ -1067,12 +985,7 @@ pub(super) fn emit_lw(
 
 /// RV64 `lwu`: load 32-bit value (zero-extended).
 /// rd <- M[rs1 + imm][31:0]
-pub(super) fn emit_lwu(
-    translator: &Translator,
-    rd: RiscvRegister,
-    rs1: RiscvRegister,
-    imm: i32,
-) {
+pub(super) fn emit_lwu(translator: &Translator, rd: RiscvRegister, rs1: RiscvRegister, imm: i32) {
     if rd.is_zero() {
         return;
     }
@@ -1087,7 +1000,8 @@ pub(super) fn emit_lwu(
 
     let addr_temp;
     let (addr_id, addr_disp) = if rs1.is_zero() {
-        addr_temp = translator.temp_pool
+        addr_temp = translator
+            .temp_pool
             .allocate()
             .expect("emit_lwu requires a temp to materialize x0 + imm address");
         emit_asm!(translator ; mov Rq(addr_temp.id()), QWORD imm as i64);
@@ -1103,12 +1017,7 @@ pub(super) fn emit_lwu(
 
 /// RV64 `ld`: load 64-bit value.
 /// rd <- M[rs1 + imm][63:0]
-pub(super) fn emit_ld(
-    translator: &Translator,
-    rd: RiscvRegister,
-    rs1: RiscvRegister,
-    imm: i32,
-) {
+pub(super) fn emit_ld(translator: &Translator, rd: RiscvRegister, rs1: RiscvRegister, imm: i32) {
     if rd.is_zero() {
         return;
     }
@@ -1123,7 +1032,8 @@ pub(super) fn emit_ld(
 
     let addr_temp;
     let (addr_id, addr_disp) = if rs1.is_zero() {
-        addr_temp = translator.temp_pool
+        addr_temp = translator
+            .temp_pool
             .allocate()
             .expect("emit_ld requires a temp to materialize x0 + imm address");
         emit_asm!(translator ; mov Rq(addr_temp.id()), QWORD imm as i64);
@@ -1139,12 +1049,7 @@ pub(super) fn emit_ld(
 
 /// RV64 `sh`: store low 16 bits of rs2 to memory at rs1 + sext(imm).
 /// mem16[rs1 + sext(imm)] <- rs2[15:0]
-pub(super) fn emit_sh(
-    translator: &Translator,
-    rs1: RiscvRegister,
-    rs2: RiscvRegister,
-    imm: i32,
-) {
+pub(super) fn emit_sh(translator: &Translator, rs1: RiscvRegister, rs2: RiscvRegister, imm: i32) {
     let ctx = InstructionContextBuilder::<2, 0>::new()
         .set_inputs([rs1, rs2])
         .build(translator);
@@ -1153,7 +1058,8 @@ pub(super) fn emit_sh(
 
     let addr_temp;
     let (addr_id, addr_disp) = if rs1.is_zero() {
-        addr_temp = translator.temp_pool
+        addr_temp = translator
+            .temp_pool
             .allocate()
             .expect("emit_sh requires a temp to materialize x0 + imm address");
         emit_asm!(translator ; mov Rq(addr_temp.id()), QWORD imm as i64);
@@ -1173,12 +1079,7 @@ pub(super) fn emit_sh(
 
 /// RV64 `sw`: store low 32 bits of rs2 to memory at rs1 + sext(imm).
 /// mem32[rs1 + sext(imm)] <- rs2[31:0]
-pub(super) fn emit_sw(
-    translator: &Translator,
-    rs1: RiscvRegister,
-    rs2: RiscvRegister,
-    imm: i32,
-) {
+pub(super) fn emit_sw(translator: &Translator, rs1: RiscvRegister, rs2: RiscvRegister, imm: i32) {
     let ctx = InstructionContextBuilder::<2, 0>::new()
         .set_inputs([rs1, rs2])
         .build(translator);
@@ -1187,7 +1088,8 @@ pub(super) fn emit_sw(
 
     let addr_temp;
     let (addr_id, addr_disp) = if rs1.is_zero() {
-        addr_temp = translator.temp_pool
+        addr_temp = translator
+            .temp_pool
             .allocate()
             .expect("emit_sw requires a temp to materialize x0 + imm address");
         emit_asm!(translator ; mov Rq(addr_temp.id()), QWORD imm as i64);
@@ -1378,12 +1280,7 @@ pub(super) fn emit_xor(
 
 /// RV64 `ori`: bitwise OR with sign-extended immediate.
 /// rd <- rs1 | sext(imm)
-pub(super) fn emit_ori(
-    translator: &Translator,
-    rd: RiscvRegister,
-    rs1: RiscvRegister,
-    imm: i32,
-) {
+pub(super) fn emit_ori(translator: &Translator, rd: RiscvRegister, rs1: RiscvRegister, imm: i32) {
     let ctx = InstructionContextBuilder::<1, 0>::new()
         .set_inputs([rs1])
         .set_output(rd)
@@ -1447,12 +1344,7 @@ pub(super) fn emit_ori(
 
 /// RV64 `xori`: bitwise XOR with sign-extended immediate.
 /// rd <- rs1 ^ sext(imm)
-pub(super) fn emit_xori(
-    translator: &Translator,
-    rd: RiscvRegister,
-    rs1: RiscvRegister,
-    imm: i32,
-) {
+pub(super) fn emit_xori(translator: &Translator, rd: RiscvRegister, rs1: RiscvRegister, imm: i32) {
     let ctx = InstructionContextBuilder::<1, 0>::new()
         .set_inputs([rs1])
         .set_output(rd)
@@ -1647,12 +1539,7 @@ pub(super) fn emit_sra(
 
 /// RV64 `srli`: logical right shift by immediate.
 /// rd <- rs1 >> shamt
-pub(super) fn emit_srli(
-    translator: &Translator,
-    rd: RiscvRegister,
-    rs1: RiscvRegister,
-    shamt: u8,
-) {
+pub(super) fn emit_srli(translator: &Translator, rd: RiscvRegister, rs1: RiscvRegister, shamt: u8) {
     let ctx = InstructionContextBuilder::<1, 0>::new()
         .set_inputs([rs1])
         .set_output(rd)
@@ -1713,12 +1600,7 @@ pub(super) fn emit_srli(
 
 /// RV64 `srai`: arithmetic right shift by immediate.
 /// rd <- rs1 >>> shamt
-pub(super) fn emit_srai(
-    translator: &Translator,
-    rd: RiscvRegister,
-    rs1: RiscvRegister,
-    shamt: u8,
-) {
+pub(super) fn emit_srai(translator: &Translator, rd: RiscvRegister, rs1: RiscvRegister, shamt: u8) {
     let ctx = InstructionContextBuilder::<1, 0>::new()
         .set_inputs([rs1])
         .set_output(rd)
@@ -1913,12 +1795,7 @@ pub(super) fn emit_sltu(
 
 /// RV64 `slti`: set if less than immediate (signed).
 /// rd <- 1 if signed(rs1) < sext(imm) else 0
-pub(super) fn emit_slti(
-    translator: &Translator,
-    rd: RiscvRegister,
-    rs1: RiscvRegister,
-    imm: i32,
-) {
+pub(super) fn emit_slti(translator: &Translator, rd: RiscvRegister, rs1: RiscvRegister, imm: i32) {
     let ctx = InstructionContextBuilder::<1, 0>::new()
         .set_inputs([rs1])
         .set_output(rd)
@@ -1978,12 +1855,7 @@ pub(super) fn emit_slti(
 
 /// RV64 `sltiu`: set if less than immediate (unsigned).
 /// rd <- 1 if unsigned(rs1) < sext(imm) else 0
-pub(super) fn emit_sltiu(
-    translator: &Translator,
-    rd: RiscvRegister,
-    rs1: RiscvRegister,
-    imm: i32,
-) {
+pub(super) fn emit_sltiu(translator: &Translator, rd: RiscvRegister, rs1: RiscvRegister, imm: i32) {
     let ctx = InstructionContextBuilder::<1, 0>::new()
         .set_inputs([rs1])
         .set_output(rd)
@@ -2047,12 +1919,7 @@ pub(super) fn emit_sltiu(
 
 /// RV64 `blt`: branch if less than (signed).
 /// if signed(rs1) < signed(rs2) then pc <- pc + sext(imm)
-pub(super) fn emit_blt(
-    translator: &Translator,
-    rs1: RiscvRegister,
-    rs2: RiscvRegister,
-    imm: i32,
-) {
+pub(super) fn emit_blt(translator: &Translator, rs1: RiscvRegister, rs2: RiscvRegister, imm: i32) {
     let ctx = InstructionContextBuilder::<2, 0>::new()
         .set_inputs([rs1, rs2])
         .build(translator);
@@ -2089,12 +1956,7 @@ pub(super) fn emit_blt(
 
 /// RV64 `bge`: branch if greater or equal (signed).
 /// if signed(rs1) >= signed(rs2) then pc <- pc + sext(imm)
-pub(super) fn emit_bge(
-    translator: &Translator,
-    rs1: RiscvRegister,
-    rs2: RiscvRegister,
-    imm: i32,
-) {
+pub(super) fn emit_bge(translator: &Translator, rs1: RiscvRegister, rs2: RiscvRegister, imm: i32) {
     let ctx = InstructionContextBuilder::<2, 0>::new()
         .set_inputs([rs1, rs2])
         .build(translator);

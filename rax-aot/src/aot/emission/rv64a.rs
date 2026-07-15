@@ -1,5 +1,3 @@
-use dynasmrt::DynasmApi;
-
 use crate::aot::emit_asm;
 
 use crate::aot::{
@@ -182,14 +180,7 @@ pub(super) fn emit_amoaddd(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
-    emit_amo_rmw(
-        translator,
-        rd,
-        rs1,
-        rs2,
-        AmoWidth::Double,
-        AmoOp::Add,
-    );
+    emit_amo_rmw(translator, rd, rs1, rs2, AmoWidth::Double, AmoOp::Add);
 }
 
 /// RV64 `amoswap.d`: atomic swap doubleword.
@@ -200,14 +191,7 @@ pub(super) fn emit_amoswapd(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
-    emit_amo_rmw(
-        translator,
-        rd,
-        rs1,
-        rs2,
-        AmoWidth::Double,
-        AmoOp::Swap,
-    );
+    emit_amo_rmw(translator, rd, rs1, rs2, AmoWidth::Double, AmoOp::Swap);
 }
 
 /// RV64 `amoxor.d`: atomic XOR doubleword.
@@ -218,14 +202,7 @@ pub(super) fn emit_amoxord(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
-    emit_amo_rmw(
-        translator,
-        rd,
-        rs1,
-        rs2,
-        AmoWidth::Double,
-        AmoOp::Xor,
-    );
+    emit_amo_rmw(translator, rd, rs1, rs2, AmoWidth::Double, AmoOp::Xor);
 }
 
 /// RV64 `amoand.d`: atomic AND doubleword.
@@ -236,14 +213,7 @@ pub(super) fn emit_amoandd(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
-    emit_amo_rmw(
-        translator,
-        rd,
-        rs1,
-        rs2,
-        AmoWidth::Double,
-        AmoOp::And,
-    );
+    emit_amo_rmw(translator, rd, rs1, rs2, AmoWidth::Double, AmoOp::And);
 }
 
 /// RV64 `amoor.w`: atomic OR word.
@@ -320,14 +290,7 @@ pub(super) fn emit_amomind(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
-    emit_amo_rmw(
-        translator,
-        rd,
-        rs1,
-        rs2,
-        AmoWidth::Double,
-        AmoOp::Min,
-    );
+    emit_amo_rmw(translator, rd, rs1, rs2, AmoWidth::Double, AmoOp::Min);
 }
 
 /// RV64 `amomax.d`: atomic signed max doubleword.
@@ -338,14 +301,7 @@ pub(super) fn emit_amomaxd(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
-    emit_amo_rmw(
-        translator,
-        rd,
-        rs1,
-        rs2,
-        AmoWidth::Double,
-        AmoOp::Max,
-    );
+    emit_amo_rmw(translator, rd, rs1, rs2, AmoWidth::Double, AmoOp::Max);
 }
 
 /// RV64 `amominu.d`: atomic unsigned min doubleword.
@@ -356,14 +312,7 @@ pub(super) fn emit_amominud(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
-    emit_amo_rmw(
-        translator,
-        rd,
-        rs1,
-        rs2,
-        AmoWidth::Double,
-        AmoOp::Minu,
-    );
+    emit_amo_rmw(translator, rd, rs1, rs2, AmoWidth::Double, AmoOp::Minu);
 }
 
 /// RV64 `amomaxu.d`: atomic unsigned max doubleword.
@@ -374,14 +323,7 @@ pub(super) fn emit_amomaxud(
     rs1: RiscvRegister,
     rs2: RiscvRegister,
 ) {
-    emit_amo_rmw(
-        translator,
-        rd,
-        rs1,
-        rs2,
-        AmoWidth::Double,
-        AmoOp::Maxu,
-    );
+    emit_amo_rmw(translator, rd, rs1, rs2, AmoWidth::Double, AmoOp::Maxu);
 }
 
 fn emit_amo_rmw(

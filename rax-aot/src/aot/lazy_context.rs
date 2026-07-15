@@ -1,22 +1,9 @@
-// cache represents the current physical location of a map target
-// .id() needs to do a fresh resolution each time
-// need a new structure to represent anti clobber register locations
-// while still keeping output handling safe
-
-// where do we start?
-// at first I thought starting with the builder is best
-// but I think starting with the context is better
-// we need structures that serve as placeholders but contain the information needed
-// these things can hold map targets
-
 use std::{
     cell::RefCell,
     collections::{HashMap, btree_map::Values, hash_map::Entry}, rc::Rc,
 };
 
-use dynasmrt::dynasm;
-
-use crate::aot::{instruction_context::ValueLoc, register_mapping::{MapTarget, XmmLane}, temp_alloc::TempAllocator, translator::Translator};
+use crate::{aot::{instruction_context::ValueLoc, register_mapping::{MapTarget, XmmLane}, temp_alloc::TempAllocator, translator::Translator}, emit_asm};
 
 enum ContextParamType {
     Input,
@@ -24,21 +11,14 @@ enum ContextParamType {
     Clobber,
 }
 
-struct ContextParam<'a> {
+struct ContextParam {
     target: MapTarget,
     param_type: ContextParamType,
-    context: RefCell<InstructionContext<'a>>,
 }
-
-// I need this context param to be able to call .id() and then insert itself
-// appropriately in the context, this means it needs some mutable reference to self
-// but we cannot have multiple mutable references
-// hence some kind of interior mutability as we are single threaded and we can guarantee
-// that everytime it is called, only one instance will be used
-// going to use a RefCell for it
 
 struct InstructionContext<'a> {
     cache: HashMap<MapTarget, ValueLoc<'a>>,
+    translator: &'a Translator
 }
 
 impl<'a> InstructionContext<'a> {
@@ -90,7 +70,7 @@ impl<'a> InstructionContext<'a> {
                 MapTarget::Gpr(x86_gpr) => ValueLoc::Mapped(x86_gpr),
                 MapTarget::XmmExclusive(reg) | MapTarget::XmmShared { reg, lane: XmmLane::Low } => {
                     let val = Self::alloc_temp(temp_allocator);
-                    dynasm!(translator.emitter ; movq Rq(val.id()), Rx(reg.id()));
+                    emit_asm!(self.translator ; movq Rq(val.id()), Rx(reg.id()));
                     entry.insert(val.clone());
                     val
                 }
