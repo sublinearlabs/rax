@@ -421,7 +421,7 @@ mod tests {
     #[test]
     fn aot_fib_ima() {
         let elf_path = workspace_path("test-bin/rust-bin/fib/fib-ima");
-        compile_and_run_aot("fib", elf_path.to_str().unwrap(), None, None);
+        compile_and_run_aot("fib", elf_path.to_str().unwrap(), Some(b"10\n"), None);
     }
 
     #[test]
