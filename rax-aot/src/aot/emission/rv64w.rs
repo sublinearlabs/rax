@@ -1,4 +1,6 @@
-use dynasmrt::{dynasm, DynasmApi};
+use dynasmrt::DynasmApi;
+
+use crate::aot::emit_asm;
 
 use crate::aot::{
     classification::{
@@ -7,15 +9,13 @@ use crate::aot::{
     },
     instruction_context::InstructionContextBuilder,
     registers::{RiscvRegister, X86Gpr},
-    temp_alloc::TempAllocator,
     translator::Translator,
 };
 
 /// RV64 `subw`: subtract low 32 bits, then sign-extend to 64 bits.
 /// rd <- sext32((rs1[31:0] - rs2[31:0]) mod 2^32)
 pub(super) fn emit_subw(
-    translator: &mut Translator,
-    temps: &TempAllocator,
+    translator: &Translator,
     rd: RiscvRegister,
     rs1: RiscvRegister,
     rs2: RiscvRegister,
@@ -23,7 +23,7 @@ pub(super) fn emit_subw(
     let ctx = InstructionContextBuilder::<2, 0>::new()
         .set_inputs([rs1, rs2])
         .set_output(rd)
-        .build(translator, temps);
+        .build(translator);
     let [rs1, rs2] = ctx.inputs();
     let rd = ctx.output();
 
@@ -34,18 +34,18 @@ pub(super) fn emit_subw(
         }
 
         ZeroCase::Rs1Rs2Zero => {
-            dynasm!(translator.emitter ; xor Rd(rd.id()), Rd(rd.id()));
+            emit_asm!(translator ; xor Rd(rd.id()), Rd(rd.id()));
             ctx.write_back(translator);
             return;
         }
 
         ZeroCase::Rs1Zero => {
             if rd.id() != rs2.id() {
-                dynasm!(translator.emitter ; mov Rd(rd.id()), Rd(rs2.id()));
+                emit_asm!(translator ; mov Rd(rd.id()), Rd(rs2.id()));
             }
 
-            dynasm!(translator.emitter ; neg Rd(rd.id()));
-            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
+            emit_asm!(translator ; neg Rd(rd.id()));
+            emit_asm!(translator ; movsxd Rq(rd.id()), Rd(rd.id()));
             ctx.write_back(translator);
             return;
         }
@@ -56,8 +56,8 @@ pub(super) fn emit_subw(
                 return;
             }
 
-            dynasm!(translator.emitter ; mov Rd(rd.id()), Rd(rs1.id()));
-            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
+            emit_asm!(translator ; mov Rd(rd.id()), Rd(rs1.id()));
+            emit_asm!(translator ; movsxd Rq(rd.id()), Rd(rd.id()));
             ctx.write_back(translator);
             return;
         }
@@ -67,30 +67,30 @@ pub(super) fn emit_subw(
 
     match classify_shadow_case(&rd, &rs1, &rs2) {
         ShadowCase::AllEqual | ShadowCase::Rs1EqRs2 => {
-            dynasm!(translator.emitter ; xor Rq(rd.id()), Rq(rd.id()));
+            emit_asm!(translator ; xor Rq(rd.id()), Rq(rd.id()));
             ctx.write_back(translator);
             return;
         }
 
         ShadowCase::RdEqRs1 => {
-            dynasm!(translator.emitter ; sub Rd(rd.id()), Rd(rs2.id()));
-            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
+            emit_asm!(translator ; sub Rd(rd.id()), Rd(rs2.id()));
+            emit_asm!(translator ; movsxd Rq(rd.id()), Rd(rd.id()));
             ctx.write_back(translator);
             return;
         }
 
         ShadowCase::RdEqRs2 => {
-            dynasm!(translator.emitter ; neg Rd(rd.id()));
-            dynasm!(translator.emitter ; add Rd(rd.id()), Rd(rs1.id()));
-            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
+            emit_asm!(translator ; neg Rd(rd.id()));
+            emit_asm!(translator ; add Rd(rd.id()), Rd(rs1.id()));
+            emit_asm!(translator ; movsxd Rq(rd.id()), Rd(rd.id()));
             ctx.write_back(translator);
             return;
         }
 
         ShadowCase::AllDistinct => {
-            dynasm!(translator.emitter ; mov Rd(rd.id()), Rd(rs1.id()));
-            dynasm!(translator.emitter ; sub Rd(rd.id()), Rd(rs2.id()));
-            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
+            emit_asm!(translator ; mov Rd(rd.id()), Rd(rs1.id()));
+            emit_asm!(translator ; sub Rd(rd.id()), Rd(rs2.id()));
+            emit_asm!(translator ; movsxd Rq(rd.id()), Rd(rd.id()));
             ctx.write_back(translator);
             return;
         }
@@ -100,8 +100,7 @@ pub(super) fn emit_subw(
 /// RV64 `sraiw`: arithmetic right shift word by immediate.
 /// rd <- sext32(rs1[31:0] >>> shamt)
 pub(super) fn emit_sraiw(
-    translator: &mut Translator,
-    temps: &TempAllocator,
+    translator: &Translator,
     rd: RiscvRegister,
     rs1: RiscvRegister,
     shamt: u8,
@@ -109,7 +108,7 @@ pub(super) fn emit_sraiw(
     let ctx = InstructionContextBuilder::<1, 0>::new()
         .set_inputs([rs1])
         .set_output(rd)
-        .build(translator, temps);
+        .build(translator);
 
     let [rs1] = ctx.inputs();
     let rd = ctx.output();
@@ -126,7 +125,7 @@ pub(super) fn emit_sraiw(
             //
             // case 2
             // sraiw rd, 0, shamt -> rd = 0
-            dynasm!(translator.emitter ; xor Rd(rd.id()), Rd(rd.id()));
+            emit_asm!(translator ; xor Rd(rd.id()), Rd(rd.id()));
             ctx.write_back(translator);
             return;
         }
@@ -134,7 +133,7 @@ pub(super) fn emit_sraiw(
         UnaryZeroCase::ImmZero => {
             // sraiw rd, rs1, 0
             // -> rd = sext32(rs1[31:0])
-            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rs1.id()));
+            emit_asm!(translator ; movsxd Rq(rd.id()), Rd(rs1.id()));
             ctx.write_back(translator);
             return;
         }
@@ -145,17 +144,17 @@ pub(super) fn emit_sraiw(
     match classify_unary_shadow_case(rd, rs1) {
         UnaryShadowCase::RdEqRs1 => {
             // sraiw rd, rd, shamt
-            dynasm!(translator.emitter ; sar Rd(rd.id()), shamt as i8);
-            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
+            emit_asm!(translator ; sar Rd(rd.id()), shamt as i8);
+            emit_asm!(translator ; movsxd Rq(rd.id()), Rd(rd.id()));
             ctx.write_back(translator);
             return;
         }
 
         UnaryShadowCase::Distinct => {
             // sraiw rd, rs1, shamt
-            dynasm!(translator.emitter ; mov Rd(rd.id()), Rd(rs1.id()));
-            dynasm!(translator.emitter ; sar Rd(rd.id()), shamt as i8);
-            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
+            emit_asm!(translator ; mov Rd(rd.id()), Rd(rs1.id()));
+            emit_asm!(translator ; sar Rd(rd.id()), shamt as i8);
+            emit_asm!(translator ; movsxd Rq(rd.id()), Rd(rd.id()));
             ctx.write_back(translator);
             return;
         }
@@ -165,8 +164,7 @@ pub(super) fn emit_sraiw(
 /// RV64 `sllw`: logical left shift word by register low bits.
 /// rd <- sext32(rs1[31:0] << (rs2 & 0x1f))
 pub(super) fn emit_sllw(
-    translator: &mut Translator,
-    temps: &TempAllocator,
+    translator: &Translator,
     rd: RiscvRegister,
     rs1: RiscvRegister,
     rs2: RiscvRegister,
@@ -175,7 +173,7 @@ pub(super) fn emit_sllw(
         .set_inputs([rs1, rs2])
         .set_output(rd)
         .ensure_no_clobber([X86Gpr::Rcx])
-        .build(translator, temps);
+        .build(translator);
 
     let [rs1, rs2] = ctx.inputs();
     let rd = ctx.output();
@@ -192,7 +190,7 @@ pub(super) fn emit_sllw(
             //
             // case 2
             // sllw rd, 0, rs2 -> rd = 0
-            dynasm!(translator.emitter ; xor Rd(rd.id()), Rd(rd.id()));
+            emit_asm!(translator ; xor Rd(rd.id()), Rd(rd.id()));
             ctx.write_back(translator);
             return;
         }
@@ -200,7 +198,7 @@ pub(super) fn emit_sllw(
         ZeroCase::Rs2Zero => {
             // sllw rd, rs1, 0
             // -> rd = sext32(rs1[31:0])
-            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rs1.id()));
+            emit_asm!(translator ; movsxd Rq(rd.id()), Rd(rs1.id()));
             ctx.write_back(translator);
             return;
         }
@@ -208,22 +206,22 @@ pub(super) fn emit_sllw(
         ZeroCase::None => {}
     }
 
-    dynasm!(translator.emitter ; mov Rq(X86Gpr::Rcx.id()), Rq(rs2.id()));
+    emit_asm!(translator ; mov Rq(X86Gpr::Rcx.id()), Rq(rs2.id()));
 
     match classify_unary_shadow_case(rd, rs1) {
         UnaryShadowCase::RdEqRs1 => {
             // sllw rd, rd, rs2
-            dynasm!(translator.emitter ; shl Rd(rd.id()), cl);
-            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
+            emit_asm!(translator ; shl Rd(rd.id()), cl);
+            emit_asm!(translator ; movsxd Rq(rd.id()), Rd(rd.id()));
             ctx.write_back(translator);
             return;
         }
 
         UnaryShadowCase::Distinct => {
             // sllw rd, rs1, rs2
-            dynasm!(translator.emitter ; mov Rd(rd.id()), Rd(rs1.id()));
-            dynasm!(translator.emitter ; shl Rd(rd.id()), cl);
-            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
+            emit_asm!(translator ; mov Rd(rd.id()), Rd(rs1.id()));
+            emit_asm!(translator ; shl Rd(rd.id()), cl);
+            emit_asm!(translator ; movsxd Rq(rd.id()), Rd(rd.id()));
             ctx.write_back(translator);
             return;
         }
@@ -233,8 +231,7 @@ pub(super) fn emit_sllw(
 /// RV64 `srlw`: logical right shift word by register low bits.
 /// rd <- sext32(rs1[31:0] >> (rs2 & 0x1f))
 pub(super) fn emit_srlw(
-    translator: &mut Translator,
-    temps: &TempAllocator,
+    translator: &Translator,
     rd: RiscvRegister,
     rs1: RiscvRegister,
     rs2: RiscvRegister,
@@ -243,7 +240,7 @@ pub(super) fn emit_srlw(
         .set_inputs([rs1, rs2])
         .set_output(rd)
         .ensure_no_clobber([X86Gpr::Rcx])
-        .build(translator, temps);
+        .build(translator);
 
     let [rs1, rs2] = ctx.inputs();
     let rd = ctx.output();
@@ -260,7 +257,7 @@ pub(super) fn emit_srlw(
             //
             // case 2
             // srlw rd, 0, rs2 -> rd = 0
-            dynasm!(translator.emitter ; xor Rd(rd.id()), Rd(rd.id()));
+            emit_asm!(translator ; xor Rd(rd.id()), Rd(rd.id()));
             ctx.write_back(translator);
             return;
         }
@@ -268,7 +265,7 @@ pub(super) fn emit_srlw(
         ZeroCase::Rs2Zero => {
             // srlw rd, rs1, 0
             // -> rd = sext32(rs1[31:0])
-            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rs1.id()));
+            emit_asm!(translator ; movsxd Rq(rd.id()), Rd(rs1.id()));
             ctx.write_back(translator);
             return;
         }
@@ -276,22 +273,22 @@ pub(super) fn emit_srlw(
         ZeroCase::None => {}
     }
 
-    dynasm!(translator.emitter ; mov Rq(X86Gpr::Rcx.id()), Rq(rs2.id()));
+    emit_asm!(translator ; mov Rq(X86Gpr::Rcx.id()), Rq(rs2.id()));
 
     match classify_unary_shadow_case(rd, rs1) {
         UnaryShadowCase::RdEqRs1 => {
             // srlw rd, rd, rs2
-            dynasm!(translator.emitter ; shr Rd(rd.id()), cl);
-            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
+            emit_asm!(translator ; shr Rd(rd.id()), cl);
+            emit_asm!(translator ; movsxd Rq(rd.id()), Rd(rd.id()));
             ctx.write_back(translator);
             return;
         }
 
         UnaryShadowCase::Distinct => {
             // srlw rd, rs1, rs2
-            dynasm!(translator.emitter ; mov Rd(rd.id()), Rd(rs1.id()));
-            dynasm!(translator.emitter ; shr Rd(rd.id()), cl);
-            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
+            emit_asm!(translator ; mov Rd(rd.id()), Rd(rs1.id()));
+            emit_asm!(translator ; shr Rd(rd.id()), cl);
+            emit_asm!(translator ; movsxd Rq(rd.id()), Rd(rd.id()));
             ctx.write_back(translator);
             return;
         }
@@ -301,8 +298,7 @@ pub(super) fn emit_srlw(
 /// RV64 `sraw`: arithmetic right shift word by register low bits.
 /// rd <- sext32(rs1[31:0] >>> (rs2 & 0x1f))
 pub(super) fn emit_sraw(
-    translator: &mut Translator,
-    temps: &TempAllocator,
+    translator: &Translator,
     rd: RiscvRegister,
     rs1: RiscvRegister,
     rs2: RiscvRegister,
@@ -311,7 +307,7 @@ pub(super) fn emit_sraw(
         .set_inputs([rs1, rs2])
         .set_output(rd)
         .ensure_no_clobber([X86Gpr::Rcx])
-        .build(translator, temps);
+        .build(translator);
 
     let [rs1, rs2] = ctx.inputs();
     let rd = ctx.output();
@@ -323,13 +319,13 @@ pub(super) fn emit_sraw(
         }
 
         ZeroCase::Rs1Rs2Zero | ZeroCase::Rs1Zero => {
-            dynasm!(translator.emitter ; xor Rd(rd.id()), Rd(rd.id()));
+            emit_asm!(translator ; xor Rd(rd.id()), Rd(rd.id()));
             ctx.write_back(translator);
             return;
         }
 
         ZeroCase::Rs2Zero => {
-            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rs1.id()));
+            emit_asm!(translator ; movsxd Rq(rd.id()), Rd(rs1.id()));
             ctx.write_back(translator);
             return;
         }
@@ -337,20 +333,20 @@ pub(super) fn emit_sraw(
         ZeroCase::None => {}
     }
 
-    dynasm!(translator.emitter ; mov Rq(X86Gpr::Rcx.id()), Rq(rs2.id()));
+    emit_asm!(translator ; mov Rq(X86Gpr::Rcx.id()), Rq(rs2.id()));
 
     match classify_unary_shadow_case(rd, rs1) {
         UnaryShadowCase::RdEqRs1 => {
-            dynasm!(translator.emitter ; sar Rd(rd.id()), cl);
-            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
+            emit_asm!(translator ; sar Rd(rd.id()), cl);
+            emit_asm!(translator ; movsxd Rq(rd.id()), Rd(rd.id()));
             ctx.write_back(translator);
             return;
         }
 
         UnaryShadowCase::Distinct => {
-            dynasm!(translator.emitter ; mov Rd(rd.id()), Rd(rs1.id()));
-            dynasm!(translator.emitter ; sar Rd(rd.id()), cl);
-            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
+            emit_asm!(translator ; mov Rd(rd.id()), Rd(rs1.id()));
+            emit_asm!(translator ; sar Rd(rd.id()), cl);
+            emit_asm!(translator ; movsxd Rq(rd.id()), Rd(rd.id()));
             ctx.write_back(translator);
             return;
         }
@@ -360,8 +356,7 @@ pub(super) fn emit_sraw(
 /// RV64 `slliw`: logical left shift word by immediate.
 /// rd <- sext32(rs1[31:0] << shamt)
 pub(super) fn emit_slliw(
-    translator: &mut Translator,
-    temps: &TempAllocator,
+    translator: &Translator,
     rd: RiscvRegister,
     rs1: RiscvRegister,
     shamt: u8,
@@ -369,7 +364,7 @@ pub(super) fn emit_slliw(
     let ctx = InstructionContextBuilder::<1, 0>::new()
         .set_inputs([rs1])
         .set_output(rd)
-        .build(translator, temps);
+        .build(translator);
 
     let [rs1] = ctx.inputs();
     let rd = ctx.output();
@@ -386,7 +381,7 @@ pub(super) fn emit_slliw(
             //
             // case 2
             // slliw rd, 0, shamt -> rd = 0
-            dynasm!(translator.emitter ; xor Rd(rd.id()), Rd(rd.id()));
+            emit_asm!(translator ; xor Rd(rd.id()), Rd(rd.id()));
             ctx.write_back(translator);
             return;
         }
@@ -394,7 +389,7 @@ pub(super) fn emit_slliw(
         UnaryZeroCase::ImmZero => {
             // slliw rd, rs1, 0
             // -> rd = sext32(rs1[31:0])
-            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rs1.id()));
+            emit_asm!(translator ; movsxd Rq(rd.id()), Rd(rs1.id()));
             ctx.write_back(translator);
             return;
         }
@@ -405,17 +400,17 @@ pub(super) fn emit_slliw(
     match classify_unary_shadow_case(rd, rs1) {
         UnaryShadowCase::RdEqRs1 => {
             // slliw rd, rd, shamt
-            dynasm!(translator.emitter ; shl Rd(rd.id()), shamt as i8);
-            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
+            emit_asm!(translator ; shl Rd(rd.id()), shamt as i8);
+            emit_asm!(translator ; movsxd Rq(rd.id()), Rd(rd.id()));
             ctx.write_back(translator);
             return;
         }
 
         UnaryShadowCase::Distinct => {
             // slliw rd, rs1, shamt
-            dynasm!(translator.emitter ; mov Rd(rd.id()), Rd(rs1.id()));
-            dynasm!(translator.emitter ; shl Rd(rd.id()), shamt as i8);
-            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
+            emit_asm!(translator ; mov Rd(rd.id()), Rd(rs1.id()));
+            emit_asm!(translator ; shl Rd(rd.id()), shamt as i8);
+            emit_asm!(translator ; movsxd Rq(rd.id()), Rd(rd.id()));
             ctx.write_back(translator);
             return;
         }
@@ -425,8 +420,7 @@ pub(super) fn emit_slliw(
 /// RV64 `srliw`: logical right shift word by immediate.
 /// rd <- sext32(rs1[31:0] >> shamt)
 pub(super) fn emit_srliw(
-    translator: &mut Translator,
-    temps: &TempAllocator,
+    translator: &Translator,
     rd: RiscvRegister,
     rs1: RiscvRegister,
     shamt: u8,
@@ -434,7 +428,7 @@ pub(super) fn emit_srliw(
     let ctx = InstructionContextBuilder::<1, 0>::new()
         .set_inputs([rs1])
         .set_output(rd)
-        .build(translator, temps);
+        .build(translator);
 
     let [rs1] = ctx.inputs();
     let rd = ctx.output();
@@ -451,7 +445,7 @@ pub(super) fn emit_srliw(
             //
             // case 2
             // srliw rd, 0, shamt -> rd = 0
-            dynasm!(translator.emitter ; xor Rd(rd.id()), Rd(rd.id()));
+            emit_asm!(translator ; xor Rd(rd.id()), Rd(rd.id()));
             ctx.write_back(translator);
             return;
         }
@@ -459,7 +453,7 @@ pub(super) fn emit_srliw(
         UnaryZeroCase::ImmZero => {
             // srliw rd, rs1, 0
             // -> rd = sext32(rs1[31:0])
-            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rs1.id()));
+            emit_asm!(translator ; movsxd Rq(rd.id()), Rd(rs1.id()));
             ctx.write_back(translator);
             return;
         }
@@ -470,17 +464,17 @@ pub(super) fn emit_srliw(
     match classify_unary_shadow_case(rd, rs1) {
         UnaryShadowCase::RdEqRs1 => {
             // srliw rd, rd, shamt
-            dynasm!(translator.emitter ; shr Rd(rd.id()), shamt as i8);
-            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
+            emit_asm!(translator ; shr Rd(rd.id()), shamt as i8);
+            emit_asm!(translator ; movsxd Rq(rd.id()), Rd(rd.id()));
             ctx.write_back(translator);
             return;
         }
 
         UnaryShadowCase::Distinct => {
             // srliw rd, rs1, shamt
-            dynasm!(translator.emitter ; mov Rd(rd.id()), Rd(rs1.id()));
-            dynasm!(translator.emitter ; shr Rd(rd.id()), shamt as i8);
-            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
+            emit_asm!(translator ; mov Rd(rd.id()), Rd(rs1.id()));
+            emit_asm!(translator ; shr Rd(rd.id()), shamt as i8);
+            emit_asm!(translator ; movsxd Rq(rd.id()), Rd(rd.id()));
             ctx.write_back(translator);
             return;
         }
@@ -490,8 +484,7 @@ pub(super) fn emit_srliw(
 /// RV64 `addw`: add low 32 bits, then sign-extend to 64 bits.
 /// rd <- sext32((rs1[31:0] + rs2[31:0]) mod 2^32)
 pub(super) fn emit_addw(
-    translator: &mut Translator,
-    temps: &TempAllocator,
+    translator: &Translator,
     rd: RiscvRegister,
     rs1: RiscvRegister,
     rs2: RiscvRegister,
@@ -499,7 +492,7 @@ pub(super) fn emit_addw(
     let ctx = InstructionContextBuilder::<2, 0>::new()
         .set_inputs([rs1, rs2])
         .set_output(rd)
-        .build(translator, temps);
+        .build(translator);
     let [rs1, rs2] = ctx.inputs();
     let rd = ctx.output();
 
@@ -511,21 +504,21 @@ pub(super) fn emit_addw(
 
         ZeroCase::Rs1Rs2Zero => {
             // addw rd, 0, 0 -> rd = 0
-            dynasm!(translator.emitter ; xor Rd(rd.id()), Rd(rd.id()));
+            emit_asm!(translator ; xor Rd(rd.id()), Rd(rd.id()));
             ctx.write_back(translator);
             return;
         }
 
         ZeroCase::Rs1Zero => {
             // addw rd, 0, rs2 -> sext32(rs2[31:0])
-            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rs2.id()));
+            emit_asm!(translator ; movsxd Rq(rd.id()), Rd(rs2.id()));
             ctx.write_back(translator);
             return;
         }
 
         ZeroCase::Rs2Zero => {
             // addw rd, rs1, 0 -> sext32(rs1[31:0])
-            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rs1.id()));
+            emit_asm!(translator ; movsxd Rq(rd.id()), Rd(rs1.id()));
             ctx.write_back(translator);
             return;
         }
@@ -542,25 +535,25 @@ pub(super) fn emit_addw(
             // addw rd, rs1, rs1 -> sext32(rs1[31:0] << 1)
             // Avoid LEA here: x86-64 cannot encode RSP as an index register, so a
             // source operand carried in RSP would be misencoded or omitted.
-            dynasm!(translator.emitter ; mov Rd(rd.id()), Rd(rs1.id()));
-            dynasm!(translator.emitter ; add Rd(rd.id()), Rd(rs1.id()));
-            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
+            emit_asm!(translator ; mov Rd(rd.id()), Rd(rs1.id()));
+            emit_asm!(translator ; add Rd(rd.id()), Rd(rs1.id()));
+            emit_asm!(translator ; movsxd Rq(rd.id()), Rd(rd.id()));
             ctx.write_back(translator);
             return;
         }
 
         ShadowCase::RdEqRs1 => {
             // addw rd, rd, rs2
-            dynasm!(translator.emitter ; add Rd(rd.id()), Rd(rs2.id()));
-            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
+            emit_asm!(translator ; add Rd(rd.id()), Rd(rs2.id()));
+            emit_asm!(translator ; movsxd Rq(rd.id()), Rd(rd.id()));
             ctx.write_back(translator);
             return;
         }
 
         ShadowCase::RdEqRs2 => {
             // addw rd, rs1, rd
-            dynasm!(translator.emitter ; add Rd(rd.id()), Rd(rs1.id()));
-            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
+            emit_asm!(translator ; add Rd(rd.id()), Rd(rs1.id()));
+            emit_asm!(translator ; movsxd Rq(rd.id()), Rd(rd.id()));
             ctx.write_back(translator);
             return;
         }
@@ -569,9 +562,9 @@ pub(super) fn emit_addw(
             // addw rd, rs1, rs2
             // Avoid LEA here: x86-64 cannot encode RSP as an index register, so a
             // source operand carried in RSP would be misencoded or omitted.
-            dynasm!(translator.emitter ; mov Rd(rd.id()), Rd(rs1.id()));
-            dynasm!(translator.emitter ; add Rd(rd.id()), Rd(rs2.id()));
-            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
+            emit_asm!(translator ; mov Rd(rd.id()), Rd(rs1.id()));
+            emit_asm!(translator ; add Rd(rd.id()), Rd(rs2.id()));
+            emit_asm!(translator ; movsxd Rq(rd.id()), Rd(rd.id()));
             ctx.write_back(translator);
             return;
         }
@@ -581,8 +574,7 @@ pub(super) fn emit_addw(
 /// RV64 `addiw`: add sign-extended immediate to low 32 bits, then sign-extend.
 /// rd <- sext32((rs1[31:0] + sext(imm)) mod 2^32)
 pub(super) fn emit_addiw(
-    translator: &mut Translator,
-    temps: &TempAllocator,
+    translator: &Translator,
     rd: RiscvRegister,
     rs1: RiscvRegister,
     imm: i32,
@@ -590,7 +582,7 @@ pub(super) fn emit_addiw(
     let ctx = InstructionContextBuilder::<1, 0>::new()
         .set_inputs([rs1])
         .set_output(rd)
-        .build(translator, temps);
+        .build(translator);
 
     let [rs1] = ctx.inputs();
     let rd = ctx.output();
@@ -603,7 +595,7 @@ pub(super) fn emit_addiw(
 
         UnaryZeroCase::Rs1ImmZero => {
             // addiw rd, 0, 0 -> rd = 0
-            dynasm!(translator.emitter ; xor Rd(rd.id()), Rd(rd.id()));
+            emit_asm!(translator ; xor Rd(rd.id()), Rd(rd.id()));
             ctx.write_back(translator);
             return;
         }
@@ -611,14 +603,14 @@ pub(super) fn emit_addiw(
         UnaryZeroCase::Rs1Zero => {
             // addiw rd, 0, imm
             // -> rd = sext64(imm)
-            dynasm!(translator.emitter ; mov Rq(rd.id()), imm);
+            emit_asm!(translator ; mov Rq(rd.id()), imm);
             ctx.write_back(translator);
             return;
         }
 
         UnaryZeroCase::ImmZero => {
             // addiw rd, rs1, 0 -> sext32(rs1[31:0])
-            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rs1.id()));
+            emit_asm!(translator ; movsxd Rq(rd.id()), Rd(rs1.id()));
             ctx.write_back(translator);
             return;
         }
@@ -629,17 +621,17 @@ pub(super) fn emit_addiw(
     match classify_unary_shadow_case(rd, rs1) {
         UnaryShadowCase::RdEqRs1 => {
             // addiw rd, rd, imm
-            dynasm!(translator.emitter ; add Rd(rd.id()), imm);
-            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
+            emit_asm!(translator ; add Rd(rd.id()), imm);
+            emit_asm!(translator ; movsxd Rq(rd.id()), Rd(rd.id()));
             ctx.write_back(translator);
             return;
         }
 
         UnaryShadowCase::Distinct => {
             // addiw rd, rs1, imm
-            dynasm!(translator.emitter ; mov Rd(rd.id()), Rd(rs1.id()));
-            dynasm!(translator.emitter ; add Rd(rd.id()), imm);
-            dynasm!(translator.emitter ; movsxd Rq(rd.id()), Rd(rd.id()));
+            emit_asm!(translator ; mov Rd(rd.id()), Rd(rs1.id()));
+            emit_asm!(translator ; add Rd(rd.id()), imm);
+            emit_asm!(translator ; movsxd Rq(rd.id()), Rd(rd.id()));
             ctx.write_back(translator);
             return;
         }

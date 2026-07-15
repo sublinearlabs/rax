@@ -3,12 +3,14 @@ use std::{
     rc::Rc,
 };
 
-use dynasmrt::{dynasm, DynasmApi};
+use dynasmrt::DynasmApi;
+
+use crate::aot::emit_asm;
 
 use crate::aot::{
     register_mapping::{MapTarget, XmmLane},
     registers::{RiscvRegister, X86Gpr},
-    temp_alloc::{AllocatedTemp, TempAllocator},
+    temp_alloc::AllocatedTemp,
     translator::Translator,
 };
 
@@ -180,7 +182,7 @@ impl<'a> PreparedOutput<'a> {
     /// - `Gpr`: source is written to mapped x86 GPR
     /// - `XmmShared`: source is written to selected shared XMM lane
     /// - `XmmExclusive`: source is written to exclusive XMM destination
-    pub(super) fn write_back(mut self, translator: &mut Translator) {
+    pub(super) fn write_back(mut self, translator: &Translator) {
         match self.dest {
             MapTarget::ConstZero => {
                 self.written_back = true;
@@ -188,15 +190,11 @@ impl<'a> PreparedOutput<'a> {
             }
             MapTarget::Gpr(dst) => {
                 if self.src.gpr() != dst {
-                    dynasm!(translator.emitter
-                        ; mov Rq(dst.id()), Rq(self.id())
-                    );
+                    emit_asm!(translator ; mov Rq(dst.id()), Rq(self.id()));
                 }
             }
             MapTarget::XmmExclusive(reg) => {
-                dynasm!(translator.emitter
-                    ; movq Rx(reg.id()), Rq(self.id())
-                );
+                emit_asm!(translator ; movq Rx(reg.id()), Rq(self.id()));
             }
             MapTarget::XmmShared {
                 reg,
@@ -204,17 +202,13 @@ impl<'a> PreparedOutput<'a> {
             } => {
                 // Use PINSRQ for shared-low writes to preserve the high 64-bit lane.
                 // MOVQ xmm, r64 would clobber/zero the other lane and corrupt its paired shared value.
-                dynasm!(translator.emitter
-                    ; pinsrq Rx(reg.id()), Rq(self.id()), 0
-                );
+                emit_asm!(translator ; pinsrq Rx(reg.id()), Rq(self.id()), 0);
             }
             MapTarget::XmmShared {
                 reg,
                 lane: XmmLane::High,
             } => {
-                dynasm!(translator.emitter
-                    ; pinsrq Rx(reg.id()), Rq(self.id()), 1
-                );
+                emit_asm!(translator ; pinsrq Rx(reg.id()), Rq(self.id()), 1);
             }
         }
         self.written_back = true;
@@ -327,11 +321,10 @@ impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
     /// Panics when a required temp GPR cannot be allocated.
     /// Zero outputs must be completed with
     /// `InstructionContext::discard_zero_output()`.
-    pub(super) fn build<'a>(
+    pub(super) fn build(
         self,
-        translator: &mut Translator,
-        temp_allocator: &'a TempAllocator,
-    ) -> InstructionContext<'a, NI, NCT> {
+        translator: &Translator,
+    ) -> InstructionContext<'_, NI, NCT> {
         let inputs = match self.inputs {
             Some(inputs) => inputs,
             None => {
@@ -340,13 +333,13 @@ impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
             }
         };
         let output = self.output;
-        let mut cache: HashMap<MapTarget, ValueLoc<'a>> = HashMap::new();
+        let mut cache: HashMap<MapTarget, ValueLoc<'_>> = HashMap::new();
 
         let (clobber_restore, reserved_temps) =
-            Self::preserve_clobbers(self.clobber_targets, &mut cache, translator, temp_allocator);
-        let prepared_inputs = Self::prepare_inputs(inputs, &mut cache, translator, temp_allocator);
+            Self::preserve_clobbers(self.clobber_targets, &mut cache, translator);
+        let prepared_inputs = Self::prepare_inputs(inputs, &mut cache, translator);
         let prepared_output = output
-            .map(|output| Self::prepare_output(output, &mut cache, translator, temp_allocator));
+            .map(|output| Self::prepare_output(output, &mut cache, translator));
         let no_output_completion = prepared_output.is_none().then(NoOutputCompletion::new);
 
         InstructionContext {
@@ -371,8 +364,7 @@ impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
     fn preserve_clobbers<'a>(
         clobber_targets: Option<[X86Gpr; NCT]>,
         cache: &mut HashMap<MapTarget, ValueLoc<'a>>,
-        translator: &mut Translator,
-        temp_allocator: &'a TempAllocator,
+        translator: &'a Translator,
     ) -> (Vec<PreparedOutput<'a>>, Vec<AllocatedTemp<'a>>) {
         let mut clobber_restore = vec![];
         let mut reserved_temps = vec![];
@@ -389,18 +381,19 @@ impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
         }
 
         for clobbered_reg in &unique_targets {
-            if !temp_allocator.is_temp(clobbered_reg) {
+            if !translator.temp_pool.is_temp(clobbered_reg) {
                 continue;
             }
 
-            let reserved = temp_allocator
+            let reserved = translator
+                .temp_pool
                 .allocate_specific(*clobbered_reg)
                 .unwrap_or_else(|_| panic!("instruction context could not reserve temp GPR"));
             reserved_temps.push(reserved);
         }
 
         for clobbered_reg in unique_targets {
-            if temp_allocator.is_temp(&clobbered_reg) {
+            if translator.temp_pool.is_temp(&clobbered_reg) {
                 continue;
             }
 
@@ -409,8 +402,8 @@ impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
                 continue;
             };
 
-            let temp_reg = Self::alloc_temp(temp_allocator);
-            dynasm!(translator.emitter ; mov Rq(temp_reg.id()), Rq(clobbered_reg.id()));
+            let temp_reg = Self::alloc_temp(translator);
+            emit_asm!(translator ; mov Rq(temp_reg.id()), Rq(clobbered_reg.id()));
             entry.insert(temp_reg.clone());
             clobber_restore.push(PreparedOutput::new(temp_reg, target));
         }
@@ -425,14 +418,13 @@ impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
     fn prepare_inputs<'a>(
         inputs: [RiscvRegister; NI],
         cache: &mut HashMap<MapTarget, ValueLoc<'a>>,
-        translator: &mut Translator,
-        temp_allocator: &'a TempAllocator,
+        translator: &'a Translator,
     ) -> Vec<PreparedInput<'a>> {
         let mut prepared_inputs = Vec::with_capacity(NI);
 
         for input in inputs {
             let target = *translator.reg_map.get(&input);
-            let src = Self::prepare_input_target(target, cache, translator, temp_allocator);
+            let src = Self::prepare_input_target(target, cache, translator);
             prepared_inputs.push(PreparedInput { src });
         }
 
@@ -447,8 +439,7 @@ impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
     fn prepare_input_target<'a>(
         target: MapTarget,
         cache: &mut HashMap<MapTarget, ValueLoc<'a>>,
-        translator: &mut Translator,
-        temp_allocator: &'a TempAllocator,
+        translator: &'a Translator,
     ) -> ValueLoc<'a> {
         match cache.entry(target) {
             Entry::Occupied(entry) => entry.get().clone(),
@@ -460,8 +451,8 @@ impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
                     reg,
                     lane: XmmLane::Low,
                 } => {
-                    let val = Self::alloc_temp(temp_allocator);
-                    dynasm!(translator.emitter ; movq Rq(val.id()), Rx(reg.id()));
+                    let val = Self::alloc_temp(translator);
+                    emit_asm!(translator ; movq Rq(val.id()), Rx(reg.id()));
                     entry.insert(val.clone());
                     val
                 }
@@ -469,8 +460,8 @@ impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
                     reg,
                     lane: XmmLane::High,
                 } => {
-                    let val = Self::alloc_temp(temp_allocator);
-                    dynasm!(translator.emitter ; pextrq Rq(val.id()), Rx(reg.id()), 1);
+                    let val = Self::alloc_temp(translator);
+                    emit_asm!(translator ; pextrq Rq(val.id()), Rx(reg.id()), 1);
                     entry.insert(val.clone());
                     val
                 }
@@ -486,8 +477,7 @@ impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
     fn prepare_output<'a>(
         output: RiscvRegister,
         cache: &mut HashMap<MapTarget, ValueLoc<'a>>,
-        translator: &mut Translator,
-        temp_allocator: &'a TempAllocator,
+        translator: &'a Translator,
     ) -> PreparedOutput<'a> {
         let target = *translator.reg_map.get(&output);
 
@@ -498,7 +488,7 @@ impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
                     MapTarget::ConstZero => ValueLoc::ConstZero,
                     MapTarget::Gpr(gpr) => ValueLoc::Mapped(gpr),
                     MapTarget::XmmShared { .. } | MapTarget::XmmExclusive(..) => {
-                        Self::alloc_temp(temp_allocator)
+                        Self::alloc_temp(translator)
                     }
                 };
                 entry.insert(src.clone());
@@ -511,8 +501,9 @@ impl<const NI: usize, const NCT: usize> InstructionContextBuilder<NI, NCT> {
     ///
     /// Centralizes the allocation panic so all temp-pressure failures report the
     /// same instruction-context error.
-    fn alloc_temp<'a>(temp_allocator: &'a TempAllocator) -> ValueLoc<'a> {
-        let temp = temp_allocator
+    fn alloc_temp<'a>(translator: &'a Translator) -> ValueLoc<'a> {
+        let temp = translator
+            .temp_pool
             .allocate()
             .unwrap_or_else(|_| panic!("instruction context could not allocate temp GPR"));
         ValueLoc::Temp(Rc::new(temp))
@@ -576,7 +567,7 @@ impl<'a, const NI: usize, const NCT: usize> InstructionContext<'a, NI, NCT> {
     ///
     /// Panics if the output is `ConstZero`; use `discard_zero_output()` for
     /// `rd == x0`.
-    pub(super) fn write_back(self, translator: &mut Translator) {
+    pub(super) fn write_back(self, translator: &Translator) {
         let InstructionContext {
             output,
             no_output_completion,
@@ -614,7 +605,7 @@ impl<'a, const NI: usize, const NCT: usize> InstructionContext<'a, NI, NCT> {
     ///
     /// Panics if the output is not `ConstZero`; use `write_back()` for real
     /// destinations.
-    pub(super) fn discard_zero_output(self, translator: &mut Translator) {
+    pub(super) fn discard_zero_output(self, translator: &Translator) {
         let InstructionContext {
             output,
             no_output_completion,
@@ -651,7 +642,7 @@ impl<'a, const NI: usize, const NCT: usize> InstructionContext<'a, NI, NCT> {
     ///
     /// Panics if the output is `ConstZero`; use `discard_zero_output()` for
     /// `rd == x0`.
-    pub(super) fn commit_unchanged(self, translator: &mut Translator) {
+    pub(super) fn commit_unchanged(self, translator: &Translator) {
         let InstructionContext {
             output,
             no_output_completion,
@@ -688,7 +679,7 @@ impl<'a, const NI: usize, const NCT: usize> InstructionContext<'a, NI, NCT> {
     ///
     /// Panics if the context has an output; use one of the output completion
     /// paths instead.
-    pub(super) fn complete_no_output(self, translator: &mut Translator) {
+    pub(super) fn complete_no_output(self, translator: &Translator) {
         let InstructionContext {
             output,
             no_output_completion,
@@ -709,7 +700,7 @@ impl<'a, const NI: usize, const NCT: usize> InstructionContext<'a, NI, NCT> {
     }
 
     /// Writes clobber-preserved values back to their mapped GPRs.
-    fn write_restores(clobber_restore: Vec<PreparedOutput<'a>>, translator: &mut Translator) {
+    fn write_restores(clobber_restore: Vec<PreparedOutput<'a>>, translator: &Translator) {
         for restore in clobber_restore {
             restore.write_back(translator);
         }
@@ -727,7 +718,7 @@ impl<'a, const NI: usize, const NCT: usize> InstructionContext<'a, NI, NCT> {
 mod tests {
     use dynasmrt::x64::Assembler;
 
-    use crate::aot::{register_mapping::RegisterMapping, registers::X86Xmm};
+    use crate::aot::{register_mapping::RegisterMapping, registers::X86Xmm, temp_alloc::TempAllocator};
 
     use super::*;
 
@@ -769,27 +760,25 @@ mod tests {
     #[test]
     fn gpr_context_does_not_require_temp() {
         let mut translator = new_translator();
-        let temps = TempAllocator::new(vec![]);
-
+        translator.temp_pool = TempAllocator::new(vec![]);
         let ctx = InstructionContextBuilder::<1, 0>::new()
             .set_inputs([RiscvRegister::A1])
             .set_output(RiscvRegister::A0)
-            .build(&mut translator, &temps);
+            .build(&translator);
 
         assert_eq!(ctx.inputs()[0].id(), X86Gpr::Rsi.id());
         assert_eq!(ctx.output().id(), X86Gpr::Rdi.id());
-        ctx.write_back(&mut translator);
+        ctx.write_back(&translator);
     }
 
     #[test]
     fn duplicate_xmm_input_materializes_once() {
         let mut translator = new_translator();
-        let temps = TempAllocator::new(vec![X86Gpr::R11]);
-
+        translator.temp_pool = TempAllocator::new(vec![X86Gpr::R11]);
         let ctx = InstructionContextBuilder::<2, 0>::new()
             .set_inputs([RiscvRegister::S0, RiscvRegister::S0])
             .set_output(RiscvRegister::A0)
-            .build(&mut translator, &temps);
+            .build(&translator);
 
         let (first, second) = match (&ctx.inputs()[0].src, &ctx.inputs()[1].src) {
             (ValueLoc::Temp(first), ValueLoc::Temp(second)) => (first, second),
@@ -798,38 +787,36 @@ mod tests {
 
         assert!(Rc::ptr_eq(first, second));
         assert_eq!(ctx.inputs()[0].id(), X86Gpr::R11.id());
-        ctx.write_back(&mut translator);
+        ctx.write_back(&translator);
     }
 
     #[test]
     fn xmm_input_and_output_same_target_reuse_materialized_carrier() {
         let mut translator = new_translator_all_xmm_shared();
-        let temps = TempAllocator::new(vec![X86Gpr::R11]);
-
+        translator.temp_pool = TempAllocator::new(vec![X86Gpr::R11]);
         let ctx = InstructionContextBuilder::<1, 0>::new()
             .set_inputs([RiscvRegister::A0])
             .set_output(RiscvRegister::A0)
-            .build(&mut translator, &temps);
+            .build(&translator);
 
         assert_eq!(ctx.inputs()[0].id(), ctx.output().id());
-        ctx.write_back(&mut translator);
+        ctx.write_back(&translator);
     }
 
     #[test]
     fn clobbered_gpr_input_is_relocated_once() {
         let mut translator = new_translator();
-        let temps = TempAllocator::new(vec![X86Gpr::R11]);
-
+        translator.temp_pool = TempAllocator::new(vec![X86Gpr::R11]);
         let ctx = InstructionContextBuilder::new()
             .set_inputs([RiscvRegister::A0])
             .set_output(RiscvRegister::A1)
             .ensure_no_clobber([X86Gpr::Rdi])
-            .build(&mut translator, &temps);
+            .build(&translator);
 
         assert_eq!(ctx.inputs()[0].id(), X86Gpr::R11.id());
         assert_ne!(ctx.inputs()[0].id(), X86Gpr::Rdi.id());
         assert_eq!(ctx.clobber_restore.len(), 1);
-        ctx.write_back(&mut translator);
+        ctx.write_back(&translator);
 
         assert_eq!(
             translator.finalize(),
@@ -840,31 +827,29 @@ mod tests {
     #[test]
     fn duplicate_clobber_target_is_preserved_once() {
         let mut translator = new_translator();
-        let temps = TempAllocator::new(vec![X86Gpr::R11]);
-
+        translator.temp_pool = TempAllocator::new(vec![X86Gpr::R11]);
         let ctx = InstructionContextBuilder::new()
             .set_inputs([])
             .set_output(RiscvRegister::A1)
             .ensure_no_clobber([X86Gpr::Rdi, X86Gpr::Rdi])
-            .build(&mut translator, &temps);
+            .build(&translator);
 
         assert_eq!(ctx.clobber_restore.len(), 1);
-        ctx.write_back(&mut translator);
+        ctx.write_back(&translator);
     }
 
     #[test]
     fn temp_clobber_reserves_without_restore() {
         let mut translator = new_translator();
-        let temps = TempAllocator::new(vec![X86Gpr::R11]);
-
+        translator.temp_pool = TempAllocator::new(vec![X86Gpr::R11]);
         let ctx = InstructionContextBuilder::<0, 1>::new()
             .set_inputs([])
             .ensure_no_clobber([X86Gpr::R11])
-            .build(&mut translator, &temps);
+            .build(&translator);
 
         assert_eq!(ctx.clobber_restore.len(), 0);
         assert_eq!(ctx.reserved_temps.len(), 1);
-        ctx.complete_no_output(&mut translator);
+        ctx.complete_no_output(&translator);
 
         assert_eq!(translator.finalize(), Vec::<u8>::new());
     }
@@ -872,76 +857,71 @@ mod tests {
     #[test]
     fn temp_clobber_blocks_later_temp_allocation() {
         let mut translator = new_translator();
-        let temps = TempAllocator::new(vec![X86Gpr::R11, X86Gpr::R12]);
-
+        translator.temp_pool = TempAllocator::new(vec![X86Gpr::R11, X86Gpr::R12]);
         let ctx = InstructionContextBuilder::<1, 1>::new()
             .set_inputs([RiscvRegister::S0])
             .ensure_no_clobber([X86Gpr::R11])
-            .build(&mut translator, &temps);
+            .build(&translator);
 
         assert_eq!(ctx.clobber_restore.len(), 0);
         assert_eq!(ctx.reserved_temps.len(), 1);
         assert_eq!(ctx.inputs()[0].id(), X86Gpr::R12.id());
-        ctx.complete_no_output(&mut translator);
+        ctx.complete_no_output(&translator);
     }
 
     #[test]
     fn temp_clobbers_are_reserved_before_mapped_clobbers() {
         let mut translator = new_translator();
-        let temps = TempAllocator::new(vec![X86Gpr::R11, X86Gpr::R12]);
-
+        translator.temp_pool = TempAllocator::new(vec![X86Gpr::R11, X86Gpr::R12]);
         let ctx = InstructionContextBuilder::new()
             .set_inputs([RiscvRegister::A0])
             .set_output(RiscvRegister::A1)
             .ensure_no_clobber([X86Gpr::Rdi, X86Gpr::R11])
-            .build(&mut translator, &temps);
+            .build(&translator);
 
         assert_eq!(ctx.reserved_temps.len(), 1);
         assert_eq!(ctx.clobber_restore.len(), 1);
         assert_eq!(ctx.inputs()[0].id(), X86Gpr::R12.id());
         assert_ne!(ctx.inputs()[0].id(), X86Gpr::R11.id());
 
-        ctx.write_back(&mut translator);
+        ctx.write_back(&translator);
     }
 
     #[test]
     fn duplicate_temp_clobber_reserves_once() {
         let mut translator = new_translator();
-        let temps = TempAllocator::new(vec![X86Gpr::R11]);
-
+        translator.temp_pool = TempAllocator::new(vec![X86Gpr::R11]);
         let ctx = InstructionContextBuilder::<0, 2>::new()
             .set_inputs([])
             .ensure_no_clobber([X86Gpr::R11, X86Gpr::R11])
-            .build(&mut translator, &temps);
+            .build(&translator);
 
         assert_eq!(ctx.clobber_restore.len(), 0);
         assert_eq!(ctx.reserved_temps.len(), 1);
-        ctx.complete_no_output(&mut translator);
+        ctx.complete_no_output(&translator);
     }
 
     #[test]
     #[should_panic]
     fn xmm_input_panics_when_temp_is_required_but_unavailable() {
         let mut translator = new_translator_all_xmm_shared();
-        let temps = TempAllocator::new(vec![]);
-
+        translator.temp_pool = TempAllocator::new(vec![]);
         let _ = InstructionContextBuilder::<1, 0>::new()
             .set_inputs([RiscvRegister::A0])
             .set_output(RiscvRegister::Ra)
-            .build(&mut translator, &temps);
+            .build(&translator);
     }
 
     #[test]
     fn no_output_context_builds_and_completes_explicitly() {
         let mut translator = new_translator();
-        let temps = TempAllocator::new(vec![]);
-
+        translator.temp_pool = TempAllocator::new(vec![]);
         let ctx = InstructionContextBuilder::<1, 0>::new()
             .set_inputs([RiscvRegister::A0])
-            .build(&mut translator, &temps);
+            .build(&translator);
 
         assert_eq!(ctx.inputs()[0].id(), X86Gpr::Rdi.id());
-        ctx.complete_no_output(&mut translator);
+        ctx.complete_no_output(&translator);
 
         assert_eq!(translator.finalize(), Vec::<u8>::new());
     }
@@ -949,32 +929,30 @@ mod tests {
     #[test]
     fn output_panics_for_no_output_context() {
         let mut translator = new_translator();
-        let temps = TempAllocator::new(vec![]);
-
+        translator.temp_pool = TempAllocator::new(vec![]);
         let ctx = InstructionContextBuilder::<1, 0>::new()
             .set_inputs([RiscvRegister::A0])
-            .build(&mut translator, &temps);
+            .build(&translator);
 
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             let _ = ctx.output();
         }));
 
         assert!(result.is_err());
-        ctx.complete_no_output(&mut translator);
+        ctx.complete_no_output(&translator);
     }
 
     #[test]
     fn complete_no_output_restores_clobbers() {
         let mut translator = new_translator();
-        let temps = TempAllocator::new(vec![X86Gpr::R11]);
-
+        translator.temp_pool = TempAllocator::new(vec![X86Gpr::R11]);
         let ctx = InstructionContextBuilder::new()
             .set_inputs([RiscvRegister::A0])
             .ensure_no_clobber([X86Gpr::Rdi])
-            .build(&mut translator, &temps);
+            .build(&translator);
 
         assert_eq!(ctx.inputs()[0].id(), X86Gpr::R11.id());
-        ctx.complete_no_output(&mut translator);
+        ctx.complete_no_output(&translator);
 
         assert_eq!(
             translator.finalize(),
@@ -986,38 +964,35 @@ mod tests {
     #[should_panic(expected = "No-output InstructionContext dropped before complete_no_output")]
     fn no_output_context_drop_without_complete_panics() {
         let mut translator = new_translator();
-        let temps = TempAllocator::new(vec![]);
-
+        translator.temp_pool = TempAllocator::new(vec![]);
         let _ctx = InstructionContextBuilder::<0, 0>::new()
             .set_inputs([])
-            .build(&mut translator, &temps);
+            .build(&translator);
     }
 
     #[test]
     #[should_panic(expected = "InstructionContext::complete_no_output called for output context")]
     fn complete_no_output_panics_for_output_context() {
         let mut translator = new_translator();
-        let temps = TempAllocator::new(vec![]);
-
+        translator.temp_pool = TempAllocator::new(vec![]);
         let ctx = InstructionContextBuilder::<0, 0>::new()
             .set_inputs([])
             .set_output(RiscvRegister::A0)
-            .build(&mut translator, &temps);
+            .build(&translator);
 
-        ctx.complete_no_output(&mut translator);
+        ctx.complete_no_output(&translator);
     }
 
     #[test]
     #[should_panic(expected = "InstructionContext::write_back called for no-output context")]
     fn write_back_panics_for_no_output_context() {
         let mut translator = new_translator();
-        let temps = TempAllocator::new(vec![]);
-
+        translator.temp_pool = TempAllocator::new(vec![]);
         let ctx = InstructionContextBuilder::<0, 0>::new()
             .set_inputs([])
-            .build(&mut translator, &temps);
+            .build(&translator);
 
-        ctx.write_back(&mut translator);
+        ctx.write_back(&translator);
     }
 
     #[test]
@@ -1026,106 +1001,98 @@ mod tests {
     )]
     fn discard_zero_output_panics_for_no_output_context() {
         let mut translator = new_translator();
-        let temps = TempAllocator::new(vec![]);
-
+        translator.temp_pool = TempAllocator::new(vec![]);
         let ctx = InstructionContextBuilder::<0, 0>::new()
             .set_inputs([])
-            .build(&mut translator, &temps);
+            .build(&translator);
 
-        ctx.discard_zero_output(&mut translator);
+        ctx.discard_zero_output(&translator);
     }
 
     #[test]
     #[should_panic(expected = "InstructionContext::commit_unchanged called for no-output context")]
     fn commit_unchanged_panics_for_no_output_context() {
         let mut translator = new_translator();
-        let temps = TempAllocator::new(vec![]);
-
+        translator.temp_pool = TempAllocator::new(vec![]);
         let ctx = InstructionContextBuilder::<0, 0>::new()
             .set_inputs([])
-            .build(&mut translator, &temps);
+            .build(&translator);
 
-        ctx.commit_unchanged(&mut translator);
+        ctx.commit_unchanged(&translator);
     }
 
     #[test]
     #[should_panic(expected = "inputs must be present")]
     fn non_zero_input_context_panics_when_inputs_are_missing() {
         let mut translator = new_translator();
-        let temps = TempAllocator::new(vec![]);
-
+        translator.temp_pool = TempAllocator::new(vec![]);
         let _ = InstructionContextBuilder::<1, 0>::new()
             .set_output(RiscvRegister::A0)
-            .build(&mut translator, &temps);
+            .build(&translator);
     }
 
     #[test]
     fn zero_input_context_defaults_missing_inputs_to_empty() {
         let mut translator = new_translator();
-        let temps = TempAllocator::new(vec![]);
-
+        translator.temp_pool = TempAllocator::new(vec![]);
         let ctx = InstructionContextBuilder::<0, 0>::new()
             .set_output(RiscvRegister::A0)
-            .build(&mut translator, &temps);
+            .build(&translator);
 
         assert_eq!(ctx.inputs().len(), 0);
-        ctx.commit_unchanged(&mut translator);
+        ctx.commit_unchanged(&translator);
     }
 
     #[test]
     fn zero_output_context_builds_and_discards_explicitly() {
         let mut translator = new_translator();
-        let temps = TempAllocator::new(vec![]);
-
+        translator.temp_pool = TempAllocator::new(vec![]);
         let ctx = InstructionContextBuilder::<0, 0>::new()
             .set_inputs([])
             .set_output(RiscvRegister::Zero)
-            .build(&mut translator, &temps);
+            .build(&translator);
 
         assert!(ctx.output().is_zero());
-        ctx.discard_zero_output(&mut translator);
+        ctx.discard_zero_output(&translator);
     }
 
     #[test]
     #[should_panic(expected = "InstructionContext::write_back called for ConstZero output")]
     fn write_back_panics_for_zero_output() {
         let mut translator = new_translator();
-        let temps = TempAllocator::new(vec![]);
-
+        translator.temp_pool = TempAllocator::new(vec![]);
         let ctx = InstructionContextBuilder::<0, 0>::new()
             .set_inputs([])
             .set_output(RiscvRegister::Zero)
-            .build(&mut translator, &temps);
+            .build(&translator);
 
-        ctx.write_back(&mut translator);
+        ctx.write_back(&translator);
     }
 
     #[test]
     #[should_panic(expected = "InstructionContext::discard_zero_output called for non-zero output")]
     fn discard_zero_output_panics_for_non_zero_output() {
         let mut translator = new_translator();
-        let temps = TempAllocator::new(vec![]);
-
+        translator.temp_pool = TempAllocator::new(vec![]);
         let ctx = InstructionContextBuilder::<0, 0>::new()
             .set_inputs([])
             .set_output(RiscvRegister::A0)
-            .build(&mut translator, &temps);
+            .build(&translator);
 
-        ctx.discard_zero_output(&mut translator);
+        ctx.discard_zero_output(&translator);
     }
 
     #[test]
     fn discard_zero_output_restores_clobbers() {
         let mut translator = new_translator();
-        let temps = TempAllocator::new(vec![X86Gpr::R11]);
-
+        translator.temp_pool = TempAllocator::new(vec![X86Gpr::R11]);
         let ctx = InstructionContextBuilder::new()
             .set_inputs([RiscvRegister::A0])
             .set_output(RiscvRegister::Zero)
             .ensure_no_clobber([X86Gpr::Rdi])
-            .build(&mut translator, &temps);
+            .build(&translator);
 
-        ctx.discard_zero_output(&mut translator);
+        ctx.discard_zero_output(&translator);
 
         assert_eq!(
             translator.finalize(),
@@ -1136,14 +1103,13 @@ mod tests {
     #[test]
     fn commit_unchanged_non_zero_output_emits_no_write() {
         let mut translator = new_translator();
-        let temps = TempAllocator::new(vec![]);
-
+        translator.temp_pool = TempAllocator::new(vec![]);
         let ctx = InstructionContextBuilder::<0, 0>::new()
             .set_inputs([])
             .set_output(RiscvRegister::A0)
-            .build(&mut translator, &temps);
+            .build(&translator);
 
-        ctx.commit_unchanged(&mut translator);
+        ctx.commit_unchanged(&translator);
 
         assert_eq!(translator.finalize(), Vec::<u8>::new());
     }
@@ -1151,15 +1117,14 @@ mod tests {
     #[test]
     fn commit_unchanged_restores_clobbers() {
         let mut translator = new_translator();
-        let temps = TempAllocator::new(vec![X86Gpr::R11]);
-
+        translator.temp_pool = TempAllocator::new(vec![X86Gpr::R11]);
         let ctx = InstructionContextBuilder::new()
             .set_inputs([RiscvRegister::A0])
             .set_output(RiscvRegister::A1)
             .ensure_no_clobber([X86Gpr::Rdi])
-            .build(&mut translator, &temps);
+            .build(&translator);
 
-        ctx.commit_unchanged(&mut translator);
+        ctx.commit_unchanged(&translator);
 
         assert_eq!(
             translator.finalize(),
@@ -1171,14 +1136,13 @@ mod tests {
     #[should_panic(expected = "InstructionContext::commit_unchanged called for ConstZero output")]
     fn commit_unchanged_panics_for_zero_output() {
         let mut translator = new_translator();
-        let temps = TempAllocator::new(vec![]);
-
+        translator.temp_pool = TempAllocator::new(vec![]);
         let ctx = InstructionContextBuilder::<0, 0>::new()
             .set_inputs([])
             .set_output(RiscvRegister::Zero)
-            .build(&mut translator, &temps);
+            .build(&translator);
 
-        ctx.commit_unchanged(&mut translator);
+        ctx.commit_unchanged(&translator);
     }
 
     #[test]
@@ -1187,12 +1151,11 @@ mod tests {
     )]
     fn zero_output_drop_without_discard_panics() {
         let mut translator = new_translator();
-        let temps = TempAllocator::new(vec![]);
-
+        translator.temp_pool = TempAllocator::new(vec![]);
         let _ = InstructionContextBuilder::<0, 0>::new()
             .set_inputs([])
             .set_output(RiscvRegister::Zero)
-            .build(&mut translator, &temps);
+            .build(&translator);
     }
 
     #[test]
@@ -1201,11 +1164,10 @@ mod tests {
     )]
     fn context_drop_without_write_back_panics() {
         let mut translator = new_translator();
-        let temps = TempAllocator::new(vec![]);
-
+        translator.temp_pool = TempAllocator::new(vec![]);
         let _ = InstructionContextBuilder::<0, 0>::new()
             .set_inputs([])
             .set_output(RiscvRegister::A0)
-            .build(&mut translator, &temps);
+            .build(&translator);
     }
 }
