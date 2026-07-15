@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
-use dynasmrt::{dynasm, x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
+use dynasmrt::{x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
 
 use crate::aot::{
     emission,
@@ -10,6 +10,8 @@ use crate::aot::{
     temp_alloc::TempAllocator,
 };
 use rax_core::decode::Instruction;
+
+use crate::aot::emit_asm;
 
 /// AOT translator state used while lowering RISC-V instructions to x86.
 ///
@@ -106,19 +108,16 @@ impl Translator {
         }
 
         // Resolve dynamic labels after instruction offsets are known.
-        {
-            let labels = self.cf.direct_target_labels.borrow();
-            let mut emitter = self.emitter.borrow_mut();
-            for (pc, label) in labels.iter() {
-                let riscv_pc_slot = (pc - self.cf.base_riscv_pc) / 4;
-                emitter
-                    .labels_mut()
-                    .define_dynamic(
-                        *label,
-                        self.cf.riscv_pc_to_x86_offset[riscv_pc_slot as usize],
-                    )
-                    .expect("failed to define dynamic label");
-            }
+        for (pc, label) in self.cf.direct_target_labels.borrow().iter() {
+            let riscv_pc_slot = (pc - self.cf.base_riscv_pc) / 4;
+            self.emitter
+                .borrow_mut()
+                .labels_mut()
+                .define_dynamic(
+                    *label,
+                    self.cf.riscv_pc_to_x86_offset[riscv_pc_slot as usize],
+                )
+                .expect("failed to define dynamic label");
         }
 
         // Build absolute jump targets from `riscv_pc_to_x86_offset` and emit
@@ -133,12 +132,9 @@ impl Translator {
             .collect::<Vec<_>>();
 
         self.cf.code_end_offset = Some(self.emitter.borrow().offset());
-        {
-            let mut emitter = self.emitter.borrow_mut();
-            dynasm!(emitter ; =>self.cf.jt_label);
-            for target_pc in jump_table_abs_addrs {
-                dynasm!(emitter; .i64 target_pc as i64);
-            }
+        emit_asm!(self ; =>self.cf.jt_label);
+        for target_pc in jump_table_abs_addrs {
+            emit_asm!(self ; .i64 target_pc as i64);
         }
     }
 
