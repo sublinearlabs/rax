@@ -26,7 +26,6 @@ enum ContextParamType {
 struct ContextParam {
     target: MapTarget,
     param_type: ContextParamType,
-    id: u8,
 }
 
 struct InstructionContext<'a> {
@@ -142,7 +141,29 @@ impl<'a> InstructionContext<'a> {
     }
 
     fn resolve_clobber_target(&mut self, target: MapTarget) -> u8 {
-        todo!()
+        // here we tried to get the id for a clobber site
+        // which signals that we are about to clobber
+        // so we need to check if we have already preserved the live value
+        // if we have not then we need to move it to a temp
+        // if we have then we just return the map target id
+        //
+        // we'd also need to keep values that we'd later come and restore
+
+        let gpr = match target {
+            MapTarget::Gpr(gpr) => gpr,
+            _ => unreachable!("can only prevent clobber for x86Gprs"),
+        };
+
+        // TODO: change this method to .index() to prevent misuse
+        // we always return this at the end, we just decide if
+        // we want to do something else first
+        let id = gpr.id();
+
+        // hmm, I forgot about the fact that when we try to clobber something
+        // that is a temp we want to allocate that specific temp
+        // but we might have already allocated it given that we are lazy
+
+        id
     }
 
     fn alloc_temp(translator: &Translator) -> ValueLoc {
