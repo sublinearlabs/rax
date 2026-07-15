@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
 use dynasmrt::{dynasm, x64::Assembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
@@ -174,7 +175,6 @@ impl Translator {
 
     /// Returns or Creates a new dynamic label for a riscv pc
     pub(super) fn target_label(&self, branch_target: u64) -> DynamicLabel {
-        use std::collections::hash_map::Entry;
         let mut labels = self.cf.direct_target_labels.borrow_mut();
         match labels.entry(branch_target) {
             Entry::Occupied(entry) => *entry.get(),
