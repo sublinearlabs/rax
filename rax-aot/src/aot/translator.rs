@@ -173,15 +173,20 @@ impl Translator {
         self.cf.current_riscv_pc
     }
 
+    /// Allocates a fresh dynamic label through the RefCell-wrapped emitter.
+    ///
+    /// This hides the `RefCell::borrow_mut()` call so consumers do not need
+    /// to reach into the emitter directly.
+    pub(super) fn new_dynamic_label(&self) -> DynamicLabel {
+        self.emitter.borrow_mut().new_dynamic_label()
+    }
+
     /// Returns or Creates a new dynamic label for a riscv pc
     pub(super) fn target_label(&self, branch_target: u64) -> DynamicLabel {
         let mut labels = self.cf.direct_target_labels.borrow_mut();
         match labels.entry(branch_target) {
             Entry::Occupied(entry) => *entry.get(),
-            Entry::Vacant(entry) => {
-                let mut emitter = self.emitter.borrow_mut();
-                *entry.insert(emitter.new_dynamic_label())
-            }
+            Entry::Vacant(entry) => *entry.insert(self.new_dynamic_label())
         }
     }
 }

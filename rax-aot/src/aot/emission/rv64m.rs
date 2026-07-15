@@ -176,8 +176,8 @@ pub(super) fn emit_divu(
         ZeroCase::None => {}
     }
 
-    let safe_divide_label = translator.emitter.borrow_mut().new_dynamic_label();
-    let done_label = translator.emitter.borrow_mut().new_dynamic_label();
+    let safe_divide_label = translator.new_dynamic_label();
+    let done_label = translator.new_dynamic_label();
 
     if rs1.id() != X86Gpr::Rax.id() {
         emit_asm!(translator ; mov Rq(X86Gpr::Rax.id()), Rq(rs1.id()));
@@ -266,8 +266,8 @@ pub(super) fn emit_remu(
         ZeroCase::None => {}
     }
 
-    let safe_divide_label = translator.emitter.borrow_mut().new_dynamic_label();
-    let done_label = translator.emitter.borrow_mut().new_dynamic_label();
+    let safe_divide_label = translator.new_dynamic_label();
+    let done_label = translator.new_dynamic_label();
 
     if rs1.id() != X86Gpr::Rax.id() {
         emit_asm!(translator ; mov Rq(X86Gpr::Rax.id()), Rq(rs1.id()));
@@ -372,7 +372,7 @@ pub(super) fn emit_mulhsu(
     let [rs1, rs2] = ctx.inputs();
     let rd = ctx.output();
 
-    let non_negative_label = translator.emitter.borrow_mut().new_dynamic_label();
+    let non_negative_label = translator.new_dynamic_label();
 
     emit_asm!(translator ; mov Rq(X86Gpr::Rax.id()), Rq(rs1.id()));
     emit_asm!(translator ; mul Rq(rs2.id()));
@@ -514,10 +514,10 @@ fn emit_signed_div_rem(
         return;
     }
 
-    let divide_by_zero_label = translator.emitter.borrow_mut().new_dynamic_label();
-    let overflow_label = translator.emitter.borrow_mut().new_dynamic_label();
-    let safe_divide_label = translator.emitter.borrow_mut().new_dynamic_label();
-    let done_label = translator.emitter.borrow_mut().new_dynamic_label();
+    let divide_by_zero_label = translator.new_dynamic_label();
+    let overflow_label = translator.new_dynamic_label();
+    let safe_divide_label = translator.new_dynamic_label();
+    let done_label = translator.new_dynamic_label();
     let min_temp = translator.temp_pool.allocate().unwrap();
 
     if word {
@@ -610,8 +610,8 @@ fn emit_unsigned_word_div_rem(
         return;
     }
 
-    let divide_by_zero_label = translator.emitter.borrow_mut().new_dynamic_label();
-    let done_label = translator.emitter.borrow_mut().new_dynamic_label();
+    let divide_by_zero_label = translator.new_dynamic_label();
+    let done_label = translator.new_dynamic_label();
     let divisor = translator.temp_pool.allocate().unwrap();
 
     emit_asm!(translator ; mov Rd(X86Gpr::Rax.id()), Rd(rs1.id()));
